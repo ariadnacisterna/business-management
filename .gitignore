@@ -1,0 +1,36 @@
+# Secretos y configuración privada — nunca se versionan
+.env
+.env.*
+*.pem
+*.key
+secrets/
+
+# Datos reales del negocio (muestras, precios, catálogos) — nunca se versionan
+# tal cual; si hace falta compartirlos con una conversación de tarea, guardarlos
+# acá y anonimizar antes de commitear cualquier ejemplo.
+/datos-reales/
+*.xlsx
+*.xls
+!docs/**/*.xlsx
+
+# Bases de datos locales y copias de seguridad
+*.sqlite3
+*.dump
+*.backup
+
+# Python (backend)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node / TypeScript (frontend SPA)
+node_modules/
+dist/
+build/
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
