@@ -73,10 +73,10 @@ Implements RF-018, RF-019, RF-020, RN-005, RN-006 (T-004).
 
 ## Convención de ramas
 
-- Cada tarea vive en su propia rama: `tarea/<id>-<descripcion-corta>`, por
-  ejemplo `tarea/T-003-alta-de-producto`. La crea siempre el Responsable del
-  proyecto antes de empezar; una conversación de IA nunca la crea por su
-  cuenta.
+- Cada tarea vive en su propia rama, con nombre en inglés como el resto del
+  código (D-031): `task/<id>-<short-description>`, por ejemplo
+  `task/T-003-add-product`. La crea siempre el Responsable del proyecto
+  antes de empezar; una conversación de IA nunca la crea por su cuenta.
 - Al terminar, la conversación de tarea deja: los archivos modificados sin
   agregar al índice de git, el mensaje de commit sugerido, y su fila
   actualizada en el [registro de tareas](#registro-de-tareas) más abajo, con
@@ -87,7 +87,12 @@ Implements RF-018, RF-019, RF-020, RN-005, RN-006 (T-004).
 Copiar y completar al iniciar una conversación nueva:
 
 ```
-Estoy trabajando en el proyecto de mercería/librería documentado en docs/.
+Estoy trabajando en un proyecto de gestión de negocio (catálogo y precios,
+con el resto del alcance en docs/01-vision-y-alcance.md) documentado en
+docs/. El primer negocio real es una mercería y librería, pero el sistema
+está pensado para adaptarse a otros rubros sin cambiar el código (D-023):
+evitá cualquier supuesto específico de mercería fuera de los datos de
+ejemplo.
 Quiero que implementes la tarea T-XXX: <descripción corta>.
 
 Leé antes de empezar:
@@ -98,7 +103,7 @@ Leé antes de empezar:
 Alcance de esta tarea: <qué entra y qué explícitamente no entra>
 
 Instrucciones:
-1. Trabajá sobre la rama tarea/T-XXX-<descripcion> (ya creada por mí). Si no
+1. Trabajá sobre la rama task/T-XXX-<description> (ya creada por mí). Si no
    existe todavía, pedime que la cree antes de avanzar; vos no la crees.
 2. Implementá solo lo necesario para esta tarea.
 3. Agregá pruebas cuando corresponda.
