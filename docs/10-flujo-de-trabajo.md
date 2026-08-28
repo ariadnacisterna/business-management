@@ -18,25 +18,28 @@ Esto funciona porque los documentos 01 a 09 son una especificación
 autosuficiente (D-025): cualquier conversación nueva tiene ahí todo lo que
 necesita para implementar una tarea sin que nadie se la explique de nuevo.
 
-## Los commits, merges y push son siempre manuales
+## Los comandos de git son siempre manuales
 
-Ninguna conversación de IA —ni la madre ni una de tarea— ejecuta `git
-commit`, `git merge` ni `git push` por su cuenta, en ningún caso. Es el
-Responsable del proyecto quien decide qué queda escrito en el historial de
-git y quién lo escribe.
+Ninguna conversación de IA —ni la madre ni una de tarea— ejecuta un comando
+de git que modifique el repositorio, su índice o su historial, en ningún
+caso: ni `git commit`, `git merge`, `git push`, ni tampoco `git add` ni la
+creación de ramas. Es el Responsable del proyecto quien decide qué queda
+escrito en el repositorio y quién lo escribe.
 
 Una conversación de IA puede:
 
-- modificar archivos;
-- dejarlos preparados con `git add` (no escribe historial, es reversible);
-- redactar el mensaje de commit sugerido, para copiar y pegar.
+- modificar archivos, sin agregarlos al índice de git;
+- redactar el mensaje de commit sugerido, para copiar y pegar;
+- leer el estado del repositorio con comandos que no lo modifican, como
+  `git status`, `git log`, `git diff` o `git show`.
 
-Una conversación de IA no ejecuta, bajo ninguna circunstancia, el comando que
-efectivamente crea el commit, integra una rama a otra, o publica algo en el
-repositorio remoto — aunque el pedido del Responsable del proyecto parezca
-implicar permiso ("fijate si quedó bien", "subilo"). Si hace falta ese paso,
-se lo pide de forma explícita e inequívoca en ese momento puntual, y aun así
-esta regla del proyecto prevalece: el paso lo ejecuta el Responsable.
+Una conversación de IA no ejecuta, bajo ninguna circunstancia, ningún
+comando que cambie el repositorio —tampoco `git add` ni crear una rama—
+aunque el pedido del Responsable del proyecto parezca implicar permiso
+("fijate si quedó bien", "subilo", "dejalo preparado"). Si hace falta alguno
+de esos pasos, se lo pide de forma explícita e inequívoca en ese momento
+puntual, y aun así esta regla del proyecto prevalece: el paso lo ejecuta el
+Responsable.
 
 ## Formato del mensaje de commit sugerido
 
@@ -71,12 +74,13 @@ Implements RF-018, RF-019, RF-020, RN-005, RN-006 (T-004).
 ## Convención de ramas
 
 - Cada tarea vive en su propia rama: `tarea/<id>-<descripcion-corta>`, por
-  ejemplo `tarea/T-003-alta-de-producto`. La crea el Responsable del proyecto
-  o se le pide que la cree antes de empezar.
-- Al terminar, la conversación de tarea deja: los archivos modificados y en
-  stage, el mensaje de commit sugerido, y su fila actualizada en el
-  [registro de tareas](#registro-de-tareas) más abajo, con estado `Lista para
-  revisión`.
+  ejemplo `tarea/T-003-alta-de-producto`. La crea siempre el Responsable del
+  proyecto antes de empezar; una conversación de IA nunca la crea por su
+  cuenta.
+- Al terminar, la conversación de tarea deja: los archivos modificados sin
+  agregar al índice de git, el mensaje de commit sugerido, y su fila
+  actualizada en el [registro de tareas](#registro-de-tareas) más abajo, con
+  estado `Lista para revisión`.
 
 ## Plantilla para abrir una conversación de tarea
 
@@ -94,14 +98,16 @@ Leé antes de empezar:
 Alcance de esta tarea: <qué entra y qué explícitamente no entra>
 
 Instrucciones:
-1. Trabajá sobre la rama tarea/T-XXX-<descripcion> (ya creada) o pedime que
-   te indique cómo crearla; no ejecutes el commit que la publique.
+1. Trabajá sobre la rama tarea/T-XXX-<descripcion> (ya creada por mí). Si no
+   existe todavía, pedime que la cree antes de avanzar; vos no la crees.
 2. Implementá solo lo necesario para esta tarea.
 3. Agregá pruebas cuando corresponda.
-4. Dejá los cambios en stage (git add) y redactá el mensaje de commit
-   sugerido en formato Conventional Commits (feat:, fix:, docs:, etc., ver
-   docs/10-flujo-de-trabajo.md). No ejecutes git commit, git merge ni git
-   push bajo ninguna circunstancia: esos pasos los hago yo.
+4. Dejá los archivos modificados sin agregarlos al índice de git (sin `git
+   add`) y redactá el mensaje de commit sugerido en formato Conventional
+   Commits (feat:, fix:, docs:, etc., ver docs/10-flujo-de-trabajo.md). No
+   ejecutes ningún comando de git que modifique el repositorio —tampoco
+   `git add`— bajo ninguna circunstancia: esos pasos los hago yo. Podés usar
+   git solo para leer (`git status`, `git diff`, `git log`).
 5. Al terminar, actualizá tu fila en la tabla de docs/10-flujo-de-trabajo.md
    con estado "Lista para revisión", el mensaje de commit sugerido, y un
    resumen breve de qué archivos tocaste y qué quedó pendiente, si algo.
@@ -146,7 +152,7 @@ madre la revisa y cierra el estado.
 | ID | Descripción | Requisitos | Rama | Estado | Resultado de verificación |
 |---|---|---|---|---|---|
 | T-001 | Esqueleto del proyecto: estructura FastAPI, configuración, primera migración de Alembic (organización, negocio, rol, usuario) | D-026, D-017, D-018 | — | Pendiente | — |
-| T-002 | Autenticación y sesión: login, logout, cuenta activa | RF-024, RF-025, CU-03, HU-06 | — | Pendiente | — |
+| T-002 | Autenticación y sesión: login, logout, cuenta activa, alta y gestión de cuentas de usuario | RF-024, RF-025, RF-031, CU-03, HU-06 | — | Pendiente | — |
 | T-003 | Catálogo: categorías, unidades, atributos y valores, productos y variantes (alta y edición) | RF-010 a RF-017, RF-032 a RF-037, RF-040, CU-04, CU-05, CU-08, HU-04, HU-09 | — | Pendiente | — |
 | T-004 | Precios: precio vigente, cambio transaccional individual y por producto, historial | RF-018 a RF-023, RF-038, CU-06, CU-07, HU-05, HU-10 | — | Pendiente | — |
 | T-005 | Búsqueda y consulta | RF-002 a RF-009, RF-035, CU-01, CU-02, HU-01, HU-02, HU-03 | — | Pendiente | — |
