@@ -51,13 +51,13 @@ Ejemplo esperado para RF-002 a RF-005: la consulta `cinta bebe 2 roja` debe pode
 | ID | Requisito | Prioridad |
 |---|---|---:|
 | RF-024 | El sistema exigirá autenticación antes de permitir cualquier consulta o función administrativa. | Alta |
-| RF-025 | El sistema aplicará los permisos definidos para los roles Empleada y Administradora. | Alta |
+| RF-025 | El sistema aplicará los permisos definidos para los roles Empleado, Gerente y Administrador. | Alta |
 | RF-026 | El sistema mantendrá la información centralizada y disponible desde distintos dispositivos compatibles. | Alta |
 | RF-027 | Ante ediciones concurrentes del mismo dato, prevalecerá la modificación aceptada más recientemente por el sistema. | Media |
-| RF-028 | Una Administradora podrá importar productos, variantes y precios desde un archivo CSV o Excel. | Alta |
+| RF-028 | Un Administrador podrá importar productos, variantes y precios desde un archivo CSV o Excel. | Alta |
 | RF-029 | Antes de confirmar una importación, el sistema mostrará errores, duplicados y un resumen de los cambios. | Alta |
 | RF-030 | Una importación confirmada registrará su fecha y la usuaria responsable. | Media |
-| RF-031 | Una Administradora podrá crear, desactivar y modificar las cuentas y roles de los usuarios. | Alta |
+| RF-031 | Un Administrador podrá crear, desactivar y modificar las cuentas y roles de los usuarios. | Alta |
 | RF-039 | Toda consulta y toda modificación de precios se realizarán en el contexto de un negocio al que la cuenta tenga acceso. | Alta |
 
 ### Atributos normalizados

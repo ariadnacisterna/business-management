@@ -1,41 +1,12 @@
-from pathlib import Path
-
-import pytest
 import sqlalchemy as sa
-from alembic.config import Config
 from sqlalchemy import inspect
-from sqlalchemy.exc import OperationalError
 
 from alembic import command
-from app.constants.roles import ADMINISTRADORA, EMPLEADA
+from app.constants.roles import ADMINISTRADOR, EMPLEADO, GERENTE
 from app.core.config import get_settings
+from tests.conftest import alembic_config
 
-BACKEND_DIR = Path(__file__).resolve().parent.parent
-ALEMBIC_INI = BACKEND_DIR / "alembic.ini"
-ESQUEMA_TABLES = {"organizacion", "negocio", "rol", "usuario"}
-
-
-def alembic_config() -> Config:
-    config = Config(str(ALEMBIC_INI))
-    config.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
-    return config
-
-
-@pytest.fixture
-def postgres_empty_schema():
-    settings = get_settings()
-    engine = sa.create_engine(settings.database_url)
-    try:
-        with engine.connect() as connection:
-            connection.execute(sa.text("DROP SCHEMA public CASCADE"))
-            connection.execute(sa.text("CREATE SCHEMA public"))
-            connection.commit()
-    except OperationalError as exc:
-        pytest.skip(f"PostgreSQL no disponible para pruebas de migracion: {exc}")
-
-    yield settings.database_url
-
-    engine.dispose()
+ESQUEMA_TABLES = {"organizacion", "negocio", "rol", "usuario", "acceso_a_negocio", "sesion"}
 
 
 def test_upgrade_from_empty_database_creates_schema_and_seed_data(postgres_empty_schema):
@@ -54,7 +25,7 @@ def test_upgrade_from_empty_database_creates_schema_and_seed_data(postgres_empty
                 .scalars()
                 .all()
             )
-            assert roles == sorted([ADMINISTRADORA, EMPLEADA])
+            assert roles == sorted([ADMINISTRADOR, GERENTE, EMPLEADO])
 
             cantidad_organizaciones = connection.execute(
                 sa.text("SELECT count(*) FROM organizacion")
@@ -67,10 +38,21 @@ def test_upgrade_from_empty_database_creates_schema_and_seed_data(postgres_empty
             assert negocio.estado == "activo"
             assert negocio.organizacion_id is not None
 
-            cantidad_usuarios = connection.execute(
-                sa.text("SELECT count(*) FROM usuario")
-            ).scalar_one()
-            assert cantidad_usuarios == 0
+            settings = get_settings()
+            usuarios = connection.execute(sa.text("SELECT user_name, estado FROM usuario")).all()
+            assert len(usuarios) == 1
+            assert usuarios[0].user_name == settings.initial_admin_username
+            assert usuarios[0].estado == "activo"
+
+            accesos = connection.execute(
+                sa.text(
+                    "SELECT a.estado, r.nombre AS rol_nombre "
+                    "FROM acceso_a_negocio a JOIN rol r ON r.id = a.rol_id"
+                )
+            ).all()
+            assert len(accesos) == 1
+            assert accesos[0].estado == "activo"
+            assert accesos[0].rol_nombre == ADMINISTRADOR
     finally:
         engine.dispose()
 

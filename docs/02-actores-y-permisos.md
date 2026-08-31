@@ -4,15 +4,19 @@
 
 ### Usuario
 
-Actor general que representa a cualquier persona autenticada en el sistema. Todo Usuario tiene una cuenta personal y uno de los roles siguientes: Administradora o Empleada.
+Actor general que representa a cualquier persona autenticada en el sistema. Todo Usuario tiene una cuenta personal y uno de los roles siguientes: Administrador, Gerente o Empleado.
 
-### Empleada
+### Empleado
 
-Puede consultar precios y administrar productos, variantes, categorías, unidades, valores de atributos y precios.
+Puede buscar y consultar precios, navegar el catálogo por categoría y ver el historial de precios. No administra el catálogo: crear o modificar productos y variantes, cambiar precios, administrar categorías, unidades y atributos, y desactivar o reactivar productos quedan reservados a Gerente y Administrador.
 
-### Administradora
+### Gerente
 
-Posee todas las capacidades de la Empleada. Además, administra cuentas y realiza importaciones. En etapas futuras administrará proveedores y tendrá acceso a inventario, compras, ventas e información financiera.
+Posee todas las capacidades del Empleado. Además, administra el catálogo y los precios: crea y modifica productos y variantes, cambia precios, administra categorías, unidades y valores de atributos, y desactiva o reactiva productos y variantes. No administra cuentas ni roles, ni realiza la importación inicial: esas acciones quedan reservadas al Administrador.
+
+### Administrador
+
+Posee todas las capacidades del Gerente. Además, administra cuentas y roles, y realiza importaciones. Es el rol pensado para quien es dueña o dueño del negocio. En etapas futuras administrará proveedores y tendrá acceso a inventario, compras, ventas e información financiera.
 
 ### Sistema
 
@@ -32,38 +36,38 @@ Toda persona debe iniciar sesión antes de acceder al catálogo o consultar prec
 
 Cada persona utilizará una cuenta individual con nombre de usuario y contraseña. Las sesiones vencerán según una política de seguridad configurable y, al vencer, deberá iniciarse sesión nuevamente. Todas las operaciones se atribuirán a la cuenta activa. La aplicación deberá identificar claramente qué Usuario se encuentra activo y permitir cerrar sesión antes del vencimiento.
 
-Una contraseña se recupera mediante un restablecimiento realizado por una Administradora, sin correo electrónico (D-028). Queda pendiente definir el procedimiento restringido para el caso en que no quede ninguna Administradora disponible (DP-009).
+Una contraseña se recupera mediante un restablecimiento realizado por un Administrador, sin correo electrónico (D-028). Queda pendiente definir el procedimiento restringido para el caso en que no quede ningún Administrador disponible (DP-009).
 
 ## Matriz de permisos del MVP
 
-| Acción | Empleada | Administradora |
-|---|---:|---:|
-| Iniciar sesión y cerrar sesión | Sí | Sí |
-| Buscar y consultar precios | Sí | Sí |
-| Navegar por categorías | Sí | Sí |
-| Consultar historial de precios | Sí | Sí |
-| Crear y modificar productos y sus variantes | Sí | Sí |
-| Cambiar precios | Sí | Sí |
-| Administrar categorías, unidades y valores de atributos | Sí | Sí |
-| Desactivar o reactivar productos y variantes | Sí | Sí |
-| Importar el catálogo inicial | No | Sí |
-| Administrar cuentas y roles | No | Sí |
+| Acción | Empleado | Gerente | Administrador |
+|---|---:|---:|---:|
+| Iniciar sesión y cerrar sesión | Sí | Sí | Sí |
+| Buscar y consultar precios | Sí | Sí | Sí |
+| Navegar por categorías | Sí | Sí | Sí |
+| Consultar historial de precios | Sí | Sí | Sí |
+| Crear y modificar productos y sus variantes | No | Sí | Sí |
+| Cambiar precios | No | Sí | Sí |
+| Administrar categorías, unidades y valores de atributos | No | Sí | Sí |
+| Desactivar o reactivar productos y variantes | No | Sí | Sí |
+| Importar el catálogo inicial | No | No | Sí |
+| Administrar cuentas y roles | No | No | Sí |
 
 ## Permisos previstos para etapas futuras
 
-| Información o acción | Empleada | Administradora |
-|---|---:|---:|
-| Registrar faltantes | Sí | Sí |
-| Consultar listas de compra | Según definición futura | Sí |
-| Administrar proveedores | No | Sí |
-| Registrar ventas | Sí | Sí |
-| Consultar cantidades de inventario | Según definición futura | Sí |
-| Consultar ingresos, egresos y márgenes | No | Sí |
-| Administrar permisos | No | Sí |
-| Definir atributos normalizados nuevos | Según definición futura | Sí |
-| Administrar códigos de barras de una variante | Sí | Sí |
-| Crear y configurar negocios de la organización | No | Sí |
-| Otorgar acceso de una cuenta a un negocio | No | Sí |
-| Consultar información consolidada de varios negocios | Solo los negocios habilitados | Solo los negocios habilitados |
+| Información o acción | Empleado | Gerente | Administrador |
+|---|---:|---:|---:|
+| Registrar faltantes | Sí | Sí | Sí |
+| Consultar listas de compra | Según definición futura | Sí | Sí |
+| Administrar proveedores | No | Según definición futura | Sí |
+| Registrar ventas | Sí | Sí | Sí |
+| Consultar cantidades de inventario | Según definición futura | Sí | Sí |
+| Consultar ingresos, egresos y márgenes | No | No | Sí |
+| Administrar permisos | No | No | Sí |
+| Definir atributos normalizados nuevos | Según definición futura | Sí | Sí |
+| Administrar códigos de barras de una variante | Sí | Sí | Sí |
+| Crear y configurar negocios de la organización | No | No | Sí |
+| Otorgar acceso de una cuenta a un negocio | No | No | Sí |
+| Consultar información consolidada de varios negocios | Solo los negocios habilitados | Solo los negocios habilitados | Solo los negocios habilitados |
 
 Los permisos futuros expresan la intención actual, pero no forman parte del MVP.

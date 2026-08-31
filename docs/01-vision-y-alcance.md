@@ -2,7 +2,7 @@
 
 ## Contexto
 
-El negocio es una mercería y librería atendida por personas con roles de Administradora y Empleada. Los precios se conservan en carpetas impresas, separadas por rubros como telas, útiles y otros productos. Para responder una consulta se localiza la carpeta correspondiente y se lee la plantilla hasta encontrar el artículo.
+El negocio es una mercería y librería atendida por personas con roles de Administrador, Gerente y Empleado. Los precios se conservan en carpetas impresas, separadas por rubros como telas, útiles y otros productos. Para responder una consulta se localiza la carpeta correspondiente y se lee la plantilla hasta encontrar el artículo.
 
 Los faltantes se registran inicialmente en hojas sueltas y luego se transcriben a cuadernos, posiblemente separados por proveedor. Las compras son periódicas; un olvido puede postergar la reposición hasta el mes siguiente.
 
@@ -87,7 +87,7 @@ La preparación externa de una planilla mediante fotografías o inteligencia art
 - Cada variante tendrá un solo precio de venta vigente por negocio.
 - En la mayoría de los productos de este negocio, todas las variantes compartirán el mismo precio.
 - Solo las cuentas autorizadas podrán consultar los precios.
-- Cada cuenta personal tendrá el rol de Administradora o Empleada.
+- Cada cuenta personal tendrá uno de los roles: Administrador, Gerente o Empleado.
 - La interfaz estará diseñada para personas sin conocimientos técnicos y para uso táctil.
 
 ## Indicadores de éxito propuestos

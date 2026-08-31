@@ -149,7 +149,7 @@ Una misma variante puede tener precios distintos en dos negocios de la misma org
 
 ### Usuario, rol y acceso
 
-Identifican a toda persona que accede al sistema y determinan sus permisos. Los roles iniciales son Administradora y Empleada; no existe consulta pública del catálogo.
+Identifican a toda persona que accede al sistema y determinan sus permisos. Los roles iniciales son Administrador, Gerente y Empleado; no existe consulta pública del catálogo.
 
 El acceso se otorga sobre un negocio: una persona puede trabajar en un negocio, en varios o en todos los de la organización. Quien accede a más de uno podrá ver la información consolidada. En el MVP, con un único negocio, todas las cuentas acceden a él.
 

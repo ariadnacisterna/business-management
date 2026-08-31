@@ -42,9 +42,10 @@
 |---|---|
 | RN-007 | Toda consulta de precios requiere una sesión autenticada. |
 | RN-008 | Toda operación deberá atribuirse a la cuenta que mantiene la sesión activa. |
-| RN-009 | Una Empleada puede administrar productos y precios, pero no puede administrar perfiles ni realizar la importación inicial. |
-| RN-010 | Una Administradora puede realizar todas las acciones incluidas en el MVP. |
-| RN-018 | Los permisos sobre ingresos, egresos y márgenes serán exclusivos de las Administradoras cuando esas funciones se incorporen. |
+| RN-009 | Un Empleado puede consultar precios, navegar el catálogo y ver el historial de precios, pero no puede crear ni modificar productos, cambiar precios, administrar categorías, unidades o atributos, administrar cuentas ni realizar la importación inicial. |
+| RN-010 | Un Administrador puede realizar todas las acciones incluidas en el MVP. |
+| RN-018 | Los permisos sobre ingresos, egresos y márgenes serán exclusivos de los Administradores cuando esas funciones se incorporen. |
+| RN-032 | Un Gerente puede administrar el catálogo y los precios —crear y modificar productos y variantes, cambiar precios, administrar categorías, unidades y atributos, y desactivar o reactivar productos y variantes— pero no puede administrar cuentas ni roles, ni realizar la importación inicial. |
 | RN-025 | Toda sesión vence según la política de seguridad configurada y el Usuario puede cerrarla antes. |
 | RN-031 | El acceso de una cuenta se otorga sobre uno o más negocios de su organización. Una cuenta solo consulta y modifica información de los negocios habilitados para ella. |
 
@@ -52,7 +53,7 @@
 
 | ID | Regla |
 |---|---|
-| RN-013 | La importación no se aplica hasta que una Administradora revise su resumen y la confirme. |
+| RN-013 | La importación no se aplica hasta que un Administrador revise su resumen y la confirme. |
 | RN-014 | Si una importación contiene filas inválidas, estas deben identificarse con un motivo comprensible. |
 | RN-015 | Si dos dispositivos modifican el mismo dato, se conserva como vigente la última modificación aceptada por el sistema; ambas operaciones auditables deben permanecer registradas cuando corresponda. |
 

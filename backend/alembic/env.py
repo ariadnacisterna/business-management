@@ -5,7 +5,14 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 from app.core.config import get_settings
 from app.db.base import Base
-from app.db.models import Negocio, Organizacion, Rol, Usuario  # noqa: F401
+from app.db.models import (  # noqa: F401
+    AccesoANegocio,
+    Negocio,
+    Organizacion,
+    Rol,
+    Sesion,
+    Usuario,
+)
 
 config = context.config
 

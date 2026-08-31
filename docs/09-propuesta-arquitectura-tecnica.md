@@ -207,7 +207,7 @@ flowchart LR
 
 1. **Acceso**
    - autenticación, cierre de sesión y cuenta activa;
-   - roles Administradora y Empleada;
+   - roles Administrador, Gerente y Empleado;
    - alta, modificación y desactivación de cuentas;
    - recuperación de acceso según la política pendiente.
 
@@ -226,7 +226,7 @@ flowchart LR
 4. **Importaciones**
    - recepción y análisis de CSV o Excel;
    - vista previa sin alterar el catálogo;
-   - confirmación por Administradora;
+   - confirmación por Administrador;
    - errores por fila y resumen auditable.
 
 5. **Auditoría**
@@ -490,10 +490,10 @@ Antes de considerar lista la implementación se necesitarán:
    cliente separada con TypeScript (SPA). Ver D-027 y la comparación en
    [Interfaz: aplicación cliente separada frente a renderizado en el
    servidor](#interfaz-aplicación-cliente-separada-frente-a-renderizado-en-el-servidor).
-3. **¿Cómo se recuperará una contraseña?** Restablecimiento realizado por una
-   Administradora, sin correo electrónico. Ver D-028. Queda pendiente el
+3. **¿Cómo se recuperará una contraseña?** Restablecimiento realizado por un
+   Administrador, sin correo electrónico. Ver D-028. Queda pendiente el
    procedimiento operativo restringido para recuperar el acceso si no queda
-   ninguna Administradora disponible; no bloquea el inicio de la programación
+   ningún Administrador disponible; no bloquea el inicio de la programación
    porque no condiciona el modelo de datos ni la API.
 4. **¿Se aprueban PT-008 a PT-010?** Sí, junto con el resto del conjunto. Ver
    D-026.

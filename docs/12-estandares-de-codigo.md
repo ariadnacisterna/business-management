@@ -38,7 +38,7 @@ es simple: si el valor es el mismo en todos los entornos, es una **constante
 de dominio**; si cambia según el despliegue, es **configuración**.
 
 Ejemplos de constantes de dominio de este proyecto: los nombres de los roles
-(`Administradora`, `Empleada`), un límite de longitud de un campo, el nombre
+(`Administrador`, `Gerente`, `Empleado`), un límite de longitud de un campo, el nombre
 de un estado (`activo`, `inactivo`). Ninguno de estos debería aparecer como
 texto suelto repetido en distintos archivos.
 

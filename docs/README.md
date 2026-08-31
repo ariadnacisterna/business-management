@@ -69,7 +69,7 @@ flowchart TD
 
 - La documentación describe roles y procesos, sin identificar personas, relaciones personales ni dispositivos concretos.
 - **MVP:** primera versión útil del sistema.
-- **Usuario:** persona autenticada con rol de Administradora o Empleada.
+- **Usuario:** persona autenticada con rol de Administrador, Gerente o Empleado.
 - **Organización:** titular de uno o más negocios. Es el ámbito del catálogo y de las cuentas.
 - **Negocio:** comercio concreto donde se venden los productos. Es el ámbito del precio y, en el futuro, de la existencia y las ventas. El MVP funciona con uno solo.
 - **Producto:** agrupación comercial que sirve para buscar y navegar. No lleva precio.

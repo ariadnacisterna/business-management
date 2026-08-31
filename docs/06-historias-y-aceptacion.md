@@ -72,7 +72,7 @@
 
 ## HU-06 — Proteger el acceso al catálogo
 
-**Como** Administradora,  
+**Como** Administrador,  
 **quiero** que solo las personas con una cuenta autorizada puedan ingresar,  
 **para** impedir accesos no autorizados al catálogo y a sus funciones.
 
@@ -80,7 +80,7 @@
 
 - Al abrir la aplicación sin una sesión válida se muestra el inicio de sesión y no el catálogo.
 - Una credencial inválida no permite consultar precios ni habilita la edición.
-- Cada persona utiliza una cuenta individual con el rol Empleada o Administradora.
+- Cada persona utiliza una cuenta individual con el rol Empleado, Gerente o Administrador.
 - La aplicación identifica claramente qué cuenta está activa.
 - Cada cambio queda asociado a un perfil activo.
 - La sesión vence según la política de seguridad configurada y luego exige una nueva autenticación.
@@ -88,7 +88,7 @@
 
 ## HU-07 — Cargar el catálogo mediante una planilla
 
-**Como** Administradora,  
+**Como** Administrador,  
 **quiero** importar la información preparada desde las carpetas,  
 **para** evitar cargar manualmente cientos de productos.
 

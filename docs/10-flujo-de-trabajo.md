@@ -156,16 +156,17 @@ madre la revisa y cierra el estado.
 
 | ID | Descripción | Requisitos | Rama | Estado | Resultado de verificación |
 |---|---|---|---|---|---|
-| T-001 | Esqueleto del proyecto: estructura FastAPI, configuración, primera migración de Alembic (organización, negocio, rol, usuario) | D-026, D-017, D-018 | task/T-001-project-skeleton | Aprobada, pendiente de commit/merge | Revisado por la madre el 2026-08-28: checklist de 10/11/12 aplicado, migración y pruebas corridas contra PostgreSQL real de forma independiente. Se corrigieron los comentarios autogenerados por Alembic (regla sin excepciones). Falta que el Responsable confirme el commit y merge a main para marcar Verificada. |
-| T-002 | Autenticación y sesión: login, logout, cuenta activa, alta y gestión de cuentas de usuario | RF-024, RF-025, RF-031, CU-03, HU-06 | — | Pendiente | — |
+| T-001 | Esqueleto del proyecto: estructura FastAPI, configuración, primera migración de Alembic (organización, negocio, rol, usuario) | D-026, D-017, D-018 | task/T-001-project-skeleton | Verificada (2026-08-28) | Revisado por la madre: checklist de 10/11/12 aplicado, migración y pruebas corridas contra PostgreSQL real de forma independiente. Se corrigieron los comentarios autogenerados por Alembic. Mergeada a main mediante PR #1 (commit 10f6061). |
+| T-002 | Autenticación y sesión: login, logout, cuenta activa, alta y gestión de cuentas de usuario, rol Gerente (D-035) | RF-024, RF-025, RF-031, CU-03, HU-06, RN-009, RN-032 | task/T-002-authentication-and-accounts | Aprobada, pendiente de commit/merge | Revisado por la madre (2026-08-28): se corrigió un bug bloqueante (import de roles roto), se completó el pedido de identificadores en inglés y el rol Gerente, checklist de 10/11/12 aplicado, 25 pruebas corridas contra PostgreSQL real de forma independiente. Pendiente no bloqueante: el token de sesión se guarda sin hashear como clave primaria de `sesion` (a diferencia de la contraseña, RNF-013); queda anotado para revisar más adelante. |
 | T-003 | Catálogo: categorías, unidades, atributos y valores, productos y variantes (alta y edición) | RF-010 a RF-017, RF-032 a RF-037, RF-040, CU-04, CU-05, CU-08, HU-04, HU-09 | — | Pendiente | — |
 | T-004 | Precios: precio vigente, cambio transaccional individual y por producto, historial | RF-018 a RF-023, RF-038, CU-06, CU-07, HU-05, HU-10 | — | Pendiente | — |
 | T-005 | Búsqueda y consulta | RF-002 a RF-009, RF-035, CU-01, CU-02, HU-01, HU-02, HU-03 | — | Pendiente | — |
 | T-006 | Desactivación y reactivación de productos y variantes | RF-016, CU-10, HU-08 | — | Pendiente | — |
 | T-007 | Importación por CSV/Excel | RF-028 a RF-030, CU-09, HU-07 | — | Pendiente | — |
 | T-008 | Interfaz (SPA): pantallas de las tareas anteriores | Todas las HU | — | Pendiente | — |
+| T-009 | Renombrar a inglés los identificadores de código de T-001 ya mergeado (tablas, columnas, clases: Organizacion, Negocio, Rol, Usuario y sus campos), con la migración correspondiente | D-034 | — | Pendiente | — |
 
-El orden sigue el propuesto en [06-historias-y-aceptacion.md](06-historias-y-aceptacion.md#orden-sugerido-del-mvp).
+El orden sigue el propuesto en [06-historias-y-aceptacion.md](06-historias-y-aceptacion.md#orden-sugerido-del-mvp), salvo T-009, que depende de que T-002 esté mergeada y puede intercalarse cuando convenga.
 No es una división rígida: la madre puede partir una fila en tareas más chicas
 si conviene, siempre que cada una siga siendo verificable de forma
 independiente.

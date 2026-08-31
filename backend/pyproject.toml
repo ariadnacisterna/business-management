@@ -10,6 +10,7 @@ dependencies = [
     "alembic>=1.13",
     "psycopg[binary]>=3.2",
     "pydantic-settings>=2.6",
+    "argon2-cffi>=23.1",
 ]
 
 [project.optional-dependencies]
@@ -28,6 +29,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["B008"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

@@ -14,6 +14,13 @@ class Settings(BaseSettings):
     initial_business_name: str = "Negocio principal"
     initial_business_rubro: str = "General"
 
+    initial_admin_name: str = "Administrador principal"
+    initial_admin_username: str
+    initial_admin_password: str
+
+    session_ttl_minutes: int = 720
+    cookie_secure: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

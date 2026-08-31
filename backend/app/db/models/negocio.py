@@ -9,6 +9,7 @@ from app.db.base import Base
 from app.db.constraints import estado_check_constraint
 
 if TYPE_CHECKING:
+    from app.db.models.acceso_a_negocio import AccesoANegocio
     from app.db.models.organizacion import Organizacion
 
 
@@ -25,3 +26,4 @@ class Negocio(Base):
     )
 
     organizacion: Mapped["Organizacion"] = relationship(back_populates="negocios")
+    accesos: Mapped[list["AccesoANegocio"]] = relationship(back_populates="negocio")

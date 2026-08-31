@@ -147,16 +147,16 @@ La definición de atributos adicionales, como marca o presentación para otros r
 
 ## CU-09 — Importar el catálogo inicial
 
-**Actor principal:** Administradora  
-**Precondición:** La Administradora inició sesión y dispone de un archivo con la plantilla admitida.
+**Actor principal:** Administrador  
+**Precondición:** El Administrador inició sesión y dispone de un archivo con la plantilla admitida.
 
 ### Flujo principal
 
-1. La Administradora selecciona el archivo CSV o Excel.
+1. El Administrador selecciona el archivo CSV o Excel.
 2. El sistema analiza sus filas sin modificar el catálogo.
 3. El sistema informa altas, actualizaciones, duplicados, advertencias y errores.
-4. La Administradora revisa el resumen.
-5. La Administradora confirma la importación.
+4. El Administrador revisa el resumen.
+5. El Administrador confirma la importación.
 6. El sistema aplica los datos válidos según la política definida y registra la operación.
 7. El sistema muestra el resultado final.
 
