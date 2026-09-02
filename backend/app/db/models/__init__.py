@@ -6,6 +6,7 @@ from app.db.models.business import Business
 from app.db.models.business_access import BusinessAccess
 from app.db.models.category import Category
 from app.db.models.organization import Organization
+from app.db.models.price import Price
 from app.db.models.product import Product
 from app.db.models.role import Role
 from app.db.models.unit import Unit
@@ -21,6 +22,7 @@ __all__ = [
     "BusinessAccess",
     "Category",
     "Organization",
+    "Price",
     "Product",
     "Role",
     "Unit",

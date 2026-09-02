@@ -14,6 +14,7 @@ from app.db.models import (  # noqa: F401
     BusinessAccess,
     Category,
     Organization,
+    Price,
     Product,
     Role,
     Unit,
