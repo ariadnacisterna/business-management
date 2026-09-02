@@ -8,10 +8,17 @@ from app.db.base import Base
 from app.db.models import (  # noqa: F401
     Account,
     AccountSession,
+    Attribute,
+    AttributeValue,
     Business,
     BusinessAccess,
+    Category,
     Organization,
+    Product,
     Role,
+    Unit,
+    Variant,
+    variant_attribute_value,
 )
 
 config = context.config
