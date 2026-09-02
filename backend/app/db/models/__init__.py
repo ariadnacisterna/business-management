@@ -1,8 +1,8 @@
-from app.db.models.acceso_a_negocio import AccesoANegocio
-from app.db.models.negocio import Negocio
-from app.db.models.organizacion import Organizacion
-from app.db.models.rol import Rol
-from app.db.models.sesion import Sesion
-from app.db.models.usuario import Usuario
+from app.db.models.account import Account
+from app.db.models.account_session import AccountSession
+from app.db.models.business import Business
+from app.db.models.business_access import BusinessAccess
+from app.db.models.organization import Organization
+from app.db.models.role import Role
 
-__all__ = ["AccesoANegocio", "Negocio", "Organizacion", "Rol", "Sesion", "Usuario"]
+__all__ = ["Account", "AccountSession", "Business", "BusinessAccess", "Organization", "Role"]

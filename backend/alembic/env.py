@@ -6,12 +6,12 @@ from alembic import context
 from app.core.config import get_settings
 from app.db.base import Base
 from app.db.models import (  # noqa: F401
-    AccesoANegocio,
-    Negocio,
-    Organizacion,
-    Rol,
-    Sesion,
-    Usuario,
+    Account,
+    AccountSession,
+    Business,
+    BusinessAccess,
+    Organization,
+    Role,
 )
 
 config = context.config

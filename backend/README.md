@@ -8,7 +8,7 @@ en la raíz del repositorio para las decisiones que sustentan esta estructura.
 
 Variables de entorno (ver `.env.example`): `DATABASE_URL`,
 `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `INITIAL_ORGANIZATION_NAME`,
-`INITIAL_BUSINESS_NAME`, `INITIAL_BUSINESS_RUBRO`, `INITIAL_ADMIN_NAME`,
+`INITIAL_BUSINESS_NAME`, `INITIAL_BUSINESS_INDUSTRY`, `INITIAL_ADMIN_NAME`,
 `INITIAL_ADMIN_USERNAME`, `INITIAL_ADMIN_PASSWORD`, `SESSION_TTL_MINUTES`,
 `COOKIE_SECURE`. Copiar a `.env` (no se versiona) para desarrollo local.
 

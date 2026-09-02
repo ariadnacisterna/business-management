@@ -11,7 +11,6 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 
 from alembic import op
-from app.constants.estado import EstadoEntidad
 from app.constants.roles import ADMINISTRADOR
 from app.core.config import get_settings
 from app.core.security import hash_password
@@ -110,7 +109,7 @@ def _seed_initial_admin() -> None:
             "nombre": settings.initial_admin_name,
             "user_name": settings.initial_admin_username,
             "password_hash": hash_password(settings.initial_admin_password),
-            "estado": EstadoEntidad.ACTIVO.value,
+            "estado": "activo",
         },
     ).scalar_one()
 
@@ -127,7 +126,7 @@ def _seed_initial_admin() -> None:
             "usuario_id": usuario_id,
             "negocio_id": negocio_id,
             "rol_id": rol_id,
-            "estado": EstadoEntidad.ACTIVO.value,
+            "estado": "activo",
         },
     )
 

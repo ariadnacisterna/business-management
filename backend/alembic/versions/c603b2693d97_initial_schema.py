@@ -11,8 +11,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 
 from alembic import op
-from app.constants.estado import EstadoEntidad
-from app.constants.roles import ROLES_INICIALES
+from app.constants.roles import INITIAL_ROLES
 from app.core.config import get_settings
 
 revision: str = "c603b2693d97"
@@ -77,7 +76,7 @@ def _seed_initial_data() -> None:
     bind = op.get_bind()
 
     rol_table = sa.table("rol", sa.column("nombre", sa.String))
-    bind.execute(rol_table.insert(), [{"nombre": nombre} for nombre in ROLES_INICIALES])
+    bind.execute(rol_table.insert(), [{"nombre": nombre} for nombre in INITIAL_ROLES])
 
     organizacion_table = sa.table(
         "organizacion", sa.column("id", sa.Integer), sa.column("nombre", sa.String)
@@ -99,8 +98,8 @@ def _seed_initial_data() -> None:
         {
             "organizacion_id": organizacion_id,
             "nombre": settings.initial_business_name,
-            "rubro": settings.initial_business_rubro,
-            "estado": EstadoEntidad.ACTIVO.value,
+            "rubro": settings.initial_business_industry,
+            "estado": "activo",
         },
     )
 

@@ -1,10 +1,10 @@
 from sqlalchemy import CheckConstraint
 
-from app.constants.estado import EstadoEntidad
+from app.constants.status import EntityStatus
 
-ESTADO_CHECK_CONSTRAINT_NAME = "estado_valido"
+STATUS_CHECK_CONSTRAINT_NAME = "status_valid"
 
 
-def estado_check_constraint(name: str = ESTADO_CHECK_CONSTRAINT_NAME) -> CheckConstraint:
-    valores_permitidos = ", ".join(f"'{estado.value}'" for estado in EstadoEntidad)
-    return CheckConstraint(f"estado IN ({valores_permitidos})", name=name)
+def status_check_constraint(name: str = STATUS_CHECK_CONSTRAINT_NAME) -> CheckConstraint:
+    allowed_values = ", ".join(f"'{status.value}'" for status in EntityStatus)
+    return CheckConstraint(f"status IN ({allowed_values})", name=name)

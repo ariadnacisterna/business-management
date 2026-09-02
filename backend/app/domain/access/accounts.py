@@ -1,11 +1,11 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.constants.estado import EstadoEntidad
 from app.constants.limits import PASSWORD_MIN_LENGTH, USERNAME_MIN_LENGTH
-from app.constants.roles import ROLES_INICIALES
+from app.constants.roles import INITIAL_ROLES
+from app.constants.status import EntityStatus
 from app.core.security import hash_password
-from app.db.models import AccesoANegocio, Rol, Usuario
+from app.db.models import Account, BusinessAccess, Role
 from app.domain.access.active_business import get_active_business
 from app.domain.access.errors import (
     AccountNotFound,
@@ -14,7 +14,7 @@ from app.domain.access.errors import (
     InvalidRole,
     InvalidUsername,
 )
-from app.domain.access.sessions import delete_sessions_for_user
+from app.domain.access.sessions import delete_sessions_for_account
 
 
 def _validate_user_name(user_name: str) -> None:
@@ -29,136 +29,136 @@ def _validate_password(password: str) -> None:
         raise InvalidPassword(f"La contrasena debe tener al menos {PASSWORD_MIN_LENGTH} caracteres")
 
 
-def _get_rol(db: Session, nombre_rol: str) -> Rol:
-    if nombre_rol not in ROLES_INICIALES:
-        raise InvalidRole(f"Rol desconocido: {nombre_rol}")
-    rol = db.scalars(select(Rol).where(Rol.nombre == nombre_rol)).first()
-    if rol is None:
-        raise InvalidRole(f"Rol desconocido: {nombre_rol}")
-    return rol
+def _get_role(db: Session, role_name: str) -> Role:
+    if role_name not in INITIAL_ROLES:
+        raise InvalidRole(f"Rol desconocido: {role_name}")
+    role = db.scalars(select(Role).where(Role.name == role_name)).first()
+    if role is None:
+        raise InvalidRole(f"Rol desconocido: {role_name}")
+    return role
 
 
-def _get_usuario(db: Session, usuario_id: int) -> Usuario:
-    usuario = db.get(Usuario, usuario_id)
-    if usuario is None:
+def _get_account(db: Session, account_id: int) -> Account:
+    account = db.get(Account, account_id)
+    if account is None:
         raise AccountNotFound
-    return usuario
+    return account
 
 
-def _get_acceso(db: Session, usuario_id: int, negocio_id: int) -> AccesoANegocio | None:
+def _get_business_access(db: Session, account_id: int, business_id: int) -> BusinessAccess | None:
     return db.scalars(
-        select(AccesoANegocio).where(
-            AccesoANegocio.usuario_id == usuario_id,
-            AccesoANegocio.negocio_id == negocio_id,
+        select(BusinessAccess).where(
+            BusinessAccess.account_id == account_id,
+            BusinessAccess.business_id == business_id,
         )
     ).first()
 
 
 def create_account(
-    db: Session, nombre: str, user_name: str, initial_password: str, nombre_rol: str
-) -> Usuario:
+    db: Session, name: str, user_name: str, initial_password: str, role_name: str
+) -> Account:
     _validate_user_name(user_name)
     _validate_password(initial_password)
-    rol = _get_rol(db, nombre_rol)
-    negocio = get_active_business(db)
+    role = _get_role(db, role_name)
+    business = get_active_business(db)
 
-    existing_user = db.scalars(select(Usuario).where(Usuario.user_name == user_name)).first()
+    existing_user = db.scalars(select(Account).where(Account.user_name == user_name)).first()
     if existing_user is not None:
         raise DuplicateUsername
 
-    usuario = Usuario(
-        organizacion_id=negocio.organizacion_id,
-        nombre=nombre,
+    account = Account(
+        organization_id=business.organization_id,
+        name=name,
         user_name=user_name,
         password_hash=hash_password(initial_password),
-        estado=EstadoEntidad.ACTIVO.value,
+        status=EntityStatus.ACTIVE.value,
     )
-    db.add(usuario)
+    db.add(account)
     db.flush()
 
-    acceso = AccesoANegocio(
-        usuario_id=usuario.id,
-        negocio_id=negocio.id,
-        rol_id=rol.id,
-        estado=EstadoEntidad.ACTIVO.value,
+    access = BusinessAccess(
+        account_id=account.id,
+        business_id=business.id,
+        role_id=role.id,
+        status=EntityStatus.ACTIVE.value,
     )
-    db.add(acceso)
+    db.add(access)
     db.commit()
-    db.refresh(usuario)
-    return usuario
+    db.refresh(account)
+    return account
 
 
 def update_account(
     db: Session,
-    usuario_id: int,
-    nombre: str | None = None,
+    account_id: int,
+    name: str | None = None,
     user_name: str | None = None,
-    nombre_rol: str | None = None,
-) -> Usuario:
-    usuario = _get_usuario(db, usuario_id)
+    role_name: str | None = None,
+) -> Account:
+    account = _get_account(db, account_id)
 
-    if nombre is not None:
-        usuario.nombre = nombre
+    if name is not None:
+        account.name = name
 
-    if user_name is not None and user_name != usuario.user_name:
+    if user_name is not None and user_name != account.user_name:
         _validate_user_name(user_name)
-        en_uso = db.scalars(
-            select(Usuario).where(Usuario.user_name == user_name, Usuario.id != usuario.id)
+        existing_username = db.scalars(
+            select(Account).where(Account.user_name == user_name, Account.id != account.id)
         ).first()
-        if en_uso is not None:
+        if existing_username is not None:
             raise DuplicateUsername
-        usuario.user_name = user_name
+        account.user_name = user_name
 
-    if nombre_rol is not None:
-        rol = _get_rol(db, nombre_rol)
-        negocio = get_active_business(db)
-        acceso = _get_acceso(db, usuario.id, negocio.id)
-        if acceso is None:
+    if role_name is not None:
+        role = _get_role(db, role_name)
+        business = get_active_business(db)
+        access = _get_business_access(db, account.id, business.id)
+        if access is None:
             raise AccountNotFound
-        acceso.rol_id = rol.id
+        access.role_id = role.id
 
     db.commit()
-    db.refresh(usuario)
-    return usuario
+    db.refresh(account)
+    return account
 
 
-def deactivate_account(db: Session, usuario_id: int) -> Usuario:
-    usuario = _get_usuario(db, usuario_id)
-    usuario.estado = EstadoEntidad.INACTIVO.value
-    delete_sessions_for_user(db, usuario.id)
+def deactivate_account(db: Session, account_id: int) -> Account:
+    account = _get_account(db, account_id)
+    account.status = EntityStatus.INACTIVE.value
+    delete_sessions_for_account(db, account.id)
     db.commit()
-    db.refresh(usuario)
-    return usuario
+    db.refresh(account)
+    return account
 
 
-def activate_account(db: Session, usuario_id: int) -> Usuario:
-    usuario = _get_usuario(db, usuario_id)
-    usuario.estado = EstadoEntidad.ACTIVO.value
+def activate_account(db: Session, account_id: int) -> Account:
+    account = _get_account(db, account_id)
+    account.status = EntityStatus.ACTIVE.value
     db.commit()
-    db.refresh(usuario)
-    return usuario
+    db.refresh(account)
+    return account
 
 
-def reset_password(db: Session, usuario_id: int, new_password: str) -> Usuario:
-    usuario = _get_usuario(db, usuario_id)
+def reset_password(db: Session, account_id: int, new_password: str) -> Account:
+    account = _get_account(db, account_id)
     _validate_password(new_password)
-    usuario.password_hash = hash_password(new_password)
-    delete_sessions_for_user(db, usuario.id)
+    account.password_hash = hash_password(new_password)
+    delete_sessions_for_account(db, account.id)
     db.commit()
-    db.refresh(usuario)
-    return usuario
+    db.refresh(account)
+    return account
 
 
-def list_accounts(db: Session) -> list[Usuario]:
-    return list(db.scalars(select(Usuario).order_by(Usuario.id)).all())
+def list_accounts(db: Session) -> list[Account]:
+    return list(db.scalars(select(Account).order_by(Account.id)).all())
 
 
-def get_account(db: Session, usuario_id: int) -> Usuario:
-    return _get_usuario(db, usuario_id)
+def get_account(db: Session, account_id: int) -> Account:
+    return _get_account(db, account_id)
 
 
-def get_role_name(db: Session, usuario_id: int, negocio_id: int) -> str | None:
-    acceso = _get_acceso(db, usuario_id, negocio_id)
-    if acceso is None:
+def get_role_name(db: Session, account_id: int, business_id: int) -> str | None:
+    access = _get_business_access(db, account_id, business_id)
+    if access is None:
         return None
-    return acceso.rol.nombre
+    return access.role.name

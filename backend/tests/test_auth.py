@@ -1,7 +1,7 @@
 from app.constants.access import CSRF_HEADER_NAME
 from app.constants.roles import ADMINISTRADOR
 from app.core.config import get_settings
-from app.db.models import Sesion
+from app.db.models import AccountSession
 
 
 def _login(client, user_name, password):
@@ -16,7 +16,7 @@ def test_login_with_valid_credentials_sets_cookies_and_returns_user(client):
     assert response.status_code == 200
     body = response.json()
     assert body["user_name"] == settings.initial_admin_username
-    assert body["rol"] == ADMINISTRADOR
+    assert body["role"] == ADMINISTRADOR
     assert "session_id" in response.cookies
     assert "csrf_token" in response.cookies
 
@@ -84,7 +84,7 @@ def test_logout_invalidates_the_session(client, db_session):
 
     me_response = client.get("/auth/me", cookies=login_response.cookies)
     assert me_response.status_code == 401
-    assert db_session.query(Sesion).count() == 0
+    assert db_session.query(AccountSession).count() == 0
 
 
 def test_session_expiry_extends_on_activity(client, db_session):
@@ -93,11 +93,11 @@ def test_session_expiry_extends_on_activity(client, db_session):
         client, settings.initial_admin_username, settings.initial_admin_password
     )
     token = login_response.cookies["session_id"]
-    sesion_antes = db_session.get(Sesion, token)
-    expira_antes = sesion_antes.expira_en
-    db_session.expire(sesion_antes)
+    session_before = db_session.get(AccountSession, token)
+    expires_before = session_before.expires_at
+    db_session.expire(session_before)
 
     client.get("/auth/me", cookies=login_response.cookies)
 
-    sesion_despues = db_session.get(Sesion, token)
-    assert sesion_despues.expira_en >= expira_antes
+    session_after = db_session.get(AccountSession, token)
+    assert session_after.expires_at >= expires_before

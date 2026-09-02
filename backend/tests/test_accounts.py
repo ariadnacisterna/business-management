@@ -18,14 +18,14 @@ def _auth_headers(cookies):
     return {CSRF_HEADER_NAME: cookies["csrf_token"]}
 
 
-def _create_account(client, cookies, user_name, password, rol, nombre="Cuenta de prueba"):
+def _create_account(client, cookies, user_name, password, role, name="Cuenta de prueba"):
     return client.post(
         "/accounts",
         json={
-            "nombre": nombre,
+            "name": name,
             "user_name": user_name,
             "initial_password": password,
-            "rol": rol,
+            "role": role,
         },
         cookies=cookies,
         headers=_auth_headers(cookies),
@@ -40,8 +40,8 @@ def test_administrador_can_create_an_account(client):
     assert response.status_code == 201
     body = response.json()
     assert body["user_name"] == "empleada1"
-    assert body["rol"] == EMPLEADO
-    assert body["estado"] == "activo"
+    assert body["role"] == EMPLEADO
+    assert body["status"] == "active"
 
 
 def test_create_account_without_csrf_header_is_rejected(client):
@@ -50,10 +50,10 @@ def test_create_account_without_csrf_header_is_rejected(client):
     response = client.post(
         "/accounts",
         json={
-            "nombre": "Cuenta de prueba",
+            "name": "Cuenta de prueba",
             "user_name": "empleada2",
             "initial_password": "clave-segura-1",
-            "rol": EMPLEADO,
+            "role": EMPLEADO,
         },
         cookies=admin_cookies,
     )
@@ -102,14 +102,14 @@ def test_administrador_can_list_and_get_accounts(client):
     admin_cookies = _admin_cookies(client)
     created = _create_account(client, admin_cookies, "empleada5", "clave-segura-1", EMPLEADO).json()
 
-    listado = client.get("/accounts", cookies=admin_cookies)
-    assert listado.status_code == 200
-    nombres_usuario = {cuenta["user_name"] for cuenta in listado.json()}
-    assert "empleada5" in nombres_usuario
+    listing = client.get("/accounts", cookies=admin_cookies)
+    assert listing.status_code == 200
+    user_names = {account["user_name"] for account in listing.json()}
+    assert "empleada5" in user_names
 
-    detalle = client.get(f"/accounts/{created['id']}", cookies=admin_cookies)
-    assert detalle.status_code == 200
-    assert detalle.json()["user_name"] == "empleada5"
+    detail = client.get(f"/accounts/{created['id']}", cookies=admin_cookies)
+    assert detail.status_code == 200
+    assert detail.json()["user_name"] == "empleada5"
 
 
 def test_administrador_can_modify_an_accounts_role(client):
@@ -118,13 +118,13 @@ def test_administrador_can_modify_an_accounts_role(client):
 
     response = client.patch(
         f"/accounts/{created['id']}",
-        json={"rol": ADMINISTRADOR},
+        json={"role": ADMINISTRADOR},
         cookies=admin_cookies,
         headers=_auth_headers(admin_cookies),
     )
 
     assert response.status_code == 200
-    assert response.json()["rol"] == ADMINISTRADOR
+    assert response.json()["role"] == ADMINISTRADOR
 
 
 def test_deactivating_an_account_revokes_its_active_session(client):
@@ -138,7 +138,7 @@ def test_deactivating_an_account_revokes_its_active_session(client):
         headers=_auth_headers(admin_cookies),
     )
     assert deactivate_response.status_code == 200
-    assert deactivate_response.json()["estado"] == "inactivo"
+    assert deactivate_response.json()["status"] == "inactive"
 
     me_response = client.get("/auth/me", cookies=empleada_cookies)
     assert me_response.status_code == 401
@@ -164,7 +164,7 @@ def test_activating_a_deactivated_account_allows_login_again(client):
         headers=_auth_headers(admin_cookies),
     )
     assert activate_response.status_code == 200
-    assert activate_response.json()["estado"] == "activo"
+    assert activate_response.json()["status"] == "active"
 
     login_response = client.post(
         "/auth/login", json={"user_name": "empleada8", "password": "clave-segura-1"}

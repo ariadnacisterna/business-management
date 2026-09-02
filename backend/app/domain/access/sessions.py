@@ -5,43 +5,43 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.security import generate_csrf_token, generate_session_token
-from app.db.models import Sesion
+from app.db.models import AccountSession
 
 
-def create_session(db: Session, usuario_id: int) -> Sesion:
+def create_session(db: Session, account_id: int) -> AccountSession:
     settings = get_settings()
-    ahora = datetime.now(UTC)
-    sesion = Sesion(
+    now = datetime.now(UTC)
+    session = AccountSession(
         id=generate_session_token(),
-        usuario_id=usuario_id,
+        account_id=account_id,
         csrf_token=generate_csrf_token(),
-        creado_en=ahora,
-        expira_en=ahora + timedelta(minutes=settings.session_ttl_minutes),
+        created_at=now,
+        expires_at=now + timedelta(minutes=settings.session_ttl_minutes),
     )
-    db.add(sesion)
-    return sesion
+    db.add(session)
+    return session
 
 
-def get_valid_session(db: Session, token: str) -> Sesion | None:
-    sesion = db.get(Sesion, token)
-    if sesion is None:
+def get_valid_session(db: Session, token: str) -> AccountSession | None:
+    session = db.get(AccountSession, token)
+    if session is None:
         return None
-    if sesion.expira_en <= datetime.now(UTC):
-        db.delete(sesion)
+    if session.expires_at <= datetime.now(UTC):
+        db.delete(session)
         db.commit()
         return None
-    return sesion
+    return session
 
 
-def extend_session(db: Session, sesion: Sesion) -> None:
+def extend_session(db: Session, session: AccountSession) -> None:
     settings = get_settings()
-    sesion.expira_en = datetime.now(UTC) + timedelta(minutes=settings.session_ttl_minutes)
+    session.expires_at = datetime.now(UTC) + timedelta(minutes=settings.session_ttl_minutes)
     db.commit()
 
 
-def delete_session(db: Session, sesion: Sesion) -> None:
-    db.delete(sesion)
+def delete_session(db: Session, session: AccountSession) -> None:
+    db.delete(session)
 
 
-def delete_sessions_for_user(db: Session, usuario_id: int) -> None:
-    db.execute(delete(Sesion).where(Sesion.usuario_id == usuario_id))
+def delete_sessions_for_account(db: Session, account_id: int) -> None:
+    db.execute(delete(AccountSession).where(AccountSession.account_id == account_id))

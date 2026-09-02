@@ -13,63 +13,63 @@ from app.constants.access import (
     PERMISSION_DENIED_DETAIL,
     SESSION_COOKIE_NAME,
 )
-from app.constants.estado import EstadoEntidad
-from app.db.models import AccesoANegocio, Sesion, Usuario
+from app.constants.status import EntityStatus
+from app.db.models import Account, AccountSession, BusinessAccess
 from app.db.session import get_db
 from app.domain.access.active_business import get_active_business
 from app.domain.access.sessions import extend_session, get_valid_session
 
 
-def get_current_session(request: Request, db: Session = Depends(get_db)) -> Sesion:
+def get_current_session(request: Request, db: Session = Depends(get_db)) -> AccountSession:
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if token is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, INVALID_SESSION_DETAIL)
 
-    sesion = get_valid_session(db, token)
-    if sesion is None:
+    session = get_valid_session(db, token)
+    if session is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, INVALID_SESSION_DETAIL)
 
-    extend_session(db, sesion)
-    return sesion
+    extend_session(db, session)
+    return session
 
 
 def get_current_user(
-    sesion: Sesion = Depends(get_current_session), db: Session = Depends(get_db)
-) -> Usuario:
-    usuario = db.get(Usuario, sesion.usuario_id)
-    if usuario is None or usuario.estado != EstadoEntidad.ACTIVO.value:
+    session: AccountSession = Depends(get_current_session), db: Session = Depends(get_db)
+) -> Account:
+    account = db.get(Account, session.account_id)
+    if account is None or account.status != EntityStatus.ACTIVE.value:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, INVALID_SESSION_DETAIL)
-    return usuario
+    return account
 
 
-def require_csrf(request: Request, sesion: Sesion = Depends(get_current_session)) -> None:
+def require_csrf(request: Request, session: AccountSession = Depends(get_current_session)) -> None:
     if request.method.upper() in CSRF_SAFE_METHODS:
         return
 
     header_token = request.headers.get(CSRF_HEADER_NAME)
-    if not header_token or not secrets.compare_digest(header_token, sesion.csrf_token):
+    if not header_token or not secrets.compare_digest(header_token, session.csrf_token):
         raise HTTPException(status.HTTP_403_FORBIDDEN, INVALID_CSRF_DETAIL)
 
 
-def require_role(*nombres_rol: str) -> Callable[..., Usuario]:
+def require_role(*role_names: str) -> Callable[..., Account]:
     def dependency(
-        usuario: Usuario = Depends(get_current_user), db: Session = Depends(get_db)
-    ) -> Usuario:
-        negocio = get_active_business(db)
-        acceso = db.scalars(
-            select(AccesoANegocio).where(
-                AccesoANegocio.usuario_id == usuario.id,
-                AccesoANegocio.negocio_id == negocio.id,
+        account: Account = Depends(get_current_user), db: Session = Depends(get_db)
+    ) -> Account:
+        business = get_active_business(db)
+        access = db.scalars(
+            select(BusinessAccess).where(
+                BusinessAccess.account_id == account.id,
+                BusinessAccess.business_id == business.id,
             )
         ).first()
 
         if (
-            acceso is None
-            or acceso.estado != EstadoEntidad.ACTIVO.value
-            or acceso.rol.nombre not in nombres_rol
+            access is None
+            or access.status != EntityStatus.ACTIVE.value
+            or access.role.name not in role_names
         ):
             raise HTTPException(status.HTTP_403_FORBIDDEN, PERMISSION_DENIED_DETAIL)
 
-        return usuario
+        return account
 
     return dependency

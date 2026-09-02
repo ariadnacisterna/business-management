@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     initial_organization_name: str = "Organizacion principal"
     initial_business_name: str = "Negocio principal"
-    initial_business_rubro: str = "General"
+    initial_business_industry: str = "General"
 
     initial_admin_name: str = "Administrador principal"
     initial_admin_username: str
