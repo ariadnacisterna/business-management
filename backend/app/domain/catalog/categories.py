@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -26,12 +28,21 @@ def _check_duplicate_name(
             raise DuplicateCategoryName
 
 
-def create_category(db: Session, organization_id: int, name: str) -> Category:
+def create_category(
+    db: Session, organization_id: int, name: str, actor_account_id: int
+) -> Category:
     name = _validate_name(name)
     _check_duplicate_name(db, organization_id, name)
 
+    now = datetime.now(UTC)
     category = Category(
-        organization_id=organization_id, name=name, status=EntityStatus.ACTIVE.value
+        organization_id=organization_id,
+        name=name,
+        status=EntityStatus.ACTIVE.value,
+        created_by_account_id=actor_account_id,
+        created_at=now,
+        updated_by_account_id=actor_account_id,
+        updated_at=now,
     )
     db.add(category)
     db.commit()
@@ -39,7 +50,9 @@ def create_category(db: Session, organization_id: int, name: str) -> Category:
     return category
 
 
-def update_category(db: Session, category_id: int, name: str | None = None) -> Category:
+def update_category(
+    db: Session, category_id: int, actor_account_id: int, name: str | None = None
+) -> Category:
     category = get_category(db, category_id)
 
     if name is not None:
@@ -47,6 +60,8 @@ def update_category(db: Session, category_id: int, name: str | None = None) -> C
         _check_duplicate_name(db, category.organization_id, name, exclude_id=category.id)
         category.name = name
 
+    category.updated_by_account_id = actor_account_id
+    category.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(category)
     return category

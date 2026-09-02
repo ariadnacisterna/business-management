@@ -16,6 +16,7 @@ from app.domain.catalog.errors import (
     DuplicateAttributeValue,
     DuplicateCategoryName,
     DuplicateUnitName,
+    ImplicitVariantNeedsLabel,
     InvalidAttributeValue,
     InvalidCatalogInput,
     ProductNotFound,
@@ -207,7 +208,7 @@ def create_category(
     _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
 ) -> CategoryResponse:
     try:
-        category = categories.create_category(db, _organization_id(db), payload.name)
+        category = categories.create_category(db, _organization_id(db), payload.name, _actor.id)
     except DuplicateCategoryName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "La categoria ya existe") from exc
     except InvalidCatalogInput as exc:
@@ -250,7 +251,7 @@ def update_category(
     _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
 ) -> CategoryResponse:
     try:
-        category = categories.update_category(db, category_id, name=payload.name)
+        category = categories.update_category(db, category_id, _actor.id, name=payload.name)
     except CategoryNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Categoria no encontrada") from exc
     except DuplicateCategoryName as exc:
@@ -274,7 +275,12 @@ def create_unit(
 ) -> UnitResponse:
     try:
         unit = units.create_unit(
-            db, _organization_id(db), payload.name, payload.abbreviation, payload.allows_fraction
+            db,
+            _organization_id(db),
+            payload.name,
+            payload.abbreviation,
+            _actor.id,
+            allows_fraction=payload.allows_fraction,
         )
     except DuplicateUnitName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "La unidad ya existe") from exc
@@ -303,9 +309,7 @@ def get_unit(
     return _unit_response(unit)
 
 
-@router.patch(
-    "/units/{unit_id}", response_model=UnitResponse, dependencies=[Depends(require_csrf)]
-)
+@router.patch("/units/{unit_id}", response_model=UnitResponse, dependencies=[Depends(require_csrf)])
 def update_unit(
     unit_id: int,
     payload: UpdateUnitRequest,
@@ -316,6 +320,7 @@ def update_unit(
         unit = units.update_unit(
             db,
             unit_id,
+            _actor.id,
             name=payload.name,
             abbreviation=payload.abbreviation,
             allows_fraction=payload.allows_fraction,
@@ -342,7 +347,7 @@ def create_attribute(
     _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
 ) -> AttributeResponse:
     try:
-        attribute = attributes.create_attribute(db, _organization_id(db), payload.name)
+        attribute = attributes.create_attribute(db, _organization_id(db), payload.name, _actor.id)
     except DuplicateAttributeName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "El atributo ya existe") from exc
     except InvalidCatalogInput as exc:
@@ -386,7 +391,9 @@ def create_attribute_value(
     _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
 ) -> AttributeValueResponse:
     try:
-        attribute_value = attribute_values.create_attribute_value(db, attribute_id, payload.value)
+        attribute_value = attribute_values.create_attribute_value(
+            db, attribute_id, payload.value, _actor.id
+        )
     except AttributeNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Atributo no encontrado") from exc
     except DuplicateAttributeValue as exc:
@@ -422,7 +429,7 @@ def update_attribute_value(
 ) -> AttributeValueResponse:
     try:
         attribute_value = attribute_values.update_attribute_value(
-            db, attribute_value_id, payload.value
+            db, attribute_value_id, payload.value, _actor.id
         )
     except AttributeValueNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Valor de atributo no encontrado") from exc
@@ -463,6 +470,7 @@ def create_product(
             payload.category_id,
             payload.unit_id,
             payload.name,
+            _actor.id,
             variants=_to_variant_inputs(payload.variants),
         )
     except CategoryNotFound as exc:
@@ -513,6 +521,7 @@ def update_product(
         product = products.update_product(
             db,
             product_id,
+            _actor.id,
             name=payload.name,
             category_id=payload.category_id,
             unit_id=payload.unit_id,
@@ -543,10 +552,16 @@ def add_variant(
 ) -> VariantCreationResponse:
     try:
         variant, duplicates = products.add_variant(
-            db, product_id, label=payload.label, attribute_value_ids=payload.attribute_value_ids
+            db,
+            product_id,
+            _actor.id,
+            label=payload.label,
+            attribute_value_ids=payload.attribute_value_ids,
         )
     except ProductNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
+    except ImplicitVariantNeedsLabel as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     except InvalidAttributeValue as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 
@@ -571,6 +586,7 @@ def update_variant(
         variant, duplicates = products.update_variant(
             db,
             variant_id,
+            _actor.id,
             label=payload.label,
             attribute_value_ids=payload.attribute_value_ids,
         )

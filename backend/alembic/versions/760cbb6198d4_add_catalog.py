@@ -7,6 +7,7 @@ Create Date: 2026-09-02 00:00:00.000000
 """
 
 from collections.abc import Sequence
+from datetime import UTC, datetime
 
 import sqlalchemy as sa
 
@@ -31,7 +32,7 @@ INITIAL_ATTRIBUTE_VALUES = (
     "Blanco",
     "Negro",
     "Gris",
-    "Marron",
+    "Marrón",
     "Beige",
 )
 
@@ -43,6 +44,10 @@ def upgrade() -> None:
         sa.Column("organization_id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("status", sa.String(length=20), nullable=False),
+        sa.Column("created_by_account_id", sa.Integer(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_by_account_id", sa.Integer(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint(
             "status IN ('active', 'inactive')", name=op.f("ck_category_status_valid")
         ),
@@ -51,10 +56,18 @@ def upgrade() -> None:
             ["organization.id"],
             name=op.f("fk_category_organization_id_organization"),
         ),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk_category")),
-        sa.UniqueConstraint(
-            "organization_id", "name", name="uq_category_organization_id_name"
+        sa.ForeignKeyConstraint(
+            ["created_by_account_id"],
+            ["account.id"],
+            name=op.f("fk_category_created_by_account_id_account"),
         ),
+        sa.ForeignKeyConstraint(
+            ["updated_by_account_id"],
+            ["account.id"],
+            name=op.f("fk_category_updated_by_account_id_account"),
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_category")),
+        sa.UniqueConstraint("organization_id", "name", name="uq_category_organization_id_name"),
     )
 
     op.create_table(
@@ -65,11 +78,25 @@ def upgrade() -> None:
         sa.Column("abbreviation", sa.String(length=20), nullable=False),
         sa.Column("allows_fraction", sa.Boolean(), nullable=False),
         sa.Column("status", sa.String(length=20), nullable=False),
+        sa.Column("created_by_account_id", sa.Integer(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_by_account_id", sa.Integer(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint("status IN ('active', 'inactive')", name=op.f("ck_unit_status_valid")),
         sa.ForeignKeyConstraint(
             ["organization_id"],
             ["organization.id"],
             name=op.f("fk_unit_organization_id_organization"),
+        ),
+        sa.ForeignKeyConstraint(
+            ["created_by_account_id"],
+            ["account.id"],
+            name=op.f("fk_unit_created_by_account_id_account"),
+        ),
+        sa.ForeignKeyConstraint(
+            ["updated_by_account_id"],
+            ["account.id"],
+            name=op.f("fk_unit_updated_by_account_id_account"),
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_unit")),
         sa.UniqueConstraint("organization_id", "name", name="uq_unit_organization_id_name"),
@@ -81,6 +108,10 @@ def upgrade() -> None:
         sa.Column("organization_id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("status", sa.String(length=20), nullable=False),
+        sa.Column("created_by_account_id", sa.Integer(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_by_account_id", sa.Integer(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint(
             "status IN ('active', 'inactive')", name=op.f("ck_attribute_status_valid")
         ),
@@ -89,10 +120,18 @@ def upgrade() -> None:
             ["organization.id"],
             name=op.f("fk_attribute_organization_id_organization"),
         ),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk_attribute")),
-        sa.UniqueConstraint(
-            "organization_id", "name", name="uq_attribute_organization_id_name"
+        sa.ForeignKeyConstraint(
+            ["created_by_account_id"],
+            ["account.id"],
+            name=op.f("fk_attribute_created_by_account_id_account"),
         ),
+        sa.ForeignKeyConstraint(
+            ["updated_by_account_id"],
+            ["account.id"],
+            name=op.f("fk_attribute_updated_by_account_id_account"),
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_attribute")),
+        sa.UniqueConstraint("organization_id", "name", name="uq_attribute_organization_id_name"),
     )
 
     op.create_table(
@@ -102,6 +141,10 @@ def upgrade() -> None:
         sa.Column("value", sa.String(length=255), nullable=False),
         sa.Column("normalized_value", sa.String(length=255), nullable=False),
         sa.Column("status", sa.String(length=20), nullable=False),
+        sa.Column("created_by_account_id", sa.Integer(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_by_account_id", sa.Integer(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint(
             "status IN ('active', 'inactive')", name=op.f("ck_attribute_value_status_valid")
         ),
@@ -109,6 +152,16 @@ def upgrade() -> None:
             ["attribute_id"],
             ["attribute.id"],
             name=op.f("fk_attribute_value_attribute_id_attribute"),
+        ),
+        sa.ForeignKeyConstraint(
+            ["created_by_account_id"],
+            ["account.id"],
+            name=op.f("fk_attribute_value_created_by_account_id_account"),
+        ),
+        sa.ForeignKeyConstraint(
+            ["updated_by_account_id"],
+            ["account.id"],
+            name=op.f("fk_attribute_value_updated_by_account_id_account"),
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_attribute_value")),
     )
@@ -128,6 +181,10 @@ def upgrade() -> None:
         sa.Column("unit_id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("status", sa.String(length=20), nullable=False),
+        sa.Column("created_by_account_id", sa.Integer(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_by_account_id", sa.Integer(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint(
             "status IN ('active', 'inactive')", name=op.f("ck_product_status_valid")
         ),
@@ -140,6 +197,16 @@ def upgrade() -> None:
             ["category_id"], ["category.id"], name=op.f("fk_product_category_id_category")
         ),
         sa.ForeignKeyConstraint(["unit_id"], ["unit.id"], name=op.f("fk_product_unit_id_unit")),
+        sa.ForeignKeyConstraint(
+            ["created_by_account_id"],
+            ["account.id"],
+            name=op.f("fk_product_created_by_account_id_account"),
+        ),
+        sa.ForeignKeyConstraint(
+            ["updated_by_account_id"],
+            ["account.id"],
+            name=op.f("fk_product_updated_by_account_id_account"),
+        ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_product")),
     )
 
@@ -150,11 +217,25 @@ def upgrade() -> None:
         sa.Column("label", sa.String(length=255), nullable=True),
         sa.Column("is_implicit", sa.Boolean(), nullable=False),
         sa.Column("status", sa.String(length=20), nullable=False),
+        sa.Column("created_by_account_id", sa.Integer(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_by_account_id", sa.Integer(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint(
             "status IN ('active', 'inactive')", name=op.f("ck_variant_status_valid")
         ),
         sa.ForeignKeyConstraint(
             ["product_id"], ["product.id"], name=op.f("fk_variant_product_id_product")
+        ),
+        sa.ForeignKeyConstraint(
+            ["created_by_account_id"],
+            ["account.id"],
+            name=op.f("fk_variant_created_by_account_id_account"),
+        ),
+        sa.ForeignKeyConstraint(
+            ["updated_by_account_id"],
+            ["account.id"],
+            name=op.f("fk_variant_updated_by_account_id_account"),
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_variant")),
     )
@@ -183,9 +264,13 @@ def upgrade() -> None:
 
 def _seed_color_attribute() -> None:
     bind = op.get_bind()
+    now = datetime.now(UTC)
 
     organization_table = sa.table("organization", sa.column("id", sa.Integer))
     organization_id = bind.execute(sa.select(organization_table.c.id)).scalar_one()
+
+    account_table = sa.table("account", sa.column("id", sa.Integer))
+    account_id = bind.execute(sa.select(account_table.c.id)).scalar_one()
 
     attribute_table = sa.table(
         "attribute",
@@ -193,10 +278,22 @@ def _seed_color_attribute() -> None:
         sa.column("organization_id", sa.Integer),
         sa.column("name", sa.String),
         sa.column("status", sa.String),
+        sa.column("created_by_account_id", sa.Integer),
+        sa.column("created_at", sa.DateTime(timezone=True)),
+        sa.column("updated_by_account_id", sa.Integer),
+        sa.column("updated_at", sa.DateTime(timezone=True)),
     )
     attribute_id = bind.execute(
         attribute_table.insert().returning(attribute_table.c.id),
-        {"organization_id": organization_id, "name": ATTRIBUTE_NAME, "status": "active"},
+        {
+            "organization_id": organization_id,
+            "name": ATTRIBUTE_NAME,
+            "status": "active",
+            "created_by_account_id": account_id,
+            "created_at": now,
+            "updated_by_account_id": account_id,
+            "updated_at": now,
+        },
     ).scalar_one()
 
     attribute_value_table = sa.table(
@@ -205,6 +302,10 @@ def _seed_color_attribute() -> None:
         sa.column("value", sa.String),
         sa.column("normalized_value", sa.String),
         sa.column("status", sa.String),
+        sa.column("created_by_account_id", sa.Integer),
+        sa.column("created_at", sa.DateTime(timezone=True)),
+        sa.column("updated_by_account_id", sa.Integer),
+        sa.column("updated_at", sa.DateTime(timezone=True)),
     )
     bind.execute(
         attribute_value_table.insert(),
@@ -214,6 +315,10 @@ def _seed_color_attribute() -> None:
                 "value": value,
                 "normalized_value": normalize_for_comparison(value),
                 "status": "active",
+                "created_by_account_id": account_id,
+                "created_at": now,
+                "updated_by_account_id": account_id,
+                "updated_at": now,
             }
             for value in INITIAL_ATTRIBUTE_VALUES
         ],

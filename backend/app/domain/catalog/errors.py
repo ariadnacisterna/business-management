@@ -48,3 +48,7 @@ class ProductNotFound(CatalogError):
 
 class VariantNotFound(CatalogError):
     pass
+
+
+class ImplicitVariantNeedsLabel(CatalogError):
+    pass

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.constants.limits import NAME_MAX_LENGTH, STATUS_MAX_LENGTH
 from app.constants.status import EntityStatus
+from app.db.audit_mixin import AuditedMixin
 from app.db.base import Base
 from app.db.constraints import status_check_constraint
 
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
     from app.db.models.variant import Variant
 
 
-class AttributeValue(Base):
+class AttributeValue(Base, AuditedMixin):
     __tablename__ = "attribute_value"
     __table_args__ = (
         status_check_constraint(),

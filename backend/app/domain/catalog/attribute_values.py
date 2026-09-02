@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -33,17 +35,24 @@ def _check_duplicate_value(
             raise DuplicateAttributeValue
 
 
-def create_attribute_value(db: Session, attribute_id: int, value: str) -> AttributeValue:
+def create_attribute_value(
+    db: Session, attribute_id: int, value: str, actor_account_id: int
+) -> AttributeValue:
     attribute = get_attribute(db, attribute_id)
     value = _validate_value(value)
     normalized_value = normalize_for_comparison(value)
     _check_duplicate_value(db, attribute.id, normalized_value)
 
+    now = datetime.now(UTC)
     attribute_value = AttributeValue(
         attribute_id=attribute.id,
         value=value,
         normalized_value=normalized_value,
         status=EntityStatus.ACTIVE.value,
+        created_by_account_id=actor_account_id,
+        created_at=now,
+        updated_by_account_id=actor_account_id,
+        updated_at=now,
     )
     db.add(attribute_value)
     db.commit()
@@ -51,7 +60,9 @@ def create_attribute_value(db: Session, attribute_id: int, value: str) -> Attrib
     return attribute_value
 
 
-def update_attribute_value(db: Session, attribute_value_id: int, value: str) -> AttributeValue:
+def update_attribute_value(
+    db: Session, attribute_value_id: int, value: str, actor_account_id: int
+) -> AttributeValue:
     attribute_value = get_attribute_value(db, attribute_value_id)
     value = _validate_value(value)
     normalized_value = normalize_for_comparison(value)
@@ -61,6 +72,8 @@ def update_attribute_value(db: Session, attribute_value_id: int, value: str) -> 
 
     attribute_value.value = value
     attribute_value.normalized_value = normalized_value
+    attribute_value.updated_by_account_id = actor_account_id
+    attribute_value.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(attribute_value)
     return attribute_value

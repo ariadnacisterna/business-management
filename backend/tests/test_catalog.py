@@ -292,7 +292,34 @@ def test_create_product_warns_about_possible_duplicate_variant(client):
     assert len(body["possible_duplicates"]) == 1
 
 
-def test_add_variant_clears_implicit_flag_on_existing_variant(client):
+def test_add_variant_rejects_unlabeled_implicit_variant(client):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Bebidas")
+    unit = _create_unit(client, admin_cookies, "Unidad bebida", "ub", False)
+
+    created = client.post(
+        "/products",
+        json={
+            "name": "Gaseosa cola",
+            "category_id": category["id"],
+            "unit_id": unit["id"],
+        },
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    ).json()
+    product_id = created["product"]["id"]
+
+    response = client.post(
+        f"/products/{product_id}/variants",
+        json={"label": "1.5 litros"},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 422, response.text
+
+
+def test_labeling_the_implicit_variant_allows_adding_a_new_one(client):
     admin_cookies = _admin_cookies(client)
     category = _create_category(client, admin_cookies, "Bebidas")
     unit = _create_unit(client, admin_cookies, "Unidad bebida", "ub", False)
@@ -310,6 +337,15 @@ def test_add_variant_clears_implicit_flag_on_existing_variant(client):
     product_id = created["product"]["id"]
     implicit_variant_id = created["product"]["variants"][0]["id"]
 
+    label_response = client.patch(
+        f"/variants/{implicit_variant_id}",
+        json={"label": "1 litro"},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+    assert label_response.status_code == 200, label_response.text
+    assert label_response.json()["variant"]["is_implicit"] is False
+
     response = client.post(
         f"/products/{product_id}/variants",
         json={"label": "1.5 litros"},
@@ -319,8 +355,8 @@ def test_add_variant_clears_implicit_flag_on_existing_variant(client):
     assert response.status_code == 201, response.text
 
     product = client.get(f"/products/{product_id}", cookies=admin_cookies).json()
-    updated_implicit = next(v for v in product["variants"] if v["id"] == implicit_variant_id)
-    assert updated_implicit["is_implicit"] is False
+    labels = {variant["label"] for variant in product["variants"]}
+    assert labels == {"1 litro", "1.5 litros"}
 
 
 def test_update_variant_changes_label_and_attribute_values(client):

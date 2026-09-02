@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -8,6 +9,7 @@ from app.core.text import normalize_for_comparison
 from app.db.models import AttributeValue, Category, Product, Unit, Variant
 from app.domain.catalog.errors import (
     CategoryNotFound,
+    ImplicitVariantNeedsLabel,
     InvalidAttributeValue,
     InvalidCatalogInput,
     ProductNotFound,
@@ -70,17 +72,26 @@ def _resolve_attribute_values(db: Session, attribute_value_ids: list[int]) -> li
 
 
 def _build_variant(
-    db: Session, product: Product, variant_input: VariantInput, is_implicit: bool
+    db: Session,
+    product: Product,
+    variant_input: VariantInput,
+    is_implicit: bool,
+    actor_account_id: int,
 ) -> Variant:
     label = _normalize_label(variant_input.label)
     attribute_values = _resolve_attribute_values(db, variant_input.attribute_value_ids)
 
+    now = datetime.now(UTC)
     variant = Variant(
         product_id=product.id,
         label=label,
         is_implicit=is_implicit,
         status=EntityStatus.ACTIVE.value,
         attribute_values=attribute_values,
+        created_by_account_id=actor_account_id,
+        created_at=now,
+        updated_by_account_id=actor_account_id,
+        updated_at=now,
     )
     db.add(variant)
     db.flush()
@@ -130,18 +141,24 @@ def create_product(
     category_id: int,
     unit_id: int,
     name: str,
+    actor_account_id: int,
     variants: list[VariantInput] | None = None,
 ) -> tuple[Product, list[Variant], list[Variant]]:
     name = _validate_name(name)
     category = _get_category(db, category_id, organization_id)
     unit = _get_unit(db, unit_id, organization_id)
 
+    now = datetime.now(UTC)
     product = Product(
         organization_id=organization_id,
         category_id=category.id,
         unit_id=unit.id,
         name=name,
         status=EntityStatus.ACTIVE.value,
+        created_by_account_id=actor_account_id,
+        created_at=now,
+        updated_by_account_id=actor_account_id,
+        updated_at=now,
     )
     db.add(product)
     db.flush()
@@ -150,7 +167,8 @@ def create_product(
     variant_inputs = variants if variants else [VariantInput()]
 
     created_variants = [
-        _build_variant(db, product, variant_input, is_implicit) for variant_input in variant_inputs
+        _build_variant(db, product, variant_input, is_implicit, actor_account_id)
+        for variant_input in variant_inputs
     ]
 
     possible_duplicates = []
@@ -175,6 +193,7 @@ def create_product(
 def update_product(
     db: Session,
     product_id: int,
+    actor_account_id: int,
     name: str | None = None,
     category_id: int | None = None,
     unit_id: int | None = None,
@@ -192,6 +211,8 @@ def update_product(
         unit = _get_unit(db, unit_id, product.organization_id)
         product.unit_id = unit.id
 
+    product.updated_by_account_id = actor_account_id
+    product.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(product)
     return product
@@ -200,17 +221,26 @@ def update_product(
 def add_variant(
     db: Session,
     product_id: int,
+    actor_account_id: int,
     label: str | None = None,
     attribute_value_ids: list[int] | None = None,
 ) -> tuple[Variant, list[Variant]]:
     product = get_product(db, product_id)
 
-    existing_implicit_variants = [variant for variant in product.variants if variant.is_implicit]
-    for implicit_variant in existing_implicit_variants:
-        implicit_variant.is_implicit = False
+    unlabeled_implicit_variants = [
+        variant for variant in product.variants if variant.is_implicit and variant.label is None
+    ]
+    if unlabeled_implicit_variants:
+        raise ImplicitVariantNeedsLabel(
+            "El producto tiene una variante implicita sin nombre: asignale un nombre con "
+            "update_variant antes de agregar una nueva variante"
+        )
 
     variant_input = VariantInput(label=label, attribute_value_ids=attribute_value_ids or [])
-    variant = _build_variant(db, product, variant_input, is_implicit=False)
+    variant = _build_variant(
+        db, product, variant_input, is_implicit=False, actor_account_id=actor_account_id
+    )
+    db.expire(product, ["variants"])
 
     attribute_value_ids_set = {value.id for value in variant.attribute_values}
     duplicates = find_possible_duplicates(
@@ -230,6 +260,7 @@ def add_variant(
 def update_variant(
     db: Session,
     variant_id: int,
+    actor_account_id: int,
     label: str | None = None,
     attribute_value_ids: list[int] | None = None,
 ) -> tuple[Variant, list[Variant]]:
@@ -237,10 +268,14 @@ def update_variant(
 
     if label is not None:
         variant.label = _normalize_label(label)
+        if variant.label is not None:
+            variant.is_implicit = False
 
     if attribute_value_ids is not None:
         variant.attribute_values = _resolve_attribute_values(db, attribute_value_ids)
 
+    variant.updated_by_account_id = actor_account_id
+    variant.updated_at = datetime.now(UTC)
     db.flush()
 
     attribute_value_ids_set = {value.id for value in variant.attribute_values}
@@ -261,9 +296,7 @@ def update_variant(
 def list_products(db: Session, organization_id: int) -> list[Product]:
     return list(
         db.scalars(
-            select(Product)
-            .where(Product.organization_id == organization_id)
-            .order_by(Product.name)
+            select(Product).where(Product.organization_id == organization_id).order_by(Product.name)
         ).all()
     )
 

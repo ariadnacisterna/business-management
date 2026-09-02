@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -34,18 +36,28 @@ def _check_duplicate_name(
 
 
 def create_unit(
-    db: Session, organization_id: int, name: str, abbreviation: str, allows_fraction: bool = False
+    db: Session,
+    organization_id: int,
+    name: str,
+    abbreviation: str,
+    actor_account_id: int,
+    allows_fraction: bool = False,
 ) -> Unit:
     name = _validate_name(name)
     abbreviation = _validate_abbreviation(abbreviation)
     _check_duplicate_name(db, organization_id, name)
 
+    now = datetime.now(UTC)
     unit = Unit(
         organization_id=organization_id,
         name=name,
         abbreviation=abbreviation,
         allows_fraction=allows_fraction,
         status=EntityStatus.ACTIVE.value,
+        created_by_account_id=actor_account_id,
+        created_at=now,
+        updated_by_account_id=actor_account_id,
+        updated_at=now,
     )
     db.add(unit)
     db.commit()
@@ -56,6 +68,7 @@ def create_unit(
 def update_unit(
     db: Session,
     unit_id: int,
+    actor_account_id: int,
     name: str | None = None,
     abbreviation: str | None = None,
     allows_fraction: bool | None = None,
@@ -73,6 +86,8 @@ def update_unit(
     if allows_fraction is not None:
         unit.allows_fraction = allows_fraction
 
+    unit.updated_by_account_id = actor_account_id
+    unit.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(unit)
     return unit

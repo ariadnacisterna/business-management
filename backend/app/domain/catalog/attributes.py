@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -22,12 +24,21 @@ def _check_duplicate_name(db: Session, organization_id: int, name: str) -> None:
             raise DuplicateAttributeName
 
 
-def create_attribute(db: Session, organization_id: int, name: str) -> Attribute:
+def create_attribute(
+    db: Session, organization_id: int, name: str, actor_account_id: int
+) -> Attribute:
     name = _validate_name(name)
     _check_duplicate_name(db, organization_id, name)
 
+    now = datetime.now(UTC)
     attribute = Attribute(
-        organization_id=organization_id, name=name, status=EntityStatus.ACTIVE.value
+        organization_id=organization_id,
+        name=name,
+        status=EntityStatus.ACTIVE.value,
+        created_by_account_id=actor_account_id,
+        created_at=now,
+        updated_by_account_id=actor_account_id,
+        updated_at=now,
     )
     db.add(attribute)
     db.commit()
