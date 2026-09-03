@@ -22,14 +22,24 @@ def _validate_amount(amount: Decimal) -> Decimal:
     return amount
 
 
-def _get_current_price(db: Session, variant_id: int, business_id: int) -> Price | None:
-    return db.scalars(
+def get_current_prices_for_variants(
+    db: Session, variant_ids: list[int], business_id: int
+) -> dict[int, Price]:
+    if not variant_ids:
+        return {}
+
+    rows = db.scalars(
         select(Price).where(
-            Price.variant_id == variant_id,
+            Price.variant_id.in_(variant_ids),
             Price.business_id == business_id,
             Price.effective_to.is_(None),
         )
-    ).first()
+    ).all()
+    return {price.variant_id: price for price in rows}
+
+
+def _get_current_price(db: Session, variant_id: int, business_id: int) -> Price | None:
+    return get_current_prices_for_variants(db, [variant_id], business_id).get(variant_id)
 
 
 def _current_price_id(current_price: Price | None) -> int | None:
