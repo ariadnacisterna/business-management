@@ -35,7 +35,7 @@ def _check_duplicate_name(
             raise DuplicateUnitName
 
 
-def create_unit(
+def _build_unit(
     db: Session,
     organization_id: int,
     name: str,
@@ -60,6 +60,19 @@ def create_unit(
         updated_at=now,
     )
     db.add(unit)
+    db.flush()
+    return unit
+
+
+def create_unit(
+    db: Session,
+    organization_id: int,
+    name: str,
+    abbreviation: str,
+    actor_account_id: int,
+    allows_fraction: bool = False,
+) -> Unit:
+    unit = _build_unit(db, organization_id, name, abbreviation, actor_account_id, allows_fraction)
     db.commit()
     db.refresh(unit)
     return unit

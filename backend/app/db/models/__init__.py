@@ -5,6 +5,7 @@ from app.db.models.attribute_value import AttributeValue
 from app.db.models.business import Business
 from app.db.models.business_access import BusinessAccess
 from app.db.models.category import Category
+from app.db.models.import_run import ImportRun
 from app.db.models.organization import Organization
 from app.db.models.price import Price
 from app.db.models.product import Product
@@ -21,6 +22,7 @@ __all__ = [
     "Business",
     "BusinessAccess",
     "Category",
+    "ImportRun",
     "Organization",
     "Price",
     "Product",

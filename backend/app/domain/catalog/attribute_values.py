@@ -35,7 +35,7 @@ def _check_duplicate_value(
             raise DuplicateAttributeValue
 
 
-def create_attribute_value(
+def _build_attribute_value(
     db: Session, attribute_id: int, value: str, actor_account_id: int
 ) -> AttributeValue:
     attribute = get_attribute(db, attribute_id)
@@ -55,6 +55,14 @@ def create_attribute_value(
         updated_at=now,
     )
     db.add(attribute_value)
+    db.flush()
+    return attribute_value
+
+
+def create_attribute_value(
+    db: Session, attribute_id: int, value: str, actor_account_id: int
+) -> AttributeValue:
+    attribute_value = _build_attribute_value(db, attribute_id, value, actor_account_id)
     db.commit()
     db.refresh(attribute_value)
     return attribute_value

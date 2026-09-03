@@ -378,8 +378,37 @@ publicable en ese negocio.
 
 El análisis generará una vista previa identificable y no modificará el catálogo.
 La confirmación comprobará que la vista previa sigue siendo aplicable antes de
-escribir. Queda pendiente decidir si una importación con errores debe ser
-atómica o puede aplicar solo filas válidas.
+escribir. La importación es atómica (D-036): si el análisis encuentra alguna
+fila inválida, no se aplica ninguna fila hasta que el archivo se corrija y
+se vuelva a analizar.
+
+#### Plantilla (provisional, PT-007)
+
+Cada fila de la planilla representa una variante con su precio (CU-09); las
+filas de un mismo producto se agrupan por `category` + `product_name`.
+
+| Columna | Obligatoria | Contenido |
+|---|---|---|
+| `category` | Sí | Nombre de una categoría de la organización. Si no existe, se crea como parte de la importación (alta). |
+| `product_name` | Sí | Nombre del producto. |
+| `unit` | Sí | Nombre de una unidad de la organización. Si no existe, se crea como parte de la importación (alta). |
+| `variant_label` | No | Nombre de la variante. Vacío si el producto agrupa una sola fila (variante implícita, RN-026); obligatorio si agrupa más de una. |
+| `attributes` | No | Pares `atributo=valor` separados por `;` (ejemplo: `color=Rojo`). El atributo (`color`) debe existir ya en el catálogo; si el valor (`Rojo`) no existe, se crea como parte de la importación (RN-020). Fila inválida si el atributo indicado no existe. |
+| `price` | Sí | Importe en ARS, estrictamente mayor que cero (RN-024). |
+
+Cada negocio adapta el sistema a su rubro con su propio catálogo (D-023); un
+negocio nuevo puede no tener categorías, unidades ni valores de atributo
+todavía. Por eso la planilla es el punto de partida del catálogo, no una
+carga sobre uno ya armado a mano: categorías, unidades y valores de atributo
+que no existan se dan de alta como parte de la importación, y la vista
+previa los distingue como altas de taxonomía (no solo de producto/variante).
+Los **atributos** en sí (el tipo, por ejemplo `color` o `talle`, no sus
+valores) quedan fuera de la planilla: se crean con los endpoints de gestión
+de atributos ya existentes (T-003) antes de importar, porque es una decisión
+más estructural y menos frecuente que dar de alta una categoría o un valor.
+
+Sigue siendo provisional: se ajustará cuando exista una muestra real de datos
+del negocio piloto (DP-001, DP-002).
 
 ## Búsqueda
 
@@ -476,7 +505,7 @@ Antes de considerar lista la implementación se necesitarán:
 | PT-004 | Monolito modular con una aplicación y PostgreSQL | Aprobado |
 | PT-005 | Sesiones opacas del lado del servidor, con cookie protegida, para la SPA y el resto de clientes | Aprobado |
 | PT-006 | Mantener provisional el uso concreto de JSONB frente a atributos normalizados | Pendiente de datos reales |
-| PT-007 | Mantener provisional la plantilla y atomicidad de la importación | Pendiente de datos reales |
+| PT-007 | Plantilla y atomicidad de la importación (ver [Importación](#importación)) | Atomicidad decidida (D-036); plantilla provisional, pendiente de ajustar con datos reales |
 | PT-008 | Índice único parcial sobre variante y negocio para el precio vigente | Aprobado |
 | PT-009 | Referencia al negocio en todas las tablas dependientes desde la primera migración | Aprobado |
 | PT-010 | Sin aislamiento a nivel de base de datos mientras exista un único titular | Aprobado |
@@ -498,10 +527,10 @@ Antes de considerar lista la implementación se necesitarán:
 4. **¿Se aprueban PT-008 a PT-010?** Sí, junto con el resto del conjunto. Ver
    D-026.
 
-Sigue sin ser necesario responder qué variantes tiene cada producto ni la
-política de filas inválidas de una importación: ambas decisiones esperan la
-muestra real (DP-001, DP-003) y no bloquean comenzar a programar el resto del
-sistema.
+Sigue sin ser necesario responder qué variantes tiene cada producto: esa
+decisión espera la muestra real (DP-001) y no bloquea comenzar a programar el
+resto del sistema. La política de filas inválidas de una importación ya se
+resolvió sin esperar la muestra (D-036).
 
 ## Fuentes técnicas consultadas
 

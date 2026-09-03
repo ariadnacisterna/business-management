@@ -28,7 +28,7 @@ def _check_duplicate_name(
             raise DuplicateCategoryName
 
 
-def create_category(
+def _build_category(
     db: Session, organization_id: int, name: str, actor_account_id: int
 ) -> Category:
     name = _validate_name(name)
@@ -45,6 +45,14 @@ def create_category(
         updated_at=now,
     )
     db.add(category)
+    db.flush()
+    return category
+
+
+def create_category(
+    db: Session, organization_id: int, name: str, actor_account_id: int
+) -> Category:
+    category = _build_category(db, organization_id, name, actor_account_id)
     db.commit()
     db.refresh(category)
     return category

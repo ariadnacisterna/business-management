@@ -135,7 +135,7 @@ def find_possible_duplicates(
     return duplicates
 
 
-def create_product(
+def _create_product_core(
     db: Session,
     organization_id: int,
     category_id: int,
@@ -185,6 +185,21 @@ def create_product(
             )
         )
 
+    return product, created_variants, possible_duplicates
+
+
+def create_product(
+    db: Session,
+    organization_id: int,
+    category_id: int,
+    unit_id: int,
+    name: str,
+    actor_account_id: int,
+    variants: list[VariantInput] | None = None,
+) -> tuple[Product, list[Variant], list[Variant]]:
+    product, created_variants, possible_duplicates = _create_product_core(
+        db, organization_id, category_id, unit_id, name, actor_account_id, variants
+    )
     db.commit()
     db.refresh(product)
     return product, created_variants, possible_duplicates
@@ -218,7 +233,7 @@ def update_product(
     return product
 
 
-def add_variant(
+def _add_variant_core(
     db: Session,
     product_id: int,
     actor_account_id: int,
@@ -252,6 +267,19 @@ def add_variant(
         exclude_variant_id=variant.id,
     )
 
+    return variant, duplicates
+
+
+def add_variant(
+    db: Session,
+    product_id: int,
+    actor_account_id: int,
+    label: str | None = None,
+    attribute_value_ids: list[int] | None = None,
+) -> tuple[Variant, list[Variant]]:
+    variant, duplicates = _add_variant_core(
+        db, product_id, actor_account_id, label, attribute_value_ids
+    )
     db.commit()
     db.refresh(variant)
     return variant, duplicates
