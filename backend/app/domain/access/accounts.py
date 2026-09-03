@@ -152,8 +152,18 @@ def reset_password(db: Session, account_id: int, new_password: str) -> Account:
     return account
 
 
-def list_accounts(db: Session) -> list[Account]:
-    return list(db.scalars(select(Account).order_by(Account.id)).all())
+def list_accounts(db: Session, business_id: int) -> list[Account]:
+    return list(
+        db.scalars(
+            select(Account)
+            .join(BusinessAccess, BusinessAccess.account_id == Account.id)
+            .where(
+                BusinessAccess.business_id == business_id,
+                BusinessAccess.status == EntityStatus.ACTIVE.value,
+            )
+            .order_by(Account.id)
+        ).all()
+    )
 
 
 def get_account(db: Session, account_id: int) -> Account:

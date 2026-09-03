@@ -292,3 +292,46 @@ def test_account_with_single_business_access_cannot_see_the_other_business_price
     ]
     assert len(matching) == 1
     assert matching[0]["price_amount"] == "150.00"
+
+
+def test_account_listing_is_scoped_to_the_active_business(client, db_session):
+    admin_cookies = _admin_cookies(client)
+    admin_account_id = _admin_account_id(db_session)
+    first_business_id = _first_business_id(db_session)
+    second_business = _create_second_business(db_session)
+    _grant_access(db_session, admin_account_id, second_business.id, ADMINISTRADOR)
+
+    _create_account(client, admin_cookies, "empleada-negocio-a", EMPLEADO)
+
+    switch = client.post(
+        "/auth/active-business",
+        json={"business_id": second_business.id},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+    assert switch.status_code == 200
+    _create_account(client, admin_cookies, "empleada-negocio-b", EMPLEADO)
+
+    listing_in_second_business = client.get("/accounts", cookies=admin_cookies)
+    user_names_in_second = {account["user_name"] for account in listing_in_second_business.json()}
+    assert "empleada-negocio-b" in user_names_in_second
+    assert "empleada-negocio-a" not in user_names_in_second
+
+    client.post(
+        "/auth/active-business",
+        json={"business_id": first_business_id},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+    listing_in_first_business = client.get("/accounts", cookies=admin_cookies)
+    user_names_in_first = {account["user_name"] for account in listing_in_first_business.json()}
+    assert "empleada-negocio-a" in user_names_in_first
+    assert "empleada-negocio-b" not in user_names_in_first
+
+    admin_in_listing = next(
+        account for account in listing_in_first_business.json() if account["id"] == admin_account_id
+    )
+    assert {business["id"] for business in admin_in_listing["businesses"]} == {
+        first_business_id,
+        second_business.id,
+    }

@@ -2,7 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.constants.access import CSRF_COOKIE_NAME, SESSION_COOKIE_NAME
+from app.constants.access import (
+    BUSINESS_NOT_ACCESSIBLE_DETAIL,
+    CSRF_COOKIE_NAME,
+    NO_BUSINESS_ACCESS_DETAIL,
+    SESSION_COOKIE_NAME,
+)
 from app.constants.roles import ADMINISTRADOR
 from app.core.config import get_settings
 from app.db.models import Account, AccountSession, Business
@@ -40,23 +45,23 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class AccountResponse(BaseModel):
-    id: int
-    name: str
-    user_name: str
-    status: str
-    role: str | None
-
-
 class BusinessSummary(BaseModel):
     id: int
     name: str
     industry: str
 
 
+class AccountResponse(BaseModel):
+    id: int
+    name: str
+    user_name: str
+    status: str
+    role: str | None
+    businesses: list[BusinessSummary]
+
+
 class SessionInfoResponse(AccountResponse):
     active_business_id: int
-    businesses: list[BusinessSummary]
 
 
 class ChangeActiveBusinessRequest(BaseModel):
@@ -80,6 +85,13 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+def _business_summaries(db: Session, account_id: int) -> list[BusinessSummary]:
+    return [
+        BusinessSummary(id=item.id, name=item.name, industry=item.industry)
+        for item in list_accessible_businesses(db, account_id)
+    ]
+
+
 def _account_response(db: Session, account: Account, business: Business) -> AccountResponse:
     role = accounts.get_role_name(db, account.id, business.id)
     return AccountResponse(
@@ -88,6 +100,7 @@ def _account_response(db: Session, account: Account, business: Business) -> Acco
         user_name=account.user_name,
         status=account.status,
         role=role,
+        businesses=_business_summaries(db, account.id),
     )
 
 
@@ -95,7 +108,6 @@ def _session_info_response(
     db: Session, account: Account, business: Business
 ) -> SessionInfoResponse:
     role = accounts.get_role_name(db, account.id, business.id)
-    accessible = list_accessible_businesses(db, account.id)
     return SessionInfoResponse(
         id=account.id,
         name=account.name,
@@ -103,10 +115,7 @@ def _session_info_response(
         status=account.status,
         role=role,
         active_business_id=business.id,
-        businesses=[
-            BusinessSummary(id=item.id, name=item.name, industry=item.industry)
-            for item in accessible
-        ],
+        businesses=_business_summaries(db, account.id),
     )
 
 
@@ -152,9 +161,7 @@ def login(
     try:
         business = resolve_active_business(db, account.id, session.active_business_id)
     except NoBusinessAccess as exc:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN, "La cuenta no tiene acceso a ningun negocio"
-        ) from exc
+        raise HTTPException(status.HTTP_403_FORBIDDEN, NO_BUSINESS_ACCESS_DETAIL) from exc
 
     _set_session_cookies(response, session)
     return _session_info_response(db, account, business)
@@ -194,9 +201,7 @@ def change_active_business(
     try:
         business = set_active_business(db, account.id, session, payload.business_id)
     except BusinessNotAccessible as exc:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN, "La cuenta no tiene acceso a ese negocio"
-        ) from exc
+        raise HTTPException(status.HTTP_403_FORBIDDEN, BUSINESS_NOT_ACCESSIBLE_DETAIL) from exc
 
     return _session_info_response(db, account, business)
 
@@ -233,7 +238,10 @@ def list_accounts(
     _actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
 ) -> list[AccountResponse]:
-    return [_account_response(db, account, business) for account in accounts.list_accounts(db)]
+    return [
+        _account_response(db, account, business)
+        for account in accounts.list_accounts(db, business.id)
+    ]
 
 
 @router.get("/accounts/{account_id}", response_model=AccountResponse)
