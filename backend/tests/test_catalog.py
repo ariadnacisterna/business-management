@@ -72,6 +72,35 @@ def _get_color_attribute(client, cookies):
     return color, values_response.json()
 
 
+def _create_product(client, cookies, name, category_id, unit_id, variants=None):
+    payload = {"name": name, "category_id": category_id, "unit_id": unit_id}
+    if variants is not None:
+        payload["variants"] = variants
+    response = client.post(
+        "/products", json=payload, cookies=cookies, headers=_auth_headers(cookies)
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["product"]
+
+
+def _set_price(client, cookies, variant_id, amount):
+    response = client.put(
+        f"/variants/{variant_id}/price",
+        json={"amount": amount, "expected_current_price_id": None},
+        cookies=cookies,
+        headers=_auth_headers(cookies),
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def _search(client, cookies, q=None):
+    params = {}
+    if q is not None:
+        params["q"] = q
+    return client.get("/search", params=params, cookies=cookies)
+
+
 def test_color_attribute_is_preloaded_with_values(client):
     admin_cookies = _admin_cookies(client)
 
@@ -412,3 +441,195 @@ def test_create_product_rejects_repeated_attribute_on_same_variant(client):
     )
 
     assert response.status_code == 422
+
+
+def test_deactivate_product_hides_it_and_its_variants_from_search_without_changing_variant_status(
+    client,
+):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Merceria desactivacion")
+    unit = _create_unit(client, admin_cookies, "Metro desactivacion", "md2", True)
+    product = _create_product(
+        client,
+        admin_cookies,
+        "Cinta a desactivar",
+        category["id"],
+        unit["id"],
+        variants=[{"label": "Roja"}, {"label": "Azul"}],
+    )
+    red_variant_id = product["variants"][0]["id"]
+    blue_variant_id = product["variants"][1]["id"]
+    _set_price(client, admin_cookies, red_variant_id, "10.00")
+    _set_price(client, admin_cookies, blue_variant_id, "10.00")
+
+    response = client.post(
+        f"/products/{product['id']}/deactivate",
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "inactive"
+
+    search_response = _search(client, admin_cookies, q="cinta a desactivar")
+    assert search_response.status_code == 200, search_response.text
+    assert search_response.json()["results"] == []
+
+    product_after = client.get(f"/products/{product['id']}", cookies=admin_cookies).json()
+    assert all(variant["status"] == "active" for variant in product_after["variants"])
+
+
+def test_reactivate_product_makes_it_searchable_again(client):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Merceria reactivacion")
+    unit = _create_unit(client, admin_cookies, "Metro reactivacion", "mr2", True)
+    product = _create_product(
+        client, admin_cookies, "Cinta a reactivar", category["id"], unit["id"]
+    )
+    variant_id = product["variants"][0]["id"]
+    _set_price(client, admin_cookies, variant_id, "10.00")
+    deactivate_response = client.post(
+        f"/products/{product['id']}/deactivate",
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+    assert deactivate_response.status_code == 200, deactivate_response.text
+
+    response = client.post(
+        f"/products/{product['id']}/reactivate",
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "active"
+
+    search_response = _search(client, admin_cookies, q="cinta a reactivar")
+    assert search_response.status_code == 200, search_response.text
+    assert any(item["variant_id"] == variant_id for item in search_response.json()["results"])
+
+
+def test_deactivate_variant_does_not_affect_other_variants_of_same_product(client):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Merceria variante desactivacion")
+    unit = _create_unit(client, admin_cookies, "Metro variante desactivacion", "mvd", True)
+    product = _create_product(
+        client,
+        admin_cookies,
+        "Cinta con variantes",
+        category["id"],
+        unit["id"],
+        variants=[{"label": "Roja"}, {"label": "Azul"}],
+    )
+    red_variant_id = product["variants"][0]["id"]
+    blue_variant_id = product["variants"][1]["id"]
+
+    response = client.post(
+        f"/variants/{red_variant_id}/deactivate",
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "inactive"
+
+    product_after = client.get(f"/products/{product['id']}", cookies=admin_cookies).json()
+    statuses = {variant["id"]: variant["status"] for variant in product_after["variants"]}
+    assert statuses[red_variant_id] == "inactive"
+    assert statuses[blue_variant_id] == "active"
+
+
+def test_reactivate_variant(client):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Merceria variante reactivacion")
+    unit = _create_unit(client, admin_cookies, "Metro variante reactivacion", "mvr", True)
+    product = _create_product(
+        client, admin_cookies, "Cinta variante a reactivar", category["id"], unit["id"]
+    )
+    variant_id = product["variants"][0]["id"]
+    deactivate_response = client.post(
+        f"/variants/{variant_id}/deactivate",
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+    assert deactivate_response.status_code == 200, deactivate_response.text
+
+    response = client.post(
+        f"/variants/{variant_id}/reactivate",
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "active"
+
+
+def test_gerente_can_deactivate_and_reactivate_product(client):
+    admin_cookies = _admin_cookies(client)
+    gerente_cookies = _gerente_cookies(client, admin_cookies, "gerente-desactivacion")
+    category = _create_category(client, admin_cookies, "Merceria gerente desactivacion")
+    unit = _create_unit(client, admin_cookies, "Metro gerente desactivacion", "mg2", True)
+    product = _create_product(client, admin_cookies, "Cinta gerente", category["id"], unit["id"])
+
+    deactivate_response = client.post(
+        f"/products/{product['id']}/deactivate",
+        cookies=gerente_cookies,
+        headers=_auth_headers(gerente_cookies),
+    )
+    assert deactivate_response.status_code == 200, deactivate_response.text
+
+    reactivate_response = client.post(
+        f"/products/{product['id']}/reactivate",
+        cookies=gerente_cookies,
+        headers=_auth_headers(gerente_cookies),
+    )
+    assert reactivate_response.status_code == 200, reactivate_response.text
+
+
+def test_empleado_cannot_deactivate_product_or_variant(client):
+    admin_cookies = _admin_cookies(client)
+    empleado_cookies = _empleado_cookies(client, admin_cookies, "empleado-desactivacion")
+    category = _create_category(client, admin_cookies, "Merceria empleado desactivacion")
+    unit = _create_unit(client, admin_cookies, "Metro empleado desactivacion", "me2", True)
+    product = _create_product(
+        client, admin_cookies, "Cinta empleado desactivacion", category["id"], unit["id"]
+    )
+    variant_id = product["variants"][0]["id"]
+
+    product_response = client.post(
+        f"/products/{product['id']}/deactivate",
+        cookies=empleado_cookies,
+        headers=_auth_headers(empleado_cookies),
+    )
+    variant_response = client.post(
+        f"/variants/{variant_id}/deactivate",
+        cookies=empleado_cookies,
+        headers=_auth_headers(empleado_cookies),
+    )
+
+    assert product_response.status_code == 403
+    assert variant_response.status_code == 403
+
+
+def test_deactivate_and_reactivate_record_actor_and_timestamp(client, db_session):
+    from app.db.models import Account, Product
+
+    admin_cookies = _admin_cookies(client)
+    settings = get_settings()
+    category = _create_category(client, admin_cookies, "Merceria auditoria")
+    unit = _create_unit(client, admin_cookies, "Metro auditoria", "ma2", True)
+    product = _create_product(client, admin_cookies, "Cinta auditoria", category["id"], unit["id"])
+
+    response = client.post(
+        f"/products/{product['id']}/deactivate",
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+    assert response.status_code == 200, response.text
+
+    admin_account = (
+        db_session.query(Account).filter_by(user_name=settings.initial_admin_username).one()
+    )
+    stored_product = db_session.get(Product, product["id"])
+    assert stored_product.updated_by_account_id == admin_account.id
+    assert stored_product.updated_at is not None

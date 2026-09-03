@@ -539,6 +539,42 @@ def update_product(
 
 
 @router.post(
+    "/products/{product_id}/deactivate",
+    response_model=ProductResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def deactivate_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+) -> ProductResponse:
+    try:
+        product = products.deactivate_product(db, product_id, _actor.id)
+    except ProductNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
+
+    return _product_response(product)
+
+
+@router.post(
+    "/products/{product_id}/reactivate",
+    response_model=ProductResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def reactivate_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+) -> ProductResponse:
+    try:
+        product = products.reactivate_product(db, product_id, _actor.id)
+    except ProductNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
+
+    return _product_response(product)
+
+
+@router.post(
     "/products/{product_id}/variants",
     response_model=VariantCreationResponse,
     status_code=status.HTTP_201_CREATED,
@@ -569,6 +605,42 @@ def add_variant(
         variant=_variant_response(variant),
         possible_duplicates=[_variant_response(candidate) for candidate in duplicates],
     )
+
+
+@router.post(
+    "/variants/{variant_id}/deactivate",
+    response_model=VariantResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def deactivate_variant(
+    variant_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+) -> VariantResponse:
+    try:
+        variant = products.deactivate_variant(db, variant_id, _actor.id)
+    except VariantNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
+
+    return _variant_response(variant)
+
+
+@router.post(
+    "/variants/{variant_id}/reactivate",
+    response_model=VariantResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def reactivate_variant(
+    variant_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+) -> VariantResponse:
+    try:
+        variant = products.reactivate_variant(db, variant_id, _actor.id)
+    except VariantNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
+
+    return _variant_response(variant)
 
 
 @router.patch(

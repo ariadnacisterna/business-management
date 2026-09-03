@@ -293,6 +293,44 @@ def update_variant(
     return variant, duplicates
 
 
+def _set_status(entity: Product | Variant, new_status: EntityStatus, actor_account_id: int) -> None:
+    entity.status = new_status.value
+    entity.updated_by_account_id = actor_account_id
+    entity.updated_at = datetime.now(UTC)
+
+
+def deactivate_product(db: Session, product_id: int, actor_account_id: int) -> Product:
+    product = get_product(db, product_id)
+    _set_status(product, EntityStatus.INACTIVE, actor_account_id)
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+def reactivate_product(db: Session, product_id: int, actor_account_id: int) -> Product:
+    product = get_product(db, product_id)
+    _set_status(product, EntityStatus.ACTIVE, actor_account_id)
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+def deactivate_variant(db: Session, variant_id: int, actor_account_id: int) -> Variant:
+    variant = get_variant(db, variant_id)
+    _set_status(variant, EntityStatus.INACTIVE, actor_account_id)
+    db.commit()
+    db.refresh(variant)
+    return variant
+
+
+def reactivate_variant(db: Session, variant_id: int, actor_account_id: int) -> Variant:
+    variant = get_variant(db, variant_id)
+    _set_status(variant, EntityStatus.ACTIVE, actor_account_id)
+    db.commit()
+    db.refresh(variant)
+    return variant
+
+
 def list_products(db: Session, organization_id: int) -> list[Product]:
     return list(
         db.scalars(
