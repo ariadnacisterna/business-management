@@ -167,17 +167,21 @@ posible reconstruir los datos eliminados.
 El Responsable del proyecto optó por la **aplicación cliente separada con
 TypeScript**, aceptando conscientemente el costo de mantener dos stacks a
 cambio de una interfaz más rica y de una frontera API/interfaz más neta. La
-tecnología concreta del cliente (React u otra equivalente) queda por definir al
-iniciar la programación, sin que esa elección afecte al resto de este
-documento: la API se diseñó desde el principio para no devolver modelos ORM
-directamente ([SQLAlchemy frente a SQLModel](#sqlalchemy-frente-a-sqlmodel)),
-lo que la vuelve consumible por cualquier cliente.
+tecnología concreta del cliente es **React con Vite** (D-037), sin que esa
+elección afecte al resto de este documento: la API se diseñó desde el
+principio para no devolver modelos ORM directamente ([SQLAlchemy frente a
+SQLModel](#sqlalchemy-frente-a-sqlmodel)), lo que la vuelve consumible por
+cualquier cliente.
 
 La sesión seguirá siendo opaca y del lado del servidor (PT-005), transportada
-en una cookie protegida. Si la SPA se sirve desde un origen distinto al de la
-API, la configuración de la cookie (`SameSite`, dominio) y la política CORS
-deberán coordinarse explícitamente; sigue siendo preferible a un token
-reutilizable manejado por el código del cliente.
+en una cookie protegida. En desarrollo, el servidor de Vite proxya las
+llamadas a la API hacia el backend (mismo origen visto desde el navegador),
+para no tener que coordinar CORS ni `SameSite` entre puertos distintos
+durante el MVP; en producción, API y SPA se sirven desde el mismo dominio. Si
+más adelante hiciera falta un origen realmente distinto, la configuración de
+la cookie (`SameSite`, dominio) y la política CORS deberán coordinarse
+explícitamente; sigue siendo preferible a un token reutilizable manejado por
+el código del cliente.
 
 ## Arquitectura propuesta
 
@@ -187,7 +191,7 @@ externa ni una base separada para búsquedas en el MVP.
 
 ```mermaid
 flowchart LR
-    UI["Aplicación cliente (SPA)<br/>TypeScript, tecnología concreta por definir"]
+    UI["Aplicación cliente (SPA)<br/>TypeScript, React + Vite"]
     API["FastAPI<br/>routers y contratos Pydantic"]
     APP["Casos de uso<br/>transacciones y autorización"]
     MOD["Módulos de dominio<br/>acceso, catálogo, precios,<br/>importación y auditoría"]
@@ -510,7 +514,7 @@ Antes de considerar lista la implementación se necesitarán:
 | PT-009 | Referencia al negocio en todas las tablas dependientes desde la primera migración | Aprobado |
 | PT-010 | Sin aislamiento a nivel de base de datos mientras exista un único titular | Aprobado |
 | PT-011 | Despliegue en un servicio de hosting alcanzable por internet, con HTTPS y autenticación obligatoria, sin publicar el código ni la documentación | Aprobado; pendiente elegir el servicio concreto (DP-005) |
-| PT-012 | Interfaz de aplicación cliente separada (SPA) con TypeScript, que consume la API mediante HTTPS | Aprobado |
+| PT-012 | Interfaz de aplicación cliente separada (SPA) con TypeScript (React + Vite, D-037), que consume la API mediante HTTPS | Aprobado |
 
 ## Preguntas resueltas el 27 de agosto de 2026
 
