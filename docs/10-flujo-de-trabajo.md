@@ -181,6 +181,7 @@ madre la revisa y cierra el estado.
 | T-013 | SPA: pantallas de precios (cambio individual, por producto e historial) | HU-05, HU-10 | — | Pendiente | Depende de T-010. |
 | T-014 | SPA: pantallas de desactivación y reactivación | HU-08 | — | Pendiente | Depende de T-010 y T-012. |
 | T-015 | SPA: pantalla de importación (vista previa y confirmación) | HU-07 | — | Pendiente | Depende de T-010 y de la API de T-007 (ya mergeada). |
+| T-016 | Negocio activo por cuenta: alta del segundo negocio de Casa Diaco (mercería/despensa) y resolución real del negocio activo según los accesos de la cuenta, con selector simple si tiene más de uno | RF-039, RN-031, RNF-017, RNF-018, D-039 | — | Pendiente | Se recomienda hacerla antes de T-011: cambia `get_active_business` (hoy toma el primer negocio activo sin mirar la cuenta), del que dependen `search`, `pricing` e `imports`; no bloquea el resto de T-011 a T-015 más allá de ese cambio de base. |
 
 El orden sigue el propuesto en [06-historias-y-aceptacion.md](06-historias-y-aceptacion.md#orden-sugerido-del-mvp), salvo T-009, que depende de que T-002 esté mergeada y puede intercalarse cuando convenga.
 No es una división rígida: la madre puede partir una fila en tareas más chicas
