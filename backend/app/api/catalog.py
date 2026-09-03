@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from app.constants.roles import ADMINISTRADOR, GERENTE
 from app.db.models import Account, AttributeValue, Product, Variant
 from app.db.session import get_db
-from app.domain.access.active_business import get_active_business
 from app.domain.access.permissions import get_current_user, require_csrf, require_role
 from app.domain.catalog import attribute_values, attributes, categories, products, units
 from app.domain.catalog.errors import (
@@ -192,8 +191,8 @@ def _product_response(product: Product) -> ProductResponse:
     )
 
 
-def _organization_id(db: Session) -> int:
-    return get_active_business(db).organization_id
+def _organization_id(account: Account) -> int:
+    return account.organization_id
 
 
 @router.post(
@@ -208,7 +207,7 @@ def create_category(
     _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
 ) -> CategoryResponse:
     try:
-        category = categories.create_category(db, _organization_id(db), payload.name, _actor.id)
+        category = categories.create_category(db, _organization_id(_actor), payload.name, _actor.id)
     except DuplicateCategoryName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "La categoria ya existe") from exc
     except InvalidCatalogInput as exc:
@@ -223,7 +222,7 @@ def list_categories(
 ) -> list[CategoryResponse]:
     return [
         _category_response(category)
-        for category in categories.list_categories(db, _organization_id(db))
+        for category in categories.list_categories(db, _organization_id(_actor))
     ]
 
 
@@ -276,7 +275,7 @@ def create_unit(
     try:
         unit = units.create_unit(
             db,
-            _organization_id(db),
+            _organization_id(_actor),
             payload.name,
             payload.abbreviation,
             _actor.id,
@@ -294,7 +293,7 @@ def create_unit(
 def list_units(
     db: Session = Depends(get_db), _actor: Account = Depends(get_current_user)
 ) -> list[UnitResponse]:
-    return [_unit_response(unit) for unit in units.list_units(db, _organization_id(db))]
+    return [_unit_response(unit) for unit in units.list_units(db, _organization_id(_actor))]
 
 
 @router.get("/units/{unit_id}", response_model=UnitResponse)
@@ -347,7 +346,9 @@ def create_attribute(
     _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
 ) -> AttributeResponse:
     try:
-        attribute = attributes.create_attribute(db, _organization_id(db), payload.name, _actor.id)
+        attribute = attributes.create_attribute(
+            db, _organization_id(_actor), payload.name, _actor.id
+        )
     except DuplicateAttributeName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "El atributo ya existe") from exc
     except InvalidCatalogInput as exc:
@@ -362,7 +363,7 @@ def list_attributes(
 ) -> list[AttributeResponse]:
     return [
         _attribute_response(attribute)
-        for attribute in attributes.list_attributes(db, _organization_id(db))
+        for attribute in attributes.list_attributes(db, _organization_id(_actor))
     ]
 
 
@@ -466,7 +467,7 @@ def create_product(
     try:
         product, _created_variants, duplicates = products.create_product(
             db,
-            _organization_id(db),
+            _organization_id(_actor),
             payload.category_id,
             payload.unit_id,
             payload.name,
@@ -492,7 +493,7 @@ def create_product(
 def list_products(
     db: Session = Depends(get_db), _actor: Account = Depends(get_current_user)
 ) -> list[ProductResponse]:
-    organization_id = _organization_id(db)
+    organization_id = _organization_id(_actor)
     return [_product_response(product) for product in products.list_products(db, organization_id)]
 
 

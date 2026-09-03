@@ -10,13 +10,15 @@ from app.constants.access import (
     CSRF_SAFE_METHODS,
     INVALID_CSRF_DETAIL,
     INVALID_SESSION_DETAIL,
+    NO_BUSINESS_ACCESS_DETAIL,
     PERMISSION_DENIED_DETAIL,
     SESSION_COOKIE_NAME,
 )
 from app.constants.status import EntityStatus
-from app.db.models import Account, AccountSession, BusinessAccess
+from app.db.models import Account, AccountSession, Business, BusinessAccess
 from app.db.session import get_db
-from app.domain.access.active_business import get_active_business
+from app.domain.access.active_business import resolve_active_business
+from app.domain.access.errors import NoBusinessAccess
 from app.domain.access.sessions import extend_session, get_valid_session
 
 
@@ -51,11 +53,23 @@ def require_csrf(request: Request, session: AccountSession = Depends(get_current
         raise HTTPException(status.HTTP_403_FORBIDDEN, INVALID_CSRF_DETAIL)
 
 
+def get_active_business(
+    account: Account = Depends(get_current_user),
+    session: AccountSession = Depends(get_current_session),
+    db: Session = Depends(get_db),
+) -> Business:
+    try:
+        return resolve_active_business(db, account.id, session.active_business_id)
+    except NoBusinessAccess as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, NO_BUSINESS_ACCESS_DETAIL) from exc
+
+
 def require_role(*role_names: str) -> Callable[..., Account]:
     def dependency(
-        account: Account = Depends(get_current_user), db: Session = Depends(get_db)
+        account: Account = Depends(get_current_user),
+        business: Business = Depends(get_active_business),
+        db: Session = Depends(get_db),
     ) -> Account:
-        business = get_active_business(db)
         access = db.scalars(
             select(BusinessAccess).where(
                 BusinessAccess.account_id == account.id,

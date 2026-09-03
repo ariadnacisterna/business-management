@@ -6,10 +6,14 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.constants.roles import ADMINISTRADOR, GERENTE
-from app.db.models import Account, Price
+from app.db.models import Account, Business, Price
 from app.db.session import get_db
-from app.domain.access.active_business import get_active_business
-from app.domain.access.permissions import get_current_user, require_csrf, require_role
+from app.domain.access.permissions import (
+    get_active_business,
+    get_current_user,
+    require_csrf,
+    require_role,
+)
 from app.domain.catalog.errors import ProductNotFound, VariantNotFound
 from app.domain.pricing import prices
 from app.domain.pricing.errors import (
@@ -70,16 +74,15 @@ def _optional_price_response(price: Price | None) -> PriceResponse | None:
     return _price_response(price) if price is not None else None
 
 
-def _business_id(db: Session) -> int:
-    return get_active_business(db).id
-
-
 @router.get("/variants/{variant_id}/price", response_model=CurrentPriceResponse)
 def get_variant_current_price(
-    variant_id: int, db: Session = Depends(get_db), _actor: Account = Depends(get_current_user)
+    variant_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
 ) -> CurrentPriceResponse:
     try:
-        price = prices.get_current_price_for_variant(db, variant_id, _business_id(db))
+        price = prices.get_current_price_for_variant(db, variant_id, business.id)
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
 
@@ -88,10 +91,13 @@ def get_variant_current_price(
 
 @router.get("/variants/{variant_id}/prices", response_model=list[PriceResponse])
 def get_variant_price_history(
-    variant_id: int, db: Session = Depends(get_db), _actor: Account = Depends(get_current_user)
+    variant_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
 ) -> list[PriceResponse]:
     try:
-        history = prices.list_price_history(db, variant_id, _business_id(db))
+        history = prices.list_price_history(db, variant_id, business.id)
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
 
@@ -108,12 +114,13 @@ def change_variant_price(
     payload: ChangeVariantPriceRequest,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> PriceResponse:
     try:
         price = prices.change_variant_price(
             db,
             variant_id,
-            _business_id(db),
+            business.id,
             payload.amount,
             _actor.id,
             payload.expected_current_price_id,
@@ -145,12 +152,13 @@ def change_product_price(
     payload: ChangeProductPriceRequest,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> ProductPriceChangeResponse:
     try:
         changed = prices.change_product_price(
             db,
             product_id,
-            _business_id(db),
+            business.id,
             payload.amount,
             _actor.id,
             payload.expected_current_price_ids,

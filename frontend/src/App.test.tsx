@@ -10,6 +10,8 @@ const ACCOUNT = {
   user_name: 'ada',
   status: 'activo',
   role: 'Administrador',
+  active_business_id: 1,
+  businesses: [{ id: 1, name: 'Negocio principal', industry: 'General' }],
 }
 
 function jsonResponse(body: unknown, status = 200): Response {

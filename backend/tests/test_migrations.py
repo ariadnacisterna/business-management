@@ -150,3 +150,70 @@ def test_upgrade_from_pre_rename_schema_renames_tables_columns_and_data(postgres
         engine.dispose()
 
     command.downgrade(config, "base")
+
+
+def test_upgrade_without_second_business_settings_creates_only_one_business(postgres_empty_schema):
+    config = alembic_config()
+
+    command.upgrade(config, "head")
+
+    engine = sa.create_engine(postgres_empty_schema)
+    try:
+        with engine.connect() as connection:
+            business_count = connection.execute(
+                sa.text("SELECT count(*) FROM business")
+            ).scalar_one()
+            assert business_count == 1
+
+            columns = {column["name"] for column in inspect(engine).get_columns("account_session")}
+            assert "active_business_id" in columns
+    finally:
+        engine.dispose()
+
+
+def test_upgrade_with_second_business_settings_creates_it_and_grants_admin_access(
+    postgres_empty_schema, monkeypatch
+):
+    monkeypatch.setenv("INITIAL_BUSINESS_2_NAME", "Despensa")
+    monkeypatch.setenv("INITIAL_BUSINESS_2_INDUSTRY", "Despensa")
+    get_settings.cache_clear()
+
+    try:
+        config = alembic_config()
+        command.upgrade(config, "head")
+
+        engine = sa.create_engine(postgres_empty_schema)
+        try:
+            with engine.connect() as connection:
+                businesses = connection.execute(
+                    sa.text("SELECT name, industry, status FROM business ORDER BY id")
+                ).all()
+                assert len(businesses) == 2
+                assert businesses[1].name == "Despensa"
+                assert businesses[1].industry == "Despensa"
+                assert businesses[1].status == "active"
+
+                accesses = connection.execute(
+                    sa.text(
+                        "SELECT ba.business_id, ba.status, r.name AS role_name "
+                        "FROM business_access ba JOIN role r ON r.id = ba.role_id "
+                        "ORDER BY ba.business_id"
+                    )
+                ).all()
+                assert len(accesses) == 2
+                assert all(access.status == "active" for access in accesses)
+                assert all(access.role_name == ADMINISTRADOR for access in accesses)
+        finally:
+            engine.dispose()
+
+        command.downgrade(config, "base")
+
+        engine = sa.create_engine(postgres_empty_schema)
+        try:
+            with engine.connect() as connection:
+                table_names = set(inspect(engine).get_table_names())
+                assert not table_names & SCHEMA_TABLES
+        finally:
+            engine.dispose()
+    finally:
+        get_settings.cache_clear()

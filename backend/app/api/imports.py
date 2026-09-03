@@ -6,10 +6,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.constants.roles import ADMINISTRADOR
-from app.db.models import Account
+from app.db.models import Account, Business
 from app.db.session import get_db
-from app.domain.access.active_business import get_active_business
-from app.domain.access.permissions import require_csrf, require_role
+from app.domain.access.permissions import get_active_business, require_csrf, require_role
 from app.domain.import_.applying import ImportResult, apply_import
 from app.domain.import_.errors import (
     EmptyFile,
@@ -178,9 +177,9 @@ def preview_import(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(ADMINISTRADOR)),
+    business: Business = Depends(get_active_business),
 ) -> ImportPreviewResponse:
     filename, content = _read_upload(file)
-    business = get_active_business(db)
 
     try:
         plan = analyze_import(db, business.organization_id, business.id, filename, content)
@@ -208,9 +207,9 @@ def confirm_import(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     actor: Account = Depends(require_role(ADMINISTRADOR)),
+    business: Business = Depends(get_active_business),
 ) -> ImportConfirmResponse:
     filename, content = _read_upload(file)
-    business = get_active_business(db)
 
     try:
         result = apply_import(
