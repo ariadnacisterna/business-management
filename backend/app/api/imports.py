@@ -15,6 +15,7 @@ from app.domain.import_.errors import (
     EmptyFile,
     FileTooLarge,
     ImportPlanHasErrors,
+    InvalidFileEncoding,
     MissingColumns,
     TooManyRows,
     UnsupportedFileType,
@@ -185,7 +186,13 @@ def preview_import(
         plan = analyze_import(db, business.organization_id, business.id, filename, content)
     except FileTooLarge as exc:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, str(exc)) from exc
-    except (UnsupportedFileType, MissingColumns, EmptyFile, TooManyRows) as exc:
+    except (
+        UnsupportedFileType,
+        MissingColumns,
+        EmptyFile,
+        TooManyRows,
+        InvalidFileEncoding,
+    ) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 
     return _preview_response(plan)
@@ -211,7 +218,13 @@ def confirm_import(
         )
     except FileTooLarge as exc:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, str(exc)) from exc
-    except (UnsupportedFileType, MissingColumns, EmptyFile, TooManyRows) as exc:
+    except (
+        UnsupportedFileType,
+        MissingColumns,
+        EmptyFile,
+        TooManyRows,
+        InvalidFileEncoding,
+    ) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     except ImportPlanHasErrors as exc:
         detail = _preview_response(exc.plan).model_dump(mode="json")

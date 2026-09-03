@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
+from app.constants.import_ import DEFAULT_UNIT_ALLOWS_FRACTION
 from app.core.text import normalize_for_comparison
 from app.db.models import ImportRun
 from app.domain.catalog.attribute_values import _build_attribute_value
@@ -12,8 +13,6 @@ from app.domain.catalog.units import _build_unit
 from app.domain.import_.errors import ImportPlanHasErrors
 from app.domain.import_.planning import GroupPlan, ImportPlan, RowPlan, analyze_import
 from app.domain.pricing.prices import _apply_price_change, get_current_price_for_variant
-
-DEFAULT_UNIT_ALLOWS_FRACTION = False
 
 
 @dataclass

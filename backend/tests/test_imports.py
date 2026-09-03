@@ -506,6 +506,30 @@ def test_missing_required_column_is_rejected(client):
     assert "category" in response.json()["detail"]
 
 
+def test_cp1252_encoded_csv_from_windows_excel_is_accepted(client):
+    admin_cookies = _admin_cookies(client)
+    csv_text = BASIC_HEADER + "Merceria,Cinta bebé ñandú,Metro,,,150.50\n"
+    files = {"file": ("catalogo.csv", csv_text.encode("cp1252"), "text/csv")}
+
+    response = _preview(client, admin_cookies, files)
+
+    assert response.status_code == 200, response.text
+    row = response.json()["rows"][0]
+    assert row["is_valid"] is True
+    assert row["product_name"] == "Cinta bebé ñandú"
+
+
+def test_csv_with_unrecognizable_encoding_is_rejected_with_a_clear_message(client):
+    admin_cookies = _admin_cookies(client)
+    invalid_bytes = BASIC_HEADER.encode("utf-8") + b"Merceria,Cinta \x81,Metro,,,150.50\n"
+    files = {"file": ("catalogo.csv", invalid_bytes, "text/csv")}
+
+    response = _preview(client, admin_cookies, files)
+
+    assert response.status_code == 422, response.text
+    assert "UTF-8" in response.json()["detail"]
+
+
 def test_unsupported_file_extension_is_rejected(client):
     admin_cookies = _admin_cookies(client)
 

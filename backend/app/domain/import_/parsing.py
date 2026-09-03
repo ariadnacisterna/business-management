@@ -16,6 +16,7 @@ from app.constants.import_ import (
 from app.domain.import_.errors import (
     EmptyFile,
     FileTooLarge,
+    InvalidFileEncoding,
     MissingColumns,
     TooManyRows,
     UnsupportedFileType,
@@ -28,8 +29,22 @@ class ParsedRow:
     values: dict[str, str]
 
 
+def _decode_csv(content: bytes) -> str:
+    try:
+        return content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        pass
+    try:
+        return content.decode("cp1252")
+    except UnicodeDecodeError as exc:
+        raise InvalidFileEncoding(
+            "El archivo CSV no esta en UTF-8 ni en la codificacion de Windows (CP-1252). "
+            "Volve a guardarlo como 'CSV UTF-8' desde la planilla de calculo."
+        ) from exc
+
+
 def _parse_csv(content: bytes) -> tuple[list[dict[str, str | None]], list[str]]:
-    text = content.decode("utf-8-sig")
+    text = _decode_csv(content)
     reader = csv.DictReader(io.StringIO(text))
     return list(reader), list(reader.fieldnames or [])
 

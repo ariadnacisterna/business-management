@@ -12,6 +12,10 @@ class UnsupportedFileType(CatalogImportError):
     pass
 
 
+class InvalidFileEncoding(CatalogImportError):
+    pass
+
+
 class EmptyFile(CatalogImportError):
     pass
 
