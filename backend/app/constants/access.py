@@ -12,3 +12,5 @@ CSRF_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 INVALID_SESSION_DETAIL = "Sesion invalida"
 PERMISSION_DENIED_DETAIL = "Permiso denegado"
 INVALID_CSRF_DETAIL = "Token CSRF invalido"
+NO_BUSINESS_ACCESS_DETAIL = "La cuenta no tiene acceso a ningun negocio"
+BUSINESS_NOT_ACCESSIBLE_DETAIL = "La cuenta no tiene acceso a ese negocio"

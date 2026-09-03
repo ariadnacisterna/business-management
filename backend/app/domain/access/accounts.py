@@ -5,8 +5,7 @@ from app.constants.limits import PASSWORD_MIN_LENGTH, USERNAME_MIN_LENGTH
 from app.constants.roles import INITIAL_ROLES
 from app.constants.status import EntityStatus
 from app.core.security import hash_password
-from app.db.models import Account, BusinessAccess, Role
-from app.domain.access.active_business import get_active_business
+from app.db.models import Account, Business, BusinessAccess, Role
 from app.domain.access.errors import (
     AccountNotFound,
     DuplicateUsername,
@@ -55,12 +54,16 @@ def _get_business_access(db: Session, account_id: int, business_id: int) -> Busi
 
 
 def create_account(
-    db: Session, name: str, user_name: str, initial_password: str, role_name: str
+    db: Session,
+    business: Business,
+    name: str,
+    user_name: str,
+    initial_password: str,
+    role_name: str,
 ) -> Account:
     _validate_user_name(user_name)
     _validate_password(initial_password)
     role = _get_role(db, role_name)
-    business = get_active_business(db)
 
     existing_user = db.scalars(select(Account).where(Account.user_name == user_name)).first()
     if existing_user is not None:
@@ -90,6 +93,7 @@ def create_account(
 
 def update_account(
     db: Session,
+    business: Business,
     account_id: int,
     name: str | None = None,
     user_name: str | None = None,
@@ -111,7 +115,6 @@ def update_account(
 
     if role_name is not None:
         role = _get_role(db, role_name)
-        business = get_active_business(db)
         access = _get_business_access(db, account.id, business.id)
         if access is None:
             raise AccountNotFound

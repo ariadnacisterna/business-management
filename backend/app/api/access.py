@@ -5,20 +5,27 @@ from sqlalchemy.orm import Session
 from app.constants.access import CSRF_COOKIE_NAME, SESSION_COOKIE_NAME
 from app.constants.roles import ADMINISTRADOR
 from app.core.config import get_settings
-from app.db.models import Account, AccountSession
+from app.db.models import Account, AccountSession, Business
 from app.db.session import get_db
 from app.domain.access import accounts, auth
-from app.domain.access.active_business import get_active_business
+from app.domain.access.active_business import (
+    list_accessible_businesses,
+    resolve_active_business,
+    set_active_business,
+)
 from app.domain.access.errors import (
     AccountNotFound,
+    BusinessNotAccessible,
     DuplicateUsername,
     InactiveAccount,
     InvalidCredentials,
     InvalidPassword,
     InvalidRole,
     InvalidUsername,
+    NoBusinessAccess,
 )
 from app.domain.access.permissions import (
+    get_active_business,
     get_current_session,
     get_current_user,
     require_csrf,
@@ -41,6 +48,21 @@ class AccountResponse(BaseModel):
     role: str | None
 
 
+class BusinessSummary(BaseModel):
+    id: int
+    name: str
+    industry: str
+
+
+class SessionInfoResponse(AccountResponse):
+    active_business_id: int
+    businesses: list[BusinessSummary]
+
+
+class ChangeActiveBusinessRequest(BaseModel):
+    business_id: int
+
+
 class CreateAccountRequest(BaseModel):
     name: str
     user_name: str
@@ -58,8 +80,7 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
-def _account_response(db: Session, account: Account) -> AccountResponse:
-    business = get_active_business(db)
+def _account_response(db: Session, account: Account, business: Business) -> AccountResponse:
     role = accounts.get_role_name(db, account.id, business.id)
     return AccountResponse(
         id=account.id,
@@ -67,6 +88,25 @@ def _account_response(db: Session, account: Account) -> AccountResponse:
         user_name=account.user_name,
         status=account.status,
         role=role,
+    )
+
+
+def _session_info_response(
+    db: Session, account: Account, business: Business
+) -> SessionInfoResponse:
+    role = accounts.get_role_name(db, account.id, business.id)
+    accessible = list_accessible_businesses(db, account.id)
+    return SessionInfoResponse(
+        id=account.id,
+        name=account.name,
+        user_name=account.user_name,
+        status=account.status,
+        role=role,
+        active_business_id=business.id,
+        businesses=[
+            BusinessSummary(id=item.id, name=item.name, industry=item.industry)
+            for item in accessible
+        ],
     )
 
 
@@ -98,10 +138,10 @@ def _clear_session_cookies(response: Response) -> None:
     response.delete_cookie(CSRF_COOKIE_NAME, path="/")
 
 
-@router.post("/auth/login", response_model=AccountResponse)
+@router.post("/auth/login", response_model=SessionInfoResponse)
 def login(
     payload: LoginRequest, response: Response, db: Session = Depends(get_db)
-) -> AccountResponse:
+) -> SessionInfoResponse:
     try:
         account, session = auth.login(db, payload.user_name, payload.password)
     except (InvalidCredentials, InactiveAccount) as exc:
@@ -109,8 +149,15 @@ def login(
             status.HTTP_401_UNAUTHORIZED, "Usuario o contrasena incorrectos"
         ) from exc
 
+    try:
+        business = resolve_active_business(db, account.id, session.active_business_id)
+    except NoBusinessAccess as exc:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "La cuenta no tiene acceso a ningun negocio"
+        ) from exc
+
     _set_session_cookies(response, session)
-    return _account_response(db, account)
+    return _session_info_response(db, account, business)
 
 
 @router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -124,11 +171,34 @@ def logout(
     _clear_session_cookies(response)
 
 
-@router.get("/auth/me", response_model=AccountResponse)
+@router.get("/auth/me", response_model=SessionInfoResponse)
 def me(
-    db: Session = Depends(get_db), account: Account = Depends(get_current_user)
-) -> AccountResponse:
-    return _account_response(db, account)
+    db: Session = Depends(get_db),
+    account: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> SessionInfoResponse:
+    return _session_info_response(db, account, business)
+
+
+@router.post(
+    "/auth/active-business",
+    response_model=SessionInfoResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def change_active_business(
+    payload: ChangeActiveBusinessRequest,
+    db: Session = Depends(get_db),
+    account: Account = Depends(get_current_user),
+    session: AccountSession = Depends(get_current_session),
+) -> SessionInfoResponse:
+    try:
+        business = set_active_business(db, account.id, session, payload.business_id)
+    except BusinessNotAccessible as exc:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "La cuenta no tiene acceso a ese negocio"
+        ) from exc
+
+    return _session_info_response(db, account, business)
 
 
 @router.post(
@@ -141,10 +211,11 @@ def create_account(
     payload: CreateAccountRequest,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(ADMINISTRADOR)),
+    business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
         account = accounts.create_account(
-            db, payload.name, payload.user_name, payload.initial_password, payload.role
+            db, business, payload.name, payload.user_name, payload.initial_password, payload.role
         )
     except DuplicateUsername as exc:
         raise HTTPException(
@@ -153,14 +224,16 @@ def create_account(
     except (InvalidRole, InvalidUsername, InvalidPassword) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 
-    return _account_response(db, account)
+    return _account_response(db, account, business)
 
 
 @router.get("/accounts", response_model=list[AccountResponse])
 def list_accounts(
-    db: Session = Depends(get_db), _actor: Account = Depends(require_role(ADMINISTRADOR))
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(require_role(ADMINISTRADOR)),
+    business: Business = Depends(get_active_business),
 ) -> list[AccountResponse]:
-    return [_account_response(db, account) for account in accounts.list_accounts(db)]
+    return [_account_response(db, account, business) for account in accounts.list_accounts(db)]
 
 
 @router.get("/accounts/{account_id}", response_model=AccountResponse)
@@ -168,13 +241,14 @@ def get_account(
     account_id: int,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(ADMINISTRADOR)),
+    business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
         account = accounts.get_account(db, account_id)
     except AccountNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cuenta no encontrada") from exc
 
-    return _account_response(db, account)
+    return _account_response(db, account, business)
 
 
 @router.patch(
@@ -185,10 +259,12 @@ def update_account(
     payload: UpdateAccountRequest,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(ADMINISTRADOR)),
+    business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
         account = accounts.update_account(
             db,
+            business,
             account_id,
             name=payload.name,
             user_name=payload.user_name,
@@ -203,7 +279,7 @@ def update_account(
     except (InvalidRole, InvalidUsername) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 
-    return _account_response(db, account)
+    return _account_response(db, account, business)
 
 
 @router.post(
@@ -215,13 +291,14 @@ def deactivate_account(
     account_id: int,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(ADMINISTRADOR)),
+    business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
         account = accounts.deactivate_account(db, account_id)
     except AccountNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cuenta no encontrada") from exc
 
-    return _account_response(db, account)
+    return _account_response(db, account, business)
 
 
 @router.post(
@@ -233,13 +310,14 @@ def activate_account(
     account_id: int,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(ADMINISTRADOR)),
+    business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
         account = accounts.activate_account(db, account_id)
     except AccountNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cuenta no encontrada") from exc
 
-    return _account_response(db, account)
+    return _account_response(db, account, business)
 
 
 @router.post(
@@ -252,6 +330,7 @@ def reset_password(
     payload: ResetPasswordRequest,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(ADMINISTRADOR)),
+    business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
         account = accounts.reset_password(db, account_id, payload.new_password)
@@ -260,4 +339,4 @@ def reset_password(
     except InvalidPassword as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 
-    return _account_response(db, account)
+    return _account_response(db, account, business)

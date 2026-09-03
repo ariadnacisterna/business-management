@@ -28,3 +28,11 @@ class InvalidPassword(AccessError):
 
 class InvalidRole(AccessError):
     pass
+
+
+class NoBusinessAccess(AccessError):
+    pass
+
+
+class BusinessNotAccessible(AccessError):
+    pass

@@ -4,10 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.db.models import Account, Variant
+from app.db.models import Account, Business, Variant
 from app.db.session import get_db
-from app.domain.access.active_business import get_active_business
-from app.domain.access.permissions import get_current_user
+from app.domain.access.permissions import get_active_business, get_current_user
 from app.domain.catalog.errors import CategoryNotFound
 from app.domain.catalog.search import search_variants
 
@@ -61,8 +60,8 @@ def search(
     category_id: int | None = None,
     db: Session = Depends(get_db),
     _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
 ) -> SearchResponse:
-    business = get_active_business(db)
     try:
         results = search_variants(
             db, business.organization_id, business.id, query=q, category_id=category_id

@@ -1,5 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { fetchCurrentAccount, login as loginRequest, logout as logoutRequest } from '../../api/auth'
+import {
+  changeActiveBusiness,
+  fetchCurrentAccount,
+  login as loginRequest,
+  logout as logoutRequest,
+} from '../../api/auth'
 import { setUnauthorizedHandler } from '../../api/client'
 import type { Account } from '../../api/types'
 
@@ -10,6 +15,7 @@ interface AuthContextValue {
   status: SessionStatus
   login: (userName: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  switchBusiness: (businessId: number) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -39,6 +45,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async logout() {
         await logoutRequest()
         setAccount(null)
+      },
+      async switchBusiness(businessId) {
+        setAccount(await changeActiveBusiness(businessId))
       },
     }),
     [account, status],
