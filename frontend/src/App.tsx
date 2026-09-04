@@ -2,7 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './features/access/AuthContext'
 import { LoginPage } from './features/access/LoginPage'
 import { ProtectedRoute } from './features/access/ProtectedRoute'
-import { HomePage } from './shared/HomePage'
+import { SearchPage } from './features/search/SearchPage'
 import { AppLayout } from './shared/layout/AppLayout'
 
 export function App() {
@@ -12,7 +12,7 @@ export function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<SearchPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

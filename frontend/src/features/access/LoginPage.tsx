@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { InvalidCredentialsError } from '../../api/auth'
+import { Brand } from '../../shared/Brand'
 import { useAuth } from './AuthContext'
 import styles from './LoginPage.module.css'
 
@@ -34,6 +35,10 @@ export function LoginPage() {
 
   return (
     <main className={styles.page}>
+      <div className={styles.brandWrapper}>
+        <Brand tagline="Desde 1982" large />
+      </div>
+
       <form className={styles.form} onSubmit={handleSubmit}>
         <h1>Iniciar sesión</h1>
 

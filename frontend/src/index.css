@@ -2,7 +2,13 @@
   --text: #1f2023;
   --bg: #fff;
   --border: #d9d8db;
-  --accent: #7a3bd6;
+  --accent: #af1405;
+  --accent-contrast: #fff;
+  --surface-brand: #fffae8;
+  --success: #2e7d32;
+  --danger: #c62828;
+  --warning: #e65100;
+  --info: #1565c0;
 
   font: 16px/1.45 system-ui, 'Segoe UI', Roboto, sans-serif;
   color-scheme: light dark;
@@ -17,7 +23,13 @@
     --text: #e5e4e7;
     --bg: #16171d;
     --border: #33343d;
-    --accent: #b98bf0;
+    --accent: #e8503c;
+    --accent-contrast: #fff;
+    --surface-brand: #242017;
+    --success: #66bb6a;
+    --danger: #ef5350;
+    --warning: #ffa726;
+    --info: #42a5f5;
   }
 }
 

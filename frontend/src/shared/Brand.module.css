@@ -1,0 +1,44 @@
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.isotype {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.name {
+  font-weight: 700;
+}
+
+.tagline {
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.large .isotype {
+  width: 56px;
+  height: 56px;
+  font-size: 20px;
+}
+
+.large .name {
+  font-size: 24px;
+}

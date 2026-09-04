@@ -54,6 +54,7 @@ describe('App', () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ detail: 'Sesion invalida' }, 401))
       .mockResolvedValueOnce(jsonResponse(ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse([]))
 
     renderApp()
 
@@ -86,7 +87,10 @@ describe('App', () => {
 
   it('returns to the login screen after logging out', async () => {
     const user = userEvent.setup()
-    fetchMock.mockResolvedValueOnce(jsonResponse(ACCOUNT)).mockResolvedValueOnce(noContentResponse())
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(noContentResponse())
 
     renderApp()
 

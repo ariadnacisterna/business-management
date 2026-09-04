@@ -14,8 +14,16 @@
   flex-wrap: wrap;
 }
 
+.headerBrand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .accountName {
   font-weight: 600;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
 }
 
 .headerActions {
