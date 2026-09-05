@@ -20,7 +20,7 @@ const SAVE_ERROR_MESSAGE = 'No se pudo guardar. Intentá de nuevo.'
 const inputClasses =
   'h-11 rounded-lg border border-line px-3 text-base focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
 const primaryButtonClasses =
-  'min-h-11 rounded-lg bg-brand px-4 text-sm font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40'
+  'min-h-11 rounded-lg bg-brand px-4 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40'
 const secondaryButtonClasses = 'h-11 rounded-lg border border-line px-3 text-base transition-colors hover:bg-surface-brand'
 
 export function AttributesPage() {
@@ -173,7 +173,7 @@ export function AttributesPage() {
           onSubmit={handleCreateAttribute}
           className="flex max-w-3xl flex-wrap items-center gap-2 rounded-xl border border-line bg-surface p-4"
         >
-          <label htmlFor="new-attribute-name" className="text-sm font-semibold">
+          <label htmlFor="new-attribute-name" className="text-base font-semibold">
             Nuevo atributo
           </label>
           <input
@@ -204,7 +204,7 @@ export function AttributesPage() {
             Cancelar
           </button>
           {createAttributeError !== null && (
-            <p role="alert" className="m-0 w-full text-sm text-danger">
+            <p role="alert" className="m-0 w-full text-base text-danger">
               {createAttributeError}
             </p>
           )}
@@ -227,10 +227,10 @@ export function AttributesPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-line bg-surface-brand/40">
-                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide opacity-60">
+                <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
                   Nombre
                 </th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide opacity-60">
+                <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
                   Estado
                 </th>
                 <th className="px-4 py-2.5" />
@@ -239,9 +239,9 @@ export function AttributesPage() {
             <tbody>
               {attributes.map((attribute) => (
                 <tr key={attribute.id} className="border-t border-line">
-                  <td className="px-4 py-3 text-sm font-medium">{attribute.name}</td>
+                  <td className="px-4 py-3 text-base font-medium">{attribute.name}</td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs font-semibold ${attribute.status === 'active' ? 'text-success' : 'opacity-50'}`}>
+                    <span className={`text-sm font-semibold ${attribute.status === 'active' ? 'text-success' : 'opacity-50'}`}>
                       ● {attribute.status === 'active' ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
@@ -249,7 +249,7 @@ export function AttributesPage() {
                     <button
                       type="button"
                       onClick={() => selectAttribute(attribute.id)}
-                      className="min-h-11 rounded-lg border border-line px-2.5 text-xs transition-colors hover:bg-surface-brand"
+                      className="min-h-11 rounded-lg border border-line px-2.5 text-sm transition-colors hover:bg-surface-brand"
                     >
                       Ver valores
                     </button>
@@ -300,21 +300,21 @@ export function AttributesPage() {
                         Cancelar
                       </button>
                       {editValueError !== null && (
-                        <p role="alert" className="m-0 w-full text-sm text-danger">
+                        <p role="alert" className="m-0 w-full text-base text-danger">
                           {editValueError}
                         </p>
                       )}
                     </form>
                   ) : (
                     <>
-                      <span className={`text-sm ${value.status !== 'active' ? 'opacity-50 line-through' : ''}`}>
+                      <span className={`text-base ${value.status !== 'active' ? 'opacity-50 line-through' : ''}`}>
                         {value.value}
                       </span>
                       {canManage && (
                         <button
                           type="button"
                           onClick={() => startEditValue(value)}
-                          className="min-h-11 rounded-lg border border-line px-2.5 text-xs transition-colors hover:bg-surface-brand"
+                          className="min-h-11 rounded-lg border border-line px-2.5 text-sm transition-colors hover:bg-surface-brand"
                         >
                           Editar
                         </button>
@@ -328,7 +328,7 @@ export function AttributesPage() {
 
           {canManage && (
             <form onSubmit={handleCreateValue} className="flex flex-wrap items-center gap-2">
-              <label htmlFor="new-attribute-value" className="text-sm font-semibold">
+              <label htmlFor="new-attribute-value" className="text-base font-semibold">
                 Nuevo valor
               </label>
               <input
@@ -343,7 +343,7 @@ export function AttributesPage() {
                 Crear
               </button>
               {createValueError !== null && (
-                <p role="alert" className="m-0 w-full text-sm text-danger">
+                <p role="alert" className="m-0 w-full text-base text-danger">
                   {createValueError}
                 </p>
               )}

@@ -45,24 +45,18 @@ negocio que use el sistema tendría la suya en su propio despliegue
 
 Tokens de color del tema de Tailwind (D-041), sobre lo que ya definió
 T-010/T-011 en valor (el nombre de variable CSS queda obsoleto, el color
-en sí no cambió):
+en sí no cambió). Sin variante de modo oscuro (D-042): un solo valor fijo
+por token, independiente del tema del sistema operativo.
 
-| Token | Claro | Oscuro | Uso |
-|---|---|---|---|
-| `brand` (alias `accent`) | `#af1405` | `#e8503c` (más claro, contraste sobre fondo oscuro) | Color primario: botones de acción principal, enlaces, foco de inputs |
-| `brand-contrast` | `#fff` | `#fff` | Texto sobre `brand` |
-| `surface-brand` | `#fffae8` | `#242017` (versión oscura del crema) | Fondos secundarios, tarjetas destacadas — uso puntual, no como fondo general |
-| `success` | `#2e7d32` | `#66bb6a` | Confirmaciones, estados "activo" |
-| `danger` | `#c62828` | `#ef5350` | Errores, acciones destructivas |
-| `warning` | `#e65100` | `#ffa726` | Advertencias (ej. stock bajo, cuando exista) |
-| `info` | `#1565c0` | `#42a5f5` | Mensajes informativos |
-
-Los colores "claro" y "oscuro" mantienen el soporte de modo oscuro que ya
-tenía la app (estrategia `prefers-color-scheme`, sin selector manual): no
-se elige un modo, se respeta el del sistema operativo de quien usa la
-aplicación. Configurar el modo oscuro de Tailwind acorde (`darkMode:
-'media'` o equivalente de la versión instalada) para no perder ese
-soporte al migrar.
+| Token | Valor | Uso |
+|---|---|---|
+| `brand` (alias `accent`) | `#af1405` | Color primario: botones de acción principal, enlaces, foco de inputs |
+| `brand-contrast` | `#fff` | Texto sobre `brand` |
+| `surface-brand` | `#fffae8` | Fondos secundarios, tarjetas destacadas — uso puntual, no como fondo general |
+| `success` | `#2e7d32` | Confirmaciones, estados "activo" |
+| `danger` | `#c62828` | Errores, acciones destructivas |
+| `warning` | `#e65100` | Advertencias (ej. stock bajo, cuando exista) |
+| `info` | `#1565c0` | Mensajes informativos |
 
 No hardcodear estos valores hexadecimales sueltos en un componente: se
 definen una sola vez en la configuración de Tailwind y se consumen como
@@ -102,8 +96,7 @@ nuevo (mismo criterio que D-031 para el backend): `AppLayout`, los
 ### Tarjetas
 
 `border-radius: 8px`, `border: 1px solid var(--border)` (preferir un borde
-sutil a una sombra: es más liviano y funciona igual en modo oscuro),
-`padding: 16px`.
+sutil a una sombra: es más liviano), `padding: 16px`.
 
 ### Tablas
 

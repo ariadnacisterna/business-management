@@ -21,10 +21,10 @@ const EMPTY_DRAFT: UnitDraft = { name: '', abbreviation: '', allowsFraction: fal
 const inputClasses =
   'h-11 rounded-lg border border-line px-3 text-base focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
 const primaryButtonClasses =
-  'min-h-11 rounded-lg bg-brand px-4 text-sm font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40'
+  'min-h-11 rounded-lg bg-brand px-4 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40'
 const secondaryButtonClasses =
-  'min-h-11 rounded-lg border border-line px-3 text-sm transition-colors hover:bg-surface-brand'
-const rowButtonClasses = 'min-h-11 rounded-lg border border-line px-2.5 text-xs transition-colors hover:bg-surface-brand'
+  'min-h-11 rounded-lg border border-line px-3 text-base transition-colors hover:bg-surface-brand'
+const rowButtonClasses = 'min-h-11 rounded-lg border border-line px-2.5 text-sm transition-colors hover:bg-surface-brand'
 
 export function UnitsPage() {
   const { account } = useAuth()
@@ -142,7 +142,7 @@ export function UnitsPage() {
           onSubmit={handleCreate}
           className="flex max-w-3xl flex-wrap items-center gap-2 rounded-xl border border-line bg-surface p-4"
         >
-          <label htmlFor="new-unit-name" className="text-sm font-semibold">
+          <label htmlFor="new-unit-name" className="text-base font-semibold">
             Nueva unidad
           </label>
           <input
@@ -163,7 +163,7 @@ export function UnitsPage() {
             disabled={savingNew}
             className={inputClasses}
           />
-          <label className="flex items-center gap-1.5 text-sm">
+          <label className="flex items-center gap-1.5 text-base">
             <input
               type="checkbox"
               checked={draft.allowsFraction}
@@ -193,7 +193,7 @@ export function UnitsPage() {
             Cancelar
           </button>
           {createError !== null && (
-            <p role="alert" className="m-0 w-full text-sm text-danger">
+            <p role="alert" className="m-0 w-full text-base text-danger">
               {createError}
             </p>
           )}
@@ -217,7 +217,7 @@ export function UnitsPage() {
             <thead>
               <tr className="border-b border-line bg-surface-brand/40">
                 {['Nombre', 'Abreviatura', 'Fraccionable', 'Productos', 'Estado'].map((label) => (
-                  <th key={label} className="whitespace-nowrap px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide opacity-60">
+                  <th key={label} className="whitespace-nowrap px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
                     {label}
                   </th>
                 ))}
@@ -248,7 +248,7 @@ export function UnitsPage() {
                           disabled={savingEdit}
                           className={inputClasses}
                         />
-                        <label className="flex items-center gap-1.5 text-sm">
+                        <label className="flex items-center gap-1.5 text-base">
                           <input
                             type="checkbox"
                             checked={editingDraft.allowsFraction}
@@ -267,7 +267,7 @@ export function UnitsPage() {
                           Cancelar
                         </button>
                         {editError !== null && (
-                          <p role="alert" className="m-0 w-full text-sm text-danger">
+                          <p role="alert" className="m-0 w-full text-base text-danger">
                             {editError}
                           </p>
                         )}
@@ -275,17 +275,17 @@ export function UnitsPage() {
                     </td>
                   ) : (
                     <>
-                      <td className="px-4 py-3 text-sm font-medium">{unit.name}</td>
-                      <td className="px-4 py-3 font-mono text-sm opacity-70">{unit.abbreviation}</td>
+                      <td className="px-4 py-3 text-base font-medium">{unit.name}</td>
+                      <td className="px-4 py-3 font-mono text-base opacity-70">{unit.abbreviation}</td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs font-semibold ${unit.allows_fraction ? 'text-success' : 'opacity-50'}`}>
+                        <span className={`text-sm font-semibold ${unit.allows_fraction ? 'text-success' : 'opacity-50'}`}>
                           {unit.allows_fraction ? 'Sí' : 'No'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm opacity-70">{productCountByUnit.get(unit.id) ?? 0}</td>
+                      <td className="px-4 py-3 text-base opacity-70">{productCountByUnit.get(unit.id) ?? 0}</td>
                       <td className="px-4 py-3">
                         <span
-                          className={`text-xs font-semibold ${unit.status === 'active' ? 'text-success' : 'opacity-50'}`}
+                          className={`text-sm font-semibold ${unit.status === 'active' ? 'text-success' : 'opacity-50'}`}
                         >
                           ● {unit.status === 'active' ? 'Activa' : 'Inactiva'}
                         </span>

@@ -152,10 +152,29 @@ describe('ProductsPage', () => {
 
     await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[0])
     await user.click(screen.getByRole('button', { name: /^Desactivar$/ }))
+    expect(screen.getByText(/dejar de aparecer/)).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /^Desactivar$/ }))
 
     expect(await screen.findAllByText(/Inactivo/)).not.toHaveLength(0)
     await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[0])
     expect(screen.getByRole('button', { name: /^Activar$/ })).toBeInTheDocument()
+  })
+
+  it('does not deactivate a product when the confirmation is cancelled', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    const callsBeforeCancel = fetchMock.mock.calls.length
+
+    await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[0])
+    await user.click(screen.getByRole('button', { name: /^Desactivar$/ }))
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(screen.queryAllByText(/Inactivo/)).toHaveLength(0)
+    expect(fetchMock.mock.calls.length).toBe(callsBeforeCancel)
   })
 
   it('reflects a product edited from the detail modal in the table, without a full reload', async () => {

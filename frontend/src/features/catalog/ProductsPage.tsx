@@ -4,6 +4,7 @@ import { deactivateProduct, fetchCategories, fetchProducts, fetchUnits, reactiva
 import type { Category, Product, Unit } from '../../api/types'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
+import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { RowMenu } from './RowMenu'
 
@@ -30,6 +31,7 @@ export function ProductsPage() {
   const [status, setStatus] = useState<Status>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [confirmingProduct, setConfirmingProduct] = useState<Product | null>(null)
 
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all')
@@ -78,6 +80,12 @@ export function ProductsPage() {
             : 'No se pudo activar el producto.',
         )
       })
+  }
+
+  function confirmToggleActive() {
+    if (confirmingProduct === null) return
+    toggleActive(confirmingProduct)
+    setConfirmingProduct(null)
   }
 
   function toggleSort(key: SortKey) {
@@ -294,7 +302,7 @@ export function ProductsPage() {
                                   icon: '⊘',
                                   danger: product.status === 'active',
                                   success: product.status !== 'active',
-                                  onClick: () => toggleActive(product),
+                                  onClick: () => setConfirmingProduct(product),
                                 },
                               ]
                             : []),
@@ -310,6 +318,21 @@ export function ProductsPage() {
       )}
 
       <Outlet context={{ onProductUpdated: applyProductUpdate }} />
+
+      {confirmingProduct !== null && (
+        <ConfirmDialog
+          title={confirmingProduct.status === 'active' ? 'Desactivar producto' : 'Activar producto'}
+          description={
+            confirmingProduct.status === 'active'
+              ? `"${confirmingProduct.name}" y todas sus variantes van a dejar de aparecer en las consultas del catálogo. Vas a poder reactivarlo cuando quieras.`
+              : `"${confirmingProduct.name}" y sus variantes vuelven a aparecer en las consultas del catálogo.`
+          }
+          confirmLabel={confirmingProduct.status === 'active' ? 'Desactivar' : 'Activar'}
+          danger={confirmingProduct.status === 'active'}
+          onConfirm={confirmToggleActive}
+          onCancel={() => setConfirmingProduct(null)}
+        />
+      )}
     </section>
   )
 }

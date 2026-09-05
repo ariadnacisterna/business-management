@@ -30,7 +30,7 @@ const SAVE_ERROR_MESSAGE = 'No se pudo guardar. Intentá de nuevo.'
 const inputClasses =
   'h-11 rounded-lg border border-line px-3 text-base focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
 const primaryButtonClasses =
-  'min-h-11 rounded-lg bg-brand px-4 text-sm font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40'
+  'min-h-11 rounded-lg bg-brand px-4 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40'
 const secondaryButtonClasses = 'h-11 rounded-lg border border-line px-3 text-base transition-colors hover:bg-surface-brand'
 
 interface ValueInfo {
@@ -306,7 +306,7 @@ export function ProductDetailPage() {
 
             {editingProduct ? (
               <form onSubmit={handleSaveProduct} className="flex flex-col gap-2">
-                <label htmlFor="edit-product-name" className="text-sm font-semibold">
+                <label htmlFor="edit-product-name" className="text-base font-semibold">
                   Nombre
                 </label>
                 <input
@@ -318,7 +318,7 @@ export function ProductDetailPage() {
                   className={inputClasses}
                 />
 
-                <span className="text-sm font-semibold">Categoría</span>
+                <span className="text-base font-semibold">Categoría</span>
                 <SelectMenu
                   ariaLabel="Categoría"
                   disabled={savingProduct}
@@ -329,7 +329,7 @@ export function ProductDetailPage() {
                     .map((category) => ({ value: String(category.id), label: category.name }))}
                 />
 
-                <span className="text-sm font-semibold">Unidad</span>
+                <span className="text-base font-semibold">Unidad</span>
                 <SelectMenu
                   ariaLabel="Unidad"
                   disabled={savingProduct}
@@ -341,7 +341,7 @@ export function ProductDetailPage() {
                 />
 
                 {productError !== null && (
-                  <p role="alert" className="m-0 text-sm text-danger">
+                  <p role="alert" className="m-0 text-base text-danger">
                     {productError}
                   </p>
                 )}
@@ -389,7 +389,7 @@ export function ProductDetailPage() {
                   )}
                 </div>
 
-                <div className="-mt-3 flex items-center gap-2 text-sm">
+                <div className="-mt-3 flex items-center gap-2 text-base">
                   <span
                     className={`flex items-center gap-1.5 font-semibold ${
                       product.status === 'active' ? 'text-success' : 'text-ink/50'
@@ -403,19 +403,19 @@ export function ProductDetailPage() {
 
                 <div className="grid grid-cols-2 gap-4 rounded-xl bg-line/15 p-4">
                   <div>
-                    <p className="m-0 text-sm opacity-60">Categoría</p>
+                    <p className="m-0 text-base opacity-60">Categoría</p>
                     <p className="m-0 font-medium">
                       {categories.find((category) => category.id === product.category_id)?.name ?? '—'}
                     </p>
                   </div>
                   <div>
-                    <p className="m-0 text-sm opacity-60">Unidad</p>
+                    <p className="m-0 text-base opacity-60">Unidad</p>
                     <p className="m-0 font-medium">
                       {units.find((unit) => unit.id === product.unit_id)?.name ?? '—'}
                     </p>
                   </div>
                   <div className="col-span-2">
-                    <p className="m-0 text-sm opacity-60">Descripción</p>
+                    <p className="m-0 text-base opacity-60">Descripción</p>
                     <p className="m-0 italic opacity-40">Próximamente</p>
                   </div>
                 </div>
@@ -431,7 +431,7 @@ export function ProductDetailPage() {
 
                       {editingVariantId === variant.id ? (
                         <form onSubmit={handleSaveVariant} className="flex w-full flex-col gap-2">
-                          <label htmlFor={`variant-label-${variant.id}`} className="text-sm font-semibold">
+                          <label htmlFor={`variant-label-${variant.id}`} className="text-base font-semibold">
                             Nombre
                           </label>
                           <input
@@ -453,7 +453,7 @@ export function ProductDetailPage() {
                             disabled={savingVariant}
                           />
                           {variantError !== null && (
-                            <p role="alert" className="m-0 text-sm text-danger">
+                            <p role="alert" className="m-0 text-base text-danger">
                               {variantError}
                             </p>
                           )}
@@ -486,7 +486,7 @@ export function ProductDetailPage() {
                             </span>
                           </div>
 
-                          <div className="flex flex-col gap-0.5 text-sm opacity-60">
+                          <div className="flex flex-col gap-0.5 text-base opacity-60">
                             <p className="m-0">
                               <span>Stock: </span>
                               <span>Próximamente</span>

@@ -31,9 +31,6 @@ export function RowMenu({ title, subtitle, items }: Props) {
 
   useEffect(() => {
     if (!open) return
-    // El panel se calcula una sola vez al abrir; si la fila se mueve por
-    // scroll o la ventana cambia de tamaño, cerrarlo evita que quede
-    // flotando en coordenadas que ya no corresponden al botón.
     function handleReposition() {
       setOpen(false)
     }

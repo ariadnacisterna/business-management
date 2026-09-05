@@ -17,8 +17,6 @@ export interface NavItem {
   disabled?: boolean
 }
 
-// Categorías principales del sidebar. Las que todavía no tienen pantalla
-// construida quedan marcadas `disabled: true` hasta que se implementen.
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Panel', icon: 'panel', end: true },
   { to: '/products', label: 'Productos', icon: 'products' },
