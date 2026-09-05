@@ -1,3 +1,4 @@
+import pytest
 import sqlalchemy as sa
 
 from app.constants.access import CSRF_HEADER_NAME
@@ -114,6 +115,15 @@ def _create_second_business(db_session, name="Despensa", industry="Despensa"):
     return business
 
 
+@pytest.fixture
+def no_second_business(monkeypatch):
+    monkeypatch.setenv("INITIAL_BUSINESS_2_NAME", "")
+    monkeypatch.setenv("INITIAL_BUSINESS_2_INDUSTRY", "")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
 def _grant_access(db_session, account_id, business_id, role_name):
     role = db_session.scalars(sa.select(Role).where(Role.name == role_name)).first()
     access = BusinessAccess(
@@ -127,7 +137,9 @@ def _grant_access(db_session, account_id, business_id, role_name):
     return access
 
 
-def test_me_reports_the_single_accessible_business_by_default(client, db_session):
+def test_me_reports_the_single_accessible_business_by_default(
+    no_second_business, client, db_session
+):
     admin_cookies = _admin_cookies(client)
     business_id = _first_business_id(db_session)
 
@@ -139,7 +151,7 @@ def test_me_reports_the_single_accessible_business_by_default(client, db_session
     assert [business["id"] for business in body["businesses"]] == [business_id]
 
 
-def test_login_response_also_reports_active_business(client, db_session):
+def test_login_response_also_reports_active_business(no_second_business, client, db_session):
     settings = get_settings()
     business_id = _first_business_id(db_session)
 
@@ -204,7 +216,7 @@ def test_switching_active_business_without_csrf_header_is_rejected(client, db_se
 
 
 def test_account_with_access_to_two_businesses_can_switch_and_prices_stay_per_business(
-    client, db_session
+    no_second_business, client, db_session
 ):
     admin_cookies = _admin_cookies(client)
     admin_account_id = _admin_account_id(db_session)
@@ -294,7 +306,7 @@ def test_account_with_single_business_access_cannot_see_the_other_business_price
     assert matching[0]["price_amount"] == "150.00"
 
 
-def test_account_listing_is_scoped_to_the_active_business(client, db_session):
+def test_account_listing_is_scoped_to_the_active_business(no_second_business, client, db_session):
     admin_cookies = _admin_cookies(client)
     admin_account_id = _admin_account_id(db_session)
     first_business_id = _first_business_id(db_session)

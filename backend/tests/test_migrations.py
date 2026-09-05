@@ -25,7 +25,17 @@ PRE_RENAME_SCHEMA_TABLES = {
 PRE_RENAME_REVISION = "a1f3c9d2e8b7"
 
 
-def test_upgrade_from_empty_database_creates_schema_and_seed_data(postgres_empty_schema):
+def _isolate_from_second_business_env(monkeypatch, request):
+    monkeypatch.setenv("INITIAL_BUSINESS_2_NAME", "")
+    monkeypatch.setenv("INITIAL_BUSINESS_2_INDUSTRY", "")
+    get_settings.cache_clear()
+    request.addfinalizer(get_settings.cache_clear)
+
+
+def test_upgrade_from_empty_database_creates_schema_and_seed_data(
+    postgres_empty_schema, monkeypatch, request
+):
+    _isolate_from_second_business_env(monkeypatch, request)
     config = alembic_config()
 
     command.upgrade(config, "head")
@@ -80,7 +90,10 @@ def test_upgrade_from_empty_database_creates_schema_and_seed_data(postgres_empty
         engine.dispose()
 
 
-def test_upgrade_from_pre_rename_schema_renames_tables_columns_and_data(postgres_empty_schema):
+def test_upgrade_from_pre_rename_schema_renames_tables_columns_and_data(
+    postgres_empty_schema, monkeypatch, request
+):
+    _isolate_from_second_business_env(monkeypatch, request)
     config = alembic_config()
 
     command.upgrade(config, PRE_RENAME_REVISION)
@@ -152,7 +165,10 @@ def test_upgrade_from_pre_rename_schema_renames_tables_columns_and_data(postgres
     command.downgrade(config, "base")
 
 
-def test_upgrade_without_second_business_settings_creates_only_one_business(postgres_empty_schema):
+def test_upgrade_without_second_business_settings_creates_only_one_business(
+    postgres_empty_schema, monkeypatch, request
+):
+    _isolate_from_second_business_env(monkeypatch, request)
     config = alembic_config()
 
     command.upgrade(config, "head")
