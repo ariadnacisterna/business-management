@@ -61,9 +61,10 @@ describe('App', () => {
     await screen.findByRole('heading', { name: 'Iniciar sesión' })
     await user.type(screen.getByLabelText('Usuario'), 'ada')
     await user.type(screen.getByLabelText('Contraseña'), 'secreta')
-    await user.click(screen.getByRole('button', { name: 'Ingresar' }))
+    await user.click(screen.getByRole('button', { name: 'Iniciar Sesión' }))
 
-    expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument()
+    expect(await screen.findByText('Ada')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Ada/ }))
     expect(screen.getByRole('button', { name: 'Cerrar sesión' })).toBeInTheDocument()
   })
 
@@ -78,7 +79,7 @@ describe('App', () => {
     await screen.findByRole('heading', { name: 'Iniciar sesión' })
     await user.type(screen.getByLabelText('Usuario'), 'ada')
     await user.type(screen.getByLabelText('Contraseña'), 'mala')
-    await user.click(screen.getByRole('button', { name: 'Ingresar' }))
+    await user.click(screen.getByRole('button', { name: 'Iniciar Sesión' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Usuario o contraseña incorrectos.',
@@ -94,7 +95,8 @@ describe('App', () => {
 
     renderApp()
 
-    await screen.findByText('Ada Lovelace')
+    await screen.findByText('Ada')
+    await user.click(screen.getByRole('button', { name: /Ada/ }))
     await user.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
 
     expect(await screen.findByRole('heading', { name: 'Iniciar sesión' })).toBeInTheDocument()

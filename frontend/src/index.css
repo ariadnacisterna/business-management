@@ -1,36 +1,22 @@
-:root {
-  --text: #1f2023;
-  --bg: #fff;
-  --border: #d9d8db;
-  --accent: #af1405;
-  --accent-contrast: #fff;
-  --surface-brand: #fffae8;
-  --success: #2e7d32;
-  --danger: #c62828;
-  --warning: #e65100;
-  --info: #1565c0;
+@import 'tailwindcss';
 
-  font: 16px/1.45 system-ui, 'Segoe UI', Roboto, sans-serif;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@theme {
+  --color-brand: #af1405;
+  --color-brand-contrast: #fff;
+  --color-surface-brand: #fffae8;
+  --color-success: #2e7d32;
+  --color-success-soft: #e5f4e6;
+  --color-danger: #c62828;
+  --color-warning: #e65100;
+  --color-info: #1565c0;
+  --color-line: #d9d8db;
+  --color-surface: #fff;
+  --color-ink: #1f2023;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #e5e4e7;
-    --bg: #16171d;
-    --border: #33343d;
-    --accent: #e8503c;
-    --accent-contrast: #fff;
-    --surface-brand: #242017;
-    --success: #66bb6a;
-    --danger: #ef5350;
-    --warning: #ffa726;
-    --info: #42a5f5;
-  }
+:root {
+  font: 16px/1.45 system-ui, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light;
 }
 
 * {
@@ -40,9 +26,14 @@
 body {
   margin: 0;
   min-height: 100svh;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button,
-input {
+input,
+select {
   font-family: inherit;
 }

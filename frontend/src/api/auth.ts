@@ -26,6 +26,10 @@ export function fetchCurrentAccount(): Promise<Account> {
   return apiFetch<Account>('/auth/me')
 }
 
+export function fetchAccount(id: number): Promise<Account> {
+  return apiFetch<Account>(`/accounts/${id}`)
+}
+
 export function logout(): Promise<void> {
   return apiFetch<void>('/auth/logout', { method: 'POST' })
 }

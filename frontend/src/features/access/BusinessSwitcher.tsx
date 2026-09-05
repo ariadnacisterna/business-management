@@ -1,6 +1,5 @@
 import { useState, type ChangeEvent } from 'react'
 import { useAuth } from './AuthContext'
-import styles from './BusinessSwitcher.module.css'
 
 export function BusinessSwitcher() {
   const { account, switchBusiness } = useAuth()
@@ -25,13 +24,16 @@ export function BusinessSwitcher() {
   }
 
   return (
-    <div className={styles.switcher}>
-      <label htmlFor="active-business">Negocio</label>
+    <div className="flex items-center gap-2">
+      <label htmlFor="active-business" className="text-sm font-medium opacity-70">
+        Negocio
+      </label>
       <select
         id="active-business"
         value={account.active_business_id}
         onChange={handleChange}
         disabled={submitting}
+        className="h-11 rounded-lg border border-line bg-transparent px-2.5 text-sm"
       >
         {account.businesses.map((business) => (
           <option key={business.id} value={business.id}>
@@ -40,7 +42,7 @@ export function BusinessSwitcher() {
         ))}
       </select>
       {error !== null && (
-        <p role="alert" className={styles.error}>
+        <p role="alert" className="m-0 text-sm text-danger">
           {error}
         </p>
       )}

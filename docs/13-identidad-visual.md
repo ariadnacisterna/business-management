@@ -12,6 +12,13 @@ medida fuera de lo que este documento define debe justificarse o
 consultarse, igual que un valor hardcodeado fuera de una constante
 (D-031).
 
+La implementación es **Tailwind CSS** (D-041): los colores de la tabla de
+abajo se definen una sola vez en `tailwind.config` (o el mecanismo
+equivalente de la versión instalada) y se consumen como clases de
+utilidad (ej. `bg-brand`, `text-brand`), no como valores hexadecimales
+sueltos por archivo — mismo criterio de "una sola fuente de verdad" que
+antes cumplían las variables CSS de `index.css`.
+
 ## Alcance de este documento
 
 Cubre la identidad y los componentes de uso general (botones, tarjetas,
@@ -36,28 +43,30 @@ negocio que use el sistema tendría la suya en su propio despliegue
 
 ## Paleta de colores
 
-Variables CSS en `frontend/src/index.css`, sobre lo que ya definió T-010
-(`--text`, `--bg`, `--border`, `--accent`). Mantener `--accent` como el
-nombre de la variable del color de marca (evita un renombre sin necesidad
-real); actualizar su valor y sumar las que falten:
+Tokens de color del tema de Tailwind (D-041), sobre lo que ya definió
+T-010/T-011 en valor (el nombre de variable CSS queda obsoleto, el color
+en sí no cambió):
 
-| Variable | Claro | Oscuro | Uso |
+| Token | Claro | Oscuro | Uso |
 |---|---|---|---|
-| `--accent` | `#af1405` | `#e8503c` (más claro, contraste sobre fondo oscuro) | Color primario: botones de acción principal, enlaces, foco de inputs |
-| `--accent-contrast` | `#fff` | `#fff` | Texto sobre `--accent` |
-| `--surface-brand` | `#fffae8` | `#242017` (versión oscura del crema) | Fondos secundarios, tarjetas destacadas — uso puntual, no como fondo general |
-| `--success` | `#2e7d32` | `#66bb6a` | Confirmaciones, estados "activo" |
-| `--danger` | `#c62828` | `#ef5350` | Errores, acciones destructivas |
-| `--warning` | `#e65100` | `#ffa726` | Advertencias (ej. stock bajo, cuando exista) |
-| `--info` | `#1565c0` | `#42a5f5` | Mensajes informativos |
+| `brand` (alias `accent`) | `#af1405` | `#e8503c` (más claro, contraste sobre fondo oscuro) | Color primario: botones de acción principal, enlaces, foco de inputs |
+| `brand-contrast` | `#fff` | `#fff` | Texto sobre `brand` |
+| `surface-brand` | `#fffae8` | `#242017` (versión oscura del crema) | Fondos secundarios, tarjetas destacadas — uso puntual, no como fondo general |
+| `success` | `#2e7d32` | `#66bb6a` | Confirmaciones, estados "activo" |
+| `danger` | `#c62828` | `#ef5350` | Errores, acciones destructivas |
+| `warning` | `#e65100` | `#ffa726` | Advertencias (ej. stock bajo, cuando exista) |
+| `info` | `#1565c0` | `#42a5f5` | Mensajes informativos |
 
-Los colores "claro" y "oscuro" siguen el mismo mecanismo que ya usa
-`index.css` (`@media (prefers-color-scheme: dark)`): no se elige un modo,
-se respeta el del sistema operativo de quien usa la aplicación.
+Los colores "claro" y "oscuro" mantienen el soporte de modo oscuro que ya
+tenía la app (estrategia `prefers-color-scheme`, sin selector manual): no
+se elige un modo, se respeta el del sistema operativo de quien usa la
+aplicación. Configurar el modo oscuro de Tailwind acorde (`darkMode:
+'media'` o equivalente de la versión instalada) para no perder ese
+soporte al migrar.
 
-No hardcodear estos valores hexadecimales fuera de `index.css`: todo
-componente los consume vía `var(--accent)`, etc. (mismo criterio que D-031
-aplicado a CSS).
+No hardcodear estos valores hexadecimales sueltos en un componente: se
+definen una sola vez en la configuración de Tailwind y se consumen como
+clases de utilidad (mismo criterio que D-031 aplicado a CSS).
 
 ## Tipografía
 
