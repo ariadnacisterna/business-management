@@ -633,3 +633,35 @@ def test_deactivate_and_reactivate_record_actor_and_timestamp(client, db_session
     stored_product = db_session.get(Product, product["id"])
     assert stored_product.updated_by_account_id == admin_account.id
     assert stored_product.updated_at is not None
+
+
+def test_list_products_includes_current_price_per_variant(client):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Merceria precios")
+    unit = _create_unit(client, admin_cookies, "Metro precios", "mp", True)
+    color, values = _get_color_attribute(client, admin_cookies)
+    red = next(value for value in values if value["value"] == "Rojo")
+    blue = next(value for value in values if value["value"] == "Azul")
+
+    product = _create_product(
+        client,
+        admin_cookies,
+        "Cinta con precios",
+        category["id"],
+        unit["id"],
+        variants=[
+            {"attribute_value_ids": [red["id"]]},
+            {"attribute_value_ids": [blue["id"]]},
+        ],
+    )
+    priced_variant = product["variants"][0]
+    unpriced_variant = product["variants"][1]
+    _set_price(client, admin_cookies, priced_variant["id"], "150.00")
+
+    response = client.get("/products", cookies=admin_cookies)
+
+    assert response.status_code == 200, response.text
+    listed_product = next(p for p in response.json() if p["id"] == product["id"])
+    listed_by_id = {variant["id"]: variant for variant in listed_product["variants"]}
+    assert listed_by_id[priced_variant["id"]]["price_amount"] == "150.00"
+    assert listed_by_id[unpriced_variant["id"]]["price_amount"] is None

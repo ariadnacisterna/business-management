@@ -1,11 +1,18 @@
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.constants.roles import ADMINISTRADOR, GERENTE
-from app.db.models import Account, AttributeValue, Product, Variant
+from app.db.models import Account, AttributeValue, Business, Price, Product, Variant
 from app.db.session import get_db
-from app.domain.access.permissions import get_current_user, require_csrf, require_role
+from app.domain.access.permissions import (
+    get_active_business,
+    get_current_user,
+    require_csrf,
+    require_role,
+)
 from app.domain.catalog import attribute_values, attributes, categories, products, units
 from app.domain.catalog.errors import (
     AttributeNotFound,
@@ -23,6 +30,7 @@ from app.domain.catalog.errors import (
     VariantNotFound,
 )
 from app.domain.catalog.products import VariantInput
+from app.domain.pricing.prices import get_current_prices_for_variants
 
 router = APIRouter()
 
@@ -93,6 +101,7 @@ class VariantResponse(BaseModel):
     is_implicit: bool
     status: str
     attribute_value_ids: list[int]
+    price_amount: Decimal | None = None
 
 
 class VariantInputSchema(BaseModel):
@@ -169,7 +178,10 @@ def _attribute_value_response(attribute_value: AttributeValue) -> AttributeValue
     )
 
 
-def _variant_response(variant: Variant) -> VariantResponse:
+def _variant_response(
+    variant: Variant, current_prices: dict[int, Price] | None = None
+) -> VariantResponse:
+    current_price = (current_prices or {}).get(variant.id)
     return VariantResponse(
         id=variant.id,
         product_id=variant.product_id,
@@ -177,17 +189,20 @@ def _variant_response(variant: Variant) -> VariantResponse:
         is_implicit=variant.is_implicit,
         status=variant.status,
         attribute_value_ids=[value.id for value in variant.attribute_values],
+        price_amount=current_price.amount if current_price is not None else None,
     )
 
 
-def _product_response(product: Product) -> ProductResponse:
+def _product_response(
+    product: Product, current_prices: dict[int, Price] | None = None
+) -> ProductResponse:
     return ProductResponse(
         id=product.id,
         name=product.name,
         category_id=product.category_id,
         unit_id=product.unit_id,
         status=product.status,
-        variants=[_variant_response(variant) for variant in product.variants],
+        variants=[_variant_response(variant, current_prices) for variant in product.variants],
     )
 
 
@@ -491,10 +506,15 @@ def create_product(
 
 @router.get("/products", response_model=list[ProductResponse])
 def list_products(
-    db: Session = Depends(get_db), _actor: Account = Depends(get_current_user)
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
 ) -> list[ProductResponse]:
     organization_id = _organization_id(_actor)
-    return [_product_response(product) for product in products.list_products(db, organization_id)]
+    product_list = products.list_products(db, organization_id)
+    variant_ids = [variant.id for product in product_list for variant in product.variants]
+    current_prices = get_current_prices_for_variants(db, variant_ids, business.id)
+    return [_product_response(product, current_prices) for product in product_list]
 
 
 @router.get("/products/{product_id}", response_model=ProductResponse)
