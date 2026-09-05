@@ -6,6 +6,7 @@ import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { CatalogListsModal } from './CatalogListsModal'
 import { RowMenu } from './RowMenu'
 
 type Status = 'loading' | 'success' | 'error'
@@ -32,6 +33,7 @@ export function ProductsPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [confirmingProduct, setConfirmingProduct] = useState<Product | null>(null)
+  const [showCatalogLists, setShowCatalogLists] = useState(false)
 
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all')
@@ -129,24 +131,29 @@ export function ProductsPage() {
           <h1 className="text-3xl font-bold">Productos</h1>
           <p className="mt-1 text-lg opacity-60">{filtered.length} productos encontrados</p>
         </div>
-        {canManage && (
-          <Link to="/products/new" className={`${primaryButtonClasses} flex items-center gap-2`}>
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5"
-            >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Nuevo Producto
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setShowCatalogLists(true)} className={secondaryButtonClasses}>
+            Categorías, unidades y atributos
+          </button>
+          {canManage && (
+            <Link to="/products/new" className={`${primaryButtonClasses} flex items-center gap-2`}>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Nuevo Producto
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -318,6 +325,8 @@ export function ProductsPage() {
       )}
 
       <Outlet context={{ onProductUpdated: applyProductUpdate }} />
+
+      {showCatalogLists && <CatalogListsModal onClose={() => setShowCatalogLists(false)} />}
 
       {confirmingProduct !== null && (
         <ConfirmDialog

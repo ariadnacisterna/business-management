@@ -10,23 +10,6 @@ const CONTENT: Record<NavIcon, ReactNode> = {
     </g>
   ),
   products: <path d="M3 8l9-5 9 5-9 5-9-5Zm0 0v9l9 5m0-9v9m9-14v9l-9 5" />,
-  categories: <path d="M12 2 2 7l10 5 10-5-10-5Zm-10 10 10 5 10-5m-20 5 10 5 10-5" />,
-  units: (
-    <>
-      <path d="M4 8h16v8H4z" />
-      <path d="M8 8v3M12 8v4M16 8v3" />
-    </>
-  ),
-  attributes: (
-    <>
-      <line x1="4" y1="6" x2="20" y2="6" />
-      <line x1="4" y1="12" x2="20" y2="12" />
-      <line x1="4" y1="18" x2="20" y2="18" />
-      <circle cx="9" cy="6" r="2" />
-      <circle cx="15" cy="12" r="2" />
-      <circle cx="7" cy="18" r="2" />
-    </>
-  ),
   prices: (
     <>
       <path d="M12.6 2.6a2 2 0 0 0-1.4-.6H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8 8a2 2 0 0 0 2.8 0l7.2-7.2a2 2 0 0 0 0-2.8l-8-8Z" />
