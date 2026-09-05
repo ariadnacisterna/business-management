@@ -1,6 +1,7 @@
 from app.constants.access import CSRF_HEADER_NAME
 from app.constants.roles import ADMINISTRADOR
 from app.core.config import get_settings
+from app.core.security import hash_token
 from app.db.models import AccountSession
 
 
@@ -93,11 +94,52 @@ def test_session_expiry_extends_on_activity(client, db_session):
         client, settings.initial_admin_username, settings.initial_admin_password
     )
     token = login_response.cookies["session_id"]
-    session_before = db_session.get(AccountSession, token)
+    session_before = db_session.get(AccountSession, hash_token(token))
     expires_before = session_before.expires_at
     db_session.expire(session_before)
 
     client.get("/auth/me", cookies=login_response.cookies)
 
-    session_after = db_session.get(AccountSession, token)
+    session_after = db_session.get(AccountSession, hash_token(token))
     assert session_after.expires_at >= expires_before
+
+
+def test_stored_session_row_keeps_no_usable_copy_of_the_cookie_tokens(client, db_session):
+    settings = get_settings()
+    login_response = _login(
+        client, settings.initial_admin_username, settings.initial_admin_password
+    )
+
+    stored_session = db_session.query(AccountSession).one()
+
+    assert stored_session.id != login_response.cookies["session_id"]
+    assert stored_session.csrf_token_hash != login_response.cookies["csrf_token"]
+    assert stored_session.id == hash_token(login_response.cookies["session_id"])
+    assert stored_session.csrf_token_hash == hash_token(login_response.cookies["csrf_token"])
+
+
+def test_session_token_read_from_the_table_does_not_authenticate(client, db_session):
+    settings = get_settings()
+    _login(client, settings.initial_admin_username, settings.initial_admin_password)
+
+    stored_session = db_session.query(AccountSession).one()
+
+    response = client.get("/auth/me", cookies={"session_id": stored_session.id})
+
+    assert response.status_code == 401
+
+
+def test_csrf_token_read_from_the_table_is_rejected(client, db_session):
+    settings = get_settings()
+    login_response = _login(
+        client, settings.initial_admin_username, settings.initial_admin_password
+    )
+    stored_session = db_session.query(AccountSession).one()
+
+    response = client.post(
+        "/auth/logout",
+        cookies=login_response.cookies,
+        headers={CSRF_HEADER_NAME: stored_session.csrf_token_hash},
+    )
+
+    assert response.status_code == 403

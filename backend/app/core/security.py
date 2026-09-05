@@ -1,3 +1,4 @@
+import hashlib
 import secrets
 
 from argon2 import PasswordHasher
@@ -25,3 +26,11 @@ def generate_session_token() -> str:
 
 def generate_csrf_token() -> str:
     return secrets.token_urlsafe(CSRF_TOKEN_BYTES)
+
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def verify_token(token: str, token_hash: str) -> bool:
+    return secrets.compare_digest(hash_token(token), token_hash)

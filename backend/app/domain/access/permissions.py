@@ -1,4 +1,3 @@
-import secrets
 from collections.abc import Callable
 
 from fastapi import Depends, HTTPException, Request, status
@@ -15,6 +14,7 @@ from app.constants.access import (
     SESSION_COOKIE_NAME,
 )
 from app.constants.status import EntityStatus
+from app.core.security import verify_token
 from app.db.models import Account, AccountSession, Business, BusinessAccess
 from app.db.session import get_db
 from app.domain.access.active_business import resolve_active_business
@@ -49,7 +49,7 @@ def require_csrf(request: Request, session: AccountSession = Depends(get_current
         return
 
     header_token = request.headers.get(CSRF_HEADER_NAME)
-    if not header_token or not secrets.compare_digest(header_token, session.csrf_token):
+    if not header_token or not verify_token(header_token, session.csrf_token_hash):
         raise HTTPException(status.HTTP_403_FORBIDDEN, INVALID_CSRF_DETAIL)
 
 

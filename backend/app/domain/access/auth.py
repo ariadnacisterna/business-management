@@ -7,7 +7,7 @@ from app.constants.status import EntityStatus
 from app.core.security import hash_password, verify_password
 from app.db.models import Account, AccountSession
 from app.domain.access.errors import InactiveAccount, InvalidCredentials
-from app.domain.access.sessions import create_session, delete_session
+from app.domain.access.sessions import IssuedSession, create_session, delete_session
 
 _DUMMY_PASSWORD_HASH = hash_password(secrets.token_urlsafe(16))
 
@@ -26,12 +26,12 @@ def authenticate(db: Session, user_name: str, password: str) -> Account:
     return account
 
 
-def login(db: Session, user_name: str, password: str) -> tuple[Account, AccountSession]:
+def login(db: Session, user_name: str, password: str) -> tuple[Account, IssuedSession]:
     account = authenticate(db, user_name, password)
-    session = create_session(db, account.id)
+    issued_session = create_session(db, account.id)
     db.commit()
-    db.refresh(session)
-    return account, session
+    db.refresh(issued_session.session)
+    return account, issued_session
 
 
 def logout(db: Session, session: AccountSession) -> None:

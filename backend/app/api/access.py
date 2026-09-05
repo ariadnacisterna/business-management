@@ -36,6 +36,7 @@ from app.domain.access.permissions import (
     require_csrf,
     require_role,
 )
+from app.domain.access.sessions import IssuedSession
 
 router = APIRouter()
 
@@ -119,12 +120,12 @@ def _session_info_response(
     )
 
 
-def _set_session_cookies(response: Response, session: AccountSession) -> None:
+def _set_session_cookies(response: Response, issued_session: IssuedSession) -> None:
     settings = get_settings()
     max_age = settings.session_ttl_minutes * 60
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
-        value=session.id,
+        value=issued_session.session_token,
         httponly=True,
         secure=settings.cookie_secure,
         samesite="lax",
@@ -133,7 +134,7 @@ def _set_session_cookies(response: Response, session: AccountSession) -> None:
     )
     response.set_cookie(
         key=CSRF_COOKIE_NAME,
-        value=session.csrf_token,
+        value=issued_session.csrf_token,
         httponly=False,
         secure=settings.cookie_secure,
         samesite="lax",
@@ -152,18 +153,20 @@ def login(
     payload: LoginRequest, response: Response, db: Session = Depends(get_db)
 ) -> SessionInfoResponse:
     try:
-        account, session = auth.login(db, payload.user_name, payload.password)
+        account, issued_session = auth.login(db, payload.user_name, payload.password)
     except (InvalidCredentials, InactiveAccount) as exc:
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED, "Usuario o contrasena incorrectos"
         ) from exc
 
     try:
-        business = resolve_active_business(db, account.id, session.active_business_id)
+        business = resolve_active_business(
+            db, account.id, issued_session.session.active_business_id
+        )
     except NoBusinessAccess as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, NO_BUSINESS_ACCESS_DETAIL) from exc
 
-    _set_session_cookies(response, session)
+    _set_session_cookies(response, issued_session)
     return _session_info_response(db, account, business)
 
 
