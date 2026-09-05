@@ -11,8 +11,9 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 
 from alembic import op
-from app.constants.roles import INITIAL_ROLES
 from app.core.config import get_settings
+
+INITIAL_ROLES = ("Administrador", "Gerente", "Empleado")
 
 revision: str = "c603b2693d97"
 down_revision: str | None = None
