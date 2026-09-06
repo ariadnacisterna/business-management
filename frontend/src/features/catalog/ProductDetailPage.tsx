@@ -216,26 +216,6 @@ export function ProductDetailPage() {
     navigate('/products')
   }
 
-  function startEditProduct() {
-    if (product === null) return
-    setProductDraft({
-      name: product.name,
-      categoryId: product.category_id,
-      unitId: product.unit_id,
-      status: product.status,
-    })
-    setPriceDraft(pricesByVariant.get(product.variants[0].id)?.amount ?? '')
-    setVariantDraftRows(
-      product.variants.map((variant) => ({
-        id: variant.id,
-        label: variant.label ?? '',
-        price: pricesByVariant.get(variant.id)?.amount ?? '',
-      })),
-    )
-    setEditingProduct(true)
-    setProductError(null)
-  }
-
   async function handleCreateCategory() {
     const trimmed = newCategoryName.trim()
     if (trimmed === '') return
@@ -945,32 +925,7 @@ export function ProductDetailPage() {
               </form>
             ) : (
               <div className="flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-3">
-                  <h1 className="m-0 text-2xl font-bold">{product.name}</h1>
-                  {canManage && (
-                    <button
-                      type="button"
-                      onClick={startEditProduct}
-                      aria-label="Editar producto"
-                      title="Editar producto"
-                      className="flex h-11 w-11 items-center justify-center rounded-lg text-ink/60 transition-colors hover:bg-surface-brand hover:text-brand"
-                    >
-                      <svg
-                        aria-hidden="true"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.75"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-5 w-5"
-                      >
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
+                <h1 className="m-0 text-2xl font-bold">{product.name}</h1>
 
                 <div className="-mt-3 flex items-center gap-2 text-base">
                   <span

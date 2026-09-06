@@ -672,7 +672,9 @@ def test_list_products_without_pagination_params_returns_full_catalog(client):
     category = _create_category(client, admin_cookies, "Merceria sin paginar")
     unit = _create_unit(client, admin_cookies, "Metro sin paginar", "msp", True)
     for index in range(3):
-        _create_product(client, admin_cookies, f"Producto sin paginar {index}", category["id"], unit["id"])
+        _create_product(
+            client, admin_cookies, f"Producto sin paginar {index}", category["id"], unit["id"]
+        )
 
     response = client.get("/products", cookies=admin_cookies)
 
@@ -719,23 +721,27 @@ def test_list_products_filters_by_status_and_search(client):
     admin_cookies = _admin_cookies(client)
     category = _create_category(client, admin_cookies, "Merceria filtros")
     unit = _create_unit(client, admin_cookies, "Metro filtros", "mfl", True)
-    active_product = _create_product(client, admin_cookies, "Cinta activa buscable", category["id"], unit["id"])
-    inactive_product = _create_product(client, admin_cookies, "Cinta inactiva", category["id"], unit["id"])
+    active_product = _create_product(
+        client, admin_cookies, "Cinta activa buscable", category["id"], unit["id"]
+    )
+    inactive_product = _create_product(
+        client, admin_cookies, "Cinta inactiva", category["id"], unit["id"]
+    )
     client.post(
         f"/products/{inactive_product['id']}/deactivate",
         cookies=admin_cookies,
         headers=_auth_headers(admin_cookies),
     )
 
-    search_response = client.get(
-        "/products", params={"search": "buscable"}, cookies=admin_cookies
-    )
+    search_response = client.get("/products", params={"search": "buscable"}, cookies=admin_cookies)
     assert search_response.status_code == 200, search_response.text
     search_ids = {item["id"] for item in search_response.json()["items"]}
     assert search_ids == {active_product["id"]}
 
     status_response = client.get(
-        "/products", params={"status": "inactive", "category_id": category["id"]}, cookies=admin_cookies
+        "/products",
+        params={"status": "inactive", "category_id": category["id"]},
+        cookies=admin_cookies,
     )
     assert status_response.status_code == 200, status_response.text
     status_ids = {item["id"] for item in status_response.json()["items"]}

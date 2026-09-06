@@ -21,7 +21,7 @@ export function CloseButton({ onClose, className = '' }: Props) {
       onClick={handleClick}
       disabled={closing}
       aria-label="Cerrar"
-      className={`flex h-14 w-14 shrink-0 items-center justify-center transition-colors ${
+      className={`z-10 flex h-14 w-14 shrink-0 items-center justify-center transition-colors ${
         closing ? 'text-danger' : 'text-ink/60 hover:text-danger'
       } ${className}`}
     >

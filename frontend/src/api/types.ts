@@ -48,6 +48,7 @@ export interface Variant {
   is_implicit: boolean
   status: string
   attribute_value_ids: number[]
+  price_amount: string | null
 }
 
 export interface Product {

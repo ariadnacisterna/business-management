@@ -7,7 +7,7 @@ interface Props {
 }
 
 const navButtonClasses =
-  'h-11 rounded-lg bg-danger px-4 text-lg font-semibold text-brand-contrast transition-colors hover:bg-danger/90 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-danger'
+  'table-header h-11 rounded-lg border border-line px-4 text-lg font-semibold text-ink transition-colors hover:bg-line/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent'
 
 export function Pagination({ page, totalPages, onPageChange }: Props) {
   if (totalPages <= 1) return null
@@ -38,7 +38,7 @@ export function Pagination({ page, totalPages, onPageChange }: Props) {
             onClick={() => onPageChange(item)}
             className={`flex h-11 w-11 items-center justify-center rounded-full border text-lg font-semibold transition-colors ${
               item === page
-                ? 'border-brand bg-brand text-brand-contrast'
+                ? 'table-header border-line font-bold text-ink'
                 : 'border-line bg-surface hover:bg-surface-brand'
             }`}
           >

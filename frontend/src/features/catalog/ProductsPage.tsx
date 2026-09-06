@@ -11,6 +11,7 @@ import type { Category, Product, Unit } from '../../api/types'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { HighlightedText } from '../../shared/HighlightedText'
 import { Pagination } from '../../shared/Pagination'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { RowMenu } from './RowMenu'
@@ -29,6 +30,18 @@ interface Filters {
 }
 
 const DEFAULT_FILTERS: Filters = { page: 1, pageSize: 25, categoryId: 'all', status: 'all' }
+
+const priceFormatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' })
+
+function productPriceInfo(product: Product): { amount: number; hasRange: boolean } | null {
+  const amounts = product.variants
+    .map((variant) => variant.price_amount)
+    .filter((amount): amount is string => amount !== null)
+    .map(Number)
+  if (amounts.length === 0) return null
+  const distinct = new Set(amounts)
+  return { amount: Math.min(...amounts), hasRange: distinct.size > 1 }
+}
 
 const inputClasses =
   'h-12 rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
@@ -342,7 +355,7 @@ export function ProductsPage() {
 
       {status === 'success' && total > 0 && (
         <>
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface">
+          <div className="relative flex min-h-0 shrink flex-col overflow-hidden rounded-xl border border-line bg-surface">
             <div
               ref={tableScrollRef}
               onScroll={updateScrollbar}
@@ -350,20 +363,20 @@ export function ProductsPage() {
             >
               <table className="w-full min-w-[900px]">
                 <thead ref={theadRef} className="sticky top-0 z-10">
-                  <tr className="border-b border-line bg-surface-brand">
-                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Código</th>
+                  <tr className="table-header border-b border-line">
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Código</th>
                     <th
                       onClick={toggleSort}
-                      className="cursor-pointer whitespace-nowrap px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60 transition-colors hover:text-brand"
+                      className="cursor-pointer whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60 transition-colors hover:text-brand"
                     >
                       Nombre
                       <span className="ml-1.5 text-lg leading-none">{sortDir === 'asc' ? '↑' : '↓'}</span>
                     </th>
-                    <th className="whitespace-nowrap pl-8 pr-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Categoría</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Unidad</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Precio</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Variantes</th>
-                    <th className="whitespace-nowrap py-3 pl-8 pr-4 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Estado</th>
+                    <th className="whitespace-nowrap pl-8 pr-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Categoría</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Unidad</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Precio</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Variantes</th>
+                    <th className="whitespace-nowrap py-3 pl-8 pr-4 text-left text-sm font-bold uppercase tracking-wide opacity-60">Estado</th>
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>
@@ -375,12 +388,27 @@ export function ProductsPage() {
                       <td className="whitespace-nowrap px-4 py-3.5 text-lg italic opacity-40">Próximamente</td>
                       <td className="max-w-xs px-4 py-3.5">
                         <Link to={`/products/${product.id}`} className="text-lg font-semibold hover:text-brand">
-                          {product.name}
+                          <HighlightedText text={product.name} query={appliedSearch} />
                         </Link>
                       </td>
                       <td className="py-3.5 pl-8 pr-4 text-lg opacity-70">{categoryName(product.category_id)}</td>
                       <td className="px-4 py-3.5 text-lg opacity-70">{unitName(product.unit_id)}</td>
-                      <td className="whitespace-nowrap px-4 py-3.5 text-lg italic opacity-40">Próximamente</td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-lg">
+                        {(() => {
+                          const priceInfo = productPriceInfo(product)
+                          if (priceInfo === null) {
+                            return <span className="italic opacity-40">Sin precio</span>
+                          }
+                          return (
+                            <span className="font-bold text-brand">
+                              {priceFormatter.format(priceInfo.amount)}
+                              {priceInfo.hasRange && (
+                                <span className="ml-1 text-sm font-normal opacity-60">desde</span>
+                              )}
+                            </span>
+                          )
+                        })()}
+                      </td>
                       <td className="px-4 py-3.5 text-lg opacity-70">
                         {isUndifferentiated ? '—' : product.variants.length}
                       </td>
@@ -444,7 +472,7 @@ export function ProductsPage() {
             )}
           </div>
 
-          <div className="pt-1">
+          <div className="mt-auto pt-1">
             <Pagination
               page={filters.page}
               totalPages={totalPages}

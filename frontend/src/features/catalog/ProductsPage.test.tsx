@@ -40,7 +40,17 @@ const PRODUCTS = [
     category_id: 1,
     unit_id: 1,
     status: 'active',
-    variants: [{ id: 10, product_id: 1, label: null, is_implicit: true, status: 'active', attribute_value_ids: [] }],
+    variants: [
+      {
+        id: 10,
+        product_id: 1,
+        label: null,
+        is_implicit: true,
+        status: 'active',
+        attribute_value_ids: [],
+        price_amount: '150.00',
+      },
+    ],
   },
   {
     id: 2,
@@ -48,7 +58,17 @@ const PRODUCTS = [
     category_id: 2,
     unit_id: 2,
     status: 'active',
-    variants: [{ id: 11, product_id: 2, label: 'Natural', is_implicit: false, status: 'active', attribute_value_ids: [] }],
+    variants: [
+      {
+        id: 11,
+        product_id: 2,
+        label: 'Natural',
+        is_implicit: false,
+        status: 'active',
+        attribute_value_ids: [],
+        price_amount: null,
+      },
+    ],
   },
 ]
 
@@ -100,6 +120,48 @@ describe('ProductsPage', () => {
     expect(screen.getByText('2 productos encontrados')).toBeInTheDocument()
   })
 
+  it('shows each product\'s price, or a placeholder when it has no price or several prices', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    const products = [
+      PRODUCTS[0],
+      PRODUCTS[1],
+      {
+        id: 3,
+        name: 'Botones surtidos',
+        category_id: 1,
+        unit_id: 1,
+        status: 'active',
+        variants: [
+          { id: 20, product_id: 3, label: 'Chico', is_implicit: false, status: 'active', attribute_value_ids: [], price_amount: '10.00' },
+          { id: 21, product_id: 3, label: 'Grande', is_implicit: false, status: 'active', attribute_value_ids: [], price_amount: '20.00' },
+        ],
+      },
+    ]
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(productPage(products, { total: products.length }))
+
+    render(
+      <MemoryRouter initialEntries={['/products']}>
+        <AuthProvider>
+          <ReadyGate>
+            <Routes>
+              <Route path="/products" element={<ProductsPage />} />
+            </Routes>
+          </ReadyGate>
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText('Cinta bebé')
+    expect(screen.getByText('$ 150,00')).toBeInTheDocument()
+    expect(screen.getByText('Sin precio')).toBeInTheDocument()
+    expect(screen.getByText('$ 10,00')).toBeInTheDocument()
+    expect(screen.getByText('desde')).toBeInTheDocument()
+  })
+
   it('asks the server to filter by search text, debouncing the request', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
@@ -111,10 +173,25 @@ describe('ProductsPage', () => {
     await user.type(screen.getByLabelText('Buscar productos'), 'lino')
 
     await waitFor(() => expect(screen.queryByText('Cinta bebé')).not.toBeInTheDocument(), { timeout: 2000 })
-    expect(screen.getByText('Tela de lino')).toBeInTheDocument()
+    expect(screen.getByText('lino').closest('a')).toHaveTextContent('Tela de lino')
 
     const lastCall = fetchMock.mock.calls.at(-1)?.[0] as string
     expect(lastCall).toContain('search=lino')
+  })
+
+  it('highlights the matching search text within the product name', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    fetchMock.mockResolvedValueOnce(productPage([PRODUCTS[1]], { total: 1 }))
+
+    await user.type(screen.getByLabelText('Buscar productos'), 'lino')
+
+    const highlighted = await screen.findByText('lino')
+    expect(highlighted).toHaveClass('text-danger')
+    expect(highlighted.closest('a')).toHaveTextContent('Tela de lino')
   })
 
   it('asks the server to filter by category', async () => {

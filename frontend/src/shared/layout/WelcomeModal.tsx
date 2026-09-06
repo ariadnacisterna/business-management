@@ -33,7 +33,7 @@ export function WelcomeModal() {
   const firstName = account.name.split(' ')[0]
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" aria-hidden="true" />
 
       <div
