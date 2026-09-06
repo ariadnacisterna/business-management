@@ -117,6 +117,9 @@ describe('ProductDetailPage', () => {
     )
 
     await user.click(screen.getByRole('button', { name: 'Cambiar precio' }))
+
+    expect(screen.getByRole('heading', { name: 'Cinta bebé' })).toBeInTheDocument()
+
     await user.type(screen.getByLabelText('Nuevo precio (ARS)'), '45.50')
     await user.click(screen.getByRole('button', { name: 'Confirmar' }))
 

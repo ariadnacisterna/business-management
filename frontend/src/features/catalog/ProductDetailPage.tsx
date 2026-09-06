@@ -426,7 +426,7 @@ export function ProductDetailPage() {
 
   return (
     <>
-    {priceModalVariant === null && !pickingVariantForPrice && (
+    {!pickingVariantForPrice && !(priceModalVariant !== null && priceModalOpenedDirectly) && (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
 

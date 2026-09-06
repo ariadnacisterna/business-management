@@ -158,7 +158,7 @@ export function ChangePriceModal({
           <button
             type="submit"
             disabled={saving || amount.trim() === ''}
-            className="h-12 flex-1 rounded-xl bg-brand/60 text-lg font-bold text-brand-contrast transition-colors hover:bg-brand/70 disabled:opacity-40"
+            className="h-12 flex-1 rounded-xl bg-brand/80 text-lg font-bold text-brand-contrast transition-colors hover:bg-brand disabled:opacity-40"
           >
             Confirmar
           </button>
