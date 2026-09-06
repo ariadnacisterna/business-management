@@ -173,7 +173,7 @@ export function PricingPage() {
       })
   }
 
-  useEffect(load, [page, appliedSearch])
+  useEffect(load, [page, appliedSearch, account?.active_business_id])
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -395,13 +395,26 @@ export function PricingPage() {
       )}
 
       {status === 'error' && (
-        <div className="flex items-center gap-3" role="alert">
-          <p className="m-0 text-danger">{loadError}</p>
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface px-6 py-12 text-center" role="alert">
+          <p className="m-0 text-xl font-semibold">{loadError}</p>
           <button
             type="button"
             onClick={load}
-            className="h-11 rounded-lg border border-line bg-surface px-3 text-base transition-colors hover:bg-surface-brand"
+            className="flex h-12 items-center gap-2 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90"
           >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5"
+            >
+              <polyline points="1 4 1 10 7 10" />
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+            </svg>
             Reintentar
           </button>
         </div>

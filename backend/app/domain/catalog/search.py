@@ -39,19 +39,18 @@ def _matches_terms(variant: Variant, terms: list[str]) -> bool:
 
 def search_variants(
     db: Session,
-    organization_id: int,
     business_id: int,
     query: str | None = None,
     category_id: int | None = None,
 ) -> list[VariantSearchResult]:
     if category_id is not None:
-        get_category(db, category_id)
+        get_category(db, business_id, category_id)
 
     stmt = (
         select(Variant)
         .join(Product, Variant.product_id == Product.id)
         .where(
-            Product.organization_id == organization_id,
+            Product.business_id == business_id,
             Product.status == EntityStatus.ACTIVE.value,
             Variant.status == EntityStatus.ACTIVE.value,
         )

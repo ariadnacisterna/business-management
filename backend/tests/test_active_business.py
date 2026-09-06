@@ -215,7 +215,7 @@ def test_switching_active_business_without_csrf_header_is_rejected(client, db_se
     assert response.status_code == 403
 
 
-def test_account_with_access_to_two_businesses_can_switch_and_prices_stay_per_business(
+def test_account_with_access_to_two_businesses_has_independent_catalogs_and_prices(
     no_second_business, client, db_session
 ):
     admin_cookies = _admin_cookies(client)
@@ -224,8 +224,10 @@ def test_account_with_access_to_two_businesses_can_switch_and_prices_stay_per_bu
     second_business = _create_second_business(db_session)
     _grant_access(db_session, admin_account_id, second_business.id, DUENO)
 
-    _product, variant_id = _set_up_product_with_single_variant(client, admin_cookies, "dual")
-    _set_price(client, admin_cookies, variant_id, "100.00")
+    _first_product, first_variant_id = _set_up_product_with_single_variant(
+        client, admin_cookies, "dual-negocio-a"
+    )
+    _set_price(client, admin_cookies, first_variant_id, "100.00")
 
     switch_response = client.post(
         "/auth/active-business",
@@ -241,9 +243,19 @@ def test_account_with_access_to_two_businesses_can_switch_and_prices_stay_per_bu
         second_business.id,
     }
 
-    _set_price(client, admin_cookies, variant_id, "200.00")
+    first_variant_in_second_business = client.get(
+        f"/variants/{first_variant_id}/price", cookies=admin_cookies
+    )
+    assert first_variant_in_second_business.status_code == 404
 
-    price_in_second_business = client.get(f"/variants/{variant_id}/price", cookies=admin_cookies)
+    _second_product, second_variant_id = _set_up_product_with_single_variant(
+        client, admin_cookies, "dual-negocio-b"
+    )
+    _set_price(client, admin_cookies, second_variant_id, "200.00")
+
+    price_in_second_business = client.get(
+        f"/variants/{second_variant_id}/price", cookies=admin_cookies
+    )
     assert price_in_second_business.json()["price"]["amount"] == "200.00"
 
     client.post(
@@ -252,11 +264,18 @@ def test_account_with_access_to_two_businesses_can_switch_and_prices_stay_per_bu
         cookies=admin_cookies,
         headers=_auth_headers(admin_cookies),
     )
-    price_in_first_business = client.get(f"/variants/{variant_id}/price", cookies=admin_cookies)
+    price_in_first_business = client.get(
+        f"/variants/{first_variant_id}/price", cookies=admin_cookies
+    )
     assert price_in_first_business.json()["price"]["amount"] == "100.00"
 
+    second_variant_in_first_business = client.get(
+        f"/variants/{second_variant_id}/price", cookies=admin_cookies
+    )
+    assert second_variant_in_first_business.status_code == 404
 
-def test_account_with_single_business_access_cannot_see_the_other_business_price(
+
+def test_account_with_single_business_access_cannot_see_the_other_business_catalog(
     client, db_session
 ):
     admin_cookies = _admin_cookies(client)
@@ -274,7 +293,10 @@ def test_account_with_single_business_access_cannot_see_the_other_business_price
         cookies=admin_cookies,
         headers=_auth_headers(admin_cookies),
     )
-    _set_price(client, admin_cookies, variant_id, "999.00")
+    _other_product, other_variant_id = _set_up_product_with_single_variant(
+        client, admin_cookies, "negocio-b"
+    )
+    _set_price(client, admin_cookies, other_variant_id, "999.00")
     client.post(
         "/auth/active-business",
         json={"business_id": first_business_id},
@@ -299,11 +321,12 @@ def test_account_with_single_business_access_cannot_see_the_other_business_price
 
     search_response = client.get("/search", cookies=restricted_cookies)
     assert search_response.status_code == 200
-    matching = [
-        result for result in search_response.json()["results"] if result["variant_id"] == variant_id
-    ]
-    assert len(matching) == 1
-    assert matching[0]["price_amount"] == "150.00"
+    results_by_variant_id = {
+        result["variant_id"]: result for result in search_response.json()["results"]
+    }
+    assert variant_id in results_by_variant_id
+    assert results_by_variant_id[variant_id]["price_amount"] == "150.00"
+    assert other_variant_id not in results_by_variant_id
 
 
 def test_gerente_and_empleado_cannot_switch_active_business_even_with_access_to_both(

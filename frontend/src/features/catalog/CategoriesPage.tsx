@@ -52,7 +52,7 @@ export function CategoriesPage() {
       })
   }
 
-  useEffect(load, [])
+  useEffect(load, [account?.active_business_id])
 
   const productCountByCategory = useMemo(() => {
     const counts = new Map<number, number>()

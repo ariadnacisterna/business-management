@@ -9,8 +9,12 @@ from app.db.base import Base
 from app.db.constraints import status_check_constraint
 
 if TYPE_CHECKING:
+    from app.db.models.attribute import Attribute
     from app.db.models.business_access import BusinessAccess
+    from app.db.models.category import Category
     from app.db.models.organization import Organization
+    from app.db.models.product import Product
+    from app.db.models.unit import Unit
 
 
 class Business(Base):
@@ -27,3 +31,7 @@ class Business(Base):
 
     organization: Mapped["Organization"] = relationship(back_populates="businesses")
     accesses: Mapped[list["BusinessAccess"]] = relationship(back_populates="business")
+    categories: Mapped[list["Category"]] = relationship(back_populates="business")
+    units: Mapped[list["Unit"]] = relationship(back_populates="business")
+    attributes: Mapped[list["Attribute"]] = relationship(back_populates="business")
+    products: Mapped[list["Product"]] = relationship(back_populates="business")

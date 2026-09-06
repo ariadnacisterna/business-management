@@ -121,15 +121,15 @@ class _CatalogSnapshot:
     active_values_by_attribute: dict[int, dict[str, AttributeValue]]
 
 
-def _load_snapshot(db: Session, organization_id: int) -> _CatalogSnapshot:
+def _load_snapshot(db: Session, business_id: int) -> _CatalogSnapshot:
     categories = {
         normalize_for_comparison(category.name): category
-        for category in list_categories(db, organization_id)
+        for category in list_categories(db, business_id)
     }
-    units = {normalize_for_comparison(unit.name): unit for unit in list_units(db, organization_id)}
+    units = {normalize_for_comparison(unit.name): unit for unit in list_units(db, business_id)}
     attributes = {
         normalize_for_comparison(attribute.name): attribute
-        for attribute in list_attributes(db, organization_id)
+        for attribute in list_attributes(db, business_id)
     }
     active_values = {
         attribute.id: {
@@ -470,11 +470,9 @@ def _process_group(
     )
 
 
-def analyze_import(
-    db: Session, organization_id: int, business_id: int, filename: str, content: bytes
-) -> ImportPlan:
+def analyze_import(db: Session, business_id: int, filename: str, content: bytes) -> ImportPlan:
     parsed_rows = parse_file(filename, content)
-    snapshot = _load_snapshot(db, organization_id)
+    snapshot = _load_snapshot(db, business_id)
     rows = [_build_row_plan(parsed) for parsed in parsed_rows]
 
     taxonomy = TaxonomyPlan()

@@ -24,10 +24,10 @@ def _validate_abbreviation(abbreviation: str) -> str:
 
 
 def _check_duplicate_name(
-    db: Session, organization_id: int, name: str, exclude_id: int | None = None
+    db: Session, business_id: int, name: str, exclude_id: int | None = None
 ) -> None:
     normalized = normalize_for_comparison(name)
-    query = select(Unit).where(Unit.organization_id == organization_id)
+    query = select(Unit).where(Unit.business_id == business_id)
     if exclude_id is not None:
         query = query.where(Unit.id != exclude_id)
     for existing in db.scalars(query):
@@ -37,7 +37,7 @@ def _check_duplicate_name(
 
 def _build_unit(
     db: Session,
-    organization_id: int,
+    business_id: int,
     name: str,
     abbreviation: str,
     actor_account_id: int,
@@ -45,11 +45,11 @@ def _build_unit(
 ) -> Unit:
     name = _validate_name(name)
     abbreviation = _validate_abbreviation(abbreviation)
-    _check_duplicate_name(db, organization_id, name)
+    _check_duplicate_name(db, business_id, name)
 
     now = datetime.now(UTC)
     unit = Unit(
-        organization_id=organization_id,
+        business_id=business_id,
         name=name,
         abbreviation=abbreviation,
         allows_fraction=allows_fraction,
@@ -66,13 +66,13 @@ def _build_unit(
 
 def create_unit(
     db: Session,
-    organization_id: int,
+    business_id: int,
     name: str,
     abbreviation: str,
     actor_account_id: int,
     allows_fraction: bool = False,
 ) -> Unit:
-    unit = _build_unit(db, organization_id, name, abbreviation, actor_account_id, allows_fraction)
+    unit = _build_unit(db, business_id, name, abbreviation, actor_account_id, allows_fraction)
     db.commit()
     db.refresh(unit)
     return unit
@@ -80,17 +80,18 @@ def create_unit(
 
 def update_unit(
     db: Session,
+    business_id: int,
     unit_id: int,
     actor_account_id: int,
     name: str | None = None,
     abbreviation: str | None = None,
     allows_fraction: bool | None = None,
 ) -> Unit:
-    unit = get_unit(db, unit_id)
+    unit = get_unit(db, business_id, unit_id)
 
     if name is not None:
         name = _validate_name(name)
-        _check_duplicate_name(db, unit.organization_id, name, exclude_id=unit.id)
+        _check_duplicate_name(db, business_id, name, exclude_id=unit.id)
         unit.name = name
 
     if abbreviation is not None:
@@ -106,16 +107,14 @@ def update_unit(
     return unit
 
 
-def list_units(db: Session, organization_id: int) -> list[Unit]:
+def list_units(db: Session, business_id: int) -> list[Unit]:
     return list(
-        db.scalars(
-            select(Unit).where(Unit.organization_id == organization_id).order_by(Unit.name)
-        ).all()
+        db.scalars(select(Unit).where(Unit.business_id == business_id).order_by(Unit.name)).all()
     )
 
 
-def get_unit(db: Session, unit_id: int) -> Unit:
+def get_unit(db: Session, business_id: int, unit_id: int) -> Unit:
     unit = db.get(Unit, unit_id)
-    if unit is None:
+    if unit is None or unit.business_id != business_id:
         raise UnitNotFound
     return unit

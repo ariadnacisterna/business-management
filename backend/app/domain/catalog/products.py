@@ -38,16 +38,16 @@ def _normalize_label(label: str | None) -> str | None:
     return stripped or None
 
 
-def _get_category(db: Session, category_id: int, organization_id: int) -> Category:
+def _get_category(db: Session, category_id: int, business_id: int) -> Category:
     category = db.get(Category, category_id)
-    if category is None or category.organization_id != organization_id:
+    if category is None or category.business_id != business_id:
         raise CategoryNotFound
     return category
 
 
-def _get_unit(db: Session, unit_id: int, organization_id: int) -> Unit:
+def _get_unit(db: Session, unit_id: int, business_id: int) -> Unit:
     unit = db.get(Unit, unit_id)
-    if unit is None or unit.organization_id != organization_id:
+    if unit is None or unit.business_id != business_id:
         raise UnitNotFound
     return unit
 
@@ -137,7 +137,7 @@ def find_possible_duplicates(
 
 def _create_product_core(
     db: Session,
-    organization_id: int,
+    business_id: int,
     category_id: int,
     unit_id: int,
     name: str,
@@ -145,12 +145,12 @@ def _create_product_core(
     variants: list[VariantInput] | None = None,
 ) -> tuple[Product, list[Variant], list[Variant]]:
     name = _validate_name(name)
-    category = _get_category(db, category_id, organization_id)
-    unit = _get_unit(db, unit_id, organization_id)
+    category = _get_category(db, category_id, business_id)
+    unit = _get_unit(db, unit_id, business_id)
 
     now = datetime.now(UTC)
     product = Product(
-        organization_id=organization_id,
+        business_id=business_id,
         category_id=category.id,
         unit_id=unit.id,
         name=name,
@@ -190,7 +190,7 @@ def _create_product_core(
 
 def create_product(
     db: Session,
-    organization_id: int,
+    business_id: int,
     category_id: int,
     unit_id: int,
     name: str,
@@ -198,7 +198,7 @@ def create_product(
     variants: list[VariantInput] | None = None,
 ) -> tuple[Product, list[Variant], list[Variant]]:
     product, created_variants, possible_duplicates = _create_product_core(
-        db, organization_id, category_id, unit_id, name, actor_account_id, variants
+        db, business_id, category_id, unit_id, name, actor_account_id, variants
     )
     db.commit()
     db.refresh(product)
@@ -207,23 +207,24 @@ def create_product(
 
 def update_product(
     db: Session,
+    business_id: int,
     product_id: int,
     actor_account_id: int,
     name: str | None = None,
     category_id: int | None = None,
     unit_id: int | None = None,
 ) -> Product:
-    product = get_product(db, product_id)
+    product = get_product(db, business_id, product_id)
 
     if name is not None:
         product.name = _validate_name(name)
 
     if category_id is not None:
-        category = _get_category(db, category_id, product.organization_id)
+        category = _get_category(db, category_id, business_id)
         product.category_id = category.id
 
     if unit_id is not None:
-        unit = _get_unit(db, unit_id, product.organization_id)
+        unit = _get_unit(db, unit_id, business_id)
         product.unit_id = unit.id
 
     product.updated_by_account_id = actor_account_id
@@ -235,12 +236,13 @@ def update_product(
 
 def _add_variant_core(
     db: Session,
+    business_id: int,
     product_id: int,
     actor_account_id: int,
     label: str | None = None,
     attribute_value_ids: list[int] | None = None,
 ) -> tuple[Variant, list[Variant]]:
-    product = get_product(db, product_id)
+    product = get_product(db, business_id, product_id)
 
     unlabeled_implicit_variants = [
         variant for variant in product.variants if variant.is_implicit and variant.label is None
@@ -272,13 +274,14 @@ def _add_variant_core(
 
 def add_variant(
     db: Session,
+    business_id: int,
     product_id: int,
     actor_account_id: int,
     label: str | None = None,
     attribute_value_ids: list[int] | None = None,
 ) -> tuple[Variant, list[Variant]]:
     variant, duplicates = _add_variant_core(
-        db, product_id, actor_account_id, label, attribute_value_ids
+        db, business_id, product_id, actor_account_id, label, attribute_value_ids
     )
     db.commit()
     db.refresh(variant)
@@ -287,12 +290,13 @@ def add_variant(
 
 def update_variant(
     db: Session,
+    business_id: int,
     variant_id: int,
     actor_account_id: int,
     label: str | None = None,
     attribute_value_ids: list[int] | None = None,
 ) -> tuple[Variant, list[Variant]]:
-    variant = get_variant(db, variant_id)
+    variant = get_variant(db, business_id, variant_id)
 
     if label is not None:
         variant.label = _normalize_label(label)
@@ -327,32 +331,40 @@ def _set_status(entity: Product | Variant, new_status: EntityStatus, actor_accou
     entity.updated_at = datetime.now(UTC)
 
 
-def deactivate_product(db: Session, product_id: int, actor_account_id: int) -> Product:
-    product = get_product(db, product_id)
+def deactivate_product(
+    db: Session, business_id: int, product_id: int, actor_account_id: int
+) -> Product:
+    product = get_product(db, business_id, product_id)
     _set_status(product, EntityStatus.INACTIVE, actor_account_id)
     db.commit()
     db.refresh(product)
     return product
 
 
-def reactivate_product(db: Session, product_id: int, actor_account_id: int) -> Product:
-    product = get_product(db, product_id)
+def reactivate_product(
+    db: Session, business_id: int, product_id: int, actor_account_id: int
+) -> Product:
+    product = get_product(db, business_id, product_id)
     _set_status(product, EntityStatus.ACTIVE, actor_account_id)
     db.commit()
     db.refresh(product)
     return product
 
 
-def deactivate_variant(db: Session, variant_id: int, actor_account_id: int) -> Variant:
-    variant = get_variant(db, variant_id)
+def deactivate_variant(
+    db: Session, business_id: int, variant_id: int, actor_account_id: int
+) -> Variant:
+    variant = get_variant(db, business_id, variant_id)
     _set_status(variant, EntityStatus.INACTIVE, actor_account_id)
     db.commit()
     db.refresh(variant)
     return variant
 
 
-def reactivate_variant(db: Session, variant_id: int, actor_account_id: int) -> Variant:
-    variant = get_variant(db, variant_id)
+def reactivate_variant(
+    db: Session, business_id: int, variant_id: int, actor_account_id: int
+) -> Variant:
+    variant = get_variant(db, business_id, variant_id)
     _set_status(variant, EntityStatus.ACTIVE, actor_account_id)
     db.commit()
     db.refresh(variant)
@@ -361,14 +373,14 @@ def reactivate_variant(db: Session, variant_id: int, actor_account_id: int) -> V
 
 def list_products(
     db: Session,
-    organization_id: int,
+    business_id: int,
     page: int | None = None,
     page_size: int | None = None,
     category_id: int | None = None,
     status: str | None = None,
     search: str | None = None,
 ) -> tuple[list[Product], int]:
-    query = select(Product).where(Product.organization_id == organization_id)
+    query = select(Product).where(Product.business_id == business_id)
 
     if category_id is not None:
         query = query.where(Product.category_id == category_id)
@@ -389,15 +401,15 @@ def list_products(
     return product_list, total
 
 
-def get_product(db: Session, product_id: int) -> Product:
+def get_product(db: Session, business_id: int, product_id: int) -> Product:
     product = db.get(Product, product_id)
-    if product is None:
+    if product is None or product.business_id != business_id:
         raise ProductNotFound
     return product
 
 
-def get_variant(db: Session, variant_id: int) -> Variant:
+def get_variant(db: Session, business_id: int, variant_id: int) -> Variant:
     variant = db.get(Variant, variant_id)
-    if variant is None:
+    if variant is None or variant.product.business_id != business_id:
         raise VariantNotFound
     return variant

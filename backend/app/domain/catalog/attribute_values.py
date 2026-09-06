@@ -36,9 +36,9 @@ def _check_duplicate_value(
 
 
 def _build_attribute_value(
-    db: Session, attribute_id: int, value: str, actor_account_id: int
+    db: Session, business_id: int, attribute_id: int, value: str, actor_account_id: int
 ) -> AttributeValue:
-    attribute = get_attribute(db, attribute_id)
+    attribute = get_attribute(db, business_id, attribute_id)
     value = _validate_value(value)
     normalized_value = normalize_for_comparison(value)
     _check_duplicate_value(db, attribute.id, normalized_value)
@@ -60,18 +60,18 @@ def _build_attribute_value(
 
 
 def create_attribute_value(
-    db: Session, attribute_id: int, value: str, actor_account_id: int
+    db: Session, business_id: int, attribute_id: int, value: str, actor_account_id: int
 ) -> AttributeValue:
-    attribute_value = _build_attribute_value(db, attribute_id, value, actor_account_id)
+    attribute_value = _build_attribute_value(db, business_id, attribute_id, value, actor_account_id)
     db.commit()
     db.refresh(attribute_value)
     return attribute_value
 
 
 def update_attribute_value(
-    db: Session, attribute_value_id: int, value: str, actor_account_id: int
+    db: Session, business_id: int, attribute_value_id: int, value: str, actor_account_id: int
 ) -> AttributeValue:
-    attribute_value = get_attribute_value(db, attribute_value_id)
+    attribute_value = get_attribute_value(db, business_id, attribute_value_id)
     value = _validate_value(value)
     normalized_value = normalize_for_comparison(value)
     _check_duplicate_value(
@@ -88,16 +88,17 @@ def update_attribute_value(
 
 
 def list_attribute_values(
-    db: Session, attribute_id: int, active_only: bool = True
+    db: Session, business_id: int, attribute_id: int, active_only: bool = True
 ) -> list[AttributeValue]:
+    get_attribute(db, business_id, attribute_id)
     query = select(AttributeValue).where(AttributeValue.attribute_id == attribute_id)
     if active_only:
         query = query.where(AttributeValue.status == EntityStatus.ACTIVE.value)
     return list(db.scalars(query.order_by(AttributeValue.value)).all())
 
 
-def get_attribute_value(db: Session, attribute_value_id: int) -> AttributeValue:
+def get_attribute_value(db: Session, business_id: int, attribute_value_id: int) -> AttributeValue:
     attribute_value = db.get(AttributeValue, attribute_value_id)
-    if attribute_value is None:
+    if attribute_value is None or attribute_value.attribute.business_id != business_id:
         raise AttributeValueNotFound
     return attribute_value

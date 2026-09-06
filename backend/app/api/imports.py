@@ -182,7 +182,7 @@ def preview_import(
     filename, content = _read_upload(file)
 
     try:
-        plan = analyze_import(db, business.organization_id, business.id, filename, content)
+        plan = analyze_import(db, business.id, filename, content)
     except FileTooLarge as exc:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, str(exc)) from exc
     except (
@@ -212,9 +212,7 @@ def confirm_import(
     filename, content = _read_upload(file)
 
     try:
-        result = apply_import(
-            db, business.organization_id, business.id, filename, content, actor.id
-        )
+        result = apply_import(db, business.id, filename, content, actor.id)
     except FileTooLarge as exc:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, str(exc)) from exc
     except (

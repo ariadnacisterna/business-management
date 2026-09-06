@@ -16,23 +16,21 @@ def _validate_name(name: str) -> str:
     return stripped
 
 
-def _check_duplicate_name(db: Session, organization_id: int, name: str) -> None:
+def _check_duplicate_name(db: Session, business_id: int, name: str) -> None:
     normalized = normalize_for_comparison(name)
-    existing = db.scalars(select(Attribute).where(Attribute.organization_id == organization_id))
+    existing = db.scalars(select(Attribute).where(Attribute.business_id == business_id))
     for candidate in existing:
         if normalize_for_comparison(candidate.name) == normalized:
             raise DuplicateAttributeName
 
 
-def create_attribute(
-    db: Session, organization_id: int, name: str, actor_account_id: int
-) -> Attribute:
+def create_attribute(db: Session, business_id: int, name: str, actor_account_id: int) -> Attribute:
     name = _validate_name(name)
-    _check_duplicate_name(db, organization_id, name)
+    _check_duplicate_name(db, business_id, name)
 
     now = datetime.now(UTC)
     attribute = Attribute(
-        organization_id=organization_id,
+        business_id=business_id,
         name=name,
         status=EntityStatus.ACTIVE.value,
         created_by_account_id=actor_account_id,
@@ -46,18 +44,16 @@ def create_attribute(
     return attribute
 
 
-def list_attributes(db: Session, organization_id: int) -> list[Attribute]:
+def list_attributes(db: Session, business_id: int) -> list[Attribute]:
     return list(
         db.scalars(
-            select(Attribute)
-            .where(Attribute.organization_id == organization_id)
-            .order_by(Attribute.name)
+            select(Attribute).where(Attribute.business_id == business_id).order_by(Attribute.name)
         ).all()
     )
 
 
-def get_attribute(db: Session, attribute_id: int) -> Attribute:
+def get_attribute(db: Session, business_id: int, attribute_id: int) -> Attribute:
     attribute = db.get(Attribute, attribute_id)
-    if attribute is None:
+    if attribute is None or attribute.business_id != business_id:
         raise AttributeNotFound
     return attribute

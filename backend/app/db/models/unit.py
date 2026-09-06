@@ -10,7 +10,7 @@ from app.db.base import Base
 from app.db.constraints import status_check_constraint
 
 if TYPE_CHECKING:
-    from app.db.models.organization import Organization
+    from app.db.models.business import Business
     from app.db.models.product import Product
 
 
@@ -18,11 +18,11 @@ class Unit(Base, AuditedMixin):
     __tablename__ = "unit"
     __table_args__ = (
         status_check_constraint(),
-        UniqueConstraint("organization_id", "name", name="uq_unit_organization_id_name"),
+        UniqueConstraint("business_id", "name", name="uq_unit_business_id_name"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organization.id"), nullable=False)
+    business_id: Mapped[int] = mapped_column(ForeignKey("business.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(NAME_MAX_LENGTH), nullable=False)
     abbreviation: Mapped[str] = mapped_column(String(UNIT_ABBREVIATION_MAX_LENGTH), nullable=False)
     allows_fraction: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -30,5 +30,5 @@ class Unit(Base, AuditedMixin):
         String(STATUS_MAX_LENGTH), nullable=False, default=EntityStatus.ACTIVE.value
     )
 
-    organization: Mapped["Organization"] = relationship(back_populates="units")
+    business: Mapped["Business"] = relationship(back_populates="units")
     products: Mapped[list["Product"]] = relationship(back_populates="unit")

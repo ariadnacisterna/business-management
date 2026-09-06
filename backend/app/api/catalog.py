@@ -214,10 +214,6 @@ def _product_response(
     )
 
 
-def _organization_id(account: Account) -> int:
-    return account.organization_id
-
-
 @router.post(
     "/categories",
     response_model=CategoryResponse,
@@ -228,9 +224,10 @@ def create_category(
     payload: CreateCategoryRequest,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> CategoryResponse:
     try:
-        category = categories.create_category(db, _organization_id(_actor), payload.name, _actor.id)
+        category = categories.create_category(db, business.id, payload.name, _actor.id)
     except DuplicateCategoryName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "La categoria ya existe") from exc
     except InvalidCatalogInput as exc:
@@ -241,20 +238,24 @@ def create_category(
 
 @router.get("/categories", response_model=list[CategoryResponse])
 def list_categories(
-    db: Session = Depends(get_db), _actor: Account = Depends(get_current_user)
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
 ) -> list[CategoryResponse]:
     return [
-        _category_response(category)
-        for category in categories.list_categories(db, _organization_id(_actor))
+        _category_response(category) for category in categories.list_categories(db, business.id)
     ]
 
 
 @router.get("/categories/{category_id}", response_model=CategoryResponse)
 def get_category(
-    category_id: int, db: Session = Depends(get_db), _actor: Account = Depends(get_current_user)
+    category_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
 ) -> CategoryResponse:
     try:
-        category = categories.get_category(db, category_id)
+        category = categories.get_category(db, business.id, category_id)
     except CategoryNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Categoria no encontrada") from exc
 
@@ -271,9 +272,12 @@ def update_category(
     payload: UpdateCategoryRequest,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> CategoryResponse:
     try:
-        category = categories.update_category(db, category_id, _actor.id, name=payload.name)
+        category = categories.update_category(
+            db, business.id, category_id, _actor.id, name=payload.name
+        )
     except CategoryNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Categoria no encontrada") from exc
     except DuplicateCategoryName as exc:
@@ -294,11 +298,12 @@ def create_unit(
     payload: CreateUnitRequest,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> UnitResponse:
     try:
         unit = units.create_unit(
             db,
-            _organization_id(_actor),
+            business.id,
             payload.name,
             payload.abbreviation,
             _actor.id,
@@ -314,17 +319,22 @@ def create_unit(
 
 @router.get("/units", response_model=list[UnitResponse])
 def list_units(
-    db: Session = Depends(get_db), _actor: Account = Depends(get_current_user)
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
 ) -> list[UnitResponse]:
-    return [_unit_response(unit) for unit in units.list_units(db, _organization_id(_actor))]
+    return [_unit_response(unit) for unit in units.list_units(db, business.id)]
 
 
 @router.get("/units/{unit_id}", response_model=UnitResponse)
 def get_unit(
-    unit_id: int, db: Session = Depends(get_db), _actor: Account = Depends(get_current_user)
+    unit_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
 ) -> UnitResponse:
     try:
-        unit = units.get_unit(db, unit_id)
+        unit = units.get_unit(db, business.id, unit_id)
     except UnitNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Unidad no encontrada") from exc
 
@@ -337,10 +347,12 @@ def update_unit(
     payload: UpdateUnitRequest,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> UnitResponse:
     try:
         unit = units.update_unit(
             db,
+            business.id,
             unit_id,
             _actor.id,
             name=payload.name,
@@ -367,11 +379,10 @@ def create_attribute(
     payload: CreateAttributeRequest,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> AttributeResponse:
     try:
-        attribute = attributes.create_attribute(
-            db, _organization_id(_actor), payload.name, _actor.id
-        )
+        attribute = attributes.create_attribute(db, business.id, payload.name, _actor.id)
     except DuplicateAttributeName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "El atributo ya existe") from exc
     except InvalidCatalogInput as exc:
@@ -382,20 +393,24 @@ def create_attribute(
 
 @router.get("/attributes", response_model=list[AttributeResponse])
 def list_attributes(
-    db: Session = Depends(get_db), _actor: Account = Depends(get_current_user)
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
 ) -> list[AttributeResponse]:
     return [
-        _attribute_response(attribute)
-        for attribute in attributes.list_attributes(db, _organization_id(_actor))
+        _attribute_response(attribute) for attribute in attributes.list_attributes(db, business.id)
     ]
 
 
 @router.get("/attributes/{attribute_id}", response_model=AttributeResponse)
 def get_attribute(
-    attribute_id: int, db: Session = Depends(get_db), _actor: Account = Depends(get_current_user)
+    attribute_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
 ) -> AttributeResponse:
     try:
-        attribute = attributes.get_attribute(db, attribute_id)
+        attribute = attributes.get_attribute(db, business.id, attribute_id)
     except AttributeNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Atributo no encontrado") from exc
 
@@ -413,10 +428,11 @@ def create_attribute_value(
     payload: CreateAttributeValueRequest,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> AttributeValueResponse:
     try:
         attribute_value = attribute_values.create_attribute_value(
-            db, attribute_id, payload.value, _actor.id
+            db, business.id, attribute_id, payload.value, _actor.id
         )
     except AttributeNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Atributo no encontrado") from exc
@@ -432,12 +448,17 @@ def create_attribute_value(
 
 @router.get("/attributes/{attribute_id}/values", response_model=list[AttributeValueResponse])
 def list_attribute_values(
-    attribute_id: int, db: Session = Depends(get_db), _actor: Account = Depends(get_current_user)
+    attribute_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
 ) -> list[AttributeValueResponse]:
-    return [
-        _attribute_value_response(value)
-        for value in attribute_values.list_attribute_values(db, attribute_id)
-    ]
+    try:
+        values = attribute_values.list_attribute_values(db, business.id, attribute_id)
+    except AttributeNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Atributo no encontrado") from exc
+
+    return [_attribute_value_response(value) for value in values]
 
 
 @router.patch(
@@ -450,10 +471,11 @@ def update_attribute_value(
     payload: UpdateAttributeValueRequest,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> AttributeValueResponse:
     try:
         attribute_value = attribute_values.update_attribute_value(
-            db, attribute_value_id, payload.value, _actor.id
+            db, business.id, attribute_value_id, payload.value, _actor.id
         )
     except AttributeValueNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Valor de atributo no encontrado") from exc
@@ -486,11 +508,12 @@ def create_product(
     payload: CreateProductRequest,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> ProductCreationResponse:
     try:
         product, _created_variants, duplicates = products.create_product(
             db,
-            _organization_id(_actor),
+            business.id,
             payload.category_id,
             payload.unit_id,
             payload.name,
@@ -538,10 +561,9 @@ def list_products(
     ):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "status invalido")
 
-    organization_id = _organization_id(_actor)
     product_list, total = products.list_products(
         db,
-        organization_id,
+        business.id,
         page,
         page_size,
         category_id=category_id,
@@ -560,10 +582,13 @@ def list_products(
 
 @router.get("/products/{product_id}", response_model=ProductResponse)
 def get_product(
-    product_id: int, db: Session = Depends(get_db), _actor: Account = Depends(get_current_user)
+    product_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
 ) -> ProductResponse:
     try:
-        product = products.get_product(db, product_id)
+        product = products.get_product(db, business.id, product_id)
     except ProductNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
 
@@ -578,10 +603,12 @@ def update_product(
     payload: UpdateProductRequest,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> ProductResponse:
     try:
         product = products.update_product(
             db,
+            business.id,
             product_id,
             _actor.id,
             name=payload.name,
@@ -609,9 +636,10 @@ def deactivate_product(
     product_id: int,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> ProductResponse:
     try:
-        product = products.deactivate_product(db, product_id, _actor.id)
+        product = products.deactivate_product(db, business.id, product_id, _actor.id)
     except ProductNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
 
@@ -627,9 +655,10 @@ def reactivate_product(
     product_id: int,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> ProductResponse:
     try:
-        product = products.reactivate_product(db, product_id, _actor.id)
+        product = products.reactivate_product(db, business.id, product_id, _actor.id)
     except ProductNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
 
@@ -647,10 +676,12 @@ def add_variant(
     payload: AddVariantRequest,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> VariantCreationResponse:
     try:
         variant, duplicates = products.add_variant(
             db,
+            business.id,
             product_id,
             _actor.id,
             label=payload.label,
@@ -678,9 +709,10 @@ def deactivate_variant(
     variant_id: int,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> VariantResponse:
     try:
-        variant = products.deactivate_variant(db, variant_id, _actor.id)
+        variant = products.deactivate_variant(db, business.id, variant_id, _actor.id)
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
 
@@ -696,9 +728,10 @@ def reactivate_variant(
     variant_id: int,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> VariantResponse:
     try:
-        variant = products.reactivate_variant(db, variant_id, _actor.id)
+        variant = products.reactivate_variant(db, business.id, variant_id, _actor.id)
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
 
@@ -715,10 +748,12 @@ def update_variant(
     payload: UpdateVariantRequest,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
 ) -> VariantCreationResponse:
     try:
         variant, duplicates = products.update_variant(
             db,
+            business.id,
             variant_id,
             _actor.id,
             label=payload.label,

@@ -64,7 +64,11 @@ export function AttributesPage() {
       })
   }
 
-  useEffect(loadAttributes, [])
+  useEffect(() => {
+    setSelectedId(null)
+    setValues([])
+    loadAttributes()
+  }, [account?.active_business_id])
 
   function loadValues(attributeId: number) {
     setValuesStatus('loading')

@@ -17,10 +17,10 @@ def _validate_name(name: str) -> str:
 
 
 def _check_duplicate_name(
-    db: Session, organization_id: int, name: str, exclude_id: int | None = None
+    db: Session, business_id: int, name: str, exclude_id: int | None = None
 ) -> None:
     normalized = normalize_for_comparison(name)
-    query = select(Category).where(Category.organization_id == organization_id)
+    query = select(Category).where(Category.business_id == business_id)
     if exclude_id is not None:
         query = query.where(Category.id != exclude_id)
     for existing in db.scalars(query):
@@ -28,15 +28,13 @@ def _check_duplicate_name(
             raise DuplicateCategoryName
 
 
-def _build_category(
-    db: Session, organization_id: int, name: str, actor_account_id: int
-) -> Category:
+def _build_category(db: Session, business_id: int, name: str, actor_account_id: int) -> Category:
     name = _validate_name(name)
-    _check_duplicate_name(db, organization_id, name)
+    _check_duplicate_name(db, business_id, name)
 
     now = datetime.now(UTC)
     category = Category(
-        organization_id=organization_id,
+        business_id=business_id,
         name=name,
         status=EntityStatus.ACTIVE.value,
         created_by_account_id=actor_account_id,
@@ -49,23 +47,25 @@ def _build_category(
     return category
 
 
-def create_category(
-    db: Session, organization_id: int, name: str, actor_account_id: int
-) -> Category:
-    category = _build_category(db, organization_id, name, actor_account_id)
+def create_category(db: Session, business_id: int, name: str, actor_account_id: int) -> Category:
+    category = _build_category(db, business_id, name, actor_account_id)
     db.commit()
     db.refresh(category)
     return category
 
 
 def update_category(
-    db: Session, category_id: int, actor_account_id: int, name: str | None = None
+    db: Session,
+    business_id: int,
+    category_id: int,
+    actor_account_id: int,
+    name: str | None = None,
 ) -> Category:
-    category = get_category(db, category_id)
+    category = get_category(db, business_id, category_id)
 
     if name is not None:
         name = _validate_name(name)
-        _check_duplicate_name(db, category.organization_id, name, exclude_id=category.id)
+        _check_duplicate_name(db, business_id, name, exclude_id=category.id)
         category.name = name
 
     category.updated_by_account_id = actor_account_id
@@ -75,18 +75,16 @@ def update_category(
     return category
 
 
-def list_categories(db: Session, organization_id: int) -> list[Category]:
+def list_categories(db: Session, business_id: int) -> list[Category]:
     return list(
         db.scalars(
-            select(Category)
-            .where(Category.organization_id == organization_id)
-            .order_by(Category.name)
+            select(Category).where(Category.business_id == business_id).order_by(Category.name)
         ).all()
     )
 
 
-def get_category(db: Session, category_id: int) -> Category:
+def get_category(db: Session, business_id: int, category_id: int) -> Category:
     category = db.get(Category, category_id)
-    if category is None:
+    if category is None or category.business_id != business_id:
         raise CategoryNotFound
     return category

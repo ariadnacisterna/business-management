@@ -210,7 +210,7 @@ export function ProductDetailPage() {
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(load, [id])
+  useEffect(load, [id, account?.active_business_id])
 
   function close() {
     navigate('/products')

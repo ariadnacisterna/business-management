@@ -42,20 +42,20 @@ class _ApplyContext:
 
 
 def _resolve_category_id(
-    db: Session, organization_id: int, group: GroupPlan, actor_account_id: int, ctx: _ApplyContext
+    db: Session, business_id: int, group: GroupPlan, actor_account_id: int, ctx: _ApplyContext
 ) -> int:
     if group.category_id is not None:
         return group.category_id
     key = normalize_for_comparison(group.category_name)
     if key not in ctx.category_ids:
-        category = _build_category(db, organization_id, group.category_name, actor_account_id)
+        category = _build_category(db, business_id, group.category_name, actor_account_id)
         ctx.category_ids[key] = category.id
         ctx.created_categories += 1
     return ctx.category_ids[key]
 
 
 def _resolve_unit_id(
-    db: Session, organization_id: int, group: GroupPlan, actor_account_id: int, ctx: _ApplyContext
+    db: Session, business_id: int, group: GroupPlan, actor_account_id: int, ctx: _ApplyContext
 ) -> int:
     if group.unit_id is not None:
         return group.unit_id
@@ -63,7 +63,7 @@ def _resolve_unit_id(
     if key not in ctx.unit_ids:
         unit = _build_unit(
             db,
-            organization_id,
+            business_id,
             group.unit_name,
             group.unit_name,
             actor_account_id,
@@ -75,13 +75,15 @@ def _resolve_unit_id(
 
 
 def _resolve_attribute_value_ids(
-    db: Session, row: RowPlan, actor_account_id: int, ctx: _ApplyContext
+    db: Session, business_id: int, row: RowPlan, actor_account_id: int, ctx: _ApplyContext
 ) -> list[int]:
     created_ids = []
     for attribute_id, value in row.pending_attribute_values:
         key = (attribute_id, normalize_for_comparison(value))
         if key not in ctx.attribute_value_ids:
-            attribute_value = _build_attribute_value(db, attribute_id, value, actor_account_id)
+            attribute_value = _build_attribute_value(
+                db, business_id, attribute_id, value, actor_account_id
+            )
             ctx.attribute_value_ids[key] = attribute_value.id
             ctx.created_attribute_values += 1
         created_ids.append(ctx.attribute_value_ids[key])
@@ -90,7 +92,6 @@ def _resolve_attribute_value_ids(
 
 def _apply_new_group(
     db: Session,
-    organization_id: int,
     business_id: int,
     category_id: int,
     unit_id: int,
@@ -100,7 +101,9 @@ def _apply_new_group(
     ctx: _ApplyContext,
 ) -> None:
     for row in group.rows:
-        row.attribute_value_ids = _resolve_attribute_value_ids(db, row, actor_account_id, ctx)
+        row.attribute_value_ids = _resolve_attribute_value_ids(
+            db, business_id, row, actor_account_id, ctx
+        )
 
     if _is_single_implicit_group(group):
         variant_inputs = None
@@ -112,7 +115,7 @@ def _apply_new_group(
 
     _product, created_variants, _duplicates = _create_product_core(
         db,
-        organization_id,
+        business_id,
         category_id,
         unit_id,
         group.product_name,
@@ -137,7 +140,9 @@ def _apply_existing_group(
     ctx: _ApplyContext,
 ) -> None:
     for row in group.rows:
-        row.attribute_value_ids = _resolve_attribute_value_ids(db, row, actor_account_id, ctx)
+        row.attribute_value_ids = _resolve_attribute_value_ids(
+            db, business_id, row, actor_account_id, ctx
+        )
 
         if row.existing_variant_id is not None:
             current_price = get_current_price_for_variant(db, row.existing_variant_id, business_id)
@@ -156,6 +161,7 @@ def _apply_existing_group(
 
         variant, _duplicates = _add_variant_core(
             db,
+            business_id,
             group.existing_product_id,
             actor_account_id,
             label=row.variant_label,
@@ -169,13 +175,12 @@ def _apply_existing_group(
 
 def apply_import(
     db: Session,
-    organization_id: int,
     business_id: int,
     filename: str,
     content: bytes,
     actor_account_id: int,
 ) -> ImportResult:
-    plan = analyze_import(db, organization_id, business_id, filename, content)
+    plan = analyze_import(db, business_id, filename, content)
     if plan.has_errors:
         raise ImportPlanHasErrors(plan)
 
@@ -184,13 +189,12 @@ def apply_import(
 
     try:
         for group in plan.groups:
-            category_id = _resolve_category_id(db, organization_id, group, actor_account_id, ctx)
-            unit_id = _resolve_unit_id(db, organization_id, group, actor_account_id, ctx)
+            category_id = _resolve_category_id(db, business_id, group, actor_account_id, ctx)
+            unit_id = _resolve_unit_id(db, business_id, group, actor_account_id, ctx)
 
             if group.existing_product_id is None:
                 _apply_new_group(
                     db,
-                    organization_id,
                     business_id,
                     category_id,
                     unit_id,

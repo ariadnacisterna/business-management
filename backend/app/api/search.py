@@ -63,9 +63,7 @@ def search(
     business: Business = Depends(get_active_business),
 ) -> SearchResponse:
     try:
-        results = search_variants(
-            db, business.organization_id, business.id, query=q, category_id=category_id
-        )
+        results = search_variants(db, business.id, query=q, category_id=category_id)
     except CategoryNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Categoria no encontrada") from exc
 

@@ -73,12 +73,12 @@ def _apply_price_change(
 
 
 def get_current_price_for_variant(db: Session, variant_id: int, business_id: int) -> Price | None:
-    variant = get_variant(db, variant_id)
+    variant = get_variant(db, business_id, variant_id)
     return _get_current_price(db, variant.id, business_id)
 
 
 def list_price_history(db: Session, variant_id: int, business_id: int) -> list[Price]:
-    variant = get_variant(db, variant_id)
+    variant = get_variant(db, business_id, variant_id)
     return list(
         db.scalars(
             select(Price)
@@ -96,7 +96,7 @@ def change_variant_price(
     actor_account_id: int,
     expected_current_price_id: int | None,
 ) -> Price:
-    variant = get_variant(db, variant_id)
+    variant = get_variant(db, business_id, variant_id)
     amount = _validate_amount(amount)
 
     current_price = _get_current_price(db, variant.id, business_id)
@@ -125,7 +125,7 @@ def change_product_price(
     actor_account_id: int,
     expected_current_price_ids: dict[int, int | None],
 ) -> list[Price]:
-    product = get_product(db, product_id)
+    product = get_product(db, business_id, product_id)
     amount = _validate_amount(amount)
 
     active_variants = _active_variants(product)

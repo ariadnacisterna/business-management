@@ -60,7 +60,7 @@ export function UnitsPage() {
       })
   }
 
-  useEffect(load, [])
+  useEffect(load, [account?.active_business_id])
 
   const productCountByUnit = useMemo(() => {
     const counts = new Map<number, number>()

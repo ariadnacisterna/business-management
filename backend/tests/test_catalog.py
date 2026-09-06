@@ -1,6 +1,10 @@
+import sqlalchemy as sa
+
 from app.constants.access import CSRF_HEADER_NAME
-from app.constants.roles import EMPLEADO, GERENTE
+from app.constants.roles import DUENO, EMPLEADO, GERENTE
+from app.constants.status import EntityStatus
 from app.core.config import get_settings
+from app.db.models import Account, Business, BusinessAccess, Role
 
 
 def _login(client, user_name, password):
@@ -754,3 +758,85 @@ def test_list_products_rejects_invalid_page_size(client):
     response = client.get("/products", params={"page_size": 7}, cookies=admin_cookies)
 
     assert response.status_code == 422, response.text
+
+
+def _admin_account_id(db_session):
+    settings = get_settings()
+    account = db_session.scalars(
+        sa.select(Account).where(Account.user_name == settings.initial_admin_username)
+    ).first()
+    return account.id
+
+
+def _create_second_business(db_session, name="Despensa", industry="Despensa"):
+    organization_id = db_session.scalars(sa.select(Business.organization_id)).first()
+    business = Business(
+        organization_id=organization_id,
+        name=name,
+        industry=industry,
+        status=EntityStatus.ACTIVE.value,
+    )
+    db_session.add(business)
+    db_session.commit()
+    db_session.refresh(business)
+    return business
+
+
+def _grant_access(db_session, account_id, business_id, role_name):
+    role = db_session.scalars(sa.select(Role).where(Role.name == role_name)).first()
+    access = BusinessAccess(
+        account_id=account_id,
+        business_id=business_id,
+        role_id=role.id,
+        status=EntityStatus.ACTIVE.value,
+    )
+    db_session.add(access)
+    db_session.commit()
+    return access
+
+
+def _switch_business(client, cookies, business_id):
+    response = client.post(
+        "/auth/active-business",
+        json={"business_id": business_id},
+        cookies=cookies,
+        headers=_auth_headers(cookies),
+    )
+    assert response.status_code == 200, response.text
+
+
+def test_catalog_entities_from_one_business_are_invisible_from_another_in_the_same_organization(
+    client, db_session
+):
+    admin_cookies = _admin_cookies(client)
+    admin_account_id = _admin_account_id(db_session)
+    second_business = _create_second_business(db_session)
+    _grant_access(db_session, admin_account_id, second_business.id, DUENO)
+
+    category = _create_category(client, admin_cookies, "Categoria negocio A")
+    unit = _create_unit(client, admin_cookies, "Unidad negocio A", "una")
+    product = _create_product(
+        client, admin_cookies, "Producto negocio A", category["id"], unit["id"]
+    )
+    attribute_response = client.post(
+        "/attributes",
+        json={"name": "Atributo negocio A"},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+    assert attribute_response.status_code == 201, attribute_response.text
+    attribute = attribute_response.json()
+
+    _switch_business(client, admin_cookies, second_business.id)
+
+    category_response = client.get(f"/categories/{category['id']}", cookies=admin_cookies)
+    assert category_response.status_code == 404, category_response.text
+
+    unit_response = client.get(f"/units/{unit['id']}", cookies=admin_cookies)
+    assert unit_response.status_code == 404, unit_response.text
+
+    attribute_get_response = client.get(f"/attributes/{attribute['id']}", cookies=admin_cookies)
+    assert attribute_get_response.status_code == 404, attribute_get_response.text
+
+    product_response = client.get(f"/products/{product['id']}", cookies=admin_cookies)
+    assert product_response.status_code == 404, product_response.text
