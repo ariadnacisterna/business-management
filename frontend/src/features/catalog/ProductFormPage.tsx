@@ -11,6 +11,7 @@ import {
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Attribute, Category, Product, Unit, Variant } from '../../api/types'
+import { CloseButton } from '../../shared/CloseButton'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
@@ -224,26 +225,7 @@ export function ProductFormPage() {
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
 
       <div className="relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl">
-        <button
-          type="button"
-          onClick={close}
-          aria-label="Cerrar"
-          className="absolute right-4 top-4 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-line/20 text-ink/70 transition-colors hover:bg-danger/15 hover:text-danger"
-        >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-5 w-5"
-          >
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
+        <CloseButton onClose={close} className="absolute right-4 top-4" />
 
         {loadStatus === 'loading' && (
           <p role="status" className="flex flex-1 items-center justify-center text-lg opacity-60">

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { changeProductPrice, changeVariantPrice } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Price, Product, Variant } from '../../api/types'
+import { CloseButton } from '../../shared/CloseButton'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 
 const CONFLICT_ERROR_MESSAGE = 'El precio cambió mientras tanto. Cerrá y volvé a intentar.'
@@ -74,26 +75,7 @@ export function ChangePriceModal({ product, variant, currentPrice, activeVariant
       >
         <div className="flex items-start justify-between">
           <h2 className="text-2xl font-bold">Cambiar Precio</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-line/20 text-ink/70 transition-colors hover:bg-danger/15 hover:text-danger"
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+          <CloseButton onClose={onClose} />
         </div>
 
         <div className="flex flex-col gap-1.5 text-lg">

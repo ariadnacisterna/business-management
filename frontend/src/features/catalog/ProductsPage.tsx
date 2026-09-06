@@ -6,7 +6,6 @@ import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { SelectMenu } from '../../shared/SelectMenu'
-import { CatalogListsModal } from './CatalogListsModal'
 import { RowMenu } from './RowMenu'
 
 type Status = 'loading' | 'success' | 'error'
@@ -33,7 +32,6 @@ export function ProductsPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [confirmingProduct, setConfirmingProduct] = useState<Product | null>(null)
-  const [showCatalogLists, setShowCatalogLists] = useState(false)
 
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all')
@@ -132,9 +130,6 @@ export function ProductsPage() {
           <p className="mt-1 text-lg opacity-60">{filtered.length} productos encontrados</p>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setShowCatalogLists(true)} className={secondaryButtonClasses}>
-            Categorías, unidades y atributos
-          </button>
           {canManage && (
             <Link to="/products/new" className={`${primaryButtonClasses} flex items-center gap-2`}>
               <svg
@@ -325,8 +320,6 @@ export function ProductsPage() {
       )}
 
       <Outlet context={{ onProductUpdated: applyProductUpdate }} />
-
-      {showCatalogLists && <CatalogListsModal onClose={() => setShowCatalogLists(false)} />}
 
       {confirmingProduct !== null && (
         <ConfirmDialog

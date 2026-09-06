@@ -64,6 +64,15 @@ function renderPage(initialPath: string) {
   )
 }
 
+const SINGLE_VARIANT_PRODUCT = {
+  id: 6,
+  name: 'Tijera',
+  category_id: 1,
+  unit_id: 1,
+  status: 'active',
+  variants: [{ id: 20, product_id: 6, label: null, is_implicit: true, status: 'active', attribute_value_ids: [] }],
+}
+
 describe('ProductDetailPage', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
@@ -83,7 +92,7 @@ describe('ProductDetailPage', () => {
   it('opens the edit form automatically when reached with ?edit=1', async () => {
     renderPage('/products/5?edit=1')
 
-    expect(await screen.findByLabelText('Nombre')).toHaveValue('Cinta bebé')
+    expect(await screen.findByLabelText(/^Nombre\s?\*?$/)).toHaveValue('Cinta bebé')
   })
 
   it('changes a variant price through the modal', async () => {
@@ -113,5 +122,49 @@ describe('ProductDetailPage', () => {
 
     expect(await screen.findByText(/45,50/)).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Cambiar Precio' })).not.toBeInTheDocument()
+  })
+
+  it('shows a single price with a "Cambiar precio" action for a product without real variants', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(SINGLE_VARIANT_PRODUCT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
+
+    render(
+      <MemoryRouter initialEntries={['/products/6']}>
+        <AuthProvider>
+          <ReadyGate>
+            <Routes>
+              <Route path="/products" element={<h1>Productos</h1>} />
+              <Route path="/products/:productId" element={<ProductDetailPage />} />
+            </Routes>
+          </ReadyGate>
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Precios y variantes' })).toBeInTheDocument()
+    expect(screen.getByText('Sin precio')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cambiar precio' })).toBeInTheDocument()
+  })
+
+  it('toggles the product status from the edit form and saves it as part of the same submit', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage('/products/5?edit=1')
+
+    await screen.findByLabelText(/^Nombre\s?\*?$/)
+    await user.click(screen.getByRole('button', { name: '○ Inactivo' }))
+
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(PRODUCT))
+      .mockResolvedValueOnce(jsonResponse({ ...PRODUCT, status: 'inactive' }))
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    expect(await screen.findByText(/Inactivo/)).toBeInTheDocument()
   })
 })

@@ -1,18 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import {
+  changeVariantPrice,
+  createCategory,
+  createUnit,
+  deactivateProduct,
   fetchAttributes,
   fetchAttributeValues,
   fetchCategories,
   fetchProduct,
   fetchUnits,
   fetchVariantCurrentPrice,
+  reactivateProduct,
   updateProduct,
   updateVariant,
 } from '../../api/catalog'
 import { fetchAccount } from '../../api/auth'
 import { ApiError } from '../../api/client'
 import type { Attribute, Category, Price, Product, Unit, Variant } from '../../api/types'
+import { CloseButton } from '../../shared/CloseButton'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useAuth } from '../access/AuthContext'
@@ -26,6 +32,10 @@ const priceFormatter = new Intl.NumberFormat('es-AR', { style: 'currency', curre
 
 const LOAD_ERROR_MESSAGE = 'No se pudo cargar el producto.'
 const SAVE_ERROR_MESSAGE = 'No se pudo guardar. Intentá de nuevo.'
+const CREATE_CATEGORY_ERROR_MESSAGE = 'No se pudo crear la categoría. Intentá de nuevo.'
+const CREATE_UNIT_ERROR_MESSAGE = 'No se pudo crear la unidad. Intentá de nuevo.'
+
+const CREATE_NEW_OPTION = '__create__'
 
 const inputClasses =
   'h-11 rounded-lg border border-line px-3 text-base focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
@@ -75,9 +85,22 @@ export function ProductDetailPage() {
   const [loadStatus, setLoadStatus] = useState<'loading' | 'success' | 'error'>('loading')
 
   const [editingProduct, setEditingProduct] = useState(false)
-  const [productDraft, setProductDraft] = useState({ name: '', categoryId: 0, unitId: 0 })
+  const [productDraft, setProductDraft] = useState({ name: '', categoryId: 0, unitId: 0, status: 'active' })
   const [savingProduct, setSavingProduct] = useState(false)
   const [productError, setProductError] = useState<string | null>(null)
+
+  const [priceDraft, setPriceDraft] = useState('')
+  const [variantDraftRows, setVariantDraftRows] = useState<{ id: number; label: string; price: string }[]>([])
+
+  const [creatingCategory, setCreatingCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [savingNewCategory, setSavingNewCategory] = useState(false)
+  const [newCategoryError, setNewCategoryError] = useState<string | null>(null)
+
+  const [creatingUnit, setCreatingUnit] = useState(false)
+  const [newUnit, setNewUnit] = useState({ name: '', abbreviation: '', allows_fraction: false })
+  const [savingNewUnit, setSavingNewUnit] = useState(false)
+  const [newUnitError, setNewUnitError] = useState<string | null>(null)
 
   const [editingVariantId, setEditingVariantId] = useState<number | null>(null)
   const [variantLabel, setVariantLabel] = useState('')
@@ -154,7 +177,17 @@ export function ProductDetailPage() {
             name: productResult.name,
             categoryId: productResult.category_id,
             unitId: productResult.unit_id,
+            status: productResult.status,
           })
+          const priceByVariantId = new Map(priceResults.map((result) => [result.variant_id, result.price]))
+          setPriceDraft(priceByVariantId.get(productResult.variants[0].id)?.amount ?? '')
+          setVariantDraftRows(
+            productResult.variants.map((variant) => ({
+              id: variant.id,
+              label: variant.label ?? '',
+              price: priceByVariantId.get(variant.id)?.amount ?? '',
+            })),
+          )
           setEditingProduct(true)
         }
 
@@ -177,9 +210,77 @@ export function ProductDetailPage() {
 
   function startEditProduct() {
     if (product === null) return
-    setProductDraft({ name: product.name, categoryId: product.category_id, unitId: product.unit_id })
+    setProductDraft({
+      name: product.name,
+      categoryId: product.category_id,
+      unitId: product.unit_id,
+      status: product.status,
+    })
+    setPriceDraft(pricesByVariant.get(product.variants[0].id)?.amount ?? '')
+    setVariantDraftRows(
+      product.variants.map((variant) => ({
+        id: variant.id,
+        label: variant.label ?? '',
+        price: pricesByVariant.get(variant.id)?.amount ?? '',
+      })),
+    )
     setEditingProduct(true)
     setProductError(null)
+  }
+
+  async function handleCreateCategory() {
+    const trimmed = newCategoryName.trim()
+    if (trimmed === '') return
+
+    setSavingNewCategory(true)
+    setNewCategoryError(null)
+    try {
+      const created = await createCategory(trimmed)
+      setCategories((prev) => [...prev, created])
+      setProductDraft((prev) => ({ ...prev, categoryId: created.id }))
+      setCreatingCategory(false)
+      setNewCategoryName('')
+    } catch (error) {
+      setNewCategoryError(error instanceof ApiError ? error.message : CREATE_CATEGORY_ERROR_MESSAGE)
+    } finally {
+      setSavingNewCategory(false)
+    }
+  }
+
+  async function handleCreateUnit() {
+    const trimmedName = newUnit.name.trim()
+    const trimmedAbbreviation = newUnit.abbreviation.trim()
+    if (trimmedName === '' || trimmedAbbreviation === '') return
+
+    setSavingNewUnit(true)
+    setNewUnitError(null)
+    try {
+      const created = await createUnit({
+        name: trimmedName,
+        abbreviation: trimmedAbbreviation,
+        allows_fraction: newUnit.allows_fraction,
+      })
+      setUnits((prev) => [...prev, created])
+      setProductDraft((prev) => ({ ...prev, unitId: created.id }))
+      setCreatingUnit(false)
+      setNewUnit({ name: '', abbreviation: '', allows_fraction: false })
+    } catch (error) {
+      setNewUnitError(error instanceof ApiError ? error.message : CREATE_UNIT_ERROR_MESSAGE)
+    } finally {
+      setSavingNewUnit(false)
+    }
+  }
+
+  function cancelCreateCategory() {
+    setCreatingCategory(false)
+    setNewCategoryName('')
+    setNewCategoryError(null)
+  }
+
+  function cancelCreateUnit() {
+    setCreatingUnit(false)
+    setNewUnit({ name: '', abbreviation: '', allows_fraction: false })
+    setNewUnitError(null)
   }
 
   async function handleSaveProduct(event: React.FormEvent) {
@@ -189,16 +290,63 @@ export function ProductDetailPage() {
     setSavingProduct(true)
     setProductError(null)
     try {
-      const updated = await updateProduct(product.id, {
+      let updated = await updateProduct(product.id, {
         name: productDraft.name.trim(),
         category_id: productDraft.categoryId,
         unit_id: productDraft.unitId,
       })
-      setProduct((prev) => (prev === null ? prev : { ...updated, variants: prev.variants }))
-      outletContext?.onProductUpdated({ ...updated, variants: product.variants })
+      if (productDraft.status !== product.status) {
+        updated = productDraft.status === 'active' ? await reactivateProduct(product.id) : await deactivateProduct(product.id)
+      }
+
+      const nextPricesByVariant = new Map(pricesByVariant)
+      let nextVariants = product.variants
+
+      if (product.variants.length === 1 && product.variants[0].is_implicit) {
+        const variant = product.variants[0]
+        const trimmedPrice = priceDraft.trim()
+        const currentAmount = pricesByVariant.get(variant.id)?.amount
+        if (trimmedPrice !== '' && trimmedPrice !== currentAmount) {
+          const price = await changeVariantPrice(variant.id, trimmedPrice, pricesByVariant.get(variant.id)?.id ?? null)
+          nextPricesByVariant.set(variant.id, price)
+        }
+      } else {
+        for (const row of variantDraftRows) {
+          const variant = product.variants.find((candidate) => candidate.id === row.id)
+          if (variant === undefined) continue
+
+          const trimmedLabel = row.label.trim()
+          if (trimmedLabel !== (variant.label ?? '')) {
+            const result = await updateVariant(variant.id, {
+              label: trimmedLabel === '' ? null : trimmedLabel,
+              attribute_value_ids: variant.attribute_value_ids,
+            })
+            nextVariants = nextVariants.map((candidate) =>
+              candidate.id === result.variant.id ? result.variant : candidate,
+            )
+          }
+
+          const trimmedPrice = row.price.trim()
+          const currentAmount = pricesByVariant.get(variant.id)?.amount
+          if (trimmedPrice !== '' && trimmedPrice !== currentAmount) {
+            const price = await changeVariantPrice(variant.id, trimmedPrice, pricesByVariant.get(variant.id)?.id ?? null)
+            nextPricesByVariant.set(variant.id, price)
+          }
+        }
+      }
+
+      setPricesByVariant(nextPricesByVariant)
+      setProduct({ ...updated, variants: nextVariants })
+      outletContext?.onProductUpdated({ ...updated, variants: nextVariants })
       setEditingProduct(false)
     } catch (error) {
-      setProductError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      setProductError(
+        error instanceof ApiError && error.status === 409
+          ? 'Un precio cambió mientras tanto. Cerrá y volvé a intentar.'
+          : error instanceof ApiError
+            ? error.message
+            : SAVE_ERROR_MESSAGE,
+      )
     } finally {
       setSavingProduct(false)
     }
@@ -256,27 +404,8 @@ export function ProductDetailPage() {
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
 
-      <div className="relative flex max-h-[90vh] min-h-[16rem] w-full max-w-lg flex-col overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl">
-        <button
-          type="button"
-          onClick={close}
-          aria-label="Cerrar"
-          className="absolute right-4 top-4 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-line/20 text-ink/70 transition-colors hover:bg-danger/15 hover:text-danger"
-        >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-5 w-5"
-          >
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
+      <div className="relative flex max-h-[90vh] min-h-[16rem] w-full max-w-2xl flex-col overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl">
+        <CloseButton onClose={close} className="absolute right-4 top-4" />
 
         {loadStatus === 'loading' && (
           <p role="status" className="flex flex-1 items-center justify-center text-lg opacity-60">
@@ -295,50 +424,458 @@ export function ProductDetailPage() {
 
         {loadStatus === 'success' && product !== null && (
           <div className="flex flex-col gap-4">
-            <p className="text-base opacity-60">
-              <Link to="/products" className="hover:text-brand">
-                Catálogo
-              </Link>{' '}
-              › {product.name} › <span className="text-brand">{editingProduct ? 'Editar' : 'Ver detalle'}</span>
-            </p>
+            {editingProduct ? (
+              <div>
+                <h1 className="m-0 text-2xl font-bold">Editar producto</h1>
+                <p className="m-0 mt-1 font-mono text-base italic opacity-40">Próximamente</p>
+              </div>
+            ) : (
+              <p className="text-base opacity-60">
+                <Link to="/products" className="hover:text-brand">
+                  Catálogo
+                </Link>{' '}
+                › {product.name} › <span className="text-brand">Ver detalle</span>
+              </p>
+            )}
 
             <DuplicateWarning duplicates={duplicates} />
 
             {editingProduct ? (
-              <form onSubmit={handleSaveProduct} className="flex flex-col gap-2">
-                <label htmlFor="edit-product-name" className="text-base font-semibold">
-                  Nombre
-                </label>
-                <input
-                  id="edit-product-name"
-                  type="text"
-                  value={productDraft.name}
-                  onChange={(event) => setProductDraft((prev) => ({ ...prev, name: event.target.value }))}
-                  disabled={savingProduct}
-                  className={inputClasses}
-                />
+              <form onSubmit={handleSaveProduct} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3">
+                  <h2 className="m-0 border-l-4 border-brand pl-3 text-sm font-bold uppercase tracking-wide opacity-70">
+                    Información general
+                  </h2>
 
-                <span className="text-base font-semibold">Categoría</span>
-                <SelectMenu
-                  ariaLabel="Categoría"
-                  disabled={savingProduct}
-                  value={String(productDraft.categoryId)}
-                  onChange={(value) => setProductDraft((prev) => ({ ...prev, categoryId: Number(value) }))}
-                  options={categories
-                    .filter((category) => category.status === 'active' || category.id === productDraft.categoryId)
-                    .map((category) => ({ value: String(category.id), label: category.name }))}
-                />
+                  <label htmlFor="edit-product-name" className="-mb-2 text-xs font-bold uppercase tracking-wide opacity-60">
+                    Nombre <span className="text-danger">*</span>
+                  </label>
+                  <input
+                    id="edit-product-name"
+                    type="text"
+                    value={productDraft.name}
+                    onChange={(event) => setProductDraft((prev) => ({ ...prev, name: event.target.value }))}
+                    disabled={savingProduct}
+                    className={inputClasses}
+                  />
 
-                <span className="text-base font-semibold">Unidad</span>
-                <SelectMenu
-                  ariaLabel="Unidad"
-                  disabled={savingProduct}
-                  value={String(productDraft.unitId)}
-                  onChange={(value) => setProductDraft((prev) => ({ ...prev, unitId: Number(value) }))}
-                  options={units
-                    .filter((unit) => unit.status === 'active' || unit.id === productDraft.unitId)
-                    .map((unit) => ({ value: String(unit.id), label: `${unit.name} (${unit.abbreviation})` }))}
-                />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="flex flex-col gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wide opacity-60">Código</span>
+                      <p className={`${inputClasses} m-0 flex items-center italic opacity-40`}>Próximamente</p>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wide opacity-60">Estado</span>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setProductDraft((prev) => ({ ...prev, status: 'active' }))}
+                          disabled={savingProduct}
+                          className={`min-h-11 flex-1 rounded-lg border text-base font-semibold transition-colors ${
+                            productDraft.status === 'active'
+                              ? 'border-success bg-success-soft text-success'
+                              : 'border-line text-ink/40 hover:bg-surface-brand'
+                          }`}
+                        >
+                          ● Activo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setProductDraft((prev) => ({ ...prev, status: 'inactive' }))}
+                          disabled={savingProduct}
+                          className={`min-h-11 flex-1 rounded-lg border text-base font-semibold transition-colors ${
+                            productDraft.status !== 'active'
+                              ? 'border-ink/40 bg-ink/5 text-ink/60'
+                              : 'border-line text-ink/40 hover:bg-surface-brand'
+                          }`}
+                        >
+                          ○ Inactivo
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wide opacity-60">
+                          Categoría <span className="text-danger">*</span>
+                        </span>
+                        {!creatingCategory && (
+                          <button
+                            type="button"
+                            onClick={() => setCreatingCategory(true)}
+                            disabled={savingProduct}
+                            className="min-h-11 rounded-lg px-3 text-base font-semibold text-brand transition-colors hover:bg-surface-brand hover:underline"
+                          >
+                            + Nueva
+                          </button>
+                        )}
+                      </div>
+                      <SelectMenu
+                        ariaLabel="Categoría"
+                        disabled={savingProduct}
+                        value={String(productDraft.categoryId)}
+                        onChange={(value) => {
+                          if (value === CREATE_NEW_OPTION) {
+                            setCreatingCategory(true)
+                            return
+                          }
+                          setProductDraft((prev) => ({ ...prev, categoryId: Number(value) }))
+                        }}
+                        options={[
+                          ...categories
+                            .filter((category) => category.status === 'active' || category.id === productDraft.categoryId)
+                            .map((category) => ({ value: String(category.id), label: category.name })),
+                          { value: CREATE_NEW_OPTION, label: '+ Crear categoría nueva…' },
+                        ]}
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wide opacity-60">
+                          Unidad <span className="text-danger">*</span>
+                        </span>
+                        {!creatingUnit && (
+                          <button
+                            type="button"
+                            onClick={() => setCreatingUnit(true)}
+                            disabled={savingProduct}
+                            className="min-h-11 rounded-lg px-3 text-base font-semibold text-brand transition-colors hover:bg-surface-brand hover:underline"
+                          >
+                            + Nueva
+                          </button>
+                        )}
+                      </div>
+                      <SelectMenu
+                        ariaLabel="Unidad"
+                        disabled={savingProduct}
+                        value={String(productDraft.unitId)}
+                        onChange={(value) => {
+                          if (value === CREATE_NEW_OPTION) {
+                            setCreatingUnit(true)
+                            return
+                          }
+                          setProductDraft((prev) => ({ ...prev, unitId: Number(value) }))
+                        }}
+                        options={[
+                          ...units
+                            .filter((unit) => unit.status === 'active' || unit.id === productDraft.unitId)
+                            .map((unit) => ({ value: String(unit.id), label: `${unit.name} (${unit.abbreviation})` })),
+                          { value: CREATE_NEW_OPTION, label: '+ Crear unidad nueva…' },
+                        ]}
+                      />
+                    </div>
+                  </div>
+
+                  {creatingCategory && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                      <div
+                        className="absolute inset-0 bg-ink/20"
+                        onClick={cancelCreateCategory}
+                        aria-hidden="true"
+                      />
+                      <div
+                        role="dialog"
+                        aria-label="Nueva categoría"
+                        className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
+                      >
+                        <div className="flex items-start justify-between">
+                          <h2 className="m-0 text-2xl font-bold">Nueva categoría</h2>
+                          <CloseButton onClose={cancelCreateCategory} />
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <label
+                            htmlFor="new-category-name"
+                            className="text-xs font-bold uppercase tracking-wide opacity-60"
+                          >
+                            Nombre <span className="text-danger">*</span>
+                          </label>
+                          <input
+                            id="new-category-name"
+                            type="text"
+                            placeholder="Ej: Ropa interior"
+                            value={newCategoryName}
+                            onChange={(event) => setNewCategoryName(event.target.value)}
+                            disabled={savingNewCategory}
+                            autoFocus
+                            className={inputClasses}
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <span className="text-xs font-bold uppercase tracking-wide opacity-60">
+                            Descripción <span className="font-normal normal-case opacity-70">(opcional)</span>
+                          </span>
+                          <p className="m-0 flex min-h-16 items-start rounded-lg border border-line bg-line/10 px-3.5 py-2.5 text-lg italic opacity-40">
+                            Próximamente
+                          </p>
+                        </div>
+
+                        {newCategoryError !== null && (
+                          <p role="alert" className="m-0 text-base text-danger">
+                            {newCategoryError}
+                          </p>
+                        )}
+
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleCreateCategory}
+                            disabled={savingNewCategory || newCategoryName.trim() === ''}
+                            className={`${primaryButtonClasses} flex-1`}
+                          >
+                            Crear
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelCreateCategory}
+                            disabled={savingNewCategory}
+                            className={`${secondaryButtonClasses} flex-1`}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {creatingUnit && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                      <div
+                        className="absolute inset-0 bg-ink/20"
+                        onClick={cancelCreateUnit}
+                        aria-hidden="true"
+                      />
+                      <div
+                        role="dialog"
+                        aria-label="Nueva unidad"
+                        className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
+                      >
+                        <div className="flex items-start justify-between">
+                          <h2 className="m-0 text-2xl font-bold">Nueva unidad</h2>
+                          <CloseButton onClose={cancelCreateUnit} />
+                        </div>
+
+                        <div className="grid grid-cols-[1fr_6rem] gap-3">
+                          <div className="flex flex-col gap-2">
+                            <label
+                              htmlFor="new-unit-name"
+                              className="text-xs font-bold uppercase tracking-wide opacity-60"
+                            >
+                              Nombre <span className="text-danger">*</span>
+                            </label>
+                            <input
+                              id="new-unit-name"
+                              type="text"
+                              placeholder="Metro"
+                              value={newUnit.name}
+                              onChange={(event) => setNewUnit((prev) => ({ ...prev, name: event.target.value }))}
+                              disabled={savingNewUnit}
+                              autoFocus
+                              className={inputClasses}
+                            />
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <label
+                              htmlFor="new-unit-abbreviation"
+                              className="text-xs font-bold uppercase tracking-wide opacity-60"
+                            >
+                              Abrev. <span className="text-danger">*</span>
+                            </label>
+                            <input
+                              id="new-unit-abbreviation"
+                              type="text"
+                              placeholder="m"
+                              value={newUnit.abbreviation}
+                              onChange={(event) =>
+                                setNewUnit((prev) => ({ ...prev, abbreviation: event.target.value }))
+                              }
+                              disabled={savingNewUnit}
+                              className={inputClasses}
+                            />
+                          </div>
+                        </div>
+
+                        <label className="flex items-center gap-2 text-base">
+                          <input
+                            type="checkbox"
+                            checked={newUnit.allows_fraction}
+                            onChange={(event) =>
+                              setNewUnit((prev) => ({ ...prev, allows_fraction: event.target.checked }))
+                            }
+                            disabled={savingNewUnit}
+                            className="h-5 w-5 accent-brand"
+                          />
+                          Permite decimales (fraccionable)
+                        </label>
+
+                        {newUnitError !== null && (
+                          <p role="alert" className="m-0 text-base text-danger">
+                            {newUnitError}
+                          </p>
+                        )}
+
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleCreateUnit}
+                            disabled={savingNewUnit || newUnit.name.trim() === '' || newUnit.abbreviation.trim() === ''}
+                            className={`${primaryButtonClasses} flex-1`}
+                          >
+                            Crear
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelCreateUnit}
+                            disabled={savingNewUnit}
+                            className={`${secondaryButtonClasses} flex-1`}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <span className="-mb-2 text-xs font-bold uppercase tracking-wide opacity-60">
+                    Descripción <span className="font-normal normal-case opacity-70">(opcional)</span>
+                  </span>
+                  <p className="m-0 flex min-h-24 items-start rounded-lg border border-line bg-line/10 px-3.5 py-2.5 text-lg italic opacity-40">
+                    Próximamente
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <h2 className="m-0 border-l-4 border-brand pl-3 text-sm font-bold uppercase tracking-wide opacity-70">
+                    Precios y variantes
+                  </h2>
+
+                  <div className="flex gap-2">
+                    <div
+                      className={`flex min-h-11 flex-1 items-center justify-center rounded-lg border text-base font-semibold ${
+                        product.variants.length === 1 && product.variants[0].is_implicit
+                          ? 'border-brand bg-surface-brand text-brand'
+                          : 'border-line text-ink/30'
+                      }`}
+                    >
+                      Precio único
+                    </div>
+                    <div
+                      className={`flex min-h-11 flex-1 items-center justify-center rounded-lg border text-base font-semibold ${
+                        !(product.variants.length === 1 && product.variants[0].is_implicit)
+                          ? 'border-brand bg-surface-brand text-brand'
+                          : 'border-line text-ink/30'
+                      }`}
+                    >
+                      Con variantes
+                    </div>
+                  </div>
+
+                  {product.variants.length === 1 && product.variants[0].is_implicit ? (
+                    <div className="flex flex-col gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wide opacity-60">
+                        Precio <span className="text-danger">*</span>
+                      </span>
+                      <div className="relative">
+                        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-lg font-bold opacity-50">
+                          $
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          inputMode="decimal"
+                          aria-label="Precio"
+                          value={priceDraft}
+                          onChange={(event) => setPriceDraft(event.target.value)}
+                          disabled={savingProduct}
+                          className={`${inputClasses} w-full pl-8`}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      <div className="grid grid-cols-[1fr_9rem_2.75rem] gap-2 text-xs font-bold uppercase tracking-wide opacity-60">
+                        <span>Nombre de variante</span>
+                        <span>Precio</span>
+                        <span />
+                      </div>
+                      {variantDraftRows.map((row, index) => (
+                        <div key={row.id} className="grid grid-cols-[1fr_9rem_2.75rem] items-center gap-2">
+                          <input
+                            type="text"
+                            aria-label={`Nombre de la variante ${index + 1}`}
+                            value={row.label}
+                            onChange={(event) =>
+                              setVariantDraftRows((prev) =>
+                                prev.map((candidate) =>
+                                  candidate.id === row.id ? { ...candidate, label: event.target.value } : candidate,
+                                ),
+                              )
+                            }
+                            disabled={savingProduct}
+                            className={inputClasses}
+                          />
+                          <div className="relative">
+                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 opacity-50">
+                              $
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              inputMode="decimal"
+                              aria-label={`Precio de la variante ${index + 1}`}
+                              value={row.price}
+                              onChange={(event) =>
+                                setVariantDraftRows((prev) =>
+                                  prev.map((candidate) =>
+                                    candidate.id === row.id ? { ...candidate, price: event.target.value } : candidate,
+                                  ),
+                                )
+                              }
+                              disabled={savingProduct}
+                              className={`${inputClasses} w-full pl-6`}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            disabled
+                            title="Próximamente"
+                            aria-label="Eliminar variante (Próximamente)"
+                            className="flex h-11 w-11 items-center justify-center text-ink/20"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="h-5 w-5"
+                            >
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        disabled
+                        title="Próximamente"
+                        className={`${secondaryButtonClasses} border-dashed opacity-50`}
+                      >
+                        + Agregar variante (Próximamente)
+                      </button>
+                    </div>
+                  )}
+                </div>
 
                 {productError !== null && (
                   <p role="alert" className="m-0 text-base text-danger">
@@ -347,14 +884,14 @@ export function ProductDetailPage() {
                 )}
 
                 <div className="flex gap-2">
-                  <button type="submit" disabled={savingProduct} className={primaryButtonClasses}>
-                    Guardar
+                  <button type="submit" disabled={savingProduct} className={`${primaryButtonClasses} flex-1`}>
+                    Guardar cambios
                   </button>
                   <button
                     type="button"
                     onClick={() => setEditingProduct(false)}
                     disabled={savingProduct}
-                    className={secondaryButtonClasses}
+                    className={`${secondaryButtonClasses} flex-1`}
                   >
                     Cancelar
                   </button>
@@ -422,9 +959,38 @@ export function ProductDetailPage() {
               </div>
             )}
 
+            {!editingProduct && product.variants.length === 1 && product.variants[0].is_implicit && (
+              <div className="flex flex-col gap-3">
+                <h2 className="m-0 border-l-4 border-brand pl-3 text-sm font-bold uppercase tracking-wide opacity-70">
+                  Precios y variantes
+                </h2>
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-line p-4">
+                  <div>
+                    <p className="m-0 text-base opacity-60">Precio</p>
+                    <p className="m-0 text-xl font-bold text-brand">
+                      {pricesByVariant.get(product.variants[0].id)?.amount !== undefined
+                        ? priceFormatter.format(Number(pricesByVariant.get(product.variants[0].id)!.amount))
+                        : 'Sin precio'}
+                    </p>
+                  </div>
+                  {canManage && (
+                    <button
+                      type="button"
+                      onClick={() => setPriceModalVariant(product.variants[0])}
+                      className={primaryButtonClasses}
+                    >
+                      Cambiar precio
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {!editingProduct && !(product.variants.length === 1 && product.variants[0].is_implicit) && (
-              <div className="flex flex-col gap-3 border-t border-line pt-3">
-                <h2 className="text-base font-semibold">Variantes</h2>
+              <div className="flex flex-col gap-3">
+                <h2 className="m-0 border-l-4 border-brand pl-3 text-sm font-bold uppercase tracking-wide opacity-70">
+                  Precios y variantes
+                </h2>
                 <ul className="m-0 flex list-none flex-col gap-2 p-0">
                   {product.variants.map((variant) => (
                     <li key={variant.id} className="rounded-xl border border-line p-4">

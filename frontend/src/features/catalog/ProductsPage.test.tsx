@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -209,40 +209,16 @@ describe('ProductsPage', () => {
     await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[0])
     await user.click(screen.getByRole('button', { name: 'Editar producto' }))
 
-    const nameInput = await screen.findByLabelText('Nombre')
+    const nameInput = await screen.findByLabelText(/^Nombre\s?\*?$/)
     await user.clear(nameInput)
     await user.type(nameInput, 'Cinta bebé XL')
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ ...PRODUCTS[0], name: 'Cinta bebé XL' }))
-    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     await user.click(await screen.findByRole('button', { name: 'Cerrar' }))
 
     expect(await screen.findByText('Cinta bebé XL')).toBeInTheDocument()
     expect(screen.queryByText('Cinta bebé', { exact: true })).not.toBeInTheDocument()
-  })
-
-  it('opens categories/units/attributes in a panel from a button, and can switch tabs and close it', async () => {
-    const user = userEvent.setup()
-    const fetchMock = fetch as ReturnType<typeof vi.fn>
-    renderPage(ADMIN_ACCOUNT)
-
-    await screen.findByText('Cinta bebé')
-
-    fetchMock
-      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
-      .mockResolvedValueOnce(jsonResponse(PRODUCTS))
-    await user.click(screen.getByRole('button', { name: 'Categorías, unidades y atributos' }))
-
-    const dialog = within(await screen.findByRole('dialog', { name: 'Categorías, unidades y atributos' }))
-    expect(await dialog.findByRole('heading', { name: 'Categorías' })).toBeInTheDocument()
-    expect(dialog.getByText('Cintas')).toBeInTheDocument()
-
-    fetchMock.mockResolvedValueOnce(jsonResponse(UNITS)).mockResolvedValueOnce(jsonResponse(PRODUCTS))
-    await user.click(dialog.getByRole('button', { name: 'Unidades' }))
-    expect(await dialog.findByRole('heading', { name: 'Unidades' })).toBeInTheDocument()
-
-    await user.click(dialog.getByRole('button', { name: 'Cerrar' }))
-    expect(screen.queryByRole('dialog', { name: 'Categorías, unidades y atributos' })).not.toBeInTheDocument()
   })
 })
