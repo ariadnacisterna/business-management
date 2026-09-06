@@ -1,19 +1,22 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { useAuth } from '../../features/access/AuthContext'
-import { BusinessSwitcher } from '../../features/access/BusinessSwitcher'
 import { AccountMenu } from './AccountMenu'
 import { HeaderClock } from './HeaderClock'
 import { Sidebar } from './Sidebar'
 import { WelcomeModal } from './WelcomeModal'
 
 export function AppLayout() {
-  const { account, logout } = useAuth()
+  const { account, logout, switchBusiness } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   if (account === null) {
     return null
   }
+
+  const activeBusinessName = account.businesses.find(
+    (business) => business.id === account.active_business_id,
+  )?.name
 
   return (
     <div className="flex min-h-svh bg-surface text-ink">
@@ -21,7 +24,7 @@ export function AppLayout() {
       <Sidebar isOpen={sidebarOpen} onNavigate={() => setSidebarOpen(false)} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 items-center gap-4 border-b border-line px-4 md:px-6">
+        <header className="relative flex h-16 items-center gap-4 border-b border-line px-4 md:px-6">
           <button
             type="button"
             onClick={() => setSidebarOpen((open) => !open)}
@@ -34,9 +37,14 @@ export function AppLayout() {
 
           <HeaderClock />
 
+          {activeBusinessName !== undefined && (
+            <p className="absolute left-1/2 hidden -translate-x-1/2 text-2xl font-bold uppercase tracking-wide text-ink sm:block">
+              {activeBusinessName}
+            </p>
+          )}
+
           <div className="ml-auto flex items-center gap-3">
-            <BusinessSwitcher />
-            <AccountMenu account={account} onLogout={logout} />
+            <AccountMenu account={account} onLogout={logout} onSwitchBusiness={switchBusiness} />
           </div>
         </header>
 

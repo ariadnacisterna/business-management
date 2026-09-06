@@ -198,7 +198,7 @@ def me(
 def change_active_business(
     payload: ChangeActiveBusinessRequest,
     db: Session = Depends(get_db),
-    account: Account = Depends(get_current_user),
+    account: Account = Depends(require_role(ADMINISTRADOR)),
     session: AccountSession = Depends(get_current_session),
 ) -> SessionInfoResponse:
     try:

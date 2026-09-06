@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import type { Account } from '../../api/types'
+import { isAdministrador } from '../../features/access/roles'
 
 interface Props {
   account: Account
   onLogout: () => Promise<void>
+  onSwitchBusiness: (businessId: number) => Promise<void>
 }
 
 function initials(name: string): string {
@@ -19,9 +21,13 @@ function firstName(name: string): string {
   return name.split(' ')[0]
 }
 
-export function AccountMenu({ account, onLogout }: Props) {
+export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {
   const [open, setOpen] = useState(false)
   const [logoutError, setLogoutError] = useState<string | null>(null)
+  const [switchError, setSwitchError] = useState<string | null>(null)
+  const [switchingId, setSwitchingId] = useState<number | null>(null)
+
+  const canSwitchBusiness = isAdministrador(account) && account.businesses.length > 1
 
   async function handleLogout() {
     setLogoutError(null)
@@ -29,6 +35,18 @@ export function AccountMenu({ account, onLogout }: Props) {
       await onLogout()
     } catch {
       setLogoutError('No se pudo cerrar sesión. Intentá de nuevo.')
+    }
+  }
+
+  async function handleSwitchBusiness(businessId: number) {
+    setSwitchError(null)
+    setSwitchingId(businessId)
+    try {
+      await onSwitchBusiness(businessId)
+    } catch {
+      setSwitchError('No se pudo cambiar de negocio. Intentá de nuevo.')
+    } finally {
+      setSwitchingId(null)
     }
   }
 
@@ -56,6 +74,35 @@ export function AccountMenu({ account, onLogout }: Props) {
               <p className="text-base font-semibold">{account.name}</p>
               {account.role !== null && <p className="mt-0.5 text-sm opacity-60">{account.role}</p>}
             </div>
+            {canSwitchBusiness && (
+              <div className="border-b border-line py-2">
+                <p className="px-4 pb-1 text-xs font-semibold uppercase tracking-wider opacity-60">
+                  Negocio
+                </p>
+                {account.businesses.map((business) => {
+                  const isActive = business.id === account.active_business_id
+                  return (
+                    <button
+                      key={business.id}
+                      type="button"
+                      onClick={() => handleSwitchBusiness(business.id)}
+                      disabled={isActive || switchingId !== null}
+                      aria-current={isActive}
+                      className={`flex min-h-12 w-full items-center px-4 text-base transition-colors disabled:cursor-default ${
+                        isActive ? 'bg-brand/10 font-semibold text-brand' : 'hover:bg-surface-brand'
+                      }`}
+                    >
+                      {business.name}
+                    </button>
+                  )
+                })}
+                {switchError !== null && (
+                  <p role="alert" className="px-4 pt-1 text-sm text-danger">
+                    {switchError}
+                  </p>
+                )}
+              </div>
+            )}
             <button
               type="button"
               onClick={handleLogout}

@@ -2,7 +2,7 @@ import pytest
 import sqlalchemy as sa
 
 from app.constants.access import CSRF_HEADER_NAME
-from app.constants.roles import ADMINISTRADOR, EMPLEADO
+from app.constants.roles import ADMINISTRADOR, EMPLEADO, GERENTE
 from app.constants.status import EntityStatus
 from app.core.config import get_settings
 from app.db.models import Account, Business, BusinessAccess, Role
@@ -304,6 +304,32 @@ def test_account_with_single_business_access_cannot_see_the_other_business_price
     ]
     assert len(matching) == 1
     assert matching[0]["price_amount"] == "150.00"
+
+
+def test_gerente_and_empleado_cannot_switch_active_business_even_with_access_to_both(
+    client, db_session
+):
+    admin_cookies = _admin_cookies(client)
+    admin_account_id = _admin_account_id(db_session)
+    first_business_id = _first_business_id(db_session)
+    second_business = _create_second_business(db_session)
+    _grant_access(db_session, admin_account_id, second_business.id, ADMINISTRADOR)
+
+    for user_name, role in (("gerenta-dual", GERENTE), ("empleada-dual", EMPLEADO)):
+        account = _create_account(client, admin_cookies, user_name, role)
+        _grant_access(db_session, account["id"], second_business.id, role)
+        cookies = _login(client, user_name, "clave-segura-1")
+
+        response = client.post(
+            "/auth/active-business",
+            json={"business_id": second_business.id},
+            cookies=cookies,
+            headers=_auth_headers(cookies),
+        )
+
+        assert response.status_code == 403
+        me_response = client.get("/auth/me", cookies=cookies)
+        assert me_response.json()["active_business_id"] == first_business_id
 
 
 def test_account_listing_is_scoped_to_the_active_business(no_second_business, client, db_session):
