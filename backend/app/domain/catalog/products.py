@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.constants.status import EntityStatus
@@ -359,12 +359,34 @@ def reactivate_variant(db: Session, variant_id: int, actor_account_id: int) -> V
     return variant
 
 
-def list_products(db: Session, organization_id: int) -> list[Product]:
-    return list(
-        db.scalars(
-            select(Product).where(Product.organization_id == organization_id).order_by(Product.name)
-        ).all()
-    )
+def list_products(
+    db: Session,
+    organization_id: int,
+    page: int | None = None,
+    page_size: int | None = None,
+    category_id: int | None = None,
+    status: str | None = None,
+    search: str | None = None,
+) -> tuple[list[Product], int]:
+    query = select(Product).where(Product.organization_id == organization_id)
+
+    if category_id is not None:
+        query = query.where(Product.category_id == category_id)
+    if status is not None:
+        query = query.where(Product.status == status)
+    if search:
+        query = query.where(Product.name.ilike(f"%{search.strip()}%"))
+
+    if page_size is None:
+        product_list = list(db.scalars(query.order_by(Product.name)).all())
+        return product_list, len(product_list)
+
+    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+
+    page_query = query.order_by(Product.name).offset(((page or 1) - 1) * page_size).limit(page_size)
+    product_list = list(db.scalars(page_query).all())
+
+    return product_list, total
 
 
 def get_product(db: Session, product_id: int) -> Product:

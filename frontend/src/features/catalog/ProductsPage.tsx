@@ -1,17 +1,35 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Outlet, useNavigate } from 'react-router-dom'
-import { deactivateProduct, fetchCategories, fetchProducts, fetchUnits, reactivateProduct } from '../../api/catalog'
+import {
+  deactivateProduct,
+  fetchCategories,
+  fetchProductsPage,
+  fetchUnits,
+  reactivateProduct,
+} from '../../api/catalog'
 import type { Category, Product, Unit } from '../../api/types'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { Pagination } from '../../shared/Pagination'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { RowMenu } from './RowMenu'
 
 type Status = 'loading' | 'success' | 'error'
 type SortKey = 'name' | 'category' | 'unit'
+type StatusFilter = 'all' | 'active' | 'inactive'
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los productos.'
+const SEARCH_DEBOUNCE_MS = 300
+
+interface Filters {
+  page: number
+  pageSize: number
+  categoryId: number | 'all'
+  status: StatusFilter
+}
+
+const DEFAULT_FILTERS: Filters = { page: 1, pageSize: 25, categoryId: 'all', status: 'all' }
 
 const inputClasses =
   'h-12 rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
@@ -26,6 +44,7 @@ export function ProductsPage() {
   const navigate = useNavigate()
 
   const [products, setProducts] = useState<Product[]>([])
+  const [total, setTotal] = useState(0)
   const [categories, setCategories] = useState<Category[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [status, setStatus] = useState<Status>('loading')
@@ -33,19 +52,37 @@ export function ProductsPage() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [confirmingProduct, setConfirmingProduct] = useState<Product | null>(null)
 
-  const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [searchInput, setSearchInput] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'name', dir: 'asc' })
+
+  useEffect(() => {
+    fetchCategories().then(setCategories).catch(() => {})
+    fetchUnits().then(setUnits).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedSearch(searchInput)
+      setFilters((current) => (current.page === 1 ? current : { ...current, page: 1 }))
+    }, SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [searchInput])
 
   function load() {
     setStatus('loading')
     setLoadError(null)
-    Promise.all([fetchProducts(), fetchCategories(), fetchUnits()])
-      .then(([productList, categoryList, unitList]) => {
-        setProducts(productList)
-        setCategories(categoryList)
-        setUnits(unitList)
+    fetchProductsPage({
+      page: filters.page,
+      pageSize: filters.pageSize,
+      categoryId: filters.categoryId === 'all' ? undefined : filters.categoryId,
+      status: filters.status === 'all' ? undefined : filters.status,
+      search: appliedSearch.trim() === '' ? undefined : appliedSearch.trim(),
+    })
+      .then((result) => {
+        setProducts(result.items)
+        setTotal(result.total)
         setStatus('success')
       })
       .catch(() => {
@@ -54,7 +91,9 @@ export function ProductsPage() {
       })
   }
 
-  useEffect(load, [])
+  useEffect(load, [filters.page, filters.pageSize, filters.categoryId, filters.status, appliedSearch])
+
+  const totalPages = Math.max(1, Math.ceil(total / filters.pageSize))
 
   function categoryName(categoryId: number): string {
     return categories.find((category) => category.id === categoryId)?.name ?? '—'
@@ -92,29 +131,29 @@ export function ProductsPage() {
     setSort((prev) => (prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }))
   }
 
-  const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase()
+  function clearFilters() {
+    setSearchInput('')
+    setAppliedSearch('')
+    setFilters(DEFAULT_FILTERS)
+  }
+
+  const hasActiveFilters = searchInput !== '' || filters.categoryId !== 'all' || filters.status !== 'all'
+
+  const sorted = useMemo(() => {
     const categoryNames = new Map(categories.map((category) => [category.id, category.name]))
     const unitNames = new Map(units.map((unit) => [unit.id, unit.name]))
 
-    return products
-      .filter((product) => {
-        const matchesSearch = query === '' || product.name.toLowerCase().includes(query)
-        const matchesCategory = categoryFilter === 'all' || product.category_id === categoryFilter
-        const matchesStatus = statusFilter === 'all' || product.status === statusFilter
-        return matchesSearch && matchesCategory && matchesStatus
-      })
-      .sort((a, b) => {
-        const value = (product: Product) =>
-          sort.key === 'name'
-            ? product.name
-            : sort.key === 'category'
-              ? (categoryNames.get(product.category_id) ?? '—')
-              : (unitNames.get(product.unit_id) ?? '—')
-        const comparison = value(a).localeCompare(value(b))
-        return sort.dir === 'asc' ? comparison : -comparison
-      })
-  }, [products, search, categoryFilter, statusFilter, sort, categories, units])
+    return [...products].sort((a, b) => {
+      const value = (product: Product) =>
+        sort.key === 'name'
+          ? product.name
+          : sort.key === 'category'
+            ? (categoryNames.get(product.category_id) ?? '—')
+            : (unitNames.get(product.unit_id) ?? '—')
+      const comparison = value(a).localeCompare(value(b))
+      return sort.dir === 'asc' ? comparison : -comparison
+    })
+  }, [products, sort, categories, units])
 
   const columns: { key: SortKey; label: string }[] = [
     { key: 'name', label: 'Nombre' },
@@ -127,7 +166,7 @@ export function ProductsPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Productos</h1>
-          <p className="mt-1 text-lg opacity-60">{filtered.length} productos encontrados</p>
+          <p className="mt-1 text-lg opacity-60">{total} productos encontrados</p>
         </div>
         <div className="flex items-center gap-2">
           {canManage && (
@@ -153,15 +192,21 @@ export function ProductsPage() {
 
       <div className="flex flex-wrap gap-3">
         <input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
           placeholder="Buscar nombre, código, categoría…"
           aria-label="Buscar productos"
           className={`${inputClasses} min-w-48 flex-1`}
         />
         <SelectMenu
-          value={categoryFilter === 'all' ? 'all' : String(categoryFilter)}
-          onChange={(value) => setCategoryFilter(value === 'all' ? 'all' : Number(value))}
+          value={filters.categoryId === 'all' ? 'all' : String(filters.categoryId)}
+          onChange={(value) =>
+            setFilters((current) => ({
+              ...current,
+              categoryId: value === 'all' ? 'all' : Number(value),
+              page: 1,
+            }))
+          }
           ariaLabel="Filtrar por categoría"
           className="w-56"
           options={[
@@ -170,8 +215,8 @@ export function ProductsPage() {
           ]}
         />
         <SelectMenu
-          value={statusFilter}
-          onChange={(value) => setStatusFilter(value)}
+          value={filters.status}
+          onChange={(value: StatusFilter) => setFilters((current) => ({ ...current, status: value, page: 1 }))}
           ariaLabel="Filtrar por estado"
           className="w-56"
           options={[
@@ -180,14 +225,21 @@ export function ProductsPage() {
             { value: 'inactive', label: 'Inactivo' },
           ]}
         />
+        <SelectMenu
+          value={String(filters.pageSize)}
+          onChange={(value) => setFilters((current) => ({ ...current, pageSize: Number(value), page: 1 }))}
+          ariaLabel="Cantidad por página"
+          className="w-40"
+          options={[
+            { value: '10', label: '10 por página' },
+            { value: '25', label: '25 por página' },
+            { value: '50', label: '50 por página' },
+          ]}
+        />
         <button
           type="button"
-          disabled={search === '' && categoryFilter === 'all' && statusFilter === 'all'}
-          onClick={() => {
-            setSearch('')
-            setCategoryFilter('all')
-            setStatusFilter('all')
-          }}
+          disabled={!hasActiveFilters}
+          onClick={clearFilters}
           className="h-12 w-56 rounded-lg border-2 border-brand bg-surface text-lg font-semibold text-brand transition-colors hover:bg-brand hover:text-brand-contrast disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:font-normal disabled:text-ink/40 disabled:hover:bg-surface disabled:hover:text-ink/40"
         >
           Limpiar búsqueda
@@ -214,7 +266,7 @@ export function ProductsPage() {
         </div>
       )}
 
-      {status === 'success' && filtered.length === 0 && (
+      {status === 'success' && total === 0 && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
           <svg
             aria-hidden="true"
@@ -234,89 +286,97 @@ export function ProductsPage() {
         </div>
       )}
 
-      {status === 'success' && filtered.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-line bg-surface-brand/40">
-                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Código</th>
-                {columns.map((column) => (
-                  <th
-                    key={column.key}
-                    onClick={() => toggleSort(column.key)}
-                    className="cursor-pointer whitespace-nowrap px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60 transition-colors hover:text-brand"
-                  >
-                    {column.label}
-                    {sort.key === column.key && <span className="ml-1">{sort.dir === 'asc' ? '↑' : '↓'}</span>}
-                  </th>
-                ))}
-                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Precio</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Variantes</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Estado</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((product) => {
-                const isUndifferentiated = product.variants.length === 1 && product.variants[0].is_implicit
-                return (
-                  <tr key={product.id} className="border-t border-line transition-colors hover:bg-surface-brand/60">
-                    <td className="px-4 py-3.5 text-lg italic opacity-40">Próximamente</td>
-                    <td className="px-4 py-3.5">
-                      <Link to={`/products/${product.id}`} className="text-lg font-semibold hover:text-brand">
-                        {product.name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3.5 text-lg opacity-70">{categoryName(product.category_id)}</td>
-                    <td className="px-4 py-3.5 text-lg opacity-70">{unitName(product.unit_id)}</td>
-                    <td className="px-4 py-3.5 text-lg italic opacity-40">Próximamente</td>
-                    <td className="px-4 py-3.5 text-lg opacity-70">
-                      {isUndifferentiated ? '—' : product.variants.length}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span
-                        className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-base font-semibold ${
-                          product.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
-                        }`}
-                      >
-                        ● {product.status === 'active' ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <RowMenu
-                        title={product.name}
-                        items={[
-                          { label: 'Ver detalle', icon: '👁', onClick: () => navigate(`/products/${product.id}`) },
-                          ...(canManage
-                            ? [
-                                {
-                                  label: 'Cambiar precio',
-                                  icon: '$',
-                                  onClick: () => navigate(`/products/${product.id}?changePrice=1`),
-                                },
-                                {
-                                  label: 'Editar producto',
-                                  icon: '✎',
-                                  onClick: () => navigate(`/products/${product.id}?edit=1`),
-                                },
-                                {
-                                  label: product.status === 'active' ? 'Desactivar' : 'Activar',
-                                  icon: '⊘',
-                                  danger: product.status === 'active',
-                                  success: product.status !== 'active',
-                                  onClick: () => setConfirmingProduct(product),
-                                },
-                              ]
-                            : []),
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+      {status === 'success' && total > 0 && (
+        <>
+          <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-line bg-surface-brand/40">
+                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Código</th>
+                  {columns.map((column) => (
+                    <th
+                      key={column.key}
+                      onClick={() => toggleSort(column.key)}
+                      className="cursor-pointer whitespace-nowrap px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60 transition-colors hover:text-brand"
+                    >
+                      {column.label}
+                      {sort.key === column.key && <span className="ml-1">{sort.dir === 'asc' ? '↑' : '↓'}</span>}
+                    </th>
+                  ))}
+                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Precio</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Variantes</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Estado</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((product) => {
+                  const isUndifferentiated = product.variants.length === 1 && product.variants[0].is_implicit
+                  return (
+                    <tr key={product.id} className="border-t border-line transition-colors hover:bg-surface-brand/60">
+                      <td className="px-4 py-3.5 text-lg italic opacity-40">Próximamente</td>
+                      <td className="px-4 py-3.5">
+                        <Link to={`/products/${product.id}`} className="text-lg font-semibold hover:text-brand">
+                          {product.name}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3.5 text-lg opacity-70">{categoryName(product.category_id)}</td>
+                      <td className="px-4 py-3.5 text-lg opacity-70">{unitName(product.unit_id)}</td>
+                      <td className="px-4 py-3.5 text-lg italic opacity-40">Próximamente</td>
+                      <td className="px-4 py-3.5 text-lg opacity-70">
+                        {isUndifferentiated ? '—' : product.variants.length}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span
+                          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-base font-semibold ${
+                            product.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
+                          }`}
+                        >
+                          ● {product.status === 'active' ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <RowMenu
+                          title={product.name}
+                          items={[
+                            { label: 'Ver detalle', icon: '👁', onClick: () => navigate(`/products/${product.id}`) },
+                            ...(canManage
+                              ? [
+                                  {
+                                    label: 'Cambiar precio',
+                                    icon: '$',
+                                    onClick: () => navigate(`/products/${product.id}?changePrice=1`),
+                                  },
+                                  {
+                                    label: 'Editar producto',
+                                    icon: '✎',
+                                    onClick: () => navigate(`/products/${product.id}?edit=1`),
+                                  },
+                                  {
+                                    label: product.status === 'active' ? 'Desactivar' : 'Activar',
+                                    icon: '⊘',
+                                    danger: product.status === 'active',
+                                    success: product.status !== 'active',
+                                    onClick: () => setConfirmingProduct(product),
+                                  },
+                                ]
+                              : []),
+                          ]}
+                        />
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <Pagination
+            page={filters.page}
+            totalPages={totalPages}
+            onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
+          />
+        </>
       )}
 
       <Outlet context={{ onProductUpdated: applyProductUpdate }} />

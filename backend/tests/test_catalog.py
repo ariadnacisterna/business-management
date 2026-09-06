@@ -661,7 +661,90 @@ def test_list_products_includes_current_price_per_variant(client):
     response = client.get("/products", cookies=admin_cookies)
 
     assert response.status_code == 200, response.text
-    listed_product = next(p for p in response.json() if p["id"] == product["id"])
+    listed_product = next(p for p in response.json()["items"] if p["id"] == product["id"])
     listed_by_id = {variant["id"]: variant for variant in listed_product["variants"]}
     assert listed_by_id[priced_variant["id"]]["price_amount"] == "150.00"
     assert listed_by_id[unpriced_variant["id"]]["price_amount"] is None
+
+
+def test_list_products_without_pagination_params_returns_full_catalog(client):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Merceria sin paginar")
+    unit = _create_unit(client, admin_cookies, "Metro sin paginar", "msp", True)
+    for index in range(3):
+        _create_product(client, admin_cookies, f"Producto sin paginar {index}", category["id"], unit["id"])
+
+    response = client.get("/products", cookies=admin_cookies)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["total"] >= 3
+    assert len(body["items"]) == body["total"]
+
+
+def test_list_products_paginates_with_page_and_page_size(client):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Merceria paginada")
+    unit = _create_unit(client, admin_cookies, "Metro paginado", "mpg", True)
+    names = [f"Producto paginado {index:02d}" for index in range(12)]
+    for name in names:
+        _create_product(client, admin_cookies, name, category["id"], unit["id"])
+
+    response = client.get(
+        "/products",
+        params={"page": 1, "page_size": 10, "category_id": category["id"]},
+        cookies=admin_cookies,
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["total"] == 12
+    assert body["page"] == 1
+    assert body["page_size"] == 10
+    assert len(body["items"]) == 10
+    assert [item["name"] for item in body["items"]] == sorted(names)[:10]
+
+    second_page = client.get(
+        "/products",
+        params={"page": 2, "page_size": 10, "category_id": category["id"]},
+        cookies=admin_cookies,
+    )
+    assert second_page.status_code == 200, second_page.text
+    second_body = second_page.json()
+    assert second_body["total"] == 12
+    assert len(second_body["items"]) == 2
+
+
+def test_list_products_filters_by_status_and_search(client):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Merceria filtros")
+    unit = _create_unit(client, admin_cookies, "Metro filtros", "mfl", True)
+    active_product = _create_product(client, admin_cookies, "Cinta activa buscable", category["id"], unit["id"])
+    inactive_product = _create_product(client, admin_cookies, "Cinta inactiva", category["id"], unit["id"])
+    client.post(
+        f"/products/{inactive_product['id']}/deactivate",
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    search_response = client.get(
+        "/products", params={"search": "buscable"}, cookies=admin_cookies
+    )
+    assert search_response.status_code == 200, search_response.text
+    search_ids = {item["id"] for item in search_response.json()["items"]}
+    assert search_ids == {active_product["id"]}
+
+    status_response = client.get(
+        "/products", params={"status": "inactive", "category_id": category["id"]}, cookies=admin_cookies
+    )
+    assert status_response.status_code == 200, status_response.text
+    status_ids = {item["id"] for item in status_response.json()["items"]}
+    assert status_ids == {inactive_product["id"]}
+
+
+def test_list_products_rejects_invalid_page_size(client):
+    admin_cookies = _admin_cookies(client)
+
+    response = client.get("/products", params={"page_size": 7}, cookies=admin_cookies)
+
+    assert response.status_code == 422, response.text

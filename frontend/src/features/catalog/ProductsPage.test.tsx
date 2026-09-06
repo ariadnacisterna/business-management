@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -59,13 +59,17 @@ function jsonResponse(body: unknown, status = 200): Response {
   })
 }
 
+function productPage(items: typeof PRODUCTS, overrides: Partial<{ total: number; page: number; page_size: number }> = {}) {
+  return jsonResponse({ items, total: overrides.total ?? items.length, page: overrides.page ?? 1, page_size: overrides.page_size ?? 25 })
+}
+
 function renderPage(account: unknown, initialPath = '/products') {
   const fetchMock = fetch as ReturnType<typeof vi.fn>
   fetchMock
     .mockResolvedValueOnce(jsonResponse(account))
-    .mockResolvedValueOnce(jsonResponse(PRODUCTS))
     .mockResolvedValueOnce(jsonResponse(CATEGORIES))
     .mockResolvedValueOnce(jsonResponse(UNITS))
+    .mockResolvedValueOnce(productPage(PRODUCTS))
 
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
@@ -96,27 +100,97 @@ describe('ProductsPage', () => {
     expect(screen.getByText('2 productos encontrados')).toBeInTheDocument()
   })
 
-  it('filters the list by search text', async () => {
+  it('asks the server to filter by search text, debouncing the request', async () => {
     const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
     renderPage(ADMIN_ACCOUNT)
 
     await screen.findByText('Cinta bebé')
+    fetchMock.mockResolvedValueOnce(productPage([PRODUCTS[1]], { total: 1 }))
+
     await user.type(screen.getByLabelText('Buscar productos'), 'lino')
 
-    expect(screen.queryByText('Cinta bebé')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('Cinta bebé')).not.toBeInTheDocument(), { timeout: 2000 })
     expect(screen.getByText('Tela de lino')).toBeInTheDocument()
+
+    const lastCall = fetchMock.mock.calls.at(-1)?.[0] as string
+    expect(lastCall).toContain('search=lino')
   })
 
-  it('filters the list by category', async () => {
+  it('asks the server to filter by category', async () => {
     const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
     renderPage(ADMIN_ACCOUNT)
 
     await screen.findByText('Cinta bebé')
+    fetchMock.mockResolvedValueOnce(productPage([PRODUCTS[1]], { total: 1 }))
+
     await user.click(screen.getByRole('button', { name: 'Filtrar por categoría' }))
     await user.click(screen.getByRole('option', { name: 'Telas' }))
 
+    expect(await screen.findByText('Tela de lino')).toBeInTheDocument()
     expect(screen.queryByText('Cinta bebé')).not.toBeInTheDocument()
-    expect(screen.getByText('Tela de lino')).toBeInTheDocument()
+
+    const lastCall = fetchMock.mock.calls.at(-1)?.[0] as string
+    expect(lastCall).toContain('category_id=2')
+  })
+
+  it('shows page-number controls compressed when there are many pages, always keeping pages 1 and 2', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(productPage(PRODUCTS, { total: 500, page: 5, page_size: 25 }))
+
+    render(
+      <MemoryRouter initialEntries={['/products']}>
+        <AuthProvider>
+          <ReadyGate>
+            <Routes>
+              <Route path="/products" element={<ProductsPage />} />
+            </Routes>
+          </ReadyGate>
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText('Cinta bebé')
+    expect(screen.getByRole('button', { name: 'Anterior' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Siguiente' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument()
+    expect(screen.getAllByText('…').length).toBeGreaterThan(0)
+  })
+
+  it('requests the next page when "Siguiente" is clicked', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(productPage(PRODUCTS, { total: 60, page: 1, page_size: 25 }))
+
+    render(
+      <MemoryRouter initialEntries={['/products']}>
+        <AuthProvider>
+          <ReadyGate>
+            <Routes>
+              <Route path="/products" element={<ProductsPage />} />
+            </Routes>
+          </ReadyGate>
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText('Cinta bebé')
+    fetchMock.mockResolvedValueOnce(productPage([PRODUCTS[1]], { total: 60, page: 2, page_size: 25 }))
+    await user.click(screen.getByRole('button', { name: 'Siguiente' }))
+
+    await screen.findByText('Tela de lino')
+    const lastCall = fetchMock.mock.calls.at(-1)?.[0] as string
+    expect(lastCall).toContain('page=2')
   })
 
   it('offers "Nuevo producto" and an edit action to an administrator, but not to an employee', async () => {
@@ -182,9 +256,9 @@ describe('ProductsPage', () => {
     const fetchMock = fetch as ReturnType<typeof vi.fn>
     fetchMock
       .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
-      .mockResolvedValueOnce(jsonResponse(PRODUCTS))
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(productPage(PRODUCTS))
       .mockResolvedValueOnce(jsonResponse(PRODUCTS[0]))
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))

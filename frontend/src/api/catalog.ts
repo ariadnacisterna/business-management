@@ -7,6 +7,7 @@ import type {
   Price,
   Product,
   ProductCreationResult,
+  ProductPage,
   Unit,
   VariantCreationResult,
   VariantInput,
@@ -70,7 +71,25 @@ export function updateAttributeValue(id: number, value: string): Promise<Attribu
 }
 
 export function fetchProducts(): Promise<Product[]> {
-  return apiFetch<Product[]>('/products')
+  return apiFetch<ProductPage>('/products').then((result) => result.items)
+}
+
+export interface ProductPageParams {
+  page: number
+  pageSize: number
+  categoryId?: number
+  status?: 'active' | 'inactive'
+  search?: string
+}
+
+export function fetchProductsPage(params: ProductPageParams): Promise<ProductPage> {
+  const query = new URLSearchParams()
+  query.set('page', String(params.page))
+  query.set('page_size', String(params.pageSize))
+  if (params.categoryId !== undefined) query.set('category_id', String(params.categoryId))
+  if (params.status !== undefined) query.set('status', params.status)
+  if (params.search !== undefined && params.search !== '') query.set('search', params.search)
+  return apiFetch<ProductPage>(`/products?${query.toString()}`)
 }
 
 export function fetchProduct(id: number): Promise<Product> {

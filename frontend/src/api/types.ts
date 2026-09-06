@@ -59,6 +59,13 @@ export interface Product {
   variants: Variant[]
 }
 
+export interface ProductPage {
+  items: Product[]
+  total: number
+  page: number
+  page_size: number
+}
+
 export interface VariantInput {
   label?: string | null
   attribute_value_ids?: number[]

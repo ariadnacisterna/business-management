@@ -146,7 +146,7 @@ def test_preview_does_not_modify_the_catalog(client):
 
     assert client.get("/categories", cookies=admin_cookies).json() == []
     assert client.get("/units", cookies=admin_cookies).json() == []
-    assert client.get("/products", cookies=admin_cookies).json() == []
+    assert client.get("/products", cookies=admin_cookies).json()["items"] == []
 
 
 def test_confirm_creates_taxonomy_products_variants_and_prices(client, db_session):
@@ -169,7 +169,7 @@ def test_confirm_creates_taxonomy_products_variants_and_prices(client, db_sessio
     assert run["created_variants_count"] == 3
     assert run["updated_variants_count"] == 0
 
-    products = client.get("/products", cookies=admin_cookies).json()
+    products = client.get("/products", cookies=admin_cookies).json()["items"]
     names = {product["name"] for product in products}
     assert names == {"Cinta Bebe N2", "Cuaderno Tapa Dura"}
     cuaderno = next(p for p in products if p["name"] == "Cuaderno Tapa Dura")
@@ -229,7 +229,7 @@ def test_reimport_with_unchanged_price_does_not_add_price_history(client):
     admin_cookies = _admin_cookies(client)
     csv_text = BASIC_HEADER + "Cintas,Cinta Bebe N2,Metro,,,150.50\n"
     _confirm(client, admin_cookies, _csv_file(csv_text))
-    product = client.get("/products", cookies=admin_cookies).json()[0]
+    product = client.get("/products", cookies=admin_cookies).json()["items"][0]
     variant_id = product["variants"][0]["id"]
     before = client.get(f"/variants/{variant_id}/prices", cookies=admin_cookies).json()
 
@@ -245,7 +245,7 @@ def test_reimport_with_changed_price_updates_it_and_keeps_history(client):
     admin_cookies = _admin_cookies(client)
     csv_text = BASIC_HEADER + "Cintas,Cinta Bebe N2,Metro,,,150.50\n"
     _confirm(client, admin_cookies, _csv_file(csv_text))
-    product = client.get("/products", cookies=admin_cookies).json()[0]
+    product = client.get("/products", cookies=admin_cookies).json()["items"][0]
     variant_id = product["variants"][0]["id"]
 
     changed_csv = BASIC_HEADER + "Cintas,Cinta Bebe N2,Metro,,,175.00\n"
@@ -347,7 +347,7 @@ def test_single_row_product_with_blank_label_becomes_an_implicit_variant(client)
     response = _confirm(client, admin_cookies, _csv_file(csv_text))
 
     assert response.status_code == 201, response.text
-    product = client.get("/products", cookies=admin_cookies).json()[0]
+    product = client.get("/products", cookies=admin_cookies).json()["items"][0]
     assert product["variants"][0]["is_implicit"] is True
 
 
@@ -360,7 +360,7 @@ def test_confirm_is_atomic_and_applies_nothing_when_one_row_is_invalid(client, d
     response = _confirm(client, admin_cookies, _csv_file(csv_text))
 
     assert response.status_code == 422, response.text
-    assert client.get("/products", cookies=admin_cookies).json() == []
+    assert client.get("/products", cookies=admin_cookies).json()["items"] == []
     assert client.get("/categories", cookies=admin_cookies).json() == []
     assert client.get("/units", cookies=admin_cookies).json() == []
     assert db_session.query(Product).count() == 0
@@ -493,7 +493,7 @@ def test_confirm_without_csrf_token_is_rejected(client):
     response = client.post("/imports", files=_csv_file(csv_text), cookies=admin_cookies)
 
     assert response.status_code == 403
-    assert client.get("/products", cookies=admin_cookies).json() == []
+    assert client.get("/products", cookies=admin_cookies).json()["items"] == []
 
 
 def test_missing_required_column_is_rejected(client):
@@ -562,5 +562,5 @@ def test_excel_file_is_accepted_and_imported(client):
 
     confirm = _confirm(client, admin_cookies, _xlsx_file(rows))
     assert confirm.status_code == 201, confirm.text
-    products = client.get("/products", cookies=admin_cookies).json()
+    products = client.get("/products", cookies=admin_cookies).json()["items"]
     assert {p["name"] for p in products} == {"Tornillo", "Tuerca"}

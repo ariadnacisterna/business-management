@@ -57,10 +57,15 @@ describe('CategoriesPage', () => {
       .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(
-        jsonResponse([
-          { id: 1, name: 'Hilo', category_id: 1, unit_id: 1, status: 'active', variants: [] },
-          { id: 2, name: 'Cinta', category_id: 1, unit_id: 1, status: 'active', variants: [] },
-        ]),
+        jsonResponse({
+          items: [
+            { id: 1, name: 'Hilo', category_id: 1, unit_id: 1, status: 'active', variants: [] },
+            { id: 2, name: 'Cinta', category_id: 1, unit_id: 1, status: 'active', variants: [] },
+          ],
+          total: 2,
+          page: 1,
+          page_size: 2,
+        }),
       )
 
     renderPage()
@@ -76,7 +81,7 @@ describe('CategoriesPage', () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
-      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 0 }))
       .mockResolvedValueOnce(jsonResponse({ id: 3, name: 'Bazar', status: 'active' }, 201))
 
     renderPage()
@@ -97,7 +102,7 @@ describe('CategoriesPage', () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse(EMPLOYEE_ACCOUNT))
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
-      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 0 }))
 
     renderPage()
 
@@ -110,7 +115,7 @@ describe('CategoriesPage', () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
       .mockRejectedValueOnce(new TypeError('fail'))
-      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 0 }))
 
     renderPage()
 

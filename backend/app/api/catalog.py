@@ -1,10 +1,11 @@
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.constants.roles import ADMINISTRADOR, GERENTE
+from app.constants.status import EntityStatus
 from app.db.models import Account, AttributeValue, Business, Price, Product, Variant
 from app.db.session import get_db
 from app.domain.access.permissions import (
@@ -139,6 +140,13 @@ class AddVariantRequest(BaseModel):
 class UpdateVariantRequest(BaseModel):
     label: str | None = None
     attribute_value_ids: list[int] | None = None
+
+
+class ProductListResponse(BaseModel):
+    items: list[ProductResponse]
+    total: int
+    page: int
+    page_size: int
 
 
 class ProductCreationResponse(BaseModel):
@@ -504,17 +512,50 @@ def create_product(
     )
 
 
-@router.get("/products", response_model=list[ProductResponse])
+ALLOWED_PAGE_SIZES = (10, 25, 50)
+
+
+@router.get("/products", response_model=ProductListResponse)
 def list_products(
+    page: int | None = Query(default=None, ge=1),
+    page_size: int | None = Query(default=None),
+    category_id: int | None = None,
+    status_filter: str | None = Query(default=None, alias="status"),
+    search: str | None = None,
     db: Session = Depends(get_db),
     _actor: Account = Depends(get_current_user),
     business: Business = Depends(get_active_business),
-) -> list[ProductResponse]:
+) -> ProductListResponse:
+    paginate = page is not None or page_size is not None
+    if paginate:
+        page = page or 1
+        page_size = page_size or 25
+        if page_size not in ALLOWED_PAGE_SIZES:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "page_size invalido")
+    if status_filter is not None and status_filter not in (
+        EntityStatus.ACTIVE.value,
+        EntityStatus.INACTIVE.value,
+    ):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "status invalido")
+
     organization_id = _organization_id(_actor)
-    product_list = products.list_products(db, organization_id)
+    product_list, total = products.list_products(
+        db,
+        organization_id,
+        page,
+        page_size,
+        category_id=category_id,
+        status=status_filter,
+        search=search,
+    )
     variant_ids = [variant.id for product in product_list for variant in product.variants]
     current_prices = get_current_prices_for_variants(db, variant_ids, business.id)
-    return [_product_response(product, current_prices) for product in product_list]
+    return ProductListResponse(
+        items=[_product_response(product, current_prices) for product in product_list],
+        total=total,
+        page=page or 1,
+        page_size=page_size or total,
+    )
 
 
 @router.get("/products/{product_id}", response_model=ProductResponse)
