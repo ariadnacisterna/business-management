@@ -183,6 +183,11 @@ la cookie (`SameSite`, dominio) y la política CORS deberán coordinarse
 explícitamente; sigue siendo preferible a un token reutilizable manejado por
 el código del cliente.
 
+Las pruebas del backend nunca corren contra la base configurada en
+`DATABASE_URL`: usan siempre `<db>_test` en el mismo servidor, porque
+resetean su base borrando y recreando el esquema, y usar la base de
+desarrollo o producción ahí borraría datos reales (como pasó una vez).
+
 ## Arquitectura propuesta
 
 Se recomienda un **monolito modular**: una aplicación desplegable y una base de

@@ -29,13 +29,6 @@ def alembic_config() -> Config:
 
 
 def _test_database_url() -> str:
-    """Derive a disposable database name from DATABASE_URL, never the configured one.
-
-    Tests reset their database by dropping and recreating its schema. Using the
-    same database as development or production here would silently destroy
-    real data (as it did once), so tests always run against `<db>_test` on the
-    same server instead.
-    """
     url = make_url(get_settings().database_url)
     db_name = url.database or "abuela"
     if not db_name.endswith(TEST_DATABASE_SUFFIX):

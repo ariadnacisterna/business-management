@@ -17,7 +17,7 @@ export function HighlightedText({ text, query }: Props) {
     <>
       {parts.map((part, index) =>
         part.toLowerCase() === trimmedQuery.toLowerCase() ? (
-          <span key={index} className="text-danger">
+          <span key={index} className="bg-brand/10 text-brand">
             {part}
           </span>
         ) : (

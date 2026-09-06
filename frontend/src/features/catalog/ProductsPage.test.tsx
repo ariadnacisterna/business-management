@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Product } from '../../api/types'
 import { AuthProvider, useAuth } from '../access/AuthContext'
 import { ProductDetailPage } from './ProductDetailPage'
 import { ProductsPage } from './ProductsPage'
@@ -33,7 +34,7 @@ const UNITS = [
   { id: 2, name: 'Metro', abbreviation: 'm', allows_fraction: true, status: 'active' },
 ]
 
-const PRODUCTS = [
+const PRODUCTS: Product[] = [
   {
     id: 1,
     name: 'Cinta bebé',
@@ -122,7 +123,7 @@ describe('ProductsPage', () => {
 
   it('shows each product\'s price, or a placeholder when it has no price or several prices', async () => {
     const fetchMock = fetch as ReturnType<typeof vi.fn>
-    const products = [
+    const products: Product[] = [
       PRODUCTS[0],
       PRODUCTS[1],
       {
