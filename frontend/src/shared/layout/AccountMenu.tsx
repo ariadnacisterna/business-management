@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import type { Account } from '../../api/types'
-import { isAdministrador } from '../../features/access/roles'
+import type { Account, Business } from '../../api/types'
+import { isDueno } from '../../features/access/roles'
+import { ConfirmDialog } from '../ConfirmDialog'
 
 interface Props {
   account: Account
@@ -26,8 +27,9 @@ export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {
   const [logoutError, setLogoutError] = useState<string | null>(null)
   const [switchError, setSwitchError] = useState<string | null>(null)
   const [switchingId, setSwitchingId] = useState<number | null>(null)
+  const [pendingBusiness, setPendingBusiness] = useState<Business | null>(null)
 
-  const canSwitchBusiness = isAdministrador(account) && account.businesses.length > 1
+  const canSwitchBusiness = isDueno(account) && account.businesses.length > 1
 
   async function handleLogout() {
     setLogoutError(null)
@@ -48,6 +50,13 @@ export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {
     } finally {
       setSwitchingId(null)
     }
+  }
+
+  async function confirmSwitchBusiness() {
+    if (pendingBusiness === null) return
+    const businessId = pendingBusiness.id
+    setPendingBusiness(null)
+    await handleSwitchBusiness(businessId)
   }
 
   return (
@@ -85,7 +94,7 @@ export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {
                     <button
                       key={business.id}
                       type="button"
-                      onClick={() => handleSwitchBusiness(business.id)}
+                      onClick={() => setPendingBusiness(business)}
                       disabled={isActive || switchingId !== null}
                       aria-current={isActive}
                       className={`flex min-h-12 w-full items-center px-4 text-base transition-colors disabled:cursor-default ${
@@ -131,6 +140,16 @@ export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {
             )}
           </div>
         </>
+      )}
+
+      {pendingBusiness !== null && (
+        <ConfirmDialog
+          title="Cambiar de negocio"
+          description={`Vas a pasar a trabajar sobre ${pendingBusiness.name}. Todo lo que veas y hagas de acá en adelante va a ser sobre ese negocio.`}
+          confirmLabel="Cambiar"
+          onConfirm={confirmSwitchBusiness}
+          onCancel={() => setPendingBusiness(null)}
+        />
       )}
     </div>
   )

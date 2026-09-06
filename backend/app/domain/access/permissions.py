@@ -13,6 +13,7 @@ from app.constants.access import (
     PERMISSION_DENIED_DETAIL,
     SESSION_COOKIE_NAME,
 )
+from app.constants.roles import ROLE_RANK
 from app.constants.status import EntityStatus
 from app.core.security import verify_token
 from app.db.models import Account, AccountSession, Business, BusinessAccess
@@ -64,7 +65,9 @@ def get_active_business(
         raise HTTPException(status.HTTP_403_FORBIDDEN, NO_BUSINESS_ACCESS_DETAIL) from exc
 
 
-def require_role(*role_names: str) -> Callable[..., Account]:
+def require_role(minimum_role: str) -> Callable[..., Account]:
+    minimum_rank = ROLE_RANK[minimum_role]
+
     def dependency(
         account: Account = Depends(get_current_user),
         business: Business = Depends(get_active_business),
@@ -80,7 +83,7 @@ def require_role(*role_names: str) -> Callable[..., Account]:
         if (
             access is None
             or access.status != EntityStatus.ACTIVE.value
-            or access.role.name not in role_names
+            or ROLE_RANK.get(access.role.name, -1) < minimum_rank
         ):
             raise HTTPException(status.HTTP_403_FORBIDDEN, PERMISSION_DENIED_DETAIL)
 

@@ -2,12 +2,28 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
+import type { Account } from '../../api/types'
 import { Sidebar } from './Sidebar'
 
-function renderSidebar(initialPath: string, isOpen = false, onNavigate: () => void = vi.fn()) {
+const ADMINISTRADOR_ACCOUNT: Account = {
+  id: 1,
+  name: 'Cuenta de prueba',
+  user_name: 'admin',
+  status: 'activo',
+  role: 'Administrador',
+  active_business_id: 1,
+  businesses: [{ id: 1, name: 'Negocio principal', industry: 'General' }],
+}
+
+function renderSidebar(
+  initialPath: string,
+  isOpen = false,
+  onNavigate: () => void = vi.fn(),
+  account: Account | null = ADMINISTRADOR_ACCOUNT,
+) {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
-      <Sidebar isOpen={isOpen} onNavigate={onNavigate} />
+      <Sidebar isOpen={isOpen} onNavigate={onNavigate} account={account} />
       <Routes>
         <Route path="/" element={<h1>Panel</h1>} />
         <Route path="/products" element={<h1>Productos</h1>} />
@@ -76,5 +92,28 @@ describe('Sidebar', () => {
 
     await user.click(screen.getByRole('button', { name: 'Expandir menú' }))
     expect(nav.getAllByText('Productos').length).toBeGreaterThan(0)
+  })
+
+  it('hides "Panel" for roles that cannot view the dashboard', () => {
+    renderSidebar('/products', false, vi.fn(), { ...ADMINISTRADOR_ACCOUNT, role: 'Gerente' })
+
+    expect(screen.queryByRole('link', { name: 'Panel' })).not.toBeInTheDocument()
+  })
+
+  it('hides "Proveedores" but keeps "Inventario" for a gerente', () => {
+    renderSidebar('/products', false, vi.fn(), { ...ADMINISTRADOR_ACCOUNT, role: 'Gerente' })
+
+    expect(screen.queryByText('Proveedores')).not.toBeInTheDocument()
+    expect(screen.getByText('Inventario')).toBeInTheDocument()
+  })
+
+  it('hides "Panel", "Inventario" and "Proveedores" for an empleado', () => {
+    renderSidebar('/products', false, vi.fn(), { ...ADMINISTRADOR_ACCOUNT, role: 'Empleado' })
+
+    expect(screen.queryByText('Panel')).not.toBeInTheDocument()
+    expect(screen.queryByText('Inventario')).not.toBeInTheDocument()
+    expect(screen.queryByText('Proveedores')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Productos' })).toBeInTheDocument()
+    expect(screen.getByText('Ventas')).toBeInTheDocument()
   })
 })

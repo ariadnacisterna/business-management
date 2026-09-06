@@ -14,12 +14,12 @@ const ACCOUNT = {
   businesses: [{ id: 1, name: 'Negocio principal', industry: 'General' }],
 }
 
-const ADMIN_TWO_BUSINESS_ACCOUNT = {
+const DUENO_TWO_BUSINESS_ACCOUNT = {
   id: 2,
   name: 'Diaco',
   user_name: 'diaco',
   status: 'activo',
-  role: 'Administrador',
+  role: 'Dueño',
   active_business_id: 1,
   businesses: [
     { id: 1, name: 'Mercería', industry: 'Mercería' },
@@ -28,10 +28,17 @@ const ADMIN_TWO_BUSINESS_ACCOUNT = {
 }
 
 const GERENTE_TWO_BUSINESS_ACCOUNT = {
-  ...ADMIN_TWO_BUSINESS_ACCOUNT,
+  ...DUENO_TWO_BUSINESS_ACCOUNT,
   id: 3,
   user_name: 'gerenta',
   role: 'Gerente',
+}
+
+const ADMINISTRADOR_TWO_BUSINESS_ACCOUNT = {
+  ...DUENO_TWO_BUSINESS_ACCOUNT,
+  id: 4,
+  user_name: 'admin-dual',
+  role: 'Administrador',
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -43,6 +50,13 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function noContentResponse(): Response {
   return new Response(null, { status: 204 })
+}
+
+function defaultResponse(url: string): Response {
+  if (url.startsWith('/products')) {
+    return jsonResponse({ items: [], total: 0, page: 1, page_size: 25 })
+  }
+  return jsonResponse([])
 }
 
 function renderApp() {
@@ -106,13 +120,13 @@ describe('App', () => {
     )
   })
 
-  it('shows a full-screen business selector for an administrador with more than one business', async () => {
+  it('shows a full-screen business selector for a dueño with more than one business', async () => {
     const user = userEvent.setup()
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ detail: 'Sesion invalida' }, 401))
-      .mockResolvedValueOnce(jsonResponse(ADMIN_TWO_BUSINESS_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(DUENO_TWO_BUSINESS_ACCOUNT))
       .mockResolvedValueOnce(
-        jsonResponse({ ...ADMIN_TWO_BUSINESS_ACCOUNT, active_business_id: 2 }),
+        jsonResponse({ ...DUENO_TWO_BUSINESS_ACCOUNT, active_business_id: 2 }),
       )
       .mockResolvedValue(jsonResponse([]))
 
@@ -143,7 +157,7 @@ describe('App', () => {
     expect(await screen.findByText('Diaco')).toBeInTheDocument()
   })
 
-  it('skips the business selector when the administrador has a single business', async () => {
+  it('skips the business selector when the account has a single business', async () => {
     const user = userEvent.setup()
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ detail: 'Sesion invalida' }, 401))
@@ -163,12 +177,12 @@ describe('App', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('skips the business selector for non-administrador roles even with more than one business', async () => {
+  it('skips the business selector for non-dueño roles even with more than one business', async () => {
     const user = userEvent.setup()
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ detail: 'Sesion invalida' }, 401))
       .mockResolvedValueOnce(jsonResponse(GERENTE_TWO_BUSINESS_ACCOUNT))
-      .mockResolvedValue(jsonResponse([]))
+      .mockImplementation(async (input) => defaultResponse(String(input)))
 
     renderApp()
 
@@ -183,12 +197,32 @@ describe('App', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('skips the business selector for an administrador even with more than one business', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ detail: 'Sesion invalida' }, 401))
+      .mockResolvedValueOnce(jsonResponse(ADMINISTRADOR_TWO_BUSINESS_ACCOUNT))
+      .mockResolvedValue(jsonResponse([]))
+
+    renderApp()
+
+    await screen.findByRole('heading', { name: 'Iniciar sesión' })
+    await user.type(screen.getByLabelText('Usuario'), 'admin-dual')
+    await user.type(screen.getByLabelText('Contraseña'), 'secreta')
+    await user.click(screen.getByRole('button', { name: 'Iniciar Sesión' }))
+
+    expect(await screen.findByText('Diaco')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: '¿Con qué negocio querés trabajar?' }),
+    ).not.toBeInTheDocument()
+  })
+
   it('switches the active business from the account menu', async () => {
     const user = userEvent.setup()
     fetchMock
-      .mockResolvedValueOnce(jsonResponse(ADMIN_TWO_BUSINESS_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(DUENO_TWO_BUSINESS_ACCOUNT))
       .mockResolvedValueOnce(
-        jsonResponse({ ...ADMIN_TWO_BUSINESS_ACCOUNT, active_business_id: 2 }),
+        jsonResponse({ ...DUENO_TWO_BUSINESS_ACCOUNT, active_business_id: 2 }),
       )
       .mockResolvedValue(jsonResponse([]))
 
@@ -202,6 +236,7 @@ describe('App', () => {
     )
 
     await user.click(screen.getByRole('button', { name: 'Despensa' }))
+    await user.click(await screen.findByRole('button', { name: 'Cambiar' }))
 
     expect(fetchMock).toHaveBeenLastCalledWith(
       '/auth/active-business',
@@ -211,6 +246,36 @@ describe('App', () => {
       }),
     )
     expect(await screen.findByRole('button', { name: 'Despensa' })).toHaveAttribute(
+      'aria-current',
+      'true',
+    )
+  })
+
+  it('cancelling the business change confirmation keeps the current business', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(DUENO_TWO_BUSINESS_ACCOUNT))
+      .mockResolvedValue(jsonResponse([]))
+
+    renderApp()
+
+    await screen.findByText('Diaco')
+    await user.click(screen.getByRole('button', { name: /Diaco/ }))
+    await user.click(screen.getByRole('button', { name: 'Despensa' }))
+
+    expect(
+      await screen.findByRole('alertdialog', { name: 'Cambiar de negocio' }),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+    expect(
+      screen.queryByRole('alertdialog', { name: 'Cambiar de negocio' }),
+    ).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      '/auth/active-business',
+      expect.anything(),
+    )
+    expect(screen.getByRole('button', { name: 'Mercería' })).toHaveAttribute(
       'aria-current',
       'true',
     )

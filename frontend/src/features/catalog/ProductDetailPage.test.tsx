@@ -155,6 +155,35 @@ describe('ProductDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Cambiar precio' })).toBeInTheDocument()
   })
 
+  it('hides "Último cambio" and "Ver historial" for an empleado', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ ...ADMIN_ACCOUNT, role: 'Empleado' }))
+      .mockResolvedValueOnce(jsonResponse(SINGLE_VARIANT_PRODUCT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
+
+    render(
+      <MemoryRouter initialEntries={['/products/6']}>
+        <AuthProvider>
+          <ReadyGate>
+            <Routes>
+              <Route path="/products" element={<h1>Productos</h1>} />
+              <Route path="/products/:productId" element={<ProductDetailPage />} />
+            </Routes>
+          </ReadyGate>
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Precio' })).toBeInTheDocument()
+    expect(screen.queryByText(/Último cambio/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ver historial' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cambiar precio' })).not.toBeInTheDocument()
+  })
+
   it('asks for confirmation before deactivating and saves after confirming', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>

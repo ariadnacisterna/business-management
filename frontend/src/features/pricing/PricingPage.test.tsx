@@ -317,16 +317,16 @@ describe('PricingPage', () => {
     expect(within(dialog).getByText('$ 150,00')).toBeInTheDocument()
   })
 
-  it('renders read-only for an Empleado account, without price inputs but keeping history access', async () => {
-    const user = userEvent.setup()
+  it('renders read-only for an Empleado account, without price inputs or history access', async () => {
     renderPage(EMPLOYEE_ACCOUNT)
 
     await screen.findByText('Cinta bebé')
     expect(screen.queryByLabelText('Nuevo precio para Cinta bebé Estándar')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Actualizar' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Actualizar todas' })).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Ver historial de precios de Cinta bebé Estándar' }))
-    expect(await screen.findByRole('dialog', { name: 'Historial de precios de Cinta bebé' })).toBeInTheDocument()
+    expect(screen.queryByText('Último cambio')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Ver historial de precios de Cinta bebé Estándar' }),
+    ).not.toBeInTheDocument()
   })
 })

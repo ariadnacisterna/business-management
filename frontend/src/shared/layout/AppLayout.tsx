@@ -21,7 +21,7 @@ export function AppLayout() {
   return (
     <div className="flex min-h-svh bg-surface text-ink">
       <WelcomeModal />
-      <Sidebar isOpen={sidebarOpen} onNavigate={() => setSidebarOpen(false)} />
+      <Sidebar isOpen={sidebarOpen} onNavigate={() => setSidebarOpen(false)} account={account} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="relative flex h-16 items-center gap-4 border-b border-line px-4 md:px-6">

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.constants.roles import ADMINISTRADOR, GERENTE
+from app.constants.roles import GERENTE
 from app.db.models import Account, Business, Price
 from app.db.session import get_db
 from app.domain.access.permissions import (
@@ -113,7 +113,7 @@ def change_variant_price(
     variant_id: int,
     payload: ChangeVariantPriceRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
 ) -> PriceResponse:
     try:
@@ -151,7 +151,7 @@ def change_product_price(
     product_id: int,
     payload: ChangeProductPriceRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
 ) -> ProductPriceChangeResponse:
     try:

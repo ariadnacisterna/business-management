@@ -5,8 +5,11 @@ Este modelo describe conceptos del negocio y sus relaciones. No decide todavía 
 ```mermaid
 erDiagram
     ORGANIZACION ||--o{ NEGOCIO : agrupa
-    ORGANIZACION ||--o{ PRODUCTO : posee
     ORGANIZACION ||--o{ USUARIO : registra
+    NEGOCIO ||--o{ PRODUCTO : posee
+    NEGOCIO ||--o{ CATEGORIA : define
+    NEGOCIO ||--o{ UNIDAD_VENTA : define
+    NEGOCIO ||--o{ ATRIBUTO : define
     NEGOCIO ||--o{ PRECIO : rige
     NEGOCIO ||--o{ ACCESO_A_NEGOCIO : habilita
     USUARIO ||--o{ ACCESO_A_NEGOCIO : recibe
@@ -95,23 +98,23 @@ erDiagram
 
 ### Organización
 
-Titular de uno o más negocios. Es el ámbito al que pertenecen el catálogo, los usuarios y las definiciones compartidas como categorías, unidades y atributos.
+Titular de uno o más negocios. Es el ámbito al que pertenecen los usuarios; cada negocio tiene su propio catálogo (D-046).
 
 El MVP funcionará con una única organización y un único negocio, creados durante la instalación. El concepto se modela desde el principio porque el historial de precios es inmutable y no podría atribuirse a un negocio de forma retroactiva.
 
 ### Negocio
 
-Comercio concreto donde se venden los productos: la mercería, una despensa o una segunda sucursal del mismo rubro. Es el ámbito al que pertenecen el precio vigente y, en el futuro, la existencia física, las ventas y las compras.
+Comercio concreto donde se venden los productos: la mercería, una despensa o una segunda sucursal del mismo rubro. Es el ámbito al que pertenecen el catálogo completo (productos, categorías, unidades de venta, atributos), el precio vigente y, en el futuro, la existencia física, las ventas y las compras.
 
-Un producto se considera disponible en un negocio cuando tiene un precio vigente en ese negocio. Esto permite que dos rubros muy distintos convivan en una misma organización sin que sus catálogos se mezclen en las consultas.
+Dos negocios de la misma organización no comparten catálogo: un producto, su categoría, su unidad de venta o un atributo creados en un negocio no existen ni aparecen en otro, aunque ambos pertenezcan a la misma organización (D-046). Esto es distinto de una organización con un único rubro replicado en varias sucursales, donde sí tendría sentido compartir catálogo entre negocios; ese caso no es el de Casa Diaco (D-039) y no está resuelto por este modelo.
 
 ### Categoría
 
-Agrupa productos para navegar y organizar el catálogo. Ejemplos iniciales: telas, útiles, lanas, agujas y cintas. La lista definitiva se obtendrá de las carpetas reales y dependerá del rubro de cada negocio.
+Agrupa productos de un mismo negocio para navegar y organizar el catálogo. Ejemplos iniciales (Mercería): telas, útiles, lanas, agujas y cintas. La lista definitiva se obtendrá de las carpetas reales y depende del rubro de cada negocio — cada negocio define y mantiene su propio conjunto de categorías, sin relación con las de otro negocio de la misma organización.
 
 ### Unidad de venta
 
-Indica cómo se expresa el precio: unidad, metro, kilo, paquete, rollo u otra medida. Distingue además si admite cantidades fraccionarias, porque un producto vendido por metro o por kilo podrá registrarse en el futuro con cantidades decimales.
+Indica cómo se expresa el precio: unidad, metro, kilo, paquete, rollo u otra medida. Distingue además si admite cantidades fraccionarias, porque un producto vendido por metro o por kilo podrá registrarse en el futuro con cantidades decimales. Es propia de cada negocio (D-046), aunque en la práctica dos negocios puedan terminar creando una unidad con el mismo nombre.
 
 ### Producto
 
@@ -135,7 +138,7 @@ Cuando varias variantes comparten precio, como suele ocurrir con los colores de 
 
 ### Atributo y valor de atributo
 
-Característica normalizada con la que se distingue una variante, junto con la lista cerrada de valores que admite. El sistema comienza con el atributo `color` y sus valores precargados; una usuaria autorizada puede agregar valores y, más adelante, atributos aplicables a otros rubros, como marca, sabor o presentación.
+Característica normalizada con la que se distingue una variante, junto con la lista cerrada de valores que admite. Es propia de cada negocio (D-046): el atributo `color` y sus valores precargados existen por separado en cada negocio que los usa. Una usuaria autorizada puede agregar valores y, más adelante, atributos aplicables a otros rubros, como marca, sabor o presentación.
 
 Los valores no se escriben libremente en cada variante. Eso evita diferencias como `Rojo`, `rojo` y `ROJO`, y hace que incorporar un rubro nuevo sea una carga de datos y no una modificación del sistema.
 

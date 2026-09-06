@@ -2,7 +2,7 @@ import sqlalchemy as sa
 from sqlalchemy import inspect
 
 from alembic import command
-from app.constants.roles import ADMINISTRADOR, EMPLEADO, GERENTE
+from app.constants.roles import ADMINISTRADOR, DUENO, EMPLEADO, GERENTE
 from app.core.config import get_settings
 from tests.conftest import alembic_config
 
@@ -49,7 +49,7 @@ def test_upgrade_from_empty_database_creates_schema_and_seed_data(
             roles = (
                 connection.execute(sa.text("SELECT name FROM role ORDER BY name")).scalars().all()
             )
-            assert roles == sorted([ADMINISTRADOR, GERENTE, EMPLEADO])
+            assert roles == sorted([ADMINISTRADOR, GERENTE, EMPLEADO, DUENO])
 
             organization_count = connection.execute(
                 sa.text("SELECT count(*) FROM organization")
@@ -76,7 +76,7 @@ def test_upgrade_from_empty_database_creates_schema_and_seed_data(
             ).all()
             assert len(accesses) == 1
             assert accesses[0].status == "active"
-            assert accesses[0].role_name == ADMINISTRADOR
+            assert accesses[0].role_name == DUENO
     finally:
         engine.dispose()
 
@@ -119,7 +119,7 @@ def test_upgrade_from_pre_rename_schema_renames_tables_columns_and_data(
             roles = (
                 connection.execute(sa.text("SELECT name FROM role ORDER BY name")).scalars().all()
             )
-            assert roles == sorted([ADMINISTRADOR, GERENTE, EMPLEADO])
+            assert roles == sorted([ADMINISTRADOR, GERENTE, EMPLEADO, DUENO])
 
             business = connection.execute(
                 sa.text("SELECT industry, status, organization_id FROM business")
@@ -140,7 +140,7 @@ def test_upgrade_from_pre_rename_schema_renames_tables_columns_and_data(
             ).all()
             assert len(accesses) == 1
             assert accesses[0].status == "active"
-            assert accesses[0].role_name == ADMINISTRADOR
+            assert accesses[0].role_name == DUENO
     finally:
         engine.dispose()
 
@@ -218,7 +218,7 @@ def test_upgrade_with_second_business_settings_creates_it_and_grants_admin_acces
                 ).all()
                 assert len(accesses) == 2
                 assert all(access.status == "active" for access in accesses)
-                assert all(access.role_name == ADMINISTRADOR for access in accesses)
+                assert all(access.role_name == DUENO for access in accesses)
         finally:
             engine.dispose()
 

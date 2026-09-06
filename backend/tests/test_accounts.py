@@ -1,5 +1,5 @@
 from app.constants.access import CSRF_HEADER_NAME
-from app.constants.roles import ADMINISTRADOR, EMPLEADO, GERENTE
+from app.constants.roles import ADMINISTRADOR, DUENO, EMPLEADO, GERENTE
 from app.core.config import get_settings
 
 
@@ -42,6 +42,15 @@ def test_administrador_can_create_an_account(client):
     assert body["user_name"] == "empleada1"
     assert body["role"] == EMPLEADO
     assert body["status"] == "active"
+
+
+def test_can_create_an_account_with_dueno_role(client):
+    admin_cookies = _admin_cookies(client)
+
+    response = _create_account(client, admin_cookies, "duena2", "clave-segura-1", DUENO)
+
+    assert response.status_code == 201
+    assert response.json()["role"] == DUENO
 
 
 def test_create_account_without_csrf_header_is_rejected(client):

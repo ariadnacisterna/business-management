@@ -2,7 +2,7 @@ import pytest
 import sqlalchemy as sa
 
 from app.constants.access import CSRF_HEADER_NAME
-from app.constants.roles import ADMINISTRADOR, EMPLEADO, GERENTE
+from app.constants.roles import ADMINISTRADOR, DUENO, EMPLEADO, GERENTE
 from app.constants.status import EntityStatus
 from app.core.config import get_settings
 from app.db.models import Account, Business, BusinessAccess, Role
@@ -222,7 +222,7 @@ def test_account_with_access_to_two_businesses_can_switch_and_prices_stay_per_bu
     admin_account_id = _admin_account_id(db_session)
     first_business_id = _first_business_id(db_session)
     second_business = _create_second_business(db_session)
-    _grant_access(db_session, admin_account_id, second_business.id, ADMINISTRADOR)
+    _grant_access(db_session, admin_account_id, second_business.id, DUENO)
 
     _product, variant_id = _set_up_product_with_single_variant(client, admin_cookies, "dual")
     _set_price(client, admin_cookies, variant_id, "100.00")
@@ -263,7 +263,7 @@ def test_account_with_single_business_access_cannot_see_the_other_business_price
     admin_account_id = _admin_account_id(db_session)
     first_business_id = _first_business_id(db_session)
     second_business = _create_second_business(db_session)
-    _grant_access(db_session, admin_account_id, second_business.id, ADMINISTRADOR)
+    _grant_access(db_session, admin_account_id, second_business.id, DUENO)
 
     _product, variant_id = _set_up_product_with_single_variant(client, admin_cookies, "isolado")
     _set_price(client, admin_cookies, variant_id, "150.00")
@@ -332,12 +332,39 @@ def test_gerente_and_empleado_cannot_switch_active_business_even_with_access_to_
         assert me_response.json()["active_business_id"] == first_business_id
 
 
+def test_administrador_cannot_switch_active_business_but_dueno_can(client, db_session):
+    admin_cookies = _admin_cookies(client)
+    admin_account_id = _admin_account_id(db_session)
+    second_business = _create_second_business(db_session)
+    _grant_access(db_session, admin_account_id, second_business.id, DUENO)
+
+    administrador_account = _create_account(client, admin_cookies, "admin-dual", ADMINISTRADOR)
+    _grant_access(db_session, administrador_account["id"], second_business.id, ADMINISTRADOR)
+    administrador_cookies = _login(client, "admin-dual", "clave-segura-1")
+
+    denied = client.post(
+        "/auth/active-business",
+        json={"business_id": second_business.id},
+        cookies=administrador_cookies,
+        headers=_auth_headers(administrador_cookies),
+    )
+    assert denied.status_code == 403
+
+    allowed = client.post(
+        "/auth/active-business",
+        json={"business_id": second_business.id},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+    assert allowed.status_code == 200
+
+
 def test_account_listing_is_scoped_to_the_active_business(no_second_business, client, db_session):
     admin_cookies = _admin_cookies(client)
     admin_account_id = _admin_account_id(db_session)
     first_business_id = _first_business_id(db_session)
     second_business = _create_second_business(db_session)
-    _grant_access(db_session, admin_account_id, second_business.id, ADMINISTRADOR)
+    _grant_access(db_session, admin_account_id, second_business.id, DUENO)
 
     _create_account(client, admin_cookies, "empleada-negocio-a", EMPLEADO)
 

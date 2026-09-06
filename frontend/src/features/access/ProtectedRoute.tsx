@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { BusinessSelectorPage } from './BusinessSelectorPage'
 import { useAuth } from './AuthContext'
-import { isAdministrador } from './roles'
+import { isDueno } from './roles'
 
 export function ProtectedRoute() {
   const { account, status, justLoggedIn } = useAuth()
@@ -19,7 +19,7 @@ export function ProtectedRoute() {
   if (
     justLoggedIn &&
     !businessConfirmed &&
-    isAdministrador(account) &&
+    isDueno(account) &&
     account.businesses.length > 1
   ) {
     return <BusinessSelectorPage onSelected={() => setBusinessConfirmed(true)} />

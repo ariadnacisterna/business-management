@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
+import type { Account } from '../../api/types'
+import { hasMinimumRole } from '../../features/access/roles'
 import { Brand } from '../Brand'
 import { NAV_ITEMS } from './navItems'
 import { NavIconGlyph } from './NavIcon'
@@ -7,17 +9,24 @@ import { NavIconGlyph } from './NavIcon'
 interface Props {
   isOpen: boolean
   onNavigate: () => void
+  account: Account | null
 }
 
 function SidebarContent({
+  account,
   onNavigate,
   collapsed = false,
   onToggleCollapse,
 }: {
+  account: Account | null
   onNavigate: () => void
   collapsed?: boolean
   onToggleCollapse?: () => void
 }) {
+  const visibleNavItems = NAV_ITEMS.filter(
+    (item) => item.minRole === undefined || hasMinimumRole(account, item.minRole),
+  )
+
   return (
     <div className={`flex h-full shrink-0 flex-col bg-ink text-surface transition-[width] ${collapsed ? 'w-20' : 'w-64'}`}>
       <div
@@ -49,7 +58,7 @@ function SidebarContent({
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {NAV_ITEMS.map((item) =>
+        {visibleNavItems.map((item) =>
           item.disabled === true ? (
             <span
               key={item.to}
@@ -94,13 +103,14 @@ function SidebarContent({
   )
 }
 
-export function Sidebar({ isOpen, onNavigate }: Props) {
+export function Sidebar({ isOpen, onNavigate, account }: Props) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
     <>
       <div className="sticky top-0 hidden h-svh md:flex" aria-label="Navegación principal">
         <SidebarContent
+          account={account}
           onNavigate={onNavigate}
           collapsed={collapsed}
           onToggleCollapse={() => setCollapsed((value) => !value)}
@@ -109,7 +119,7 @@ export function Sidebar({ isOpen, onNavigate }: Props) {
 
       {isOpen && (
         <div className="fixed inset-0 z-40 flex md:hidden" aria-label="Navegación principal">
-          <SidebarContent onNavigate={onNavigate} />
+          <SidebarContent account={account} onNavigate={onNavigate} />
           <div className="flex-1 bg-black/50" onClick={onNavigate} aria-hidden="true" />
         </div>
       )}

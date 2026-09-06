@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.constants.roles import ADMINISTRADOR, GERENTE
+from app.constants.roles import GERENTE
 from app.constants.status import EntityStatus
 from app.db.models import Account, AttributeValue, Business, Price, Product, Variant
 from app.db.session import get_db
@@ -227,7 +227,7 @@ def _organization_id(account: Account) -> int:
 def create_category(
     payload: CreateCategoryRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
 ) -> CategoryResponse:
     try:
         category = categories.create_category(db, _organization_id(_actor), payload.name, _actor.id)
@@ -270,7 +270,7 @@ def update_category(
     category_id: int,
     payload: UpdateCategoryRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
 ) -> CategoryResponse:
     try:
         category = categories.update_category(db, category_id, _actor.id, name=payload.name)
@@ -293,7 +293,7 @@ def update_category(
 def create_unit(
     payload: CreateUnitRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
 ) -> UnitResponse:
     try:
         unit = units.create_unit(
@@ -336,7 +336,7 @@ def update_unit(
     unit_id: int,
     payload: UpdateUnitRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
 ) -> UnitResponse:
     try:
         unit = units.update_unit(
@@ -366,7 +366,7 @@ def update_unit(
 def create_attribute(
     payload: CreateAttributeRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
 ) -> AttributeResponse:
     try:
         attribute = attributes.create_attribute(
@@ -412,7 +412,7 @@ def create_attribute_value(
     attribute_id: int,
     payload: CreateAttributeValueRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
 ) -> AttributeValueResponse:
     try:
         attribute_value = attribute_values.create_attribute_value(
@@ -449,7 +449,7 @@ def update_attribute_value(
     attribute_value_id: int,
     payload: UpdateAttributeValueRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
 ) -> AttributeValueResponse:
     try:
         attribute_value = attribute_values.update_attribute_value(
@@ -485,7 +485,7 @@ def _to_variant_inputs(payload: list[VariantInputSchema] | None) -> list[Variant
 def create_product(
     payload: CreateProductRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
 ) -> ProductCreationResponse:
     try:
         product, _created_variants, duplicates = products.create_product(
@@ -577,7 +577,7 @@ def update_product(
     product_id: int,
     payload: UpdateProductRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
 ) -> ProductResponse:
     try:
         product = products.update_product(
@@ -608,7 +608,7 @@ def update_product(
 def deactivate_product(
     product_id: int,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
 ) -> ProductResponse:
     try:
         product = products.deactivate_product(db, product_id, _actor.id)
@@ -626,7 +626,7 @@ def deactivate_product(
 def reactivate_product(
     product_id: int,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
 ) -> ProductResponse:
     try:
         product = products.reactivate_product(db, product_id, _actor.id)
@@ -646,7 +646,7 @@ def add_variant(
     product_id: int,
     payload: AddVariantRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
 ) -> VariantCreationResponse:
     try:
         variant, duplicates = products.add_variant(
@@ -677,7 +677,7 @@ def add_variant(
 def deactivate_variant(
     variant_id: int,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
 ) -> VariantResponse:
     try:
         variant = products.deactivate_variant(db, variant_id, _actor.id)
@@ -695,7 +695,7 @@ def deactivate_variant(
 def reactivate_variant(
     variant_id: int,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
 ) -> VariantResponse:
     try:
         variant = products.reactivate_variant(db, variant_id, _actor.id)
@@ -714,7 +714,7 @@ def update_variant(
     variant_id: int,
     payload: UpdateVariantRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR, GERENTE)),
+    _actor: Account = Depends(require_role(GERENTE)),
 ) -> VariantCreationResponse:
     try:
         variant, duplicates = products.update_variant(

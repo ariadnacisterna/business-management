@@ -986,19 +986,21 @@ export function ProductDetailPage() {
                       <span>Stock: </span>
                       <span>Próximamente</span>
                     </p>
-                    <p className="m-0">
-                      <span>Último cambio: </span>
-                      <span>
-                        {(() => {
-                          const price = pricesByVariant.get(product.variants[0].id)
-                          if (price === null || price === undefined) return '—'
-                          const authorName = accountNames.get(price.created_by_account_id)
-                          return authorName === undefined
-                            ? formatRelativeTime(price.effective_from)
-                            : `${formatRelativeTime(price.effective_from)} por ${authorName}`
-                        })()}
-                      </span>
-                    </p>
+                    {canManage && (
+                      <p className="m-0">
+                        <span>Último cambio: </span>
+                        <span>
+                          {(() => {
+                            const price = pricesByVariant.get(product.variants[0].id)
+                            if (price === null || price === undefined) return '—'
+                            const authorName = accountNames.get(price.created_by_account_id)
+                            return authorName === undefined
+                              ? formatRelativeTime(price.effective_from)
+                              : `${formatRelativeTime(price.effective_from)} por ${authorName}`
+                          })()}
+                        </span>
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -1015,9 +1017,11 @@ export function ProductDetailPage() {
                         Cambiar precio
                       </button>
                     )}
-                    <button type="button" disabled className={`${secondaryButtonClasses} opacity-40`}>
-                      Ver historial
-                    </button>
+                    {canManage && (
+                      <button type="button" disabled className={`${secondaryButtonClasses} opacity-40`}>
+                        Ver historial
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1094,19 +1098,21 @@ export function ProductDetailPage() {
                               <span>Stock: </span>
                               <span>Próximamente</span>
                             </p>
-                            <p className="m-0">
-                              <span>Último cambio: </span>
-                              <span>
-                                {(() => {
-                                  const price = pricesByVariant.get(variant.id)
-                                  if (price === null || price === undefined) return '—'
-                                  const authorName = accountNames.get(price.created_by_account_id)
-                                  return authorName === undefined
-                                    ? formatRelativeTime(price.effective_from)
-                                    : `${formatRelativeTime(price.effective_from)} por ${authorName}`
-                                })()}
-                              </span>
-                            </p>
+                            {canManage && (
+                              <p className="m-0">
+                                <span>Último cambio: </span>
+                                <span>
+                                  {(() => {
+                                    const price = pricesByVariant.get(variant.id)
+                                    if (price === null || price === undefined) return '—'
+                                    const authorName = accountNames.get(price.created_by_account_id)
+                                    return authorName === undefined
+                                      ? formatRelativeTime(price.effective_from)
+                                      : `${formatRelativeTime(price.effective_from)} por ${authorName}`
+                                  })()}
+                                </span>
+                              </p>
+                            )}
                           </div>
 
                           <div className="flex flex-wrap gap-2">
@@ -1123,9 +1129,11 @@ export function ProductDetailPage() {
                                 Cambiar precio
                               </button>
                             )}
-                            <button type="button" disabled className={`${secondaryButtonClasses} opacity-40`}>
-                              Ver historial
-                            </button>
+                            {canManage && (
+                              <button type="button" disabled className={`${secondaryButtonClasses} opacity-40`}>
+                                Ver historial
+                              </button>
+                            )}
                             {canManage && (
                               <button
                                 type="button"

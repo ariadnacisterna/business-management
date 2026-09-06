@@ -1,5 +1,5 @@
 from app.constants.access import CSRF_HEADER_NAME
-from app.constants.roles import ADMINISTRADOR
+from app.constants.roles import DUENO
 from app.core.config import get_settings
 from app.core.security import hash_token
 from app.db.models import AccountSession
@@ -17,7 +17,7 @@ def test_login_with_valid_credentials_sets_cookies_and_returns_user(client):
     assert response.status_code == 200
     body = response.json()
     assert body["user_name"] == settings.initial_admin_username
-    assert body["role"] == ADMINISTRADOR
+    assert body["role"] == DUENO
     assert "session_id" in response.cookies
     assert "csrf_token" in response.cookies
 

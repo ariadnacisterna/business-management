@@ -8,7 +8,7 @@ from app.constants.access import (
     NO_BUSINESS_ACCESS_DETAIL,
     SESSION_COOKIE_NAME,
 )
-from app.constants.roles import ADMINISTRADOR
+from app.constants.roles import ADMINISTRADOR, DUENO
 from app.core.config import get_settings
 from app.db.models import Account, AccountSession, Business
 from app.db.session import get_db
@@ -198,7 +198,7 @@ def me(
 def change_active_business(
     payload: ChangeActiveBusinessRequest,
     db: Session = Depends(get_db),
-    account: Account = Depends(require_role(ADMINISTRADOR)),
+    account: Account = Depends(require_role(DUENO)),
     session: AccountSession = Depends(get_current_session),
 ) -> SessionInfoResponse:
     try:

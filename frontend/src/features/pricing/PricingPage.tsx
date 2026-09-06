@@ -431,8 +431,10 @@ export function PricingPage() {
                     {canManage && (
                       <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Nuevo precio</th>
                     )}
-                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Último cambio</th>
-                    <th className="px-4 py-3" />
+                    {canManage && (
+                      <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Último cambio</th>
+                    )}
+                    {canManage && <th className="px-4 py-3" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -516,29 +518,33 @@ export function PricingPage() {
                                   </div>
                                 </td>
                               )}
-                              <td className="px-4 py-3.5 text-lg opacity-70">{lastChangeLabel(variant.id)}</td>
-                              <td className="px-4 py-3.5 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => openHistory(product, variant)}
-                                  aria-label={`Ver historial de precios de ${product.name} ${variantLabel(variant)}`}
-                                  className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-ink/50 transition-colors hover:bg-surface-brand hover:text-brand"
-                                >
-                                  <svg
-                                    aria-hidden="true"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className="h-6 w-6"
+                              {canManage && (
+                                <td className="px-4 py-3.5 text-lg opacity-70">{lastChangeLabel(variant.id)}</td>
+                              )}
+                              {canManage && (
+                                <td className="px-4 py-3.5 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => openHistory(product, variant)}
+                                    aria-label={`Ver historial de precios de ${product.name} ${variantLabel(variant)}`}
+                                    className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-ink/50 transition-colors hover:bg-surface-brand hover:text-brand"
                                   >
-                                    <circle cx="12" cy="12" r="9" />
-                                    <polyline points="12 7 12 12 15.5 14" />
-                                  </svg>
-                                </button>
-                              </td>
+                                    <svg
+                                      aria-hidden="true"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      className="h-6 w-6"
+                                    >
+                                      <circle cx="12" cy="12" r="9" />
+                                      <polyline points="12 7 12 12 15.5 14" />
+                                    </svg>
+                                  </button>
+                                </td>
+                              )}
                             </tr>
                           )
                         })}
