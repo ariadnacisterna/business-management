@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useNavigate } from 'react-router-dom'
 import {
   deactivateProduct,
@@ -16,7 +16,6 @@ import { SelectMenu } from '../../shared/SelectMenu'
 import { RowMenu } from './RowMenu'
 
 type Status = 'loading' | 'success' | 'error'
-type SortKey = 'name' | 'category' | 'unit'
 type StatusFilter = 'all' | 'active' | 'inactive'
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los productos.'
@@ -55,7 +54,77 @@ export function ProductsPage() {
   const [searchInput, setSearchInput] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
-  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'name', dir: 'asc' })
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+
+  const tableScrollRef = useRef<HTMLDivElement>(null)
+  const theadRef = useRef<HTMLTableSectionElement>(null)
+  const [scrollbar, setScrollbar] = useState({ visible: false, headerHeight: 0, thumbTop: 0, thumbHeight: 0 })
+  const dragRef = useRef<{ startY: number; startScrollTop: number; range: number } | null>(null)
+
+  function updateScrollbar() {
+    const container = tableScrollRef.current
+    const header = theadRef.current
+    if (container === null || header === null) return
+
+    const headerHeight = header.offsetHeight
+    const bodyViewport = container.clientHeight - headerHeight
+    const bodyTotal = container.scrollHeight - headerHeight
+    const maxScrollTop = container.scrollHeight - container.clientHeight
+
+    if (bodyTotal <= bodyViewport || maxScrollTop <= 0) {
+      setScrollbar({ visible: false, headerHeight, thumbTop: 0, thumbHeight: 0 })
+      return
+    }
+
+    const thumbHeight = Math.max(32, bodyViewport * (bodyViewport / bodyTotal))
+    const thumbTop = headerHeight + (container.scrollTop / maxScrollTop) * (bodyViewport - thumbHeight)
+    setScrollbar({ visible: true, headerHeight, thumbTop, thumbHeight })
+  }
+
+  useLayoutEffect(() => {
+    updateScrollbar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, filters.pageSize])
+
+  useEffect(() => {
+    function handleResize() {
+      updateScrollbar()
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  function handleThumbPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    const container = tableScrollRef.current
+    const header = theadRef.current
+    if (container === null || header === null) return
+
+    const headerHeight = header.offsetHeight
+    const bodyViewport = container.clientHeight - headerHeight
+    const maxScrollTop = container.scrollHeight - container.clientHeight
+    const range = bodyViewport - scrollbar.thumbHeight
+    if (range <= 0) return
+
+    dragRef.current = { startY: event.clientY, startScrollTop: container.scrollTop, range }
+    event.currentTarget.setPointerCapture(event.pointerId)
+
+    function handlePointerMove(moveEvent: PointerEvent) {
+      const drag = dragRef.current
+      if (drag === null || container === null) return
+      const deltaY = moveEvent.clientY - drag.startY
+      const scrollDelta = (deltaY / drag.range) * maxScrollTop
+      container.scrollTop = Math.min(maxScrollTop, Math.max(0, drag.startScrollTop + scrollDelta))
+    }
+
+    function handlePointerUp() {
+      dragRef.current = null
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+  }
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {})
@@ -127,8 +196,8 @@ export function ProductsPage() {
     setConfirmingProduct(null)
   }
 
-  function toggleSort(key: SortKey) {
-    setSort((prev) => (prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }))
+  function toggleSort() {
+    setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))
   }
 
   function clearFilters() {
@@ -140,29 +209,14 @@ export function ProductsPage() {
   const hasActiveFilters = searchInput !== '' || filters.categoryId !== 'all' || filters.status !== 'all'
 
   const sorted = useMemo(() => {
-    const categoryNames = new Map(categories.map((category) => [category.id, category.name]))
-    const unitNames = new Map(units.map((unit) => [unit.id, unit.name]))
-
     return [...products].sort((a, b) => {
-      const value = (product: Product) =>
-        sort.key === 'name'
-          ? product.name
-          : sort.key === 'category'
-            ? (categoryNames.get(product.category_id) ?? '—')
-            : (unitNames.get(product.unit_id) ?? '—')
-      const comparison = value(a).localeCompare(value(b))
-      return sort.dir === 'asc' ? comparison : -comparison
+      const comparison = a.name.localeCompare(b.name)
+      return sortDir === 'asc' ? comparison : -comparison
     })
-  }, [products, sort, categories, units])
-
-  const columns: { key: SortKey; label: string }[] = [
-    { key: 'name', label: 'Nombre' },
-    { key: 'category', label: 'Categoría' },
-    { key: 'unit', label: 'Unidad' },
-  ]
+  }, [products, sortDir])
 
   return (
-    <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
+    <section className="-m-4 flex h-[calc(100svh-4rem)] flex-col gap-4 overflow-hidden bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Productos</h1>
@@ -229,7 +283,7 @@ export function ProductsPage() {
           value={String(filters.pageSize)}
           onChange={(value) => setFilters((current) => ({ ...current, pageSize: Number(value), page: 1 }))}
           ariaLabel="Cantidad por página"
-          className="w-40"
+          className="w-56"
           options={[
             { value: '10', label: '10 por página' },
             { value: '25', label: '25 por página' },
@@ -288,54 +342,58 @@ export function ProductsPage() {
 
       {status === 'success' && total > 0 && (
         <>
-          <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-line bg-surface-brand/40">
-                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Código</th>
-                  {columns.map((column) => (
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface">
+            <div
+              ref={tableScrollRef}
+              onScroll={updateScrollbar}
+              className="scrollbar-hidden min-h-0 flex-1 overflow-auto"
+            >
+              <table className="w-full min-w-[900px]">
+                <thead ref={theadRef} className="sticky top-0 z-10">
+                  <tr className="border-b border-line bg-surface-brand">
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Código</th>
                     <th
-                      key={column.key}
-                      onClick={() => toggleSort(column.key)}
+                      onClick={toggleSort}
                       className="cursor-pointer whitespace-nowrap px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60 transition-colors hover:text-brand"
                     >
-                      {column.label}
-                      {sort.key === column.key && <span className="ml-1">{sort.dir === 'asc' ? '↑' : '↓'}</span>}
+                      Nombre
+                      <span className="ml-1.5 text-lg leading-none">{sortDir === 'asc' ? '↑' : '↓'}</span>
                     </th>
-                  ))}
-                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Precio</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Variantes</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Estado</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody>
+                    <th className="whitespace-nowrap pl-8 pr-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Categoría</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Unidad</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Precio</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Variantes</th>
+                    <th className="whitespace-nowrap py-3 pl-8 pr-4 text-left text-sm font-semibold uppercase tracking-wide opacity-60">Estado</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody>
                 {sorted.map((product) => {
                   const isUndifferentiated = product.variants.length === 1 && product.variants[0].is_implicit
                   return (
                     <tr key={product.id} className="border-t border-line transition-colors hover:bg-surface-brand/60">
-                      <td className="px-4 py-3.5 text-lg italic opacity-40">Próximamente</td>
-                      <td className="px-4 py-3.5">
+                      <td className="whitespace-nowrap px-4 py-3.5 text-lg italic opacity-40">Próximamente</td>
+                      <td className="max-w-xs px-4 py-3.5">
                         <Link to={`/products/${product.id}`} className="text-lg font-semibold hover:text-brand">
                           {product.name}
                         </Link>
                       </td>
-                      <td className="px-4 py-3.5 text-lg opacity-70">{categoryName(product.category_id)}</td>
+                      <td className="py-3.5 pl-8 pr-4 text-lg opacity-70">{categoryName(product.category_id)}</td>
                       <td className="px-4 py-3.5 text-lg opacity-70">{unitName(product.unit_id)}</td>
-                      <td className="px-4 py-3.5 text-lg italic opacity-40">Próximamente</td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-lg italic opacity-40">Próximamente</td>
                       <td className="px-4 py-3.5 text-lg opacity-70">
                         {isUndifferentiated ? '—' : product.variants.length}
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="py-3.5 pl-8 pr-4">
                         <span
-                          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-base font-semibold ${
+                          className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
                             product.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
                           }`}
                         >
                           ● {product.status === 'active' ? 'Activo' : 'Inactivo'}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="py-3.5 pl-4 pr-8 text-center">
                         <RowMenu
                           title={product.name}
                           items={[
@@ -368,14 +426,31 @@ export function ProductsPage() {
                   )
                 })}
               </tbody>
-            </table>
+              </table>
+            </div>
+
+            {scrollbar.visible && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute right-0 w-3 rounded-full bg-line/40"
+                style={{ top: scrollbar.headerHeight, bottom: 0 }}
+              >
+                <div
+                  onPointerDown={handleThumbPointerDown}
+                  className="pointer-events-auto absolute right-0 w-3 cursor-grab rounded-full bg-brand active:cursor-grabbing"
+                  style={{ top: scrollbar.thumbTop - scrollbar.headerHeight, height: scrollbar.thumbHeight }}
+                />
+              </div>
+            )}
           </div>
 
-          <Pagination
-            page={filters.page}
-            totalPages={totalPages}
-            onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
-          />
+          <div className="pt-1">
+            <Pagination
+              page={filters.page}
+              totalPages={totalPages}
+              onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
+            />
+          </div>
         </>
       )}
 

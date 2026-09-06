@@ -21,7 +21,7 @@ export function CloseButton({ onClose, className = '' }: Props) {
       onClick={handleClick}
       disabled={closing}
       aria-label="Cerrar"
-      className={`flex h-11 w-11 shrink-0 items-center justify-center transition-colors ${
+      className={`flex h-14 w-14 shrink-0 items-center justify-center transition-colors ${
         closing ? 'text-danger' : 'text-ink/60 hover:text-danger'
       } ${className}`}
     >
@@ -33,7 +33,7 @@ export function CloseButton({ onClose, className = '' }: Props) {
         strokeWidth="3"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="h-5 w-5"
+        className="h-7 w-7"
       >
         <line x1="18" y1="6" x2="6" y2="18" />
         <line x1="6" y1="6" x2="18" y2="18" />

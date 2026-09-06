@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 export interface SelectOption<T extends string> {
   value: T
@@ -14,6 +15,8 @@ interface Props<T extends string> {
   disabled?: boolean
 }
 
+const VIEWPORT_MARGIN = 8
+
 export function SelectMenu<T extends string>({
   value,
   options,
@@ -23,7 +26,10 @@ export function SelectMenu<T extends string>({
   disabled = false,
 }: Props<T>) {
   const [open, setOpen] = useState(false)
+  const [position, setPosition] = useState({ top: 0, left: 0, width: 0 })
+  const [positioned, setPositioned] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([])
 
   const selected = options.find((option) => option.value === value)
@@ -36,6 +42,28 @@ export function SelectMenu<T extends string>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
+  useLayoutEffect(() => {
+    if (!open || triggerRef.current === null || listRef.current === null) return
+
+    const triggerRect = triggerRef.current.getBoundingClientRect()
+    const listHeight = listRef.current.offsetHeight
+    const spaceBelow = window.innerHeight - triggerRect.bottom
+    const spaceAbove = triggerRect.top
+
+    const top =
+      spaceBelow >= listHeight + VIEWPORT_MARGIN || spaceBelow >= spaceAbove
+        ? triggerRect.bottom + 6
+        : triggerRect.top - listHeight - 6
+
+    setPosition({ top, left: triggerRect.left, width: triggerRect.width })
+    setPositioned(true)
+  }, [open])
+
+  function toggle() {
+    if (!open) setPositioned(false)
+    setOpen((v) => !v)
+  }
+
   function focusOption(index: number) {
     const clamped = Math.max(0, Math.min(index, options.length - 1))
     optionRefs.current[clamped]?.focus()
@@ -44,6 +72,7 @@ export function SelectMenu<T extends string>({
   function handleTriggerKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
+      if (!open) setPositioned(false)
       setOpen(true)
     }
   }
@@ -82,7 +111,7 @@ export function SelectMenu<T extends string>({
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         onKeyDown={handleTriggerKeyDown}
         disabled={disabled}
         aria-haspopup="listbox"
@@ -105,47 +134,56 @@ export function SelectMenu<T extends string>({
         </svg>
       </button>
 
-      {open && (
-        <>
-          <div
-            className="fixed inset-0 z-20"
-            onClick={() => {
-              setOpen(false)
-              triggerRef.current?.focus()
-            }}
-            aria-hidden="true"
-          />
-          <ul
-            role="listbox"
-            aria-label={ariaLabel}
-            className="absolute left-0 top-full z-30 mt-1.5 max-h-64 w-full overflow-y-auto rounded-xl border border-line bg-surface py-1 shadow-xl"
-          >
-            {options.map((option, index) => (
-              <li key={option.value}>
-                <button
-                  ref={(element) => {
-                    optionRefs.current[index] = element
-                  }}
-                  type="button"
-                  role="option"
-                  aria-selected={option.value === value}
-                  onClick={() => {
-                    onChange(option.value)
-                    setOpen(false)
-                    triggerRef.current?.focus()
-                  }}
-                  onKeyDown={(event) => handleOptionKeyDown(event, index)}
-                  className={`w-full px-4 py-2.5 text-left text-lg transition-colors hover:bg-surface-brand focus:bg-surface-brand focus:outline-none ${
-                    option.value === value ? 'bg-surface-brand font-semibold text-brand' : ''
-                  }`}
-                >
-                  {option.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+      {open &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => {
+                setOpen(false)
+                triggerRef.current?.focus()
+              }}
+              aria-hidden="true"
+            />
+            <ul
+              ref={listRef}
+              role="listbox"
+              aria-label={ariaLabel}
+              style={{
+                top: position.top,
+                left: position.left,
+                width: position.width,
+                visibility: positioned ? 'visible' : 'hidden',
+              }}
+              className="scrollbar-clean fixed z-50 max-h-64 overflow-y-auto rounded-xl border border-line bg-surface py-1 shadow-xl"
+            >
+              {options.map((option, index) => (
+                <li key={option.value}>
+                  <button
+                    ref={(element) => {
+                      optionRefs.current[index] = element
+                    }}
+                    type="button"
+                    role="option"
+                    aria-selected={option.value === value}
+                    onClick={() => {
+                      onChange(option.value)
+                      setOpen(false)
+                      triggerRef.current?.focus()
+                    }}
+                    onKeyDown={(event) => handleOptionKeyDown(event, index)}
+                    className={`w-full px-4 py-2.5 text-left text-lg transition-colors hover:bg-surface-brand focus:bg-surface-brand focus:outline-none ${
+                      option.value === value ? 'bg-surface-brand font-semibold text-brand' : ''
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>,
+          document.body,
+        )}
     </div>
   )
 }

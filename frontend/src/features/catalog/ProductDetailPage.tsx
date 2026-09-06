@@ -1197,11 +1197,15 @@ export function ProductDetailPage() {
 
       {pickingVariantForPrice && product !== null && (
         <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
+          <div
+            className="absolute inset-0 bg-ink/20 backdrop-blur-sm"
+            onClick={() => setPickingVariantForPrice(false)}
+            aria-hidden="true"
+          />
           <div className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl">
             <div className="flex items-start justify-between">
               <h2 className="m-0 text-2xl font-bold">Elegir variante</h2>
-              <CloseButton onClose={close} />
+              <CloseButton onClose={() => setPickingVariantForPrice(false)} />
             </div>
             <p className="m-0 text-base opacity-60">¿A qué variante de "{product.name}" le querés cambiar el precio?</p>
             <ul className="m-0 flex list-none flex-col gap-2 p-0">

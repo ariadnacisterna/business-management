@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+
+const VIEWPORT_MARGIN = 8
 
 export interface RowMenuItem {
   label: string
@@ -19,15 +21,37 @@ interface Props {
 export function RowMenu({ title, subtitle, items }: Props) {
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState({ top: 0, right: 0 })
+  const [positioned, setPositioned] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   function toggle() {
     if (!open && buttonRef.current !== null) {
       const rect = buttonRef.current.getBoundingClientRect()
+      setPositioned(false)
       setPosition({ top: rect.bottom + 6, right: window.innerWidth - rect.right })
     }
     setOpen((value) => !value)
   }
+
+  useLayoutEffect(() => {
+    if (!open || buttonRef.current === null || menuRef.current === null) return
+
+    const buttonRect = buttonRef.current.getBoundingClientRect()
+    const menuHeight = menuRef.current.offsetHeight
+    const spaceBelow = window.innerHeight - buttonRect.bottom
+    const spaceAbove = buttonRect.top
+
+    const top =
+      spaceBelow >= menuHeight + VIEWPORT_MARGIN
+        ? buttonRect.bottom + 6
+        : spaceAbove >= menuHeight + VIEWPORT_MARGIN
+          ? buttonRect.top - menuHeight - 6
+          : Math.max(VIEWPORT_MARGIN, window.innerHeight - menuHeight - VIEWPORT_MARGIN)
+
+    setPosition({ top, right: window.innerWidth - buttonRect.right })
+    setPositioned(true)
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -43,7 +67,7 @@ export function RowMenu({ title, subtitle, items }: Props) {
   }, [open])
 
   return (
-    <div className="relative">
+    <div className="relative inline-flex">
       <button
         ref={buttonRef}
         type="button"
@@ -71,8 +95,9 @@ export function RowMenu({ title, subtitle, items }: Props) {
           <>
             <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden="true" />
             <div
-              style={{ top: position.top, right: position.right }}
-              className="fixed z-50 w-64 overflow-hidden rounded-2xl border border-line bg-surface shadow-xl"
+              ref={menuRef}
+              style={{ top: position.top, right: position.right, visibility: positioned ? 'visible' : 'hidden' }}
+              className="fixed z-50 max-h-[calc(100vh-1rem)] w-64 overflow-y-auto rounded-2xl border border-line bg-surface shadow-xl"
             >
               <div className="border-b border-line bg-ink/5 px-4 py-3">
                 <p className="truncate text-base font-semibold">{title}</p>
