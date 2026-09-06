@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, Outlet, useNavigate } from 'react-router-dom'
 import {
   deactivateProduct,
@@ -14,6 +14,7 @@ import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { HighlightedText } from '../../shared/HighlightedText'
 import { Pagination } from '../../shared/Pagination'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useTableScrollbar } from '../../shared/useTableScrollbar'
 import { RowMenu } from './RowMenu'
 
 type Status = 'loading' | 'success' | 'error'
@@ -69,75 +70,10 @@ export function ProductsPage() {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
-  const tableScrollRef = useRef<HTMLDivElement>(null)
-  const theadRef = useRef<HTMLTableSectionElement>(null)
-  const [scrollbar, setScrollbar] = useState({ visible: false, headerHeight: 0, thumbTop: 0, thumbHeight: 0 })
-  const dragRef = useRef<{ startY: number; startScrollTop: number; range: number } | null>(null)
-
-  function updateScrollbar() {
-    const container = tableScrollRef.current
-    const header = theadRef.current
-    if (container === null || header === null) return
-
-    const headerHeight = header.offsetHeight
-    const bodyViewport = container.clientHeight - headerHeight
-    const bodyTotal = container.scrollHeight - headerHeight
-    const maxScrollTop = container.scrollHeight - container.clientHeight
-
-    if (bodyTotal <= bodyViewport || maxScrollTop <= 0) {
-      setScrollbar({ visible: false, headerHeight, thumbTop: 0, thumbHeight: 0 })
-      return
-    }
-
-    const thumbHeight = Math.max(32, bodyViewport * (bodyViewport / bodyTotal))
-    const thumbTop = headerHeight + (container.scrollTop / maxScrollTop) * (bodyViewport - thumbHeight)
-    setScrollbar({ visible: true, headerHeight, thumbTop, thumbHeight })
-  }
-
-  useLayoutEffect(() => {
-    updateScrollbar()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, filters.pageSize])
-
-  useEffect(() => {
-    function handleResize() {
-      updateScrollbar()
-    }
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
-  function handleThumbPointerDown(event: React.PointerEvent<HTMLDivElement>) {
-    const container = tableScrollRef.current
-    const header = theadRef.current
-    if (container === null || header === null) return
-
-    const headerHeight = header.offsetHeight
-    const bodyViewport = container.clientHeight - headerHeight
-    const maxScrollTop = container.scrollHeight - container.clientHeight
-    const range = bodyViewport - scrollbar.thumbHeight
-    if (range <= 0) return
-
-    dragRef.current = { startY: event.clientY, startScrollTop: container.scrollTop, range }
-    event.currentTarget.setPointerCapture(event.pointerId)
-
-    function handlePointerMove(moveEvent: PointerEvent) {
-      const drag = dragRef.current
-      if (drag === null || container === null) return
-      const deltaY = moveEvent.clientY - drag.startY
-      const scrollDelta = (deltaY / drag.range) * maxScrollTop
-      container.scrollTop = Math.min(maxScrollTop, Math.max(0, drag.startScrollTop + scrollDelta))
-    }
-
-    function handlePointerUp() {
-      dragRef.current = null
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', handlePointerUp)
-    }
-
-    window.addEventListener('pointermove', handlePointerMove)
-    window.addEventListener('pointerup', handlePointerUp)
-  }
+  const { tableScrollRef, theadRef, scrollbar, updateScrollbar, handleThumbPointerDown } = useTableScrollbar([
+    products,
+    filters.pageSize,
+  ])
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {})
