@@ -11,7 +11,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Panel', icon: 'panel', end: true },
   { to: '/products', label: 'Productos', icon: 'products' },
-  { to: '/precios', label: 'Precios', icon: 'prices', disabled: true },
+  { to: '/precios', label: 'Precios', icon: 'prices' },
   { to: '/inventario', label: 'Inventario', icon: 'inventory', disabled: true },
   { to: '/ventas', label: 'Ventas', icon: 'sales', disabled: true },
   { to: '/proveedores', label: 'Proveedores', icon: 'suppliers', disabled: true },

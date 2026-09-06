@@ -4,10 +4,12 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
 export class ApiError extends Error {
   readonly status: number
+  readonly body: unknown
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, body: unknown = null) {
     super(message)
     this.status = status
+    this.body = body
   }
 }
 
@@ -29,17 +31,16 @@ function readCsrfToken(): string | null {
   return null
 }
 
-async function readErrorMessage(response: Response): Promise<string> {
+async function readErrorBody(response: Response): Promise<{ message: string; detail: unknown }> {
   const body: unknown = await response.json().catch(() => null)
-  if (
-    body !== null &&
-    typeof body === 'object' &&
-    'detail' in body &&
-    typeof body.detail === 'string'
-  ) {
-    return body.detail
+  if (body !== null && typeof body === 'object' && 'detail' in body) {
+    const detail = (body as { detail: unknown }).detail
+    if (typeof detail === 'string') {
+      return { message: detail, detail }
+    }
+    return { message: response.statusText, detail }
   }
-  return response.statusText
+  return { message: response.statusText, detail: null }
 }
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -60,12 +61,14 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   const response = await fetch(path, { ...init, method, headers, credentials: 'same-origin' })
 
   if (response.status === 401) {
+    const { message, detail } = await readErrorBody(response)
     unauthorizedHandler?.()
-    throw new ApiError(response.status, await readErrorMessage(response))
+    throw new ApiError(response.status, message, detail)
   }
 
   if (!response.ok) {
-    throw new ApiError(response.status, await readErrorMessage(response))
+    const { message, detail } = await readErrorBody(response)
+    throw new ApiError(response.status, message, detail)
   }
 
   if (response.status === 204) {

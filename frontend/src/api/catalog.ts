@@ -137,6 +137,10 @@ export function fetchVariantCurrentPrice(variantId: number): Promise<CurrentPric
   return apiFetch<CurrentPrice>(`/variants/${variantId}/price`)
 }
 
+export function fetchVariantPriceHistory(variantId: number): Promise<Price[]> {
+  return apiFetch<Price[]>(`/variants/${variantId}/prices`)
+}
+
 export function changeVariantPrice(
   variantId: number,
   amount: string,

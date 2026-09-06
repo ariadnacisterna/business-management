@@ -9,6 +9,7 @@ import { ProductFormPage } from './features/catalog/ProductFormPage'
 import { ProductsPage } from './features/catalog/ProductsPage'
 import { UnitsPage } from './features/catalog/UnitsPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
+import { PricingPage } from './features/pricing/PricingPage'
 import { AppLayout } from './shared/layout/AppLayout'
 
 export function App() {
@@ -26,6 +27,7 @@ export function App() {
               <Route path="new" element={<ProductFormPage />} />
               <Route path=":productId" element={<ProductDetailPage />} />
             </Route>
+            <Route path="/precios" element={<PricingPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

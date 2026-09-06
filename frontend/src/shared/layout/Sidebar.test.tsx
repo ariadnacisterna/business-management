@@ -41,11 +41,17 @@ describe('Sidebar', () => {
   it('renders unbuilt sections as disabled, non-navigable items', () => {
     renderSidebar('/products')
 
-    for (const label of ['Precios', 'Inventario', 'Ventas', 'Proveedores']) {
+    for (const label of ['Inventario', 'Ventas', 'Proveedores']) {
       const item = screen.getByText(label).closest('[aria-disabled]')
       expect(item).toHaveAttribute('aria-disabled', 'true')
       expect(screen.queryByRole('link', { name: new RegExp(label) })).not.toBeInTheDocument()
     }
+  })
+
+  it('renders "Precios" as a navigable link', () => {
+    renderSidebar('/products')
+
+    expect(screen.getByRole('link', { name: 'Precios' })).toBeInTheDocument()
   })
 
   it('navigates to the dashboard from "Panel"', async () => {

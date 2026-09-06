@@ -322,7 +322,12 @@ export function ProductsPage() {
         </p>
       )}
 
-      {status === 'loading' && <p role="status">Cargando…</p>}
+      {status === 'loading' && (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface px-6 py-12 text-center" role="status">
+          <span className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-brand" />
+          <p className="text-xl font-semibold">Cargando…</p>
+        </div>
+      )}
 
       {status === 'error' && (
         <div className="flex items-center gap-3" role="alert">
