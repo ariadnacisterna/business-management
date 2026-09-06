@@ -23,13 +23,22 @@ interface Props {
   variant: Variant
   currentPrice: Price | null
   activeVariantPrices: Map<number, Price | null>
+  defaultApplyToAll?: boolean
   onClose: () => void
   onSuccess: (updates: { variantId: number; price: Price }[]) => void
 }
 
-export function ChangePriceModal({ product, variant, currentPrice, activeVariantPrices, onClose, onSuccess }: Props) {
+export function ChangePriceModal({
+  product,
+  variant,
+  currentPrice,
+  activeVariantPrices,
+  defaultApplyToAll = false,
+  onClose,
+  onSuccess,
+}: Props) {
   const [amount, setAmount] = useState('')
-  const [applyToAll, setApplyToAll] = useState(false)
+  const [applyToAll, setApplyToAll] = useState(defaultApplyToAll)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -96,7 +105,7 @@ export function ChangePriceModal({ product, variant, currentPrice, activeVariant
           </div>
           <div className="flex justify-between">
             <span className="opacity-60">Vigente desde</span>
-            <span className="font-medium">
+            <span className="font-medium text-success">
               {currentPrice !== null ? formatRelativeTime(currentPrice.effective_from) : '—'}
             </span>
           </div>
@@ -106,19 +115,24 @@ export function ChangePriceModal({ product, variant, currentPrice, activeVariant
           <label htmlFor="new-price-amount" className="text-lg font-semibold uppercase tracking-wide opacity-70">
             Nuevo precio (ARS)
           </label>
-          <input
-            id="new-price-amount"
-            type="number"
-            min="0.01"
-            step="0.01"
-            inputMode="decimal"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            disabled={saving}
-            required
-            autoFocus
-            className="mt-1.5 h-12 w-full rounded-lg border border-line px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
-          />
+          <div className="relative mt-1.5">
+            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-lg font-bold opacity-50">
+              $
+            </span>
+            <input
+              id="new-price-amount"
+              type="number"
+              min="0.01"
+              step="0.01"
+              inputMode="decimal"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              disabled={saving}
+              required
+              autoFocus
+              className="h-12 w-full rounded-xl border border-line pl-8 pr-3 text-lg font-bold focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
+            />
+          </div>
         </div>
 
         {activeVariantCount > 1 && (
@@ -144,7 +158,7 @@ export function ChangePriceModal({ product, variant, currentPrice, activeVariant
           <button
             type="submit"
             disabled={saving || amount.trim() === ''}
-            className="h-12 flex-1 rounded-lg bg-brand text-lg font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40"
+            className="h-12 flex-1 rounded-xl bg-brand/60 text-lg font-bold text-brand-contrast transition-colors hover:bg-brand/70 disabled:opacity-40"
           >
             Confirmar
           </button>
@@ -152,7 +166,7 @@ export function ChangePriceModal({ product, variant, currentPrice, activeVariant
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="h-12 flex-1 rounded-lg border border-line text-lg font-semibold transition-colors hover:bg-surface-brand"
+            className="h-12 flex-1 rounded-xl bg-line/25 text-lg font-semibold text-ink transition-colors hover:bg-line/40"
           >
             Cancelar
           </button>

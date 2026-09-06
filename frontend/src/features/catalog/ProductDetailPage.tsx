@@ -114,6 +114,9 @@ export function ProductDetailPage() {
 
   const [pricesByVariant, setPricesByVariant] = useState<Map<number, Price | null>>(new Map())
   const [priceModalVariant, setPriceModalVariant] = useState<Variant | null>(null)
+  const [priceModalOpenedDirectly, setPriceModalOpenedDirectly] = useState(false)
+  const [pickingVariantForPrice, setPickingVariantForPrice] = useState(false)
+  const [priceModalApplyToAll, setPriceModalApplyToAll] = useState(false)
   const [accountNames, setAccountNames] = useState<Map<number, string>>(new Map())
 
   const activeAttributes = useMemo(
@@ -194,7 +197,10 @@ export function ProductDetailPage() {
         }
 
         if (searchParams.get('changePrice') === '1' && canManage && productResult.variants.length === 1) {
+          setPriceModalOpenedDirectly(true)
           setPriceModalVariant(productResult.variants[0])
+        } else if (searchParams.get('changePrice') === '1' && canManage && productResult.variants.length > 1) {
+          setPickingVariantForPrice(true)
         }
       })
       .catch(() => {
@@ -419,6 +425,8 @@ export function ProductDetailPage() {
   }
 
   return (
+    <>
+    {priceModalVariant === null && !pickingVariantForPrice && (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
 
@@ -432,10 +440,30 @@ export function ProductDetailPage() {
         )}
 
         {loadStatus === 'error' && (
-          <div className="flex items-center gap-3" role="alert">
-            <p className="m-0 text-danger">{LOAD_ERROR_MESSAGE}</p>
-            <button type="button" onClick={load} className={secondaryButtonClasses}>
-              Reintentar
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center" role="alert">
+            <p className="m-0 text-xl font-semibold text-danger">{LOAD_ERROR_MESSAGE}</p>
+            <button
+              type="button"
+              onClick={load}
+              aria-label="Reintentar"
+              title="Reintentar"
+              className="flex h-14 w-14 items-center justify-center rounded-full border border-line transition-colors hover:bg-surface-brand hover:text-brand"
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-7 w-7"
+              >
+                <path d="M3 12a9 9 0 0 1 15.36-6.36L21 8" />
+                <path d="M21 3v5h-5" />
+                <path d="M21 12a9 9 0 0 1-15.36 6.36L3 16" />
+                <path d="M8 16H3v5" />
+              </svg>
             </button>
           </div>
         )}
@@ -956,21 +984,27 @@ export function ProductDetailPage() {
                   <span className="font-mono uppercase italic opacity-40">Próximamente</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 rounded-xl bg-line/15 p-4">
-                  <div>
-                    <p className="m-0 text-base opacity-60">Categoría</p>
-                    <p className="m-0 font-medium">
-                      {categories.find((category) => category.id === product.category_id)?.name ?? '—'}
-                    </p>
+                <div className="flex flex-col gap-4 rounded-xl bg-line/15 p-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <p className="m-0 text-base uppercase tracking-wide opacity-60">Categoría</p>
+                      <p className="m-0 font-bold">
+                        {categories.find((category) => category.id === product.category_id)?.name ?? '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="m-0 text-base uppercase tracking-wide opacity-60">Unidad</p>
+                      <p className="m-0 font-bold">
+                        {units.find((unit) => unit.id === product.unit_id)?.name ?? '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="m-0 text-base uppercase tracking-wide opacity-60">Variantes</p>
+                      <p className="m-0 font-bold">{product.variants.length}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="m-0 text-base opacity-60">Unidad</p>
-                    <p className="m-0 font-medium">
-                      {units.find((unit) => unit.id === product.unit_id)?.name ?? '—'}
-                    </p>
-                  </div>
-                  <div className="col-span-2">
-                    <p className="m-0 text-base opacity-60">Descripción</p>
+                  <div className="border-t border-line pt-4">
+                    <p className="m-0 text-base uppercase tracking-wide opacity-60">Descripción</p>
                     <p className="m-0 italic opacity-40">Próximamente</p>
                   </div>
                 </div>
@@ -980,10 +1014,10 @@ export function ProductDetailPage() {
             {!editingProduct && product.variants.length === 1 && product.variants[0].is_implicit && (
               <div className="flex flex-col gap-3">
                 <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
-                  Precios y variantes
+                  Precio
                 </h2>
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-line p-4">
-                  <div>
+                <div className="flex flex-col gap-3 rounded-xl border border-line p-4">
+                  <div className="flex items-start justify-between gap-3">
                     <p className="m-0 text-base opacity-60">Precio</p>
                     <p className="m-0 text-xl font-bold text-brand">
                       {pricesByVariant.get(product.variants[0].id)?.amount !== undefined
@@ -991,15 +1025,45 @@ export function ProductDetailPage() {
                         : 'Sin precio'}
                     </p>
                   </div>
-                  {canManage && (
-                    <button
-                      type="button"
-                      onClick={() => setPriceModalVariant(product.variants[0])}
-                      className={primaryButtonClasses}
-                    >
-                      Cambiar precio
+
+                  <div className="flex flex-col gap-0.5 text-base opacity-60">
+                    <p className="m-0">
+                      <span>Stock: </span>
+                      <span>Próximamente</span>
+                    </p>
+                    <p className="m-0">
+                      <span>Último cambio: </span>
+                      <span>
+                        {(() => {
+                          const price = pricesByVariant.get(product.variants[0].id)
+                          if (price === null || price === undefined) return '—'
+                          const authorName = accountNames.get(price.created_by_account_id)
+                          return authorName === undefined
+                            ? formatRelativeTime(price.effective_from)
+                            : `${formatRelativeTime(price.effective_from)} por ${authorName}`
+                        })()}
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {canManage && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPriceModalOpenedDirectly(false)
+                          setPriceModalApplyToAll(false)
+                          setPriceModalVariant(product.variants[0])
+                        }}
+                        className={primaryButtonClasses}
+                      >
+                        Cambiar precio
+                      </button>
+                    )}
+                    <button type="button" disabled className={`${secondaryButtonClasses} opacity-40`}>
+                      Ver historial
                     </button>
-                  )}
+                  </div>
                 </div>
               </div>
             )}
@@ -1094,7 +1158,11 @@ export function ProductDetailPage() {
                             {canManage && (
                               <button
                                 type="button"
-                                onClick={() => setPriceModalVariant(variant)}
+                                onClick={() => {
+                                  setPriceModalOpenedDirectly(false)
+                                  setPriceModalApplyToAll(false)
+                                  setPriceModalVariant(variant)
+                                }}
                                 className={primaryButtonClasses}
                               >
                                 Cambiar precio
@@ -1124,6 +1192,63 @@ export function ProductDetailPage() {
           </div>
         )}
       </div>
+    </div>
+    )}
+
+      {pickingVariantForPrice && product !== null && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
+          <div className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl">
+            <div className="flex items-start justify-between">
+              <h2 className="m-0 text-2xl font-bold">Elegir variante</h2>
+              <CloseButton onClose={close} />
+            </div>
+            <p className="m-0 text-base opacity-60">¿A qué variante de "{product.name}" le querés cambiar el precio?</p>
+            <ul className="m-0 flex list-none flex-col gap-2 p-0">
+              {product.variants.filter((variant) => variant.status === 'active').length > 1 && (
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const firstActive = product.variants.find((candidate) => candidate.status === 'active')
+                      if (firstActive === undefined) return
+                      setPickingVariantForPrice(false)
+                      setPriceModalOpenedDirectly(true)
+                      setPriceModalApplyToAll(true)
+                      setPriceModalVariant(firstActive)
+                    }}
+                    className="flex w-full items-center justify-between gap-3 rounded-lg border border-brand/40 bg-surface-brand px-4 py-3 text-left text-base font-semibold text-brand transition-colors hover:border-brand"
+                  >
+                    <span>Todas las variantes</span>
+                    <span>({product.variants.filter((variant) => variant.status === 'active').length})</span>
+                  </button>
+                </li>
+              )}
+              {product.variants.map((variant) => (
+                <li key={variant.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPickingVariantForPrice(false)
+                      setPriceModalOpenedDirectly(true)
+                      setPriceModalApplyToAll(false)
+                      setPriceModalVariant(variant)
+                    }}
+                    className="flex w-full items-center justify-between gap-3 rounded-lg border border-line px-4 py-3 text-left text-base transition-colors hover:border-brand hover:bg-surface-brand"
+                  >
+                    <span className="font-semibold">{describeVariant(variant, valuesById)}</span>
+                    <span className="font-bold text-brand">
+                      {pricesByVariant.get(variant.id)?.amount !== undefined
+                        ? priceFormatter.format(Number(pricesByVariant.get(variant.id)!.amount))
+                        : 'Sin precio'}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {priceModalVariant !== null && product !== null && (
         <ChangePriceModal
@@ -1137,7 +1262,14 @@ export function ProductDetailPage() {
                 .map((variant) => [variant.id, pricesByVariant.get(variant.id) ?? null]),
             )
           }
-          onClose={() => setPriceModalVariant(null)}
+          defaultApplyToAll={priceModalApplyToAll}
+          onClose={() => {
+            if (priceModalOpenedDirectly) {
+              close()
+              return
+            }
+            setPriceModalVariant(null)
+          }}
           onSuccess={(updates) => {
             setPricesByVariant((prev) => {
               const next = new Map(prev)
@@ -1148,6 +1280,10 @@ export function ProductDetailPage() {
             })
             if (account !== null) {
               setAccountNames((prev) => new Map(prev).set(account.id, account.name))
+            }
+            if (priceModalOpenedDirectly) {
+              close()
+              return
             }
             setPriceModalVariant(null)
           }}
@@ -1168,6 +1304,6 @@ export function ProductDetailPage() {
           onCancel={() => setConfirmingStatusChange(false)}
         />
       )}
-    </div>
+    </>
   )
 }

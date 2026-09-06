@@ -147,7 +147,7 @@ describe('ProductDetailPage', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByRole('heading', { name: 'Precios y variantes' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Precio' })).toBeInTheDocument()
     expect(screen.getByText('Sin precio')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cambiar precio' })).toBeInTheDocument()
   })
