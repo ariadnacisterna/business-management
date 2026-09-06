@@ -191,7 +191,7 @@ describe('ProductsPage', () => {
     await user.type(screen.getByLabelText('Buscar productos'), 'lino')
 
     const highlighted = await screen.findByText('lino')
-    expect(highlighted).toHaveClass('text-danger')
+    expect(highlighted).toHaveClass('text-brand')
     expect(highlighted.closest('a')).toHaveTextContent('Tela de lino')
   })
 
