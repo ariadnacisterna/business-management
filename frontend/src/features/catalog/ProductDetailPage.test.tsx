@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -152,19 +152,40 @@ describe('ProductDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Cambiar precio' })).toBeInTheDocument()
   })
 
-  it('toggles the product status from the edit form and saves it as part of the same submit', async () => {
+  it('asks for confirmation before deactivating and saves after confirming', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
     renderPage('/products/5?edit=1')
 
     await screen.findByLabelText(/^Nombre\s?\*?$/)
     await user.click(screen.getByRole('button', { name: '○ Inactivo' }))
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    expect(await screen.findByRole('alertdialog', { name: 'Desactivar producto' })).toBeInTheDocument()
 
     fetchMock
       .mockResolvedValueOnce(jsonResponse(PRODUCT))
       .mockResolvedValueOnce(jsonResponse({ ...PRODUCT, status: 'inactive' }))
-    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+    await user.click(screen.getByRole('button', { name: 'Desactivar' }))
 
     expect(await screen.findByText(/Inactivo/)).toBeInTheDocument()
+  })
+
+  it('keeps the edit draft when canceling the status change confirmation', async () => {
+    const user = userEvent.setup()
+    renderPage('/products/5?edit=1')
+
+    const nameInput = await screen.findByLabelText(/^Nombre\s?\*?$/)
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Cinta nueva')
+    await user.click(screen.getByRole('button', { name: '○ Inactivo' }))
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Desactivar producto' })
+    await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/^Nombre\s?\*?$/)).toHaveValue('Cinta nueva')
+    expect(screen.getByRole('button', { name: '○ Inactivo' })).toBeInTheDocument()
   })
 })

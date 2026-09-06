@@ -19,6 +19,7 @@ import { fetchAccount } from '../../api/auth'
 import { ApiError } from '../../api/client'
 import type { Attribute, Category, Price, Product, Unit, Variant } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
+import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useAuth } from '../access/AuthContext'
@@ -88,6 +89,7 @@ export function ProductDetailPage() {
   const [productDraft, setProductDraft] = useState({ name: '', categoryId: 0, unitId: 0, status: 'active' })
   const [savingProduct, setSavingProduct] = useState(false)
   const [productError, setProductError] = useState<string | null>(null)
+  const [confirmingStatusChange, setConfirmingStatusChange] = useState(false)
 
   const [priceDraft, setPriceDraft] = useState('')
   const [variantDraftRows, setVariantDraftRows] = useState<{ id: number; label: string; price: string }[]>([])
@@ -283,8 +285,24 @@ export function ProductDetailPage() {
     setNewUnitError(null)
   }
 
-  async function handleSaveProduct(event: React.FormEvent) {
+  function handleSaveProduct(event: React.FormEvent) {
     event.preventDefault()
+    if (product === null) return
+
+    if (productDraft.status !== product.status) {
+      setConfirmingStatusChange(true)
+      return
+    }
+
+    void saveProduct()
+  }
+
+  function confirmStatusChangeAndSave() {
+    setConfirmingStatusChange(false)
+    void saveProduct()
+  }
+
+  async function saveProduct() {
     if (product === null) return
 
     setSavingProduct(true)
@@ -443,11 +461,11 @@ export function ProductDetailPage() {
             {editingProduct ? (
               <form onSubmit={handleSaveProduct} className="flex flex-col gap-4">
                 <div className="flex flex-col gap-3">
-                  <h2 className="m-0 border-l-4 border-brand pl-3 text-sm font-bold uppercase tracking-wide opacity-70">
+                  <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
                     Información general
                   </h2>
 
-                  <label htmlFor="edit-product-name" className="-mb-2 text-xs font-bold uppercase tracking-wide opacity-60">
+                  <label htmlFor="edit-product-name" className="-mb-2 text-base font-bold uppercase tracking-wide opacity-60">
                     Nombre <span className="text-danger">*</span>
                   </label>
                   <input
@@ -461,12 +479,12 @@ export function ProductDetailPage() {
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="flex flex-col gap-2">
-                      <span className="text-xs font-bold uppercase tracking-wide opacity-60">Código</span>
+                      <span className="text-base font-bold uppercase tracking-wide opacity-60">Código</span>
                       <p className={`${inputClasses} m-0 flex items-center italic opacity-40`}>Próximamente</p>
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <span className="text-xs font-bold uppercase tracking-wide opacity-60">Estado</span>
+                      <span className="text-base font-bold uppercase tracking-wide opacity-60">Estado</span>
                       <div className="flex gap-2">
                         <button
                           type="button"
@@ -499,7 +517,7 @@ export function ProductDetailPage() {
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wide opacity-60">
+                        <span className="text-base font-bold uppercase tracking-wide opacity-60">
                           Categoría <span className="text-danger">*</span>
                         </span>
                         {!creatingCategory && (
@@ -535,7 +553,7 @@ export function ProductDetailPage() {
 
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wide opacity-60">
+                        <span className="text-base font-bold uppercase tracking-wide opacity-60">
                           Unidad <span className="text-danger">*</span>
                         </span>
                         {!creatingUnit && (
@@ -590,7 +608,7 @@ export function ProductDetailPage() {
                         <div className="flex flex-col gap-2">
                           <label
                             htmlFor="new-category-name"
-                            className="text-xs font-bold uppercase tracking-wide opacity-60"
+                            className="text-base font-bold uppercase tracking-wide opacity-60"
                           >
                             Nombre <span className="text-danger">*</span>
                           </label>
@@ -607,7 +625,7 @@ export function ProductDetailPage() {
                         </div>
 
                         <div className="flex flex-col gap-2">
-                          <span className="text-xs font-bold uppercase tracking-wide opacity-60">
+                          <span className="text-base font-bold uppercase tracking-wide opacity-60">
                             Descripción <span className="font-normal normal-case opacity-70">(opcional)</span>
                           </span>
                           <p className="m-0 flex min-h-16 items-start rounded-lg border border-line bg-line/10 px-3.5 py-2.5 text-lg italic opacity-40">
@@ -664,7 +682,7 @@ export function ProductDetailPage() {
                           <div className="flex flex-col gap-2">
                             <label
                               htmlFor="new-unit-name"
-                              className="text-xs font-bold uppercase tracking-wide opacity-60"
+                              className="text-base font-bold uppercase tracking-wide opacity-60"
                             >
                               Nombre <span className="text-danger">*</span>
                             </label>
@@ -682,7 +700,7 @@ export function ProductDetailPage() {
                           <div className="flex flex-col gap-2">
                             <label
                               htmlFor="new-unit-abbreviation"
-                              className="text-xs font-bold uppercase tracking-wide opacity-60"
+                              className="text-base font-bold uppercase tracking-wide opacity-60"
                             >
                               Abrev. <span className="text-danger">*</span>
                             </label>
@@ -741,7 +759,7 @@ export function ProductDetailPage() {
                     </div>
                   )}
 
-                  <span className="-mb-2 text-xs font-bold uppercase tracking-wide opacity-60">
+                  <span className="-mb-2 text-base font-bold uppercase tracking-wide opacity-60">
                     Descripción <span className="font-normal normal-case opacity-70">(opcional)</span>
                   </span>
                   <p className="m-0 flex min-h-24 items-start rounded-lg border border-line bg-line/10 px-3.5 py-2.5 text-lg italic opacity-40">
@@ -750,7 +768,7 @@ export function ProductDetailPage() {
                 </div>
 
                 <div className="flex flex-col gap-3">
-                  <h2 className="m-0 border-l-4 border-brand pl-3 text-sm font-bold uppercase tracking-wide opacity-70">
+                  <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
                     Precios y variantes
                   </h2>
 
@@ -777,7 +795,7 @@ export function ProductDetailPage() {
 
                   {product.variants.length === 1 && product.variants[0].is_implicit ? (
                     <div className="flex flex-col gap-2">
-                      <span className="text-xs font-bold uppercase tracking-wide opacity-60">
+                      <span className="text-base font-bold uppercase tracking-wide opacity-60">
                         Precio <span className="text-danger">*</span>
                       </span>
                       <div className="relative">
@@ -799,7 +817,7 @@ export function ProductDetailPage() {
                     </div>
                   ) : (
                     <div className="flex flex-col gap-2">
-                      <div className="grid grid-cols-[1fr_9rem_2.75rem] gap-2 text-xs font-bold uppercase tracking-wide opacity-60">
+                      <div className="grid grid-cols-[1fr_9rem_2.75rem] gap-2 text-base font-bold uppercase tracking-wide opacity-60">
                         <span>Nombre de variante</span>
                         <span>Precio</span>
                         <span />
@@ -961,7 +979,7 @@ export function ProductDetailPage() {
 
             {!editingProduct && product.variants.length === 1 && product.variants[0].is_implicit && (
               <div className="flex flex-col gap-3">
-                <h2 className="m-0 border-l-4 border-brand pl-3 text-sm font-bold uppercase tracking-wide opacity-70">
+                <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
                   Precios y variantes
                 </h2>
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-line p-4">
@@ -988,7 +1006,7 @@ export function ProductDetailPage() {
 
             {!editingProduct && !(product.variants.length === 1 && product.variants[0].is_implicit) && (
               <div className="flex flex-col gap-3">
-                <h2 className="m-0 border-l-4 border-brand pl-3 text-sm font-bold uppercase tracking-wide opacity-70">
+                <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
                   Precios y variantes
                 </h2>
                 <ul className="m-0 flex list-none flex-col gap-2 p-0">
@@ -1133,6 +1151,21 @@ export function ProductDetailPage() {
             }
             setPriceModalVariant(null)
           }}
+        />
+      )}
+
+      {confirmingStatusChange && product !== null && (
+        <ConfirmDialog
+          title={productDraft.status === 'active' ? 'Activar producto' : 'Desactivar producto'}
+          description={
+            productDraft.status === 'active'
+              ? `"${product.name}" y sus variantes vuelven a aparecer en las consultas del catálogo.`
+              : `"${product.name}" y todas sus variantes van a dejar de aparecer en las consultas del catálogo. Vas a poder reactivarlo cuando quieras.`
+          }
+          confirmLabel={productDraft.status === 'active' ? 'Activar' : 'Desactivar'}
+          danger={productDraft.status !== 'active'}
+          onConfirm={confirmStatusChangeAndSave}
+          onCancel={() => setConfirmingStatusChange(false)}
         />
       )}
     </div>
