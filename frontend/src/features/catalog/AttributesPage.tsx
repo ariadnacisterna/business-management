@@ -2,14 +2,17 @@ import { useEffect, useState } from 'react'
 import {
   createAttribute,
   createAttributeValue,
+  deactivateAttributeValue,
   fetchAttributeValues,
   fetchAttributes,
+  reactivateAttributeValue,
   updateAttributeValue,
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Attribute, AttributeValue } from '../../api/types'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
+import { ConfirmDialog } from '../../shared/ConfirmDialog'
 
 type Status = 'loading' | 'success' | 'error'
 
@@ -49,6 +52,9 @@ export function AttributesPage() {
   const [editingValue, setEditingValue] = useState('')
   const [savingValue, setSavingValue] = useState(false)
   const [editValueError, setEditValueError] = useState<string | null>(null)
+
+  const [confirmingStatusChange, setConfirmingStatusChange] = useState<AttributeValue | null>(null)
+  const [statusChangeError, setStatusChangeError] = useState<string | null>(null)
 
   function loadAttributes() {
     setStatus('loading')
@@ -156,6 +162,21 @@ export function AttributesPage() {
       setEditValueError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
     } finally {
       setSavingValue(false)
+    }
+  }
+
+  async function confirmStatusChange() {
+    if (confirmingStatusChange === null) return
+    const value = confirmingStatusChange
+
+    setStatusChangeError(null)
+    try {
+      const updated =
+        value.status === 'active' ? await deactivateAttributeValue(value.id) : await reactivateAttributeValue(value.id)
+      setValues((prev) => prev.map((candidate) => (candidate.id === updated.id ? updated : candidate)))
+      setConfirmingStatusChange(null)
+    } catch (error) {
+      setStatusChangeError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
     }
   }
 
@@ -315,13 +336,25 @@ export function AttributesPage() {
                         {value.value}
                       </span>
                       {canManage && (
-                        <button
-                          type="button"
-                          onClick={() => startEditValue(value)}
-                          className="min-h-11 rounded-lg border border-line px-2.5 text-sm transition-colors hover:bg-surface-brand"
-                        >
-                          Editar
-                        </button>
+                        <span className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => startEditValue(value)}
+                            className="min-h-11 rounded-lg border border-line px-2.5 text-sm transition-colors hover:bg-surface-brand"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStatusChangeError(null)
+                              setConfirmingStatusChange(value)
+                            }}
+                            className="min-h-11 rounded-lg border border-line px-2.5 text-sm transition-colors hover:bg-surface-brand"
+                          >
+                            {value.status === 'active' ? 'Desactivar' : 'Activar'}
+                          </button>
+                        </span>
                       )}
                     </>
                   )}
@@ -354,6 +387,23 @@ export function AttributesPage() {
             </form>
           )}
         </div>
+      )}
+
+      {confirmingStatusChange !== null && (
+        <ConfirmDialog
+          title={confirmingStatusChange.status === 'active' ? 'Desactivar valor' : 'Activar valor'}
+          description={
+            (statusChangeError ?? '') +
+            (statusChangeError !== null ? ' ' : '') +
+            (confirmingStatusChange.status === 'active'
+              ? `"${confirmingStatusChange.value}" ya no va a poder asignarse a variantes nuevas. Las variantes que ya lo usan lo conservan.`
+              : `"${confirmingStatusChange.value}" vuelve a estar disponible para asignarse a variantes nuevas.`)
+          }
+          confirmLabel={confirmingStatusChange.status === 'active' ? 'Desactivar' : 'Activar'}
+          danger={confirmingStatusChange.status === 'active'}
+          onConfirm={confirmStatusChange}
+          onCancel={() => setConfirmingStatusChange(null)}
+        />
       )}
     </section>
   )

@@ -489,6 +489,48 @@ def update_attribute_value(
     return _attribute_value_response(attribute_value)
 
 
+@router.post(
+    "/attribute-values/{attribute_value_id}/deactivate",
+    response_model=AttributeValueResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def deactivate_attribute_value(
+    attribute_value_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
+) -> AttributeValueResponse:
+    try:
+        attribute_value = attribute_values.deactivate_attribute_value(
+            db, business.id, attribute_value_id, _actor.id
+        )
+    except AttributeValueNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Valor de atributo no encontrado") from exc
+
+    return _attribute_value_response(attribute_value)
+
+
+@router.post(
+    "/attribute-values/{attribute_value_id}/reactivate",
+    response_model=AttributeValueResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def reactivate_attribute_value(
+    attribute_value_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
+) -> AttributeValueResponse:
+    try:
+        attribute_value = attribute_values.reactivate_attribute_value(
+            db, business.id, attribute_value_id, _actor.id
+        )
+    except AttributeValueNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Valor de atributo no encontrado") from exc
+
+    return _attribute_value_response(attribute_value)
+
+
 def _to_variant_inputs(payload: list[VariantInputSchema] | None) -> list[VariantInput] | None:
     if payload is None:
         return None

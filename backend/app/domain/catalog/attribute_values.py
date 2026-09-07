@@ -102,3 +102,27 @@ def get_attribute_value(db: Session, business_id: int, attribute_value_id: int) 
     if attribute_value is None or attribute_value.attribute.business_id != business_id:
         raise AttributeValueNotFound
     return attribute_value
+
+
+def deactivate_attribute_value(
+    db: Session, business_id: int, attribute_value_id: int, actor_account_id: int
+) -> AttributeValue:
+    attribute_value = get_attribute_value(db, business_id, attribute_value_id)
+    attribute_value.status = EntityStatus.INACTIVE.value
+    attribute_value.updated_by_account_id = actor_account_id
+    attribute_value.updated_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(attribute_value)
+    return attribute_value
+
+
+def reactivate_attribute_value(
+    db: Session, business_id: int, attribute_value_id: int, actor_account_id: int
+) -> AttributeValue:
+    attribute_value = get_attribute_value(db, business_id, attribute_value_id)
+    attribute_value.status = EntityStatus.ACTIVE.value
+    attribute_value.updated_by_account_id = actor_account_id
+    attribute_value.updated_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(attribute_value)
+    return attribute_value

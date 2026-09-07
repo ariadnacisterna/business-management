@@ -840,3 +840,116 @@ def test_catalog_entities_from_one_business_are_invisible_from_another_in_the_sa
 
     product_response = client.get(f"/products/{product['id']}", cookies=admin_cookies)
     assert product_response.status_code == 404, product_response.text
+
+
+def test_deactivate_and_reactivate_attribute_value(client):
+    admin_cookies = _admin_cookies(client)
+    color, values = _get_color_attribute(client, admin_cookies)
+    red = next(value for value in values if value["value"] == "Rojo")
+
+    deactivate_response = client.post(
+        f"/attribute-values/{red['id']}/deactivate",
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+    assert deactivate_response.status_code == 200, deactivate_response.text
+    assert deactivate_response.json()["status"] == "inactive"
+
+    reactivate_response = client.post(
+        f"/attribute-values/{red['id']}/reactivate",
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+    assert reactivate_response.status_code == 200, reactivate_response.text
+    assert reactivate_response.json()["status"] == "active"
+
+
+def test_deactivated_attribute_value_is_hidden_from_active_list_but_kept_on_its_variant(client):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Merceria valor desactivado")
+    unit = _create_unit(client, admin_cookies, "Metro valor desactivado", "mvd", True)
+    color, values = _get_color_attribute(client, admin_cookies)
+    red = next(value for value in values if value["value"] == "Rojo")
+
+    product = _create_product(
+        client,
+        admin_cookies,
+        "Cinta con valor a desactivar",
+        category["id"],
+        unit["id"],
+        variants=[{"attribute_value_ids": [red["id"]]}],
+    )
+    variant_id = product["variants"][0]["id"]
+
+    deactivate_response = client.post(
+        f"/attribute-values/{red['id']}/deactivate",
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+    assert deactivate_response.status_code == 200, deactivate_response.text
+
+    values_response = client.get(f"/attributes/{color['id']}/values", cookies=admin_cookies)
+    assert values_response.status_code == 200, values_response.text
+    assert all(value["id"] != red["id"] for value in values_response.json())
+
+    product_response = client.get(f"/products/{product['id']}", cookies=admin_cookies)
+    assert product_response.status_code == 200, product_response.text
+    stored_variant = next(
+        variant for variant in product_response.json()["variants"] if variant["id"] == variant_id
+    )
+    assert red["id"] in stored_variant["attribute_value_ids"]
+
+
+def test_gerente_can_deactivate_and_reactivate_attribute_value(client):
+    admin_cookies = _admin_cookies(client)
+    gerente_cookies = _gerente_cookies(client, admin_cookies, "gerente-valor-atributo")
+    color, values = _get_color_attribute(client, admin_cookies)
+    blue = next(value for value in values if value["value"] == "Azul")
+
+    deactivate_response = client.post(
+        f"/attribute-values/{blue['id']}/deactivate",
+        cookies=gerente_cookies,
+        headers=_auth_headers(gerente_cookies),
+    )
+    assert deactivate_response.status_code == 200, deactivate_response.text
+
+    reactivate_response = client.post(
+        f"/attribute-values/{blue['id']}/reactivate",
+        cookies=gerente_cookies,
+        headers=_auth_headers(gerente_cookies),
+    )
+    assert reactivate_response.status_code == 200, reactivate_response.text
+
+
+def test_empleado_cannot_deactivate_attribute_value(client):
+    admin_cookies = _admin_cookies(client)
+    empleado_cookies = _empleado_cookies(client, admin_cookies, "empleado-valor-atributo")
+    _, values = _get_color_attribute(client, admin_cookies)
+    green = next(value for value in values if value["value"] not in ("Rojo", "Azul"))
+
+    response = client.post(
+        f"/attribute-values/{green['id']}/deactivate",
+        cookies=empleado_cookies,
+        headers=_auth_headers(empleado_cookies),
+    )
+
+    assert response.status_code == 403
+
+
+def test_deactivate_attribute_value_from_another_business_is_not_found(client, db_session):
+    admin_cookies = _admin_cookies(client)
+    admin_account_id = _admin_account_id(db_session)
+    _, values = _get_color_attribute(client, admin_cookies)
+    red = next(value for value in values if value["value"] == "Rojo")
+
+    second_business = _create_second_business(db_session, "Ferreteria", "Ferreteria")
+    _grant_access(db_session, admin_account_id, second_business.id, DUENO)
+    _switch_business(client, admin_cookies, second_business.id)
+
+    response = client.post(
+        f"/attribute-values/{red['id']}/deactivate",
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 404, response.text

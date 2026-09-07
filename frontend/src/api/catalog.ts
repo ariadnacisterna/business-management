@@ -71,6 +71,14 @@ export function updateAttributeValue(id: number, value: string): Promise<Attribu
   })
 }
 
+export function deactivateAttributeValue(id: number): Promise<AttributeValue> {
+  return apiFetch<AttributeValue>(`/attribute-values/${id}/deactivate`, { method: 'POST' })
+}
+
+export function reactivateAttributeValue(id: number): Promise<AttributeValue> {
+  return apiFetch<AttributeValue>(`/attribute-values/${id}/reactivate`, { method: 'POST' })
+}
+
 export function fetchProducts(): Promise<Product[]> {
   return apiFetch<ProductPage>('/products').then((result) => result.items)
 }
