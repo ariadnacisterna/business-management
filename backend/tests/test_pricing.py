@@ -151,6 +151,31 @@ def test_gerente_can_set_initial_price_for_a_variant(client):
     assert current["price"]["amount"] == "150.00"
 
 
+def test_gerente_sees_author_name_in_price_and_history(client):
+    admin_cookies = _admin_cookies(client)
+    gerente_cookies = _gerente_cookies(client, admin_cookies)
+    _product, variant_id = _set_up_product_with_single_variant(
+        client, admin_cookies, "autorgerente"
+    )
+
+    change = client.put(
+        f"/variants/{variant_id}/price",
+        json={"amount": "80.00", "expected_current_price_id": None},
+        cookies=gerente_cookies,
+        headers=_auth_headers(gerente_cookies),
+    )
+    assert change.status_code == 200, change.text
+    assert change.json()["created_by_account_name"] == "Cuenta de prueba"
+
+    current = client.get(f"/variants/{variant_id}/price", cookies=gerente_cookies)
+    assert current.status_code == 200, current.text
+    assert current.json()["price"]["created_by_account_name"] == "Cuenta de prueba"
+
+    history = client.get(f"/variants/{variant_id}/prices", cookies=gerente_cookies)
+    assert history.status_code == 200, history.text
+    assert history.json()[0]["created_by_account_name"] == "Cuenta de prueba"
+
+
 def test_empleado_cannot_change_price(client):
     admin_cookies = _admin_cookies(client)
     empleado_cookies = _empleado_cookies(client, admin_cookies)

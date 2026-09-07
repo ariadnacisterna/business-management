@@ -1,5 +1,4 @@
 import { Fragment, useEffect, useState } from 'react'
-import { fetchAccount } from '../../api/auth'
 import {
   changeProductPrice,
   changeVariantPrice,
@@ -107,7 +106,6 @@ export function PricingPage() {
   const [appliedSearch, setAppliedSearch] = useState('')
 
   const [pricesByVariant, setPricesByVariant] = useState<Map<number, Price | null>>(new Map())
-  const [accountNames, setAccountNames] = useState<Map<number, string>>(new Map())
   const [drafts, setDrafts] = useState<Map<number, string>>(new Map())
   const [productDrafts, setProductDrafts] = useState<Map<number, string>>(new Map())
 
@@ -148,23 +146,6 @@ export function PricingPage() {
         setPricesByVariant(new Map(priceResults.map((entry) => [entry.variant_id, entry.price])))
         setDrafts(new Map())
 
-        const authorIds = [
-          ...new Set(
-            priceResults
-              .map((entry) => entry.price?.created_by_account_id)
-              .filter((authorId): authorId is number => authorId !== undefined),
-          ),
-        ]
-        const authors = await Promise.allSettled(authorIds.map((authorId) => fetchAccount(authorId)))
-        const resolved = authors.flatMap((entry) => (entry.status === 'fulfilled' ? [entry.value] : []))
-        if (resolved.length > 0) {
-          setAccountNames((prev) => {
-            const next = new Map(prev)
-            for (const author of resolved) next.set(author.id, author.name)
-            return next
-          })
-        }
-
         setStatus('success')
       })
       .catch(() => {
@@ -192,10 +173,7 @@ export function PricingPage() {
   function lastChangeLabel(variantId: number): string {
     const price = pricesByVariant.get(variantId)
     if (price === null || price === undefined) return 'Sin registro'
-    const authorName = accountNames.get(price.created_by_account_id)
-    return authorName === undefined
-      ? formatRelativeTime(price.effective_from)
-      : `${formatRelativeTime(price.effective_from)} por ${authorName}`
+    return `${formatRelativeTime(price.effective_from)} por ${price.created_by_account_name}`
   }
 
   function startVariantChange(product: Product, variant: Variant) {
@@ -313,19 +291,7 @@ export function PricingPage() {
   function openHistory(product: Product, variant: Variant) {
     setHistoryState({ product, variant, status: 'loading', prices: [] })
     fetchVariantPriceHistory(variant.id)
-      .then(async (prices) => {
-        const authorIds = [...new Set(prices.map((price) => price.created_by_account_id))]
-        const authors = await Promise.allSettled(authorIds.map((authorId) => fetchAccount(authorId)))
-        const resolved = authors.flatMap((entry) => (entry.status === 'fulfilled' ? [entry.value] : []))
-        if (resolved.length > 0) {
-          setAccountNames((prev) => {
-            const next = new Map(prev)
-            for (const author of resolved) next.set(author.id, author.name)
-            return next
-          })
-        }
-        setHistoryState({ product, variant, status: 'success', prices })
-      })
+      .then((prices) => setHistoryState({ product, variant, status: 'success', prices }))
       .catch(() => setHistoryState({ product, variant, status: 'error', prices: [] }))
   }
 
@@ -634,9 +600,7 @@ export function PricingPage() {
                     <li key={price.id} className="flex flex-col gap-1 rounded-lg border border-line px-4 py-3">
                       <div className="flex items-center justify-between text-lg">
                         <span className="font-bold text-brand">{formatAmount(price.amount)}</span>
-                        <span className="opacity-60">
-                          {accountNames.get(price.created_by_account_id) ?? `Usuario #${price.created_by_account_id}`}
-                        </span>
+                        <span className="opacity-60">{price.created_by_account_name}</span>
                       </div>
                       <p className="m-0 text-base opacity-60">
                         Vigente desde {formatRelativeTime(price.effective_from)}

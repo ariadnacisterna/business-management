@@ -90,6 +90,7 @@ export interface Price {
   effective_from: string
   effective_to: string | null
   created_by_account_id: number
+  created_by_account_name: string
   created_at: string
 }
 

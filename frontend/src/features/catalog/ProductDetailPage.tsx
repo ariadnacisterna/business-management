@@ -17,7 +17,6 @@ import {
   updateProduct,
   updateVariant,
 } from '../../api/catalog'
-import { fetchAccount } from '../../api/auth'
 import { ApiError } from '../../api/client'
 import type { Attribute, Category, Price, Product, Unit, Variant } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
@@ -122,7 +121,6 @@ export function ProductDetailPage() {
   const [priceModalOpenedDirectly, setPriceModalOpenedDirectly] = useState(false)
   const [pickingVariantForPrice, setPickingVariantForPrice] = useState(false)
   const [priceModalApplyToAll, setPriceModalApplyToAll] = useState(false)
-  const [accountNames, setAccountNames] = useState<Map<number, string>>(new Map())
 
   const activeAttributes = useMemo(
     () => attributes.filter((attribute) => attribute.status === 'active'),
@@ -160,27 +158,6 @@ export function ProductDetailPage() {
         )
         if (requestId !== requestIdRef.current) return
         setPricesByVariant(new Map(priceResults.map((result) => [result.variant_id, result.price])))
-
-        const authorIds = [
-          ...new Set(
-            priceResults
-              .map((result) => result.price?.created_by_account_id)
-              .filter((authorId): authorId is number => authorId !== undefined),
-          ),
-        ]
-        Promise.allSettled(authorIds.map((authorId) => fetchAccount(authorId))).then((results) => {
-          if (requestId !== requestIdRef.current) return
-          const resolved = results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []))
-          if (resolved.length > 0) {
-            setAccountNames((prev) => {
-              const next = new Map(prev)
-              for (const author of resolved) {
-                next.set(author.id, author.name)
-              }
-              return next
-            })
-          }
-        })
 
         if (searchParams.get('edit') === '1' && canManage) {
           setProductDraft({
@@ -1017,10 +994,7 @@ export function ProductDetailPage() {
                           {(() => {
                             const price = pricesByVariant.get(product.variants[0].id)
                             if (price === null || price === undefined) return '—'
-                            const authorName = accountNames.get(price.created_by_account_id)
-                            return authorName === undefined
-                              ? formatRelativeTime(price.effective_from)
-                              : `${formatRelativeTime(price.effective_from)} por ${authorName}`
+                            return `${formatRelativeTime(price.effective_from)} por ${price.created_by_account_name}`
                           })()}
                         </span>
                       </p>
@@ -1136,10 +1110,7 @@ export function ProductDetailPage() {
                                   {(() => {
                                     const price = pricesByVariant.get(variant.id)
                                     if (price === null || price === undefined) return '—'
-                                    const authorName = accountNames.get(price.created_by_account_id)
-                                    return authorName === undefined
-                                      ? formatRelativeTime(price.effective_from)
-                                      : `${formatRelativeTime(price.effective_from)} por ${authorName}`
+                                    return `${formatRelativeTime(price.effective_from)} por ${price.created_by_account_name}`
                                   })()}
                                 </span>
                               </p>
@@ -1288,9 +1259,6 @@ export function ProductDetailPage() {
               }
               return next
             })
-            if (account !== null) {
-              setAccountNames((prev) => new Map(prev).set(account.id, account.name))
-            }
             if (priceModalOpenedDirectly) {
               close()
               return

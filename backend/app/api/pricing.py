@@ -35,6 +35,7 @@ class PriceResponse(BaseModel):
     effective_from: datetime
     effective_to: datetime | None
     created_by_account_id: int
+    created_by_account_name: str
     created_at: datetime
 
 
@@ -57,7 +58,7 @@ class ProductPriceChangeResponse(BaseModel):
     prices: list[PriceResponse]
 
 
-def _price_response(price: Price) -> PriceResponse:
+def _price_response(price: Price, account_names: dict[int, str]) -> PriceResponse:
     return PriceResponse(
         id=price.id,
         variant_id=price.variant_id,
@@ -66,12 +67,15 @@ def _price_response(price: Price) -> PriceResponse:
         effective_from=price.effective_from,
         effective_to=price.effective_to,
         created_by_account_id=price.created_by_account_id,
+        created_by_account_name=account_names[price.created_by_account_id],
         created_at=price.created_at,
     )
 
 
-def _optional_price_response(price: Price | None) -> PriceResponse | None:
-    return _price_response(price) if price is not None else None
+def _optional_price_response(
+    price: Price | None, account_names: dict[int, str]
+) -> PriceResponse | None:
+    return _price_response(price, account_names) if price is not None else None
 
 
 @router.get("/variants/{variant_id}/price", response_model=CurrentPriceResponse)
@@ -86,7 +90,11 @@ def get_variant_current_price(
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
 
-    return CurrentPriceResponse(variant_id=variant_id, price=_optional_price_response(price))
+    account_ids = [price.created_by_account_id] if price is not None else []
+    account_names = prices.get_account_names(db, account_ids)
+    return CurrentPriceResponse(
+        variant_id=variant_id, price=_optional_price_response(price, account_names)
+    )
 
 
 @router.get("/variants/{variant_id}/prices", response_model=list[PriceResponse])
@@ -101,7 +109,8 @@ def get_variant_price_history(
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
 
-    return [_price_response(price) for price in history]
+    account_names = prices.get_account_names(db, [price.created_by_account_id for price in history])
+    return [_price_response(price, account_names) for price in history]
 
 
 @router.put(
@@ -130,7 +139,11 @@ def change_variant_price(
     except InvalidPriceAmount as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     except PriceConflict as exc:
-        current = _optional_price_response(exc.current_price)
+        conflict_account_ids = (
+            [exc.current_price.created_by_account_id] if exc.current_price is not None else []
+        )
+        conflict_account_names = prices.get_account_names(db, conflict_account_ids)
+        current = _optional_price_response(exc.current_price, conflict_account_names)
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             {
@@ -139,7 +152,8 @@ def change_variant_price(
             },
         ) from exc
 
-    return _price_response(price)
+    account_names = prices.get_account_names(db, [price.created_by_account_id])
+    return _price_response(price, account_names)
 
 
 @router.put(
@@ -174,8 +188,16 @@ def change_product_price(
     except MissingExpectedPrice as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     except ProductPriceConflict as exc:
+        conflict_account_names = prices.get_account_names(
+            db,
+            [
+                price.created_by_account_id
+                for price in exc.current_prices.values()
+                if price is not None
+            ],
+        )
         current_prices = {
-            str(variant_id): _optional_price_response(price)
+            str(variant_id): _optional_price_response(price, conflict_account_names)
             for variant_id, price in exc.current_prices.items()
         }
         raise HTTPException(
@@ -189,4 +211,9 @@ def change_product_price(
             },
         ) from exc
 
-    return ProductPriceChangeResponse(prices=[_price_response(price) for price in changed])
+    account_names = prices.get_account_names(
+        db, [price.created_by_account_id for price in changed]
+    )
+    return ProductPriceChangeResponse(
+        prices=[_price_response(price, account_names) for price in changed]
+    )

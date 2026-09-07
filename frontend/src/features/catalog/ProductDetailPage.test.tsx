@@ -112,6 +112,7 @@ describe('ProductDetailPage', () => {
         effective_from: new Date().toISOString(),
         effective_to: null,
         created_by_account_id: 1,
+        created_by_account_name: 'Ada Lovelace',
         created_at: new Date().toISOString(),
       }),
     )

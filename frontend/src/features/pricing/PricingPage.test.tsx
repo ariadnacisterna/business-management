@@ -81,6 +81,7 @@ function currentPrice(variantId: number, amount: string | null, priceId = varian
             effective_from: new Date().toISOString(),
             effective_to: null,
             created_by_account_id: 1,
+            created_by_account_name: 'Ada Lovelace',
             created_at: new Date().toISOString(),
           },
   })
@@ -94,7 +95,6 @@ function renderPage(account: unknown, products: Product[] = PRODUCTS) {
   for (const variant of activeVariants) {
     fetchMock.mockResolvedValueOnce(currentPrice(variant.id, variant.price_amount))
   }
-  fetchMock.mockResolvedValueOnce(jsonResponse(account))
 
   return render(
     <MemoryRouter initialEntries={['/precios']}>
@@ -122,6 +122,7 @@ describe('PricingPage', () => {
     expect(screen.getByText('$ 150,00')).toBeInTheDocument()
     expect(screen.getByText('$ 10,00')).toBeInTheDocument()
     expect(screen.getByText('$ 20,00')).toBeInTheDocument()
+    expect(screen.getAllByText(/por Ada Lovelace/).length).toBeGreaterThan(0)
   })
 
   it('searches by product name, debouncing the request', async () => {
@@ -167,6 +168,7 @@ describe('PricingPage', () => {
         effective_from: new Date().toISOString(),
         effective_to: null,
         created_by_account_id: 1,
+        created_by_account_name: 'Ada Lovelace',
         created_at: new Date().toISOString(),
       }),
     )
@@ -204,6 +206,7 @@ describe('PricingPage', () => {
               effective_from: new Date().toISOString(),
               effective_to: null,
               created_by_account_id: 1,
+              created_by_account_name: 'Ada Lovelace',
               created_at: new Date().toISOString(),
             },
           },
@@ -225,6 +228,7 @@ describe('PricingPage', () => {
         effective_from: new Date().toISOString(),
         effective_to: null,
         created_by_account_id: 1,
+        created_by_account_name: 'Ada Lovelace',
         created_at: new Date().toISOString(),
       }),
     )
@@ -257,6 +261,7 @@ describe('PricingPage', () => {
             effective_from: new Date().toISOString(),
             effective_to: null,
             created_by_account_id: 1,
+            created_by_account_name: 'Ada Lovelace',
             created_at: new Date().toISOString(),
           },
           {
@@ -267,6 +272,7 @@ describe('PricingPage', () => {
             effective_from: new Date().toISOString(),
             effective_to: null,
             created_by_account_id: 1,
+            created_by_account_name: 'Ada Lovelace',
             created_at: new Date().toISOString(),
           },
         ],
@@ -294,6 +300,7 @@ describe('PricingPage', () => {
           effective_from: '2026-01-01T00:00:00Z',
           effective_to: '2026-02-01T00:00:00Z',
           created_by_account_id: 1,
+          created_by_account_name: 'Ada Lovelace',
           created_at: '2026-01-01T00:00:00Z',
         },
         {
@@ -304,17 +311,21 @@ describe('PricingPage', () => {
           effective_from: '2026-02-01T00:00:00Z',
           effective_to: null,
           created_by_account_id: 1,
+          created_by_account_name: 'Ada Lovelace',
           created_at: '2026-02-01T00:00:00Z',
         },
       ]),
     )
-    fetchMock.mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
 
     await user.click(screen.getByRole('button', { name: 'Ver historial de precios de Cinta bebé Estándar' }))
 
     const dialog = await screen.findByRole('dialog', { name: 'Historial de precios de Cinta bebé' })
     expect(within(dialog).getByText('$ 100,00')).toBeInTheDocument()
     expect(within(dialog).getByText('$ 150,00')).toBeInTheDocument()
+    expect(within(dialog).getAllByText('Ada Lovelace')).toHaveLength(2)
+
+    const accountRequests = fetchMock.mock.calls.filter((call) => String(call[0]).includes('/accounts/'))
+    expect(accountRequests).toHaveLength(0)
   })
 
   it('renders read-only for an Empleado account, without price inputs or history access', async () => {

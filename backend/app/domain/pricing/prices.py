@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.constants.status import EntityStatus
-from app.db.models import Price, Product, Variant
+from app.db.models import Account, Price, Product, Variant
 from app.domain.catalog.products import get_product, get_variant
 from app.domain.pricing.errors import (
     InvalidPriceAmount,
@@ -14,6 +14,14 @@ from app.domain.pricing.errors import (
     ProductHasNoPriceableVariants,
     ProductPriceConflict,
 )
+
+
+def get_account_names(db: Session, account_ids: list[int]) -> dict[int, str]:
+    if not account_ids:
+        return {}
+
+    rows = db.scalars(select(Account).where(Account.id.in_(account_ids))).all()
+    return {account.id: account.name for account in rows}
 
 
 def _validate_amount(amount: Decimal) -> Decimal:
