@@ -211,9 +211,7 @@ def change_product_price(
             },
         ) from exc
 
-    account_names = prices.get_account_names(
-        db, [price.created_by_account_id for price in changed]
-    )
+    account_names = prices.get_account_names(db, [price.created_by_account_id for price in changed])
     return ProductPriceChangeResponse(
         prices=[_price_response(price, account_names) for price in changed]
     )
