@@ -5,15 +5,17 @@ import { HEADER_ACTION_BUTTON_CLASSES } from './headerActionButton'
 export function FiltersButton({
   onClick,
   hasActiveFilters,
+  widthClassName = 'w-44',
 }: {
   onClick: () => void
   hasActiveFilters: boolean
+  widthClassName?: string
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`${HEADER_ACTION_BUTTON_CLASSES} w-44 border-2 border-brand bg-surface text-brand hover:bg-brand hover:text-brand-contrast lg:hidden`}
+      className={`${HEADER_ACTION_BUTTON_CLASSES} ${widthClassName} justify-center border-2 border-brand bg-surface text-brand hover:bg-brand hover:text-brand-contrast lg:hidden`}
     >
       <svg
         aria-hidden="true"

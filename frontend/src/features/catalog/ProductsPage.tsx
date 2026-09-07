@@ -17,6 +17,7 @@ import { Pagination } from '../../shared/Pagination'
 import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
 import { HEADER_ACTION_BUTTON_CLASSES } from '../../shared/headerActionButton'
 import { RowMenu } from '../../shared/RowMenu'
+import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
 import type { ViewMode } from '../../shared/ViewToggle'
@@ -48,9 +49,6 @@ function productPriceInfo(product: Product): { amount: number; hasRange: boolean
   const distinct = new Set(amounts)
   return { amount: Math.min(...amounts), hasRange: distinct.size > 1 }
 }
-
-const inputClasses =
-  'h-12 rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
 
 export function ProductsPage() {
   const { account } = useAuth()
@@ -235,40 +233,6 @@ export function ProductsPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <input
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
-          placeholder="Buscar nombre, código, categoría…"
-          aria-label="Buscar productos"
-          className={`${inputClasses} lg:min-w-40 lg:flex-1`}
-        />
-        <div className="flex items-center gap-3">
-          <FiltersButton onClick={() => setFiltersOpen(true)} hasActiveFilters={hasActiveFilters} />
-          {canManage && (
-            <Link
-              to="/products/new"
-              className={`${HEADER_ACTION_BUTTON_CLASSES} flex-1 bg-brand text-brand-contrast hover:bg-brand/90 lg:hidden`}
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-5 w-5"
-              >
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              Nuevo Producto
-            </Link>
-          )}
-        </div>
-      </div>
-
       {(() => {
         const filterControls = (
           <>
@@ -325,7 +289,44 @@ export function ProductsPage() {
             <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen}>
               {filterControls}
             </FiltersSheet>
-            <div className="hidden flex-wrap gap-3 lg:flex">{filterControls}</div>
+            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+              <SearchInput
+                value={searchInput}
+                onChange={setSearchInput}
+                placeholder="Buscar nombre, código, categoría…"
+                ariaLabel="Buscar productos"
+                className="lg:min-w-40 lg:flex-1"
+              />
+              <div className="grid grid-cols-2 gap-4 lg:hidden">
+                <FiltersButton
+                  onClick={() => setFiltersOpen(true)}
+                  hasActiveFilters={hasActiveFilters}
+                  widthClassName="w-full"
+                />
+                {canManage && (
+                  <Link
+                    to="/products/new"
+                    className={`${HEADER_ACTION_BUTTON_CLASSES} w-full justify-center bg-brand text-brand-contrast hover:bg-brand/90`}
+                  >
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-5 w-5"
+                    >
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    Nuevo Producto
+                  </Link>
+                )}
+              </div>
+              <div className="hidden flex-wrap items-center gap-3 lg:flex">{filterControls}</div>
+            </div>
           </>
         )
       })()}

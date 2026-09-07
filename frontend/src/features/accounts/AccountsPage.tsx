@@ -18,6 +18,7 @@ import { HighlightedText } from '../../shared/HighlightedText'
 import { LockIcon, PencilIcon } from '../../shared/icons'
 import { Pagination } from '../../shared/Pagination'
 import { RowMenu } from '../../shared/RowMenu'
+import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
 import type { ViewMode } from '../../shared/ViewToggle'
@@ -509,48 +510,15 @@ export function AccountsPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <input
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
-          placeholder="Buscar nombre o usuario…"
-          aria-label="Buscar cuentas"
-          className={`${inputClasses} lg:min-w-40 lg:flex-1`}
-        />
-        <div className="flex items-center gap-3">
-          <FiltersButton onClick={() => setFiltersOpen(true)} hasActiveFilters={hasActiveFilters} />
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className={`${HEADER_ACTION_BUTTON_CLASSES} flex-1 bg-brand text-brand-contrast hover:bg-brand/90 lg:hidden`}
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5"
-            >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Nueva cuenta
-          </button>
-        </div>
-      </div>
-
       {(() => {
         const filterControls = (
           <>
-            <input
+            <SearchInput
               value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
+              onChange={setSearchInput}
               placeholder="Buscar nombre o usuario…"
-              aria-label="Buscar cuentas"
-              className={`${inputClasses} w-full lg:min-w-48 lg:flex-1`}
+              ariaLabel="Buscar cuentas"
+              className="w-full lg:min-w-48 lg:flex-1"
             />
             <SelectMenu
               value={roleFilter}
@@ -611,7 +579,43 @@ export function AccountsPage() {
             <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen}>
               {filterControls}
             </FiltersSheet>
-            <div className="hidden flex-wrap gap-3 lg:flex">{filterControls}</div>
+            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+              <SearchInput
+                value={searchInput}
+                onChange={setSearchInput}
+                placeholder="Buscar nombre o usuario…"
+                ariaLabel="Buscar cuentas"
+                className="lg:hidden"
+              />
+              <div className="grid grid-cols-2 gap-4 lg:hidden">
+                <FiltersButton
+                  onClick={() => setFiltersOpen(true)}
+                  hasActiveFilters={hasActiveFilters}
+                  widthClassName="w-full"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCreating(true)}
+                  className={`${HEADER_ACTION_BUTTON_CLASSES} w-full justify-center bg-brand text-brand-contrast hover:bg-brand/90`}
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-5 w-5"
+                  >
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  Nueva cuenta
+                </button>
+              </div>
+              <div className="hidden flex-wrap items-center gap-3 lg:flex">{filterControls}</div>
+            </div>
           </>
         )
       })()}

@@ -16,6 +16,7 @@ import { FieldRow } from '../../shared/FieldRow'
 import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
 import { HighlightedText } from '../../shared/HighlightedText'
 import { Pagination } from '../../shared/Pagination'
+import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { firstName } from '../../shared/formatName'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
@@ -325,17 +326,6 @@ export function PricingPage() {
         <ViewToggle mode={viewMode} onChange={setViewMode} />
       </div>
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <input
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
-          placeholder="Buscar por nombre…"
-          aria-label="Buscar productos"
-          className="h-12 rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10 lg:min-w-40 lg:flex-1"
-        />
-        <FiltersButton onClick={() => setFiltersOpen(true)} hasActiveFilters={searchInput !== ''} />
-      </div>
-
       {(() => {
         const filterControls = (
           <>
@@ -368,7 +358,23 @@ export function PricingPage() {
             <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen}>
               {filterControls}
             </FiltersSheet>
-            <div className="hidden flex-wrap gap-3 lg:flex">{filterControls}</div>
+            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+              <SearchInput
+                value={searchInput}
+                onChange={setSearchInput}
+                placeholder="Buscar por nombre…"
+                ariaLabel="Buscar productos"
+                className="lg:min-w-40 lg:flex-1"
+              />
+              <div className="grid grid-cols-2 gap-4 lg:hidden">
+                <FiltersButton
+                  onClick={() => setFiltersOpen(true)}
+                  hasActiveFilters={searchInput !== ''}
+                  widthClassName="w-full"
+                />
+              </div>
+              <div className="hidden flex-wrap items-center gap-3 lg:flex">{filterControls}</div>
+            </div>
           </>
         )
       })()}
