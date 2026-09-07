@@ -57,6 +57,7 @@ export interface Product {
   category_id: number
   unit_id: number
   status: string
+  image_url: string | null
   variants: Variant[]
 }
 

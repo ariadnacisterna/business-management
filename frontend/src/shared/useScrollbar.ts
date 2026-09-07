@@ -1,33 +1,29 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-export function useTableScrollbar(deps: unknown[]) {
-  const tableScrollRef = useRef<HTMLDivElement>(null)
-  const theadRef = useRef<HTMLTableSectionElement>(null)
-  const [scrollbar, setScrollbar] = useState({ visible: false, headerHeight: 0, thumbTop: 0, thumbHeight: 0 })
+export function useScrollbar(deps: unknown[]) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [scrollbar, setScrollbar] = useState({ visible: false, thumbTop: 0, thumbHeight: 0 })
   const dragRef = useRef<{ startY: number; startScrollTop: number; range: number } | null>(null)
 
   function updateScrollbar() {
-    const container = tableScrollRef.current
-    const header = theadRef.current
-    if (container === null || header === null) return
+    const container = scrollRef.current
+    if (container === null) return
 
-    const headerHeight = header.offsetHeight
-    const bodyViewport = container.clientHeight - headerHeight
-    const bodyTotal = container.scrollHeight - headerHeight
-    const maxScrollTop = container.scrollHeight - container.clientHeight
+    const viewport = container.clientHeight
+    const total = container.scrollHeight
+    const maxScrollTop = total - viewport
 
     const next =
-      bodyTotal <= bodyViewport || maxScrollTop <= 0
-        ? { visible: false, headerHeight, thumbTop: 0, thumbHeight: 0 }
+      maxScrollTop <= 0
+        ? { visible: false, thumbTop: 0, thumbHeight: 0 }
         : (() => {
-            const thumbHeight = Math.max(32, bodyViewport * (bodyViewport / bodyTotal))
-            const thumbTop = headerHeight + (container.scrollTop / maxScrollTop) * (bodyViewport - thumbHeight)
-            return { visible: true, headerHeight, thumbTop, thumbHeight }
+            const thumbHeight = Math.max(32, viewport * (viewport / total))
+            const thumbTop = (container.scrollTop / maxScrollTop) * (viewport - thumbHeight)
+            return { visible: true, thumbTop, thumbHeight }
           })()
 
     setScrollbar((prev) =>
       prev.visible === next.visible &&
-      prev.headerHeight === next.headerHeight &&
       Math.abs(prev.thumbTop - next.thumbTop) < 0.5 &&
       Math.abs(prev.thumbHeight - next.thumbHeight) < 0.5
         ? prev
@@ -40,7 +36,7 @@ export function useTableScrollbar(deps: unknown[]) {
   })
 
   useEffect(() => {
-    const container = tableScrollRef.current
+    const container = scrollRef.current
     const content = container?.firstElementChild ?? null
     if (container === null || content === null || typeof ResizeObserver === 'undefined') return
 
@@ -56,14 +52,12 @@ export function useTableScrollbar(deps: unknown[]) {
   }, deps)
 
   function handleThumbPointerDown(event: React.PointerEvent<HTMLDivElement>) {
-    const container = tableScrollRef.current
-    const header = theadRef.current
-    if (container === null || header === null) return
+    const container = scrollRef.current
+    if (container === null) return
 
-    const headerHeight = header.offsetHeight
-    const bodyViewport = container.clientHeight - headerHeight
+    const viewport = container.clientHeight
     const maxScrollTop = container.scrollHeight - container.clientHeight
-    const range = bodyViewport - scrollbar.thumbHeight
+    const range = viewport - scrollbar.thumbHeight
     if (range <= 0) return
 
     dragRef.current = { startY: event.clientY, startScrollTop: container.scrollTop, range }
@@ -87,5 +81,5 @@ export function useTableScrollbar(deps: unknown[]) {
     window.addEventListener('pointerup', handlePointerUp)
   }
 
-  return { tableScrollRef, theadRef, scrollbar, updateScrollbar, handleThumbPointerDown }
+  return { scrollRef, scrollbar, updateScrollbar, handleThumbPointerDown }
 }

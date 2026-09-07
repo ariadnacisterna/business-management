@@ -201,7 +201,17 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse({ ...PRODUCT, status: 'inactive' }))
     await user.click(screen.getByRole('button', { name: 'Desactivar' }))
 
-    expect(await screen.findByText(/Inactivo/)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Productos' })).toBeInTheDocument()
+  })
+
+  it('navigates back to the products list when canceling the edit', async () => {
+    const user = userEvent.setup()
+    renderPage('/products/5?edit=1')
+
+    await screen.findByLabelText(/^Nombre\s?\*?$/)
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+    expect(await screen.findByRole('heading', { name: 'Productos' })).toBeInTheDocument()
   })
 
   it('deactivates a variant after confirming, marking it inactive but still visible', async () => {

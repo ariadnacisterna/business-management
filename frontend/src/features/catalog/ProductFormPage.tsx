@@ -8,15 +8,18 @@ import {
   fetchCategories,
   fetchUnits,
   setInitialVariantPrice,
+  uploadProductImage,
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Attribute, Category, Product, Unit, Variant } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useScrollbar } from '../../shared/useScrollbar'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 import { DuplicateWarning } from './DuplicateWarning'
+import { NewProductImagePicker, ProductImageField } from './ProductImageField'
 import { VariantAttributesEditor } from './VariantAttributesEditor'
 import type { SelectedAttributeValue } from './VariantAttributesEditor'
 
@@ -46,6 +49,12 @@ export function ProductFormPage() {
   const navigate = useNavigate()
   const { account } = useAuth()
   const canManage = canManageCatalog(account)
+  const {
+    scrollRef: modalScrollRef,
+    scrollbar: modalScrollbar,
+    updateScrollbar: updateModalScrollbar,
+    handleThumbPointerDown: handleModalThumbPointerDown,
+  } = useScrollbar([])
 
   const [categories, setCategories] = useState<Category[]>([])
   const [units, setUnits] = useState<Unit[]>([])
@@ -57,6 +66,8 @@ export function ProductFormPage() {
   const [unitId, setUnitId] = useState<number | ''>('')
   const [addVariants, setAddVariants] = useState(false)
   const [variantDrafts, setVariantDrafts] = useState<VariantDraft[]>([])
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imageUploadError, setImageUploadError] = useState(false)
 
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -187,7 +198,15 @@ export function ProductFormPage() {
               }))
             : undefined,
       })
-      setCreatedProduct(result.product)
+      let product = result.product
+      if (imageFile !== null) {
+        try {
+          product = await uploadProductImage(product.id, imageFile)
+        } catch {
+          setImageUploadError(true)
+        }
+      }
+      setCreatedProduct(product)
       setDuplicates(result.possible_duplicates)
       setPrices(Object.fromEntries(result.product.variants.map((variant) => [variant.id, ''])))
     } catch (error) {
@@ -231,8 +250,10 @@ export function ProductFormPage() {
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
 
-      <div className="scrollbar-clean relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl">
+      <div className="relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl">
         <CloseButton onClose={close} className="absolute right-4 top-4" />
+
+        <div ref={modalScrollRef} onScroll={updateModalScrollbar} className="scrollbar-hidden min-h-0 flex-1 overflow-auto py-6 pl-6 pr-9">
 
         {loadStatus === 'loading' && (
           <p role="status" className="flex flex-1 items-center justify-center text-lg opacity-60">
@@ -265,6 +286,21 @@ export function ProductFormPage() {
             </div>
 
             <DuplicateWarning duplicates={duplicates} />
+
+            {imageUploadError && (
+              <p role="alert" className="m-0 text-base text-danger">
+                El producto se creó, pero no se pudo subir la imagen. Podés reintentarlo acá abajo.
+              </p>
+            )}
+
+            <ProductImageField
+              product={createdProduct}
+              disabled={savingPrices}
+              onUpdated={(updated) => {
+                setImageUploadError(false)
+                setCreatedProduct(updated)
+              }}
+            />
 
             <form onSubmit={handleSavePrices} className="flex flex-col gap-3">
               {createdProduct.variants.map((variant) => (
@@ -463,6 +499,8 @@ export function ProductFormPage() {
                 </div>
               )}
 
+              <NewProductImagePicker file={imageFile} disabled={creating} onChange={setImageFile} />
+
               <label className="flex items-center gap-2 text-lg">
                 <input
                   type="checkbox"
@@ -540,6 +578,21 @@ export function ProductFormPage() {
                 Guardar producto
               </button>
             </form>
+          </div>
+        )}
+        </div>
+
+        {modalScrollbar.visible && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute right-1 top-0 w-3 rounded-full bg-line/40"
+            style={{ bottom: 0 }}
+          >
+            <div
+              onPointerDown={handleModalThumbPointerDown}
+              className="pointer-events-auto absolute right-0 w-3 cursor-grab rounded-full bg-brand active:cursor-grabbing"
+              style={{ top: modalScrollbar.thumbTop, height: modalScrollbar.thumbHeight }}
+            />
           </div>
         )}
       </div>

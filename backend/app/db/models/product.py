@@ -28,6 +28,7 @@ class Product(Base, AuditedMixin):
     status: Mapped[str] = mapped_column(
         String(STATUS_MAX_LENGTH), nullable=False, default=EntityStatus.ACTIVE.value
     )
+    image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
 
     business: Mapped["Business"] = relationship(back_populates="products")
     category: Mapped["Category"] = relationship(back_populates="products")

@@ -52,3 +52,11 @@ class VariantNotFound(CatalogError):
 
 class ImplicitVariantNeedsLabel(CatalogError):
     pass
+
+
+class InvalidImageType(CatalogError):
+    pass
+
+
+class ImageTooLarge(CatalogError):
+    pass

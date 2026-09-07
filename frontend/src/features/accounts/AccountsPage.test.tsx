@@ -88,7 +88,7 @@ describe('AccountsPage', () => {
     expect(screen.getByText('Grace Hopper')).toBeInTheDocument()
     expect(screen.getByText('Marisol Díaz')).toBeInTheDocument()
     expect(screen.getByText('ada')).toBeInTheDocument()
-    expect(screen.getAllByText('Dueño').length).toBeGreaterThan(0)
+    expect(screen.getAllByText((content) => content.includes('Dueño')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Mercería').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Despensa').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Activo/).length).toBe(2)
@@ -160,7 +160,7 @@ describe('AccountsPage', () => {
     expect(namesInOrder()).toEqual(['Ada Lovelace', 'Grace Hopper', 'Marisol Díaz'])
   })
 
-  it('colors Mercería with the pink business badge and Despensa with the blue one, regardless of accents', async () => {
+  it('shows the business initial next to its name in the badge, regardless of accents', async () => {
     renderPage(ADMIN_ACCOUNT, [
       {
         id: 1,
@@ -177,8 +177,8 @@ describe('AccountsPage', () => {
 
     const merceriaBadge = await screen.findByText('Merceria')
     const despensaBadge = screen.getByText('Despensa')
-    expect(merceriaBadge).toHaveClass('text-business-merceria')
-    expect(despensaBadge).toHaveClass('text-business-despensa')
+    expect(merceriaBadge.querySelector('span')).toHaveTextContent('M')
+    expect(despensaBadge.querySelector('span')).toHaveTextContent('D')
   })
 
   it('filters by role, business and status, and clears all filters at once', async () => {

@@ -27,6 +27,17 @@ El repositorio se mantiene privado; Render construye la imagen leyendo directame
 5. **Desplegar**: Render construye la imagen y la levanta sola; la primera vez corre todas las migraciones desde cero sobre la base de Supabase (vacía) y crea la cuenta inicial.
 6. **Verificar**: abrir la URL que da Render (algo como `https://abuela-xxxx.onrender.com`), entrar con la cuenta inicial y confirmar que el catálogo real (los datos que ya cargamos en la base local) NO está ahí — es una base nueva y vacía. Si en algún momento se quiere migrar los datos reales de la base local a Supabase, es una tarea aparte (exportar/restaurar un dump de PostgreSQL), no algo que haga este despliegue solo.
 
+## Imagen de producto (T-035)
+
+Las imagenes de producto se guardan en Supabase Storage (no en el servidor de Render, que no tiene disco persistente) y se muestran con una URL publica directa, sin pasar por el backend.
+
+1. **Crear el bucket en Supabase**: panel de Supabase → Storage → New bucket. Marcarlo como publico (lectura publica) para que las URLs de las imagenes funcionen sin autenticacion.
+2. **Completar las variables de entorno en Render** (`sync: false` en `render.yaml`, se cargan desde el panel):
+   - `SUPABASE_URL`: la URL del proyecto de Supabase (Project Settings → API).
+   - `SUPABASE_SERVICE_ROLE_KEY`: la service role key del proyecto (Project Settings → API). Es secreta: nunca va en el repositorio.
+   - `SUPABASE_STORAGE_BUCKET`: el nombre del bucket creado en el paso 1.
+3. Sin estas tres variables configuradas, subir o quitar una imagen de producto devuelve un error controlado (503) en vez de fallar de forma confusa; el resto de la aplicacion sigue funcionando igual.
+
 ## Pendiente
 
 - Dominio propio: por ahora se usa el subdominio gratuito de Render. Migrar a un dominio propio más adelante no requiere cambios de código, solo configurar el dominio en Render.

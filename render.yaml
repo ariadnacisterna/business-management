@@ -28,3 +28,9 @@ services:
         value: "true"
       - key: SESSION_TTL_MINUTES
         value: "720"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        sync: false

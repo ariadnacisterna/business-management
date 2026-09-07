@@ -1,11 +1,12 @@
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.constants.roles import GERENTE
 from app.constants.status import EntityStatus
+from app.core.storage import StorageNotConfigured, StorageRequestFailed
 from app.db.models import Account, AttributeValue, Business, Price, Product, Variant
 from app.db.session import get_db
 from app.domain.access.permissions import (
@@ -23,13 +24,16 @@ from app.domain.catalog.errors import (
     DuplicateAttributeValue,
     DuplicateCategoryName,
     DuplicateUnitName,
+    ImageTooLarge,
     ImplicitVariantNeedsLabel,
     InvalidAttributeValue,
     InvalidCatalogInput,
+    InvalidImageType,
     ProductNotFound,
     UnitNotFound,
     VariantNotFound,
 )
+from app.domain.catalog.product_images import remove_product_image, set_product_image
 from app.domain.catalog.products import VariantInput
 from app.domain.pricing.prices import get_current_prices_for_variants
 
@@ -116,6 +120,7 @@ class ProductResponse(BaseModel):
     category_id: int
     unit_id: int
     status: str
+    image_url: str | None
     variants: list[VariantResponse]
 
 
@@ -210,6 +215,7 @@ def _product_response(
         category_id=product.category_id,
         unit_id=product.unit_id,
         status=product.status,
+        image_url=product.image_url,
         variants=[_variant_response(variant, current_prices) for variant in product.variants],
     )
 
@@ -810,3 +816,59 @@ def update_variant(
         variant=_variant_response(variant),
         possible_duplicates=[_variant_response(candidate) for candidate in duplicates],
     )
+
+
+@router.post(
+    "/products/{product_id}/image",
+    response_model=ProductResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def upload_product_image(
+    product_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
+) -> ProductResponse:
+    content = file.file.read()
+    content_type = file.content_type or ""
+
+    try:
+        product = set_product_image(db, business.id, product_id, _actor.id, content, content_type)
+    except ProductNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
+    except (InvalidImageType, ImageTooLarge) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    except StorageNotConfigured as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "El almacenamiento de imagenes no esta configurado"
+        ) from exc
+    except StorageRequestFailed as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "No se pudo subir la imagen") from exc
+
+    return _product_response(product)
+
+
+@router.delete(
+    "/products/{product_id}/image",
+    response_model=ProductResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def delete_product_image(
+    product_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
+) -> ProductResponse:
+    try:
+        product = remove_product_image(db, business.id, product_id, _actor.id)
+    except ProductNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
+    except StorageNotConfigured as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "El almacenamiento de imagenes no esta configurado"
+        ) from exc
+    except StorageRequestFailed as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "No se pudo eliminar la imagen") from exc
+
+    return _product_response(product)

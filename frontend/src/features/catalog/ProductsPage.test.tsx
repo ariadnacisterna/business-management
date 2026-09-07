@@ -41,6 +41,7 @@ const PRODUCTS: Product[] = [
     category_id: 1,
     unit_id: 1,
     status: 'active',
+    image_url: 'https://example.supabase.co/storage/v1/object/public/product-images/products/1.png',
     variants: [
       {
         id: 10,
@@ -59,6 +60,7 @@ const PRODUCTS: Product[] = [
     category_id: 2,
     unit_id: 2,
     status: 'active',
+    image_url: null,
     variants: [
       {
         id: 11,
@@ -121,6 +123,16 @@ describe('ProductsPage', () => {
     expect(screen.getByText('2 productos encontrados')).toBeInTheDocument()
   })
 
+  it('shows a thumbnail for products with an image, and a placeholder for products without one', async () => {
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+
+    const withImage = screen.getByAltText('Cinta bebé') as HTMLImageElement
+    expect(withImage.src).toBe(PRODUCTS[0].image_url)
+    expect(screen.queryByAltText('Tela de lino')).not.toBeInTheDocument()
+  })
+
   it('shows each product\'s price, or a placeholder when it has no price or several prices', async () => {
     const fetchMock = fetch as ReturnType<typeof vi.fn>
     const products: Product[] = [
@@ -132,6 +144,7 @@ describe('ProductsPage', () => {
         category_id: 1,
         unit_id: 1,
         status: 'active',
+        image_url: null,
         variants: [
           { id: 20, product_id: 3, label: 'Chico', is_implicit: false, status: 'active', attribute_value_ids: [], price_amount: '10.00' },
           { id: 21, product_id: 3, label: 'Grande', is_implicit: false, status: 'active', attribute_value_ids: [], price_amount: '20.00' },
@@ -368,8 +381,6 @@ describe('ProductsPage', () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ ...PRODUCTS[0], name: 'Cinta bebé XL' }))
     await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
     await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Guardar' }))
-
-    await user.click(await screen.findByRole('button', { name: 'Cerrar' }))
 
     expect(await screen.findByText('Cinta bebé XL')).toBeInTheDocument()
     expect(screen.queryByText('Cinta bebé', { exact: true })).not.toBeInTheDocument()

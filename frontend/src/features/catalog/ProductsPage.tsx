@@ -19,6 +19,7 @@ import { HEADER_ACTION_BUTTON_CLASSES } from '../../shared/headerActionButton'
 import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useScrollbar } from '../../shared/useScrollbar'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
 import type { ViewMode } from '../../shared/ViewToggle'
 import { ViewToggle } from '../../shared/ViewToggle'
@@ -39,6 +40,31 @@ interface Filters {
 const DEFAULT_FILTERS: Filters = { page: 1, pageSize: 25, categoryId: 'all', status: 'all' }
 
 const priceFormatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' })
+
+function ProductThumbnail({ product, sizeClassName }: { product: Product; sizeClassName: string }) {
+  if (product.image_url !== null) {
+    return (
+      <img
+        src={product.image_url}
+        alt={product.name}
+        className={`${sizeClassName} shrink-0 rounded-lg border border-line object-cover`}
+      />
+    )
+  }
+
+  return (
+    <div
+      aria-hidden="true"
+      className={`${sizeClassName} flex shrink-0 items-center justify-center rounded-lg border border-line bg-line/15 text-ink/30`}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-1/2 w-1/2">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <path d="M21 15l-5-5L5 21" />
+      </svg>
+    </div>
+  )
+}
 
 function productPriceInfo(product: Product): { amount: number; hasRange: boolean } | null {
   const amounts = product.variants
@@ -76,6 +102,12 @@ export function ProductsPage() {
     filters.pageSize,
     viewMode,
   ])
+  const {
+    scrollRef: cardScrollRef,
+    scrollbar: cardScrollbar,
+    updateScrollbar: updateCardScrollbar,
+    handleThumbPointerDown: handleCardThumbPointerDown,
+  } = useScrollbar([products, filters.pageSize, viewMode])
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {})
@@ -396,27 +428,37 @@ export function ProductsPage() {
       {status === 'success' && total > 0 && (
         <>
           {viewMode === 'cards' && (
-            <div className="scrollbar-clean flex flex-col gap-3 lg:min-h-0 lg:flex-1 lg:overflow-auto">
+          <div className="relative flex min-h-0 shrink flex-col lg:flex-1">
+            <div
+              ref={cardScrollRef}
+              onScroll={updateCardScrollbar}
+              className="scrollbar-hidden lg:min-h-0 lg:flex-1 lg:overflow-auto lg:pr-5"
+            >
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
               {sorted.map((product) => {
                 const isUndifferentiated = product.variants.length === 1 && product.variants[0].is_implicit
                 const priceInfo = productPriceInfo(product)
                 return (
                   <div key={product.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
+                    <div className="relative">
+                      <ProductThumbnail product={product} sizeClassName="aspect-video w-full" />
+                      <span
+                        className={`absolute right-3 top-3 inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
+                          product.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
+                        }`}
+                      >
+                        ● {product.status === 'active' ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </div>
                     <div className="flex items-start justify-between gap-3">
                       <span className="text-base opacity-50">Próximamente</span>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
-                            product.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
-                          }`}
-                        >
-                          ● {product.status === 'active' ? 'Activo' : 'Inactivo'}
-                        </span>
-                        <RowMenu title={product.name} items={productRowMenuItems(product)} />
-                      </div>
+                      <RowMenu title={product.name} items={productRowMenuItems(product)} />
                     </div>
-                    <div>
-                      <Link to={`/products/${product.id}`} className="text-xl font-bold hover:text-brand">
+                    <div className="min-h-20">
+                      <Link
+                        to={`/products/${product.id}`}
+                        className="line-clamp-2 text-xl font-bold leading-tight hover:text-brand"
+                      >
                         <HighlightedText text={product.name} query={appliedSearch} />
                       </Link>
                       <p className="mt-0.5 text-lg opacity-60">{categoryName(product.category_id)}</p>
@@ -450,6 +492,22 @@ export function ProductsPage() {
                 )
               })}
             </div>
+            </div>
+
+            {cardScrollbar.visible && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute right-0 top-0 hidden w-3 rounded-full bg-line/40 lg:block"
+                style={{ bottom: 0 }}
+              >
+                <div
+                  onPointerDown={handleCardThumbPointerDown}
+                  className="pointer-events-auto absolute right-0 w-3 cursor-grab rounded-full bg-brand active:cursor-grabbing"
+                  style={{ top: cardScrollbar.thumbTop, height: cardScrollbar.thumbHeight }}
+                />
+              </div>
+            )}
+          </div>
           )}
 
           {viewMode === 'table' && (
@@ -462,6 +520,7 @@ export function ProductsPage() {
               <table className="w-full min-w-[900px]">
                 <thead ref={theadRef} className="sticky top-0 z-10">
                   <tr className="table-header border-b border-line">
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Imagen</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Código</th>
                     <th
                       onClick={toggleSort}
@@ -483,6 +542,9 @@ export function ProductsPage() {
                   const isUndifferentiated = product.variants.length === 1 && product.variants[0].is_implicit
                   return (
                     <tr key={product.id} className="border-t border-line transition-colors hover:bg-surface-brand/60">
+                      <td className="px-4 py-3.5">
+                        <ProductThumbnail product={product} sizeClassName="h-12 w-12" />
+                      </td>
                       <td className="whitespace-nowrap px-4 py-3.5 text-lg italic opacity-40">Próximamente</td>
                       <td className="max-w-xs px-4 py-3.5">
                         <Link to={`/products/${product.id}`} className="text-lg font-semibold hover:text-brand">

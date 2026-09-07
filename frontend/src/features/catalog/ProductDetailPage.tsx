@@ -14,8 +14,10 @@ import {
   fetchVariantCurrentPrice,
   reactivateProduct,
   reactivateVariant,
+  removeProductImage,
   updateProduct,
   updateVariant,
+  uploadProductImage,
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Attribute, Category, Price, Product, Unit, Variant } from '../../api/types'
@@ -23,10 +25,12 @@ import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useScrollbar } from '../../shared/useScrollbar'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 import { ChangePriceModal } from './ChangePriceModal'
 import { DuplicateWarning } from './DuplicateWarning'
+import { StagedProductImageField } from './ProductImageField'
 import { VariantAttributesEditor } from './VariantAttributesEditor'
 import type { SelectedAttributeValue } from './VariantAttributesEditor'
 
@@ -78,6 +82,12 @@ export function ProductDetailPage() {
   const { account } = useAuth()
   const canManage = canManageCatalog(account)
   const outletContext = useOutletContext<ProductsOutletContext>() as ProductsOutletContext | undefined
+  const {
+    scrollRef: modalScrollRef,
+    scrollbar: modalScrollbar,
+    updateScrollbar: updateModalScrollbar,
+    handleThumbPointerDown: handleModalThumbPointerDown,
+  } = useScrollbar([id])
 
   const [product, setProduct] = useState<Product | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
@@ -92,6 +102,8 @@ export function ProductDetailPage() {
   const [productError, setProductError] = useState<string | null>(null)
   const [confirmingStatusChange, setConfirmingStatusChange] = useState(false)
   const [confirmingProductEdit, setConfirmingProductEdit] = useState(false)
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null)
+  const [imageRemoved, setImageRemoved] = useState(false)
 
   const [priceDraft, setPriceDraft] = useState('')
   const [variantDraftRows, setVariantDraftRows] = useState<{ id: number; label: string; price: string }[]>([])
@@ -177,6 +189,8 @@ export function ProductDetailPage() {
               price: priceByVariantId.get(variant.id)?.amount ?? '',
             })),
           )
+          setPendingImageFile(null)
+          setImageRemoved(false)
           setEditingProduct(true)
         }
 
@@ -292,6 +306,12 @@ export function ProductDetailPage() {
         updated = productDraft.status === 'active' ? await reactivateProduct(product.id) : await deactivateProduct(product.id)
       }
 
+      if (imageRemoved) {
+        updated = { ...updated, image_url: (await removeProductImage(product.id)).image_url }
+      } else if (pendingImageFile !== null) {
+        updated = { ...updated, image_url: (await uploadProductImage(product.id, pendingImageFile)).image_url }
+      }
+
       const nextPricesByVariant = new Map(pricesByVariant)
       let nextVariants = product.variants
 
@@ -331,7 +351,10 @@ export function ProductDetailPage() {
       setPricesByVariant(nextPricesByVariant)
       setProduct({ ...updated, variants: nextVariants })
       outletContext?.onProductUpdated({ ...updated, variants: nextVariants })
+      setPendingImageFile(null)
+      setImageRemoved(false)
       setEditingProduct(false)
+      close()
     } catch (error) {
       setProductError(
         error instanceof ApiError && error.status === 409
@@ -424,8 +447,10 @@ export function ProductDetailPage() {
     <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
 
-      <div className="scrollbar-clean relative flex max-h-[90vh] min-h-[16rem] w-full max-w-full flex-col overflow-y-auto rounded-2xl bg-surface p-4 shadow-2xl sm:max-w-2xl sm:p-6">
+      <div className="relative flex max-h-[90vh] min-h-[16rem] w-full max-w-full flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl sm:max-w-2xl">
         <CloseButton onClose={close} className="absolute right-3 top-3 sm:right-4 sm:top-4" />
+
+        <div ref={modalScrollRef} onScroll={updateModalScrollbar} className="scrollbar-hidden min-h-0 flex-1 overflow-auto py-4 pl-4 pr-7 sm:py-6 sm:pl-6 sm:pr-9">
 
         {loadStatus === 'loading' && (
           <p role="status" className="flex flex-1 items-center justify-center text-lg opacity-60">
@@ -497,6 +522,26 @@ export function ProductDetailPage() {
                     onChange={(event) => setProductDraft((prev) => ({ ...prev, name: event.target.value }))}
                     disabled={savingProduct}
                     className={inputClasses}
+                  />
+
+                  <StagedProductImageField
+                    imageUrl={product.image_url}
+                    productName={product.name}
+                    pendingFile={pendingImageFile}
+                    removed={imageRemoved}
+                    disabled={savingProduct}
+                    onSelectFile={(file) => {
+                      setPendingImageFile(file)
+                      setImageRemoved(false)
+                    }}
+                    onRemove={() => {
+                      setImageRemoved(true)
+                      setPendingImageFile(null)
+                    }}
+                    onUndo={() => {
+                      setPendingImageFile(null)
+                      setImageRemoved(false)
+                    }}
                   />
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -929,7 +974,12 @@ export function ProductDetailPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setEditingProduct(false)}
+                    onClick={() => {
+                      setEditingProduct(false)
+                      setPendingImageFile(null)
+                      setImageRemoved(false)
+                      close()
+                    }}
                     disabled={savingProduct}
                     className={`${secondaryButtonClasses} flex-1`}
                   >
@@ -939,18 +989,39 @@ export function ProductDetailPage() {
               </form>
             ) : (
               <div className="flex flex-col gap-3">
-                <h1 className="m-0 text-2xl font-bold">{product.name}</h1>
-
-                <div className="-mt-3 flex items-center gap-2 text-base">
-                  <span
-                    className={`flex items-center gap-1.5 font-semibold ${
-                      product.status === 'active' ? 'text-success' : 'text-ink/50'
-                    }`}
-                  >
-                    ● {product.status === 'active' ? 'Activo' : 'Inactivo'}
-                  </span>
-                  <span className="opacity-40">·</span>
-                  <span className="font-mono uppercase italic opacity-40">Próximamente</span>
+                <div className="flex items-start gap-4">
+                  {product.image_url !== null ? (
+                    <img
+                      src={product.image_url}
+                      alt={product.name}
+                      className="h-20 w-20 shrink-0 rounded-lg border border-line object-cover"
+                    />
+                  ) : (
+                    <div
+                      aria-hidden="true"
+                      className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border border-line bg-line/15 text-ink/30"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-1/2 w-1/2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <circle cx="8.5" cy="8.5" r="1.5" />
+                        <path d="M21 15l-5-5L5 21" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-1">
+                    <h1 className="m-0 text-2xl font-bold">{product.name}</h1>
+                    <div className="flex items-center gap-2 text-base">
+                      <span
+                        className={`flex items-center gap-1.5 font-semibold ${
+                          product.status === 'active' ? 'text-success' : 'text-ink/50'
+                        }`}
+                      >
+                        ● {product.status === 'active' ? 'Activo' : 'Inactivo'}
+                      </span>
+                      <span className="opacity-40">·</span>
+                      <span className="font-mono uppercase italic opacity-40">Próximamente</span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-4 rounded-xl bg-line/15 p-4">
@@ -1179,6 +1250,21 @@ export function ProductDetailPage() {
 
               </div>
             )}
+          </div>
+        )}
+        </div>
+
+        {modalScrollbar.visible && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute right-1 top-0 w-3 rounded-full bg-line/40"
+            style={{ bottom: 0 }}
+          >
+            <div
+              onPointerDown={handleModalThumbPointerDown}
+              className="pointer-events-auto absolute right-0 w-3 cursor-grab rounded-full bg-brand active:cursor-grabbing"
+              style={{ top: modalScrollbar.thumbTop, height: modalScrollbar.thumbHeight }}
+            />
           </div>
         )}
       </div>

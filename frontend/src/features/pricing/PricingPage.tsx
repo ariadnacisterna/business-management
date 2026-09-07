@@ -20,6 +20,7 @@ import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { firstName } from '../../shared/formatName'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
+import { useScrollbar } from '../../shared/useScrollbar'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
 import type { ViewMode } from '../../shared/ViewToggle'
 import { ViewToggle } from '../../shared/ViewToggle'
@@ -126,6 +127,18 @@ export function PricingPage() {
     products,
     viewMode,
   ])
+  const {
+    scrollRef: cardScrollRef,
+    scrollbar: cardScrollbar,
+    updateScrollbar: updateCardScrollbar,
+    handleThumbPointerDown: handleCardThumbPointerDown,
+  } = useScrollbar([products, viewMode])
+  const {
+    scrollRef: historyScrollRef,
+    scrollbar: historyScrollbar,
+    updateScrollbar: updateHistoryScrollbar,
+    handleThumbPointerDown: handleHistoryThumbPointerDown,
+  } = useScrollbar([historyState])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -428,7 +441,13 @@ export function PricingPage() {
       {status === 'success' && total > 0 && (
         <>
           {viewMode === 'cards' && (
-            <div className="scrollbar-clean flex flex-col gap-3 lg:min-h-0 lg:flex-1 lg:overflow-auto">
+          <div className="relative flex min-h-0 shrink flex-col lg:flex-1">
+            <div
+              ref={cardScrollRef}
+              onScroll={updateCardScrollbar}
+              className="scrollbar-hidden lg:min-h-0 lg:flex-1 lg:overflow-auto lg:pr-5"
+            >
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
               {products.map((product) => {
                 const activeVariants = product.variants.filter((variant) => variant.status === 'active')
                 if (activeVariants.length === 0) return null
@@ -465,9 +484,9 @@ export function PricingPage() {
                       const edited = draft.trim() !== '' && draft.trim() !== (currentPrice?.amount ?? '')
                       return (
                         <div key={variant.id} data-testid="price-row" className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-xl font-bold">
+                          <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
+                            <div className="min-h-20">
+                              <p className="line-clamp-2 text-xl font-bold leading-tight">
                                 <HighlightedText text={product.name} query={appliedSearch} />
                               </p>
                               <p className="mt-0.5 text-lg opacity-60">{variantLabel(variant)}</p>
@@ -479,13 +498,13 @@ export function PricingPage() {
                             )}
                           </div>
                           {canManage && (
-                            <div className="flex items-center gap-2">
+                            <div className="grid grid-cols-2 gap-2">
                               <PriceInput
                                 value={draft}
                                 placeholder={currentPrice?.amount}
                                 onChange={(value) => setDraft(variant.id, value)}
                                 ariaLabel={`Nuevo precio para ${product.name} ${variantLabel(variant)}`}
-                                className={`${edited ? editedInputClasses : inputClasses} flex-1`}
+                                className={`${edited ? editedInputClasses : inputClasses} w-full`}
                               />
                               <button
                                 type="button"
@@ -493,8 +512,8 @@ export function PricingPage() {
                                 onClick={() => startVariantChange(product, variant)}
                                 className={
                                   edited
-                                    ? 'h-12 shrink-0 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90'
-                                    : 'h-12 shrink-0 cursor-not-allowed rounded-lg bg-line px-5 text-base font-bold text-ink/40'
+                                    ? 'h-12 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90'
+                                    : 'h-12 cursor-not-allowed rounded-lg bg-line px-5 text-base font-bold text-ink/40'
                                 }
                               >
                                 Actualizar
@@ -532,6 +551,22 @@ export function PricingPage() {
                 )
               })}
             </div>
+            </div>
+
+            {cardScrollbar.visible && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute right-0 top-0 hidden w-3 rounded-full bg-line/40 lg:block"
+                style={{ bottom: 0 }}
+              >
+                <div
+                  onPointerDown={handleCardThumbPointerDown}
+                  className="pointer-events-auto absolute right-0 w-3 cursor-grab rounded-full bg-brand active:cursor-grabbing"
+                  style={{ top: cardScrollbar.thumbTop, height: cardScrollbar.thumbHeight }}
+                />
+              </div>
+            )}
+          </div>
           )}
 
           {viewMode === 'table' && (
@@ -734,22 +769,46 @@ export function PricingPage() {
               <p className="text-lg opacity-60">Todavía no hay cambios de precio registrados.</p>
             )}
             {historyState.status === 'success' && historyState.prices.length > 0 && (
-              <ul className="scrollbar-clean flex flex-col gap-3 overflow-auto">
-                {[...historyState.prices]
-                  .sort((a, b) => new Date(b.effective_from).getTime() - new Date(a.effective_from).getTime())
-                  .map((price) => (
-                    <li key={price.id} className="flex flex-col gap-1 rounded-lg border border-line px-4 py-3">
-                      <div className="flex items-center justify-between text-lg">
-                        <span className="font-bold text-brand">{formatAmount(price.amount)}</span>
-                        <span className="opacity-60">{price.created_by_account_name}</span>
-                      </div>
-                      <p className="m-0 text-base opacity-60">
-                        Vigente desde {formatRelativeTime(price.effective_from)}
-                        {price.effective_to !== null ? ` hasta ${formatRelativeTime(price.effective_to)}` : ' (actual)'}
-                      </p>
-                    </li>
-                  ))}
-              </ul>
+              <div className="relative min-h-0 flex-1">
+                <div
+                  ref={historyScrollRef}
+                  onScroll={updateHistoryScrollbar}
+                  className="scrollbar-hidden h-full overflow-auto pr-5"
+                >
+                  <ul className="flex flex-col gap-3">
+                    {[...historyState.prices]
+                      .sort((a, b) => new Date(b.effective_from).getTime() - new Date(a.effective_from).getTime())
+                      .map((price) => (
+                        <li key={price.id} className="flex flex-col gap-1 rounded-lg border border-line px-4 py-3">
+                          <div className="flex items-center justify-between text-lg">
+                            <span className="font-bold text-brand">{formatAmount(price.amount)}</span>
+                            <span className="opacity-60">{price.created_by_account_name}</span>
+                          </div>
+                          <p className="m-0 text-base opacity-60">
+                            Vigente desde {formatRelativeTime(price.effective_from)}
+                            {price.effective_to !== null
+                              ? ` hasta ${formatRelativeTime(price.effective_to)}`
+                              : ' (actual)'}
+                          </p>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+
+                {historyScrollbar.visible && (
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute right-0 top-0 w-3 rounded-full bg-line/40"
+                    style={{ bottom: 0 }}
+                  >
+                    <div
+                      onPointerDown={handleHistoryThumbPointerDown}
+                      className="pointer-events-auto absolute right-0 w-3 cursor-grab rounded-full bg-brand active:cursor-grabbing"
+                      style={{ top: historyScrollbar.thumbTop, height: historyScrollbar.thumbHeight }}
+                    />
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>

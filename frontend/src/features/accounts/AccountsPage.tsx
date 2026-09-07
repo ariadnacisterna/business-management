@@ -20,6 +20,7 @@ import { Pagination } from '../../shared/Pagination'
 import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useScrollbar } from '../../shared/useScrollbar'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
 import type { ViewMode } from '../../shared/ViewToggle'
 import { ViewToggle } from '../../shared/ViewToggle'
@@ -341,6 +342,12 @@ export function AccountsPage() {
     accounts,
     viewMode,
   ])
+  const {
+    scrollRef: cardScrollRef,
+    scrollbar: cardScrollbar,
+    updateScrollbar: updateCardScrollbar,
+    handleThumbPointerDown: handleCardThumbPointerDown,
+  } = useScrollbar([accounts, viewMode])
 
   function load() {
     setStatus('loading')
@@ -513,13 +520,6 @@ export function AccountsPage() {
       {(() => {
         const filterControls = (
           <>
-            <SearchInput
-              value={searchInput}
-              onChange={setSearchInput}
-              placeholder="Buscar nombre o usuario…"
-              ariaLabel="Buscar cuentas"
-              className="w-full lg:min-w-48 lg:flex-1"
-            />
             <SelectMenu
               value={roleFilter}
               onChange={(value: RoleFilter) => setRoleFilter(value)}
@@ -585,7 +585,7 @@ export function AccountsPage() {
                 onChange={setSearchInput}
                 placeholder="Buscar nombre o usuario…"
                 ariaLabel="Buscar cuentas"
-                className="lg:hidden"
+                className="lg:min-w-48 lg:flex-1"
               />
               <div className="grid grid-cols-2 gap-4 lg:hidden">
                 <FiltersButton
@@ -667,19 +667,25 @@ export function AccountsPage() {
       {status === 'success' && sorted.length > 0 && (
         <>
         {viewMode === 'cards' && (
-          <div className="scrollbar-clean flex flex-col gap-3 lg:min-h-0 lg:flex-1 lg:overflow-auto">
+        <div className="relative flex min-h-0 shrink flex-col lg:flex-1">
+          <div
+            ref={cardScrollRef}
+            onScroll={updateCardScrollbar}
+            className="scrollbar-hidden lg:min-h-0 lg:flex-1 lg:overflow-auto lg:pr-5"
+          >
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
             {paginated.map((account) => (
               <div key={account.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-bold text-brand-contrast">
                       {initials(account.name)}
                     </span>
-                    <span className="text-xl font-bold">
+                    <span className="truncate text-xl font-bold">
                       <HighlightedText text={account.name} query={searchInput} />
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
                     <span
                       className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
                         account.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
@@ -698,9 +704,9 @@ export function AccountsPage() {
                   value={
                     account.role !== null ? (
                       <span
-                        className={`inline-flex items-center whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${ROLE_BADGE_CLASSES[account.role as Role]}`}
+                        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold ${ROLE_BADGE_CLASSES[account.role as Role]}`}
                       >
-                        {account.role}
+                        ● {account.role}
                       </span>
                     ) : (
                       '—'
@@ -714,8 +720,11 @@ export function AccountsPage() {
                       {account.businesses.map((business) => (
                         <span
                           key={business.id}
-                          className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold ${businessBadgeClasses(business)}`}
+                          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-ink/5 py-1 pl-2 pr-3 text-sm font-semibold text-ink/70"
                         >
+                          <span className="text-sm font-extrabold text-ink">
+                            {business.name.charAt(0).toUpperCase()}
+                          </span>
                           {business.name}
                         </span>
                       ))}
@@ -725,6 +734,22 @@ export function AccountsPage() {
               </div>
             ))}
           </div>
+          </div>
+
+          {cardScrollbar.visible && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute right-0 top-0 hidden w-3 rounded-full bg-line/40 lg:block"
+              style={{ bottom: 0 }}
+            >
+              <div
+                onPointerDown={handleCardThumbPointerDown}
+                className="pointer-events-auto absolute right-0 w-3 cursor-grab rounded-full bg-brand active:cursor-grabbing"
+                style={{ top: cardScrollbar.thumbTop, height: cardScrollbar.thumbHeight }}
+              />
+            </div>
+          )}
+        </div>
         )}
 
         {viewMode === 'table' && (

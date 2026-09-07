@@ -172,6 +172,16 @@ export function changeProductPrice(
   })
 }
 
+export function uploadProductImage(id: number, file: File): Promise<Product> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return apiFetch<Product>(`/products/${id}/image`, { method: 'POST', body: formData })
+}
+
+export function removeProductImage(id: number): Promise<Product> {
+  return apiFetch<Product>(`/products/${id}/image`, { method: 'DELETE' })
+}
+
 export function deactivateProduct(id: number): Promise<Product> {
   return apiFetch<Product>(`/products/${id}/deactivate`, { method: 'POST' })
 }

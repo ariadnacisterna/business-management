@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     session_ttl_minutes: int = 720
     cookie_secure: bool = True
 
+    supabase_url: str | None = None
+    supabase_service_role_key: str | None = None
+    supabase_storage_bucket: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:
