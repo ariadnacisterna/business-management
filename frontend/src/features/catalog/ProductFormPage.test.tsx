@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
@@ -111,6 +111,7 @@ describe('ProductFormPage', () => {
     await pickOption(user, 'Categoría', 'Mercería')
     await pickOption(user, 'Unidad', 'Unidad (un)')
     await user.click(screen.getByRole('button', { name: 'Guardar producto' }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Crear' }))
 
     const heading = await screen.findByRole('heading', { name: 'Precio inicial' })
     expect(heading).toBeInTheDocument()
@@ -126,6 +127,32 @@ describe('ProductFormPage', () => {
         body: JSON.stringify({ amount: '150', expected_current_price_id: null }),
       }),
     )
+  })
+
+  it('does not create the product when the confirmation is cancelled', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse(ATTRIBUTES))
+
+    renderPage()
+
+    await user.type(await screen.findByLabelText('Nombre'), 'Hilo blanco')
+    await pickOption(user, 'Categoría', 'Mercería')
+    await pickOption(user, 'Unidad', 'Unidad (un)')
+
+    const callsBeforeConfirm = fetchMock.mock.calls.length
+    await user.click(screen.getByRole('button', { name: 'Guardar producto' }))
+
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.length).toBe(callsBeforeConfirm)
+    expect(screen.queryByRole('heading', { name: 'Precio inicial' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Hilo blanco')
   })
 
   it('lets the user add variants with attribute values and creates one variant per row', async () => {
@@ -176,6 +203,7 @@ describe('ProductFormPage', () => {
     await user.selectOptions(await screen.findByLabelText('Valor'), '1')
 
     await user.click(screen.getByRole('button', { name: 'Guardar producto' }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Crear' }))
 
     expect(fetchMock).toHaveBeenLastCalledWith(
       '/products',

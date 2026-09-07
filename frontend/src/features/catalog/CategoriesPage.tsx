@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createCategory, fetchCategories, fetchProducts, updateCategory } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Category, Product } from '../../api/types'
+import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 
@@ -37,6 +38,9 @@ export function CategoriesPage() {
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
 
+  const [confirmingCreate, setConfirmingCreate] = useState(false)
+  const [confirmingEdit, setConfirmingEdit] = useState<Category | null>(null)
+
   function load() {
     setStatus('loading')
     setLoadError(null)
@@ -62,9 +66,15 @@ export function CategoriesPage() {
     return counts
   }, [products])
 
-  async function handleCreate(event: React.FormEvent) {
+  function handleCreate(event: React.FormEvent) {
     event.preventDefault()
     setCreateError(null)
+    if (newName.trim() === '') return
+    setConfirmingCreate(true)
+  }
+
+  async function createCategoryNow() {
+    setConfirmingCreate(false)
     const trimmed = newName.trim()
     if (trimmed === '') return
 
@@ -93,12 +103,21 @@ export function CategoriesPage() {
     setEditError(null)
   }
 
-  async function handleSaveEdit(event: React.FormEvent) {
+  function handleSaveEdit(event: React.FormEvent) {
     event.preventDefault()
+    if (editingId === null) return
+    if (editingName.trim() === '') return
+    const category = categories.find((item) => item.id === editingId)
+    if (category === undefined) return
+    setConfirmingEdit(category)
+  }
+
+  async function saveEditNow() {
     if (editingId === null) return
     const trimmed = editingName.trim()
     if (trimmed === '') return
 
+    setConfirmingEdit(null)
     setSavingEdit(true)
     setEditError(null)
     try {
@@ -242,6 +261,26 @@ export function CategoriesPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {confirmingCreate && (
+        <ConfirmDialog
+          title="Crear categoría"
+          description={`Se va a crear la categoría "${newName.trim()}".`}
+          confirmLabel="Crear"
+          onConfirm={createCategoryNow}
+          onCancel={() => setConfirmingCreate(false)}
+        />
+      )}
+
+      {confirmingEdit !== null && (
+        <ConfirmDialog
+          title="Guardar categoría"
+          description={`"${confirmingEdit.name}" va a pasar a llamarse "${editingName.trim()}".`}
+          confirmLabel="Guardar"
+          onConfirm={saveEditNow}
+          onCancel={() => setConfirmingEdit(null)}
+        />
       )}
     </section>
   )

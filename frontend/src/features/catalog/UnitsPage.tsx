@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createUnit, fetchProducts, fetchUnits, updateUnit } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Product, Unit } from '../../api/types'
+import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 
@@ -45,6 +46,9 @@ export function UnitsPage() {
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
 
+  const [confirmingCreate, setConfirmingCreate] = useState(false)
+  const [confirmingEdit, setConfirmingEdit] = useState<Unit | null>(null)
+
   function load() {
     setStatus('loading')
     setLoadError(null)
@@ -70,9 +74,15 @@ export function UnitsPage() {
     return counts
   }, [products])
 
-  async function handleCreate(event: React.FormEvent) {
+  function handleCreate(event: React.FormEvent) {
     event.preventDefault()
     setCreateError(null)
+    if (draft.name.trim() === '' || draft.abbreviation.trim() === '') return
+    setConfirmingCreate(true)
+  }
+
+  async function createUnitNow() {
+    setConfirmingCreate(false)
     const name = draft.name.trim()
     const abbreviation = draft.abbreviation.trim()
     if (name === '' || abbreviation === '') return
@@ -102,13 +112,22 @@ export function UnitsPage() {
     setEditError(null)
   }
 
-  async function handleSaveEdit(event: React.FormEvent) {
+  function handleSaveEdit(event: React.FormEvent) {
     event.preventDefault()
+    if (editingId === null) return
+    if (editingDraft.name.trim() === '' || editingDraft.abbreviation.trim() === '') return
+    const unit = units.find((item) => item.id === editingId)
+    if (unit === undefined) return
+    setConfirmingEdit(unit)
+  }
+
+  async function saveEditNow() {
     if (editingId === null) return
     const name = editingDraft.name.trim()
     const abbreviation = editingDraft.abbreviation.trim()
     if (name === '' || abbreviation === '') return
 
+    setConfirmingEdit(null)
     setSavingEdit(true)
     setEditError(null)
     try {
@@ -304,6 +323,26 @@ export function UnitsPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {confirmingCreate && (
+        <ConfirmDialog
+          title="Crear unidad"
+          description={`Se va a crear la unidad "${draft.name.trim()}" (${draft.abbreviation.trim()}).`}
+          confirmLabel="Crear"
+          onConfirm={createUnitNow}
+          onCancel={() => setConfirmingCreate(false)}
+        />
+      )}
+
+      {confirmingEdit !== null && (
+        <ConfirmDialog
+          title="Guardar unidad"
+          description={`"${confirmingEdit.name}" (${confirmingEdit.abbreviation}) va a pasar a ser "${editingDraft.name.trim()}" (${editingDraft.abbreviation.trim()}).`}
+          confirmLabel="Guardar"
+          onConfirm={saveEditNow}
+          onCancel={() => setConfirmingEdit(null)}
+        />
       )}
     </section>
   )

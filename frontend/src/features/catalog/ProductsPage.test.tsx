@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -367,6 +367,7 @@ describe('ProductsPage', () => {
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ ...PRODUCTS[0], name: 'Cinta bebé XL' }))
     await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Guardar' }))
 
     await user.click(await screen.findByRole('button', { name: 'Cerrar' }))
 

@@ -105,13 +105,19 @@ function AccountFormModal({
   const [password, setPassword] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState(false)
 
   const canSubmit =
     name.trim() !== '' && userName.trim() !== '' && (!showPassword || password.trim() !== '')
 
-  async function handleSubmit(event: React.FormEvent) {
+  function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     if (!canSubmit) return
+    setConfirming(true)
+  }
+
+  async function confirmSubmit() {
+    setConfirming(false)
     setSaving(true)
     setError(null)
     try {
@@ -126,6 +132,11 @@ function AccountFormModal({
       setSaving(false)
     }
   }
+
+  const changes: string[] = []
+  if (name.trim() !== initialValues.name) changes.push(`nombre a "${name.trim()}"`)
+  if (userName.trim() !== initialValues.user_name) changes.push(`usuario a "${userName.trim()}"`)
+  if (role !== initialValues.role) changes.push(`rol a "${role}"`)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -196,6 +207,22 @@ function AccountFormModal({
           </button>
         </div>
       </form>
+
+      {confirming && (
+        <ConfirmDialog
+          title={title}
+          description={
+            initialValues.name === ''
+              ? `Se va a crear la cuenta "${name.trim()}" (usuario "${userName.trim()}", rol ${role}).`
+              : changes.length > 0
+                ? `"${initialValues.name}" va a cambiar: ${changes.join(', ')}.`
+                : `Se van a guardar los datos de "${initialValues.name}" sin cambios.`
+          }
+          confirmLabel="Guardar"
+          onConfirm={confirmSubmit}
+          onCancel={() => setConfirming(false)}
+        />
+      )}
     </div>
   )
 }
@@ -457,7 +484,29 @@ export function AccountsPage() {
           <h1 className="text-3xl font-bold">Cuentas</h1>
           <p className="mt-1 text-lg opacity-60">{accounts.length} cuentas registradas</p>
         </div>
-        <ViewToggle mode={viewMode} onChange={setViewMode} />
+        <div className="flex items-center gap-3">
+          <ViewToggle mode={viewMode} onChange={setViewMode} />
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className={`${HEADER_ACTION_BUTTON_CLASSES} hidden lg:flex bg-brand text-brand-contrast hover:bg-brand/90`}
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Nueva cuenta
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-3">
@@ -465,7 +514,7 @@ export function AccountsPage() {
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className={`${HEADER_ACTION_BUTTON_CLASSES} flex-1 bg-brand text-brand-contrast hover:bg-brand/90`}
+          className={`${HEADER_ACTION_BUTTON_CLASSES} flex-1 bg-brand text-brand-contrast hover:bg-brand/90 lg:hidden`}
         >
           <svg
             aria-hidden="true"

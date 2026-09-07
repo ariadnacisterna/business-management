@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
@@ -91,11 +91,38 @@ describe('CategoriesPage', () => {
     await user.type(screen.getByLabelText('Nueva categoría'), 'Bazar')
     await user.click(screen.getByRole('button', { name: 'Crear' }))
 
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Crear' }))
+
     expect(await screen.findByText('Bazar')).toBeInTheDocument()
     expect(fetchMock).toHaveBeenLastCalledWith(
       '/categories',
       expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'Bazar' }) }),
     )
+  })
+
+  it('does not apply the category creation when the confirmation is cancelled', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 0 }))
+
+    renderPage()
+
+    await screen.findByText('Mercería')
+    await user.click(screen.getByRole('button', { name: '+ Nueva categoría' }))
+    await user.type(screen.getByLabelText('Nueva categoría'), 'Bazar')
+    const callsBeforeConfirm = fetchMock.mock.calls.length
+    await user.click(screen.getByRole('button', { name: 'Crear' }))
+
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.length).toBe(callsBeforeConfirm)
+    expect(screen.queryByText('Bazar')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Nueva categoría')).toHaveValue('Bazar')
   })
 
   it('does not offer creation or edition to an employee', async () => {

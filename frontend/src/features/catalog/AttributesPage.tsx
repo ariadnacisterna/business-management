@@ -56,6 +56,10 @@ export function AttributesPage() {
   const [confirmingStatusChange, setConfirmingStatusChange] = useState<AttributeValue | null>(null)
   const [statusChangeError, setStatusChangeError] = useState<string | null>(null)
 
+  const [confirmingCreateAttribute, setConfirmingCreateAttribute] = useState(false)
+  const [confirmingCreateValue, setConfirmingCreateValue] = useState(false)
+  const [confirmingEditValue, setConfirmingEditValue] = useState<AttributeValue | null>(null)
+
   function loadAttributes() {
     setStatus('loading')
     setLoadError(null)
@@ -96,9 +100,15 @@ export function AttributesPage() {
     loadValues(attributeId)
   }
 
-  async function handleCreateAttribute(event: React.FormEvent) {
+  function handleCreateAttribute(event: React.FormEvent) {
     event.preventDefault()
     setCreateAttributeError(null)
+    if (newAttributeName.trim() === '') return
+    setConfirmingCreateAttribute(true)
+  }
+
+  async function createAttributeNow() {
+    setConfirmingCreateAttribute(false)
     const trimmed = newAttributeName.trim()
     if (trimmed === '') return
 
@@ -115,10 +125,17 @@ export function AttributesPage() {
     }
   }
 
-  async function handleCreateValue(event: React.FormEvent) {
+  function handleCreateValue(event: React.FormEvent) {
     event.preventDefault()
     if (selectedId === null) return
     setCreateValueError(null)
+    if (newValue.trim() === '') return
+    setConfirmingCreateValue(true)
+  }
+
+  async function createValueNow() {
+    if (selectedId === null) return
+    setConfirmingCreateValue(false)
     const trimmed = newValue.trim()
     if (trimmed === '') return
 
@@ -146,12 +163,21 @@ export function AttributesPage() {
     setEditValueError(null)
   }
 
-  async function handleSaveValue(event: React.FormEvent) {
+  function handleSaveValue(event: React.FormEvent) {
     event.preventDefault()
+    if (editingValueId === null) return
+    if (editingValue.trim() === '') return
+    const value = values.find((item) => item.id === editingValueId)
+    if (value === undefined) return
+    setConfirmingEditValue(value)
+  }
+
+  async function saveValueNow() {
     if (editingValueId === null) return
     const trimmed = editingValue.trim()
     if (trimmed === '') return
 
+    setConfirmingEditValue(null)
     setSavingValue(true)
     setEditValueError(null)
     try {
@@ -403,6 +429,36 @@ export function AttributesPage() {
           danger={confirmingStatusChange.status === 'active'}
           onConfirm={confirmStatusChange}
           onCancel={() => setConfirmingStatusChange(null)}
+        />
+      )}
+
+      {confirmingCreateAttribute && (
+        <ConfirmDialog
+          title="Crear atributo"
+          description={`Se va a crear el atributo "${newAttributeName.trim()}".`}
+          confirmLabel="Crear"
+          onConfirm={createAttributeNow}
+          onCancel={() => setConfirmingCreateAttribute(false)}
+        />
+      )}
+
+      {confirmingCreateValue && (
+        <ConfirmDialog
+          title="Crear valor"
+          description={`Se va a crear el valor "${newValue.trim()}" para ${selectedAttribute?.name ?? ''}.`}
+          confirmLabel="Crear"
+          onConfirm={createValueNow}
+          onCancel={() => setConfirmingCreateValue(false)}
+        />
+      )}
+
+      {confirmingEditValue !== null && (
+        <ConfirmDialog
+          title="Guardar valor"
+          description={`"${confirmingEditValue.value}" va a pasar a ser "${editingValue.trim()}".`}
+          confirmLabel="Guardar"
+          onConfirm={saveValueNow}
+          onCancel={() => setConfirmingEditValue(null)}
         />
       )}
     </section>

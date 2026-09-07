@@ -231,7 +231,7 @@ describe('AccountsPage', () => {
     renderPage(ADMIN_ACCOUNT)
 
     await screen.findByText('Ada Lovelace')
-    await user.click(screen.getByRole('button', { name: /nueva cuenta/i }))
+    await user.click(screen.getAllByRole('button', { name: /nueva cuenta/i })[0])
 
     await user.type(screen.getByLabelText('Nombre'), 'Nuevo Empleado')
     await user.type(screen.getByLabelText('Usuario'), 'nuevo')
@@ -248,6 +248,7 @@ describe('AccountsPage', () => {
       }),
     )
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Guardar' }))
 
     expect(await screen.findByText('Nuevo Empleado')).toBeInTheDocument()
     const lastCall = fetchMock.mock.calls.at(-1)
@@ -258,6 +259,30 @@ describe('AccountsPage', () => {
       role: 'Empleado',
       initial_password: 'clave123',
     })
+  })
+
+  it('does not create the account when the confirmation is cancelled', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Ada Lovelace')
+    await user.click(screen.getAllByRole('button', { name: /nueva cuenta/i })[0])
+
+    await user.type(screen.getByLabelText('Nombre'), 'Nuevo Empleado')
+    await user.type(screen.getByLabelText('Usuario'), 'nuevo')
+    await user.type(screen.getByLabelText('Contraseña inicial'), 'clave123')
+
+    const callsBeforeConfirm = fetchMock.mock.calls.length
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.length).toBe(callsBeforeConfirm)
+    expect(screen.queryByText('Nuevo Empleado')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Nuevo Empleado')
   })
 
   it('edits an existing account', async () => {
@@ -277,6 +302,7 @@ describe('AccountsPage', () => {
       jsonResponse({ ...MANAGED_ACCOUNTS[1], name: 'Grace Hopper Rear Admiral' }),
     )
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Guardar' }))
 
     expect(await screen.findByText('Grace Hopper Rear Admiral')).toBeInTheDocument()
   })

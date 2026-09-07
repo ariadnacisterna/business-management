@@ -89,6 +89,38 @@ describe('AttributesPage', () => {
     )
   })
 
+  it('asks for confirmation before creating an attribute, and does nothing on cancel', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(ATTRIBUTES))
+
+    renderPage()
+
+    await screen.findByText('color')
+    await user.click(screen.getByRole('button', { name: '+ Nuevo atributo' }))
+    await user.type(screen.getByLabelText('Nuevo atributo'), 'Talle')
+    const callsBeforeConfirm = fetchMock.mock.calls.length
+    await user.click(screen.getByRole('button', { name: 'Crear' }))
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(fetchMock.mock.calls.length).toBe(callsBeforeConfirm)
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.length).toBe(callsBeforeConfirm)
+    expect(screen.getByLabelText('Nuevo atributo')).toHaveValue('Talle')
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 2, name: 'Talle', status: 'active' }))
+    await user.click(screen.getByRole('button', { name: 'Crear' }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Crear' }))
+
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      '/attributes',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'Talle' }) }),
+    )
+  })
+
   it('does not offer status changes to an employee', async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ ...ADMIN_ACCOUNT, role: 'Empleado' }))

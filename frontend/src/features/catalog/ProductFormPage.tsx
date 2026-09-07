@@ -12,6 +12,7 @@ import {
 import { ApiError } from '../../api/client'
 import type { Attribute, Category, Product, Unit, Variant } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
+import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
@@ -69,6 +70,7 @@ export function ProductFormPage() {
 
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [confirmingCreate, setConfirmingCreate] = useState(false)
 
   const [createdProduct, setCreatedProduct] = useState<Product | null>(null)
   const [duplicates, setDuplicates] = useState<Variant[]>([])
@@ -161,10 +163,15 @@ export function ProductFormPage() {
     )
   }
 
-  async function handleSubmit(event: React.FormEvent) {
+  function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     if (categoryId === '' || unitId === '' || name.trim() === '') return
+    setConfirmingCreate(true)
+  }
 
+  async function createProductNow() {
+    if (categoryId === '' || unitId === '') return
+    setConfirmingCreate(false)
     setCreating(true)
     setCreateError(null)
     try {
@@ -526,6 +533,16 @@ export function ProductFormPage() {
           </div>
         )}
       </div>
+
+      {confirmingCreate && (
+        <ConfirmDialog
+          title="Crear producto"
+          description={`Se va a crear el producto "${name.trim()}".`}
+          confirmLabel="Crear"
+          onConfirm={createProductNow}
+          onCancel={() => setConfirmingCreate(false)}
+        />
+      )}
     </div>
   )
 }

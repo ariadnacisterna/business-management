@@ -209,7 +209,30 @@ export function ProductsPage() {
           <h1 className="text-3xl font-bold">Productos</h1>
           <p className="mt-1 text-lg opacity-60">{total} productos encontrados</p>
         </div>
-        <ViewToggle mode={viewMode} onChange={setViewMode} />
+        <div className="flex items-center gap-3">
+          <ViewToggle mode={viewMode} onChange={setViewMode} />
+          {canManage && (
+            <Link
+              to="/products/new"
+              className={`${HEADER_ACTION_BUTTON_CLASSES} hidden lg:flex bg-brand text-brand-contrast hover:bg-brand/90`}
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Nuevo Producto
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-3">
@@ -217,7 +240,7 @@ export function ProductsPage() {
         {canManage && (
           <Link
             to="/products/new"
-            className={`${HEADER_ACTION_BUTTON_CLASSES} flex-1 bg-brand text-brand-contrast hover:bg-brand/90`}
+            className={`${HEADER_ACTION_BUTTON_CLASSES} flex-1 bg-brand text-brand-contrast hover:bg-brand/90 lg:hidden`}
           >
             <svg
               aria-hidden="true"

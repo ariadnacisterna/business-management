@@ -91,6 +91,7 @@ export function ProductDetailPage() {
   const [savingProduct, setSavingProduct] = useState(false)
   const [productError, setProductError] = useState<string | null>(null)
   const [confirmingStatusChange, setConfirmingStatusChange] = useState(false)
+  const [confirmingProductEdit, setConfirmingProductEdit] = useState(false)
 
   const [priceDraft, setPriceDraft] = useState('')
   const [variantDraftRows, setVariantDraftRows] = useState<{ id: number; label: string; price: string }[]>([])
@@ -110,6 +111,7 @@ export function ProductDetailPage() {
   const [variantValues, setVariantValues] = useState<SelectedAttributeValue[]>([])
   const [savingVariant, setSavingVariant] = useState(false)
   const [variantError, setVariantError] = useState<string | null>(null)
+  const [confirmingVariantEdit, setConfirmingVariantEdit] = useState(false)
 
   const [duplicates, setDuplicates] = useState<Variant[]>([])
 
@@ -262,11 +264,16 @@ export function ProductDetailPage() {
       return
     }
 
-    void saveProduct()
+    setConfirmingProductEdit(true)
   }
 
   function confirmStatusChangeAndSave() {
     setConfirmingStatusChange(false)
+    void saveProduct()
+  }
+
+  function confirmProductEditAndSave() {
+    setConfirmingProductEdit(false)
     void saveProduct()
   }
 
@@ -356,10 +363,16 @@ export function ProductDetailPage() {
     setVariantError(null)
   }
 
-  async function handleSaveVariant(event: React.FormEvent) {
+  function handleSaveVariant(event: React.FormEvent) {
     event.preventDefault()
     if (editingVariantId === null) return
+    setConfirmingVariantEdit(true)
+  }
 
+  async function saveVariantNow() {
+    if (editingVariantId === null) return
+
+    setConfirmingVariantEdit(false)
     setSavingVariant(true)
     setVariantError(null)
     try {
@@ -1297,6 +1310,26 @@ export function ProductDetailPage() {
           danger={productDraft.status !== 'active'}
           onConfirm={confirmStatusChangeAndSave}
           onCancel={() => setConfirmingStatusChange(false)}
+        />
+      )}
+
+      {confirmingProductEdit && product !== null && (
+        <ConfirmDialog
+          title="Guardar cambios"
+          description={`Se van a guardar los cambios en "${product.name}" (nombre, categoría, unidad o precio).`}
+          confirmLabel="Guardar"
+          onConfirm={confirmProductEditAndSave}
+          onCancel={() => setConfirmingProductEdit(false)}
+        />
+      )}
+
+      {confirmingVariantEdit && (
+        <ConfirmDialog
+          title="Guardar variante"
+          description={`Se van a guardar los cambios en la variante "${variantLabel.trim() === '' ? 'sin nombre' : variantLabel.trim()}".`}
+          confirmLabel="Guardar"
+          onConfirm={saveVariantNow}
+          onCancel={() => setConfirmingVariantEdit(false)}
         />
       )}
     </>
