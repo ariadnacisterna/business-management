@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: abuela
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: INITIAL_ADMIN_USERNAME
+        sync: false
+      - key: INITIAL_ADMIN_PASSWORD
+        sync: false
+      - key: INITIAL_ADMIN_NAME
+        value: Administradora principal
+      - key: INITIAL_ORGANIZATION_NAME
+        value: Casa Diaco
+      - key: INITIAL_BUSINESS_NAME
+        value: Merceria
+      - key: INITIAL_BUSINESS_INDUSTRY
+        value: Merceria
+      - key: INITIAL_BUSINESS_2_NAME
+        value: Despensa
+      - key: INITIAL_BUSINESS_2_INDUSTRY
+        value: Despensa
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: SESSION_TTL_MINUTES
+        value: "720"

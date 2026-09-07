@@ -33,6 +33,9 @@ node_modules/
 dist/
 build/
 
+# Build de la SPA copiado dentro del backend para servirlo en producción
+backend/static/
+
 # Sistema operativo y editores
 .DS_Store
 Thumbs.db
