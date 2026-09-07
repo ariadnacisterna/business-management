@@ -203,6 +203,129 @@ describe('ProductDetailPage', () => {
     expect(await screen.findByText(/Inactivo/)).toBeInTheDocument()
   })
 
+  it('deactivates a variant after confirming, marking it inactive but still visible', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    const multiVariantProduct = {
+      ...PRODUCT,
+      variants: [
+        { id: 10, product_id: 5, label: 'Chico', is_implicit: false, status: 'active', attribute_value_ids: [] },
+        { id: 11, product_id: 5, label: 'Grande', is_implicit: false, status: 'active', attribute_value_ids: [] },
+      ],
+    }
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(multiVariantProduct))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ variant_id: 10, price: null }))
+      .mockResolvedValueOnce(jsonResponse({ variant_id: 11, price: null }))
+
+    render(
+      <MemoryRouter initialEntries={['/products/5']}>
+        <AuthProvider>
+          <ReadyGate>
+            <Routes>
+              <Route path="/products" element={<h1>Productos</h1>} />
+              <Route path="/products/:productId" element={<ProductDetailPage />} />
+            </Routes>
+          </ReadyGate>
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('Chico')).toBeInTheDocument()
+
+    const chicoItem = screen.getByText('Chico').closest('li') as HTMLElement
+    await user.click(within(chicoItem).getByRole('button', { name: 'Desactivar' }))
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Desactivar variante' })
+    expect(dialog).toHaveTextContent('Chico')
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ id: 10, product_id: 5, label: 'Chico', is_implicit: false, status: 'inactive', attribute_value_ids: [] }),
+    )
+    await user.click(within(dialog).getByRole('button', { name: 'Desactivar' }))
+
+    await screen.findByText('Inactiva')
+    expect(screen.getByText('Chico')).toBeInTheDocument()
+    expect(within(chicoItem).getByRole('button', { name: 'Activar' })).toBeInTheDocument()
+    expect(within(chicoItem).queryByRole('button', { name: 'Cambiar precio' })).not.toBeInTheDocument()
+  })
+
+  it('cancels a variant status change without applying it', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    const multiVariantProduct = {
+      ...PRODUCT,
+      variants: [
+        { id: 10, product_id: 5, label: 'Chico', is_implicit: false, status: 'active', attribute_value_ids: [] },
+        { id: 11, product_id: 5, label: 'Grande', is_implicit: false, status: 'active', attribute_value_ids: [] },
+      ],
+    }
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(multiVariantProduct))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ variant_id: 10, price: null }))
+      .mockResolvedValueOnce(jsonResponse({ variant_id: 11, price: null }))
+
+    render(
+      <MemoryRouter initialEntries={['/products/5']}>
+        <AuthProvider>
+          <ReadyGate>
+            <Routes>
+              <Route path="/products" element={<h1>Productos</h1>} />
+              <Route path="/products/:productId" element={<ProductDetailPage />} />
+            </Routes>
+          </ReadyGate>
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('Chico')).toBeInTheDocument()
+    const chicoItem = screen.getByText('Chico').closest('li') as HTMLElement
+    await user.click(within(chicoItem).getByRole('button', { name: 'Desactivar' }))
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Desactivar variante' })
+    await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(screen.queryByText('Inactiva')).not.toBeInTheDocument()
+    expect(within(chicoItem).getByRole('button', { name: 'Desactivar' })).toBeInTheDocument()
+  })
+
+  it('does not allow deactivating the only implicit variant of a product', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(SINGLE_VARIANT_PRODUCT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
+
+    render(
+      <MemoryRouter initialEntries={['/products/6']}>
+        <AuthProvider>
+          <ReadyGate>
+            <Routes>
+              <Route path="/products" element={<h1>Productos</h1>} />
+              <Route path="/products/:productId" element={<ProductDetailPage />} />
+            </Routes>
+          </ReadyGate>
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Precio' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Desactivar' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Activar' })).not.toBeInTheDocument()
+  })
+
   it('keeps the edit draft when canceling the status change confirmation', async () => {
     const user = userEvent.setup()
     renderPage('/products/5?edit=1')

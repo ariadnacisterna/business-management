@@ -9,6 +9,7 @@ import type {
   ProductCreationResult,
   ProductPage,
   Unit,
+  Variant,
   VariantCreationResult,
   VariantInput,
 } from './types'
@@ -169,4 +170,12 @@ export function deactivateProduct(id: number): Promise<Product> {
 
 export function reactivateProduct(id: number): Promise<Product> {
   return apiFetch<Product>(`/products/${id}/reactivate`, { method: 'POST' })
+}
+
+export function deactivateVariant(variantId: number): Promise<Variant> {
+  return apiFetch<Variant>(`/variants/${variantId}/deactivate`, { method: 'POST' })
+}
+
+export function reactivateVariant(variantId: number): Promise<Variant> {
+  return apiFetch<Variant>(`/variants/${variantId}/reactivate`, { method: 'POST' })
 }

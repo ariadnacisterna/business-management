@@ -5,6 +5,7 @@ import {
   createCategory,
   createUnit,
   deactivateProduct,
+  deactivateVariant,
   fetchAttributes,
   fetchAttributeValues,
   fetchCategories,
@@ -12,6 +13,7 @@ import {
   fetchUnits,
   fetchVariantCurrentPrice,
   reactivateProduct,
+  reactivateVariant,
   updateProduct,
   updateVariant,
 } from '../../api/catalog'
@@ -111,6 +113,9 @@ export function ProductDetailPage() {
   const [variantError, setVariantError] = useState<string | null>(null)
 
   const [duplicates, setDuplicates] = useState<Variant[]>([])
+
+  const [confirmingVariantStatusChange, setConfirmingVariantStatusChange] = useState<Variant | null>(null)
+  const [variantStatusError, setVariantStatusError] = useState<string | null>(null)
 
   const [pricesByVariant, setPricesByVariant] = useState<Map<number, Price | null>>(new Map())
   const [priceModalVariant, setPriceModalVariant] = useState<Variant | null>(null)
@@ -401,6 +406,25 @@ export function ProductDetailPage() {
       setVariantError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
     } finally {
       setSavingVariant(false)
+    }
+  }
+
+  async function confirmVariantStatusChange() {
+    if (confirmingVariantStatusChange === null) return
+    const variant = confirmingVariantStatusChange
+
+    setVariantStatusError(null)
+    try {
+      const updated =
+        variant.status === 'active' ? await deactivateVariant(variant.id) : await reactivateVariant(variant.id)
+      setProduct((prev) =>
+        prev === null
+          ? prev
+          : { ...prev, variants: prev.variants.map((candidate) => (candidate.id === updated.id ? updated : candidate)) },
+      )
+      setConfirmingVariantStatusChange(null)
+    } catch (error) {
+      setVariantStatusError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
     }
   }
 
@@ -1081,11 +1105,18 @@ export function ProductDetailPage() {
                       ) : (
                         <div className="flex w-full flex-col gap-3">
                           <div className="flex items-start justify-between gap-3">
-                            <span
-                              className={`text-lg font-bold ${variant.status !== 'active' ? 'opacity-50 line-through' : ''}`}
-                            >
-                              {describeVariant(variant, valuesById)}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`text-lg font-bold ${variant.status !== 'active' ? 'opacity-50 line-through' : ''}`}
+                              >
+                                {describeVariant(variant, valuesById)}
+                              </span>
+                              {variant.status !== 'active' && (
+                                <span className="rounded-full bg-ink/10 px-2 py-0.5 text-sm font-semibold uppercase tracking-wide text-ink/60">
+                                  Inactiva
+                                </span>
+                              )}
+                            </div>
                             <span className="text-xl font-bold text-brand">
                               {pricesByVariant.get(variant.id)?.amount !== undefined
                                 ? priceFormatter.format(Number(pricesByVariant.get(variant.id)!.amount))
@@ -1116,7 +1147,7 @@ export function ProductDetailPage() {
                           </div>
 
                           <div className="flex flex-wrap gap-2">
-                            {canManage && (
+                            {canManage && variant.status === 'active' && (
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1134,13 +1165,25 @@ export function ProductDetailPage() {
                                 Ver historial
                               </button>
                             )}
-                            {canManage && (
+                            {canManage && variant.status === 'active' && (
                               <button
                                 type="button"
                                 onClick={() => startEditVariant(variant)}
                                 className={secondaryButtonClasses}
                               >
                                 Editar
+                              </button>
+                            )}
+                            {canManage && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setVariantStatusError(null)
+                                  setConfirmingVariantStatusChange(variant)
+                                }}
+                                className={secondaryButtonClasses}
+                              >
+                                {variant.status === 'active' ? 'Desactivar' : 'Activar'}
                               </button>
                             )}
                           </div>
@@ -1254,6 +1297,23 @@ export function ProductDetailPage() {
             }
             setPriceModalVariant(null)
           }}
+        />
+      )}
+
+      {confirmingVariantStatusChange !== null && (
+        <ConfirmDialog
+          title={confirmingVariantStatusChange.status === 'active' ? 'Desactivar variante' : 'Activar variante'}
+          description={
+            (variantStatusError ?? '') +
+            (variantStatusError !== null ? ' ' : '') +
+            (confirmingVariantStatusChange.status === 'active'
+              ? `"${describeVariant(confirmingVariantStatusChange, valuesById)}" va a dejar de aparecer en las consultas del catálogo y en la pantalla de precios. Su historial de precios se conserva y vas a poder reactivarla cuando quieras.`
+              : `"${describeVariant(confirmingVariantStatusChange, valuesById)}" vuelve a aparecer en las consultas del catálogo y en la pantalla de precios.`)
+          }
+          confirmLabel={confirmingVariantStatusChange.status === 'active' ? 'Desactivar' : 'Activar'}
+          danger={confirmingVariantStatusChange.status === 'active'}
+          onConfirm={confirmVariantStatusChange}
+          onCancel={() => setConfirmingVariantStatusChange(null)}
         />
       )}
 
