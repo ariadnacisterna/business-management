@@ -94,7 +94,7 @@ def _business_summaries(db: Session, account_id: int) -> list[BusinessSummary]:
 
 
 def _account_response(db: Session, account: Account, business: Business) -> AccountResponse:
-    role = accounts.get_role_name(db, account.id, business.id)
+    role = accounts.get_primary_role_name(db, account.id, business.id)
     return AccountResponse(
         id=account.id,
         name=account.name,
@@ -238,13 +238,17 @@ def create_account(
 @router.get("/accounts", response_model=list[AccountResponse])
 def list_accounts(
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR)),
+    actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
 ) -> list[AccountResponse]:
-    return [
-        _account_response(db, account, business)
-        for account in accounts.list_accounts(db, business.id)
-    ]
+    actor_role = accounts.get_role_name(db, actor.id, business.id)
+    if actor_role == DUENO:
+        business_ids = [item.id for item in list_accessible_businesses(db, actor.id)]
+        account_list = accounts.list_accounts_for_businesses(db, business_ids)
+    else:
+        account_list = accounts.list_accounts(db, business.id)
+
+    return [_account_response(db, account, business) for account in account_list]
 
 
 @router.get("/accounts/{account_id}", response_model=AccountResponse)

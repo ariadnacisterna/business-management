@@ -382,7 +382,9 @@ def test_administrador_cannot_switch_active_business_but_dueno_can(client, db_se
     assert allowed.status_code == 200
 
 
-def test_account_listing_is_scoped_to_the_active_business(no_second_business, client, db_session):
+def test_dueno_account_listing_spans_all_accessible_businesses(
+    no_second_business, client, db_session
+):
     admin_cookies = _admin_cookies(client)
     admin_account_id = _admin_account_id(db_session)
     first_business_id = _first_business_id(db_session)
@@ -402,8 +404,8 @@ def test_account_listing_is_scoped_to_the_active_business(no_second_business, cl
 
     listing_in_second_business = client.get("/accounts", cookies=admin_cookies)
     user_names_in_second = {account["user_name"] for account in listing_in_second_business.json()}
+    assert "empleada-negocio-a" in user_names_in_second
     assert "empleada-negocio-b" in user_names_in_second
-    assert "empleada-negocio-a" not in user_names_in_second
 
     client.post(
         "/auth/active-business",
@@ -413,8 +415,7 @@ def test_account_listing_is_scoped_to_the_active_business(no_second_business, cl
     )
     listing_in_first_business = client.get("/accounts", cookies=admin_cookies)
     user_names_in_first = {account["user_name"] for account in listing_in_first_business.json()}
-    assert "empleada-negocio-a" in user_names_in_first
-    assert "empleada-negocio-b" not in user_names_in_first
+    assert user_names_in_first == user_names_in_second
 
     admin_in_listing = next(
         account for account in listing_in_first_business.json() if account["id"] == admin_account_id
@@ -423,3 +424,40 @@ def test_account_listing_is_scoped_to_the_active_business(no_second_business, cl
         first_business_id,
         second_business.id,
     }
+
+    empleada_a = next(
+        account
+        for account in listing_in_first_business.json()
+        if account["user_name"] == "empleada-negocio-a"
+    )
+    assert empleada_a["role"] == EMPLEADO
+    assert {business["id"] for business in empleada_a["businesses"]} == {first_business_id}
+
+
+def test_administrador_account_listing_is_scoped_to_the_active_business(
+    no_second_business, client, db_session
+):
+    admin_cookies = _admin_cookies(client)
+    admin_account_id = _admin_account_id(db_session)
+    second_business = _create_second_business(db_session)
+    _grant_access(db_session, admin_account_id, second_business.id, DUENO)
+
+    administrador_account = _create_account(client, admin_cookies, "admin-dual", ADMINISTRADOR)
+    _grant_access(db_session, administrador_account["id"], second_business.id, ADMINISTRADOR)
+    administrador_cookies = _login(client, "admin-dual", "clave-segura-1")
+
+    _create_account(client, admin_cookies, "empleada-negocio-a", EMPLEADO)
+
+    client.post(
+        "/auth/active-business",
+        json={"business_id": second_business.id},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+    _create_account(client, admin_cookies, "empleada-negocio-b", EMPLEADO)
+
+    listing = client.get("/accounts", cookies=administrador_cookies)
+    user_names = {account["user_name"] for account in listing.json()}
+    assert "admin-dual" in user_names
+    assert "empleada-negocio-a" in user_names
+    assert "empleada-negocio-b" not in user_names

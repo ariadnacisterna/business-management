@@ -2,6 +2,8 @@ import type { Account } from '../../api/types'
 
 export type Role = 'Empleado' | 'Gerente' | 'Administrador' | 'Dueño'
 
+export const ROLES: Role[] = ['Empleado', 'Gerente', 'Administrador', 'Dueño']
+
 const ROLE_RANK: Record<Role, number> = {
   Empleado: 0,
   Gerente: 1,
@@ -24,5 +26,9 @@ export function isDueno(account: Account | null): boolean {
 }
 
 export function canViewDashboard(account: Account | null): boolean {
+  return hasMinimumRole(account, 'Administrador')
+}
+
+export function canManageAccounts(account: Account | null): boolean {
   return hasMinimumRole(account, 'Administrador')
 }

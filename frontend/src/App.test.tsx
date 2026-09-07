@@ -59,9 +59,9 @@ function defaultResponse(url: string): Response {
   return jsonResponse([])
 }
 
-function renderApp() {
+function renderApp(initialEntries: string[] = ['/']) {
   return render(
-    <MemoryRouter initialEntries={['/']}>
+    <MemoryRouter initialEntries={initialEntries}>
       <App />
     </MemoryRouter>,
   )
@@ -279,6 +279,28 @@ describe('App', () => {
       'aria-current',
       'true',
     )
+  })
+
+  it('redirects an employee away from /cuentas', async () => {
+    const employeeAccount = { ...ACCOUNT, id: 5, user_name: 'empleada', role: 'Empleado' }
+    fetchMock.mockResolvedValueOnce(jsonResponse(employeeAccount)).mockResolvedValue(jsonResponse([]))
+
+    renderApp(['/cuentas'])
+
+    expect(await screen.findByText('Ada')).toBeInTheDocument()
+    expect(screen.queryByText('Cuentas')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /nueva cuenta/i })).not.toBeInTheDocument()
+  })
+
+  it('lets an administrador reach /cuentas and manage cuentas', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse([]))
+
+    renderApp(['/cuentas'])
+
+    expect(await screen.findByRole('heading', { name: 'Cuentas' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Cuentas' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('returns to the login screen after logging out', async () => {

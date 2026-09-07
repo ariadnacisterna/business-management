@@ -14,6 +14,7 @@ import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { CloseButton } from '../../shared/CloseButton'
 import { HighlightedText } from '../../shared/HighlightedText'
 import { Pagination } from '../../shared/Pagination'
+import { SelectMenu } from '../../shared/SelectMenu'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
 
@@ -21,7 +22,6 @@ type Status = 'loading' | 'success' | 'error'
 
 const LOAD_ERROR_MESSAGE = 'No se pudo cargar la lista de precios.'
 const SEARCH_DEBOUNCE_MS = 300
-const PAGE_SIZE = 25
 
 const priceFormatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' })
 
@@ -98,6 +98,7 @@ export function PricingPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
   const [status, setStatus] = useState<Status>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -130,7 +131,7 @@ export function PricingPage() {
     setLoadError(null)
     fetchProductsPage({
       page,
-      pageSize: PAGE_SIZE,
+      pageSize,
       search: appliedSearch.trim() === '' ? undefined : appliedSearch.trim(),
     })
       .then(async (result) => {
@@ -154,9 +155,9 @@ export function PricingPage() {
       })
   }
 
-  useEffect(load, [page, appliedSearch, account?.active_business_id])
+  useEffect(load, [page, pageSize, appliedSearch, account?.active_business_id])
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   function draftFor(variantId: number): string {
     return drafts.get(variantId) ?? ''
@@ -309,42 +310,40 @@ export function PricingPage() {
   return (
     <section className="-m-4 flex h-[calc(100svh-4rem)] flex-col gap-4 overflow-hidden bg-line/10 p-4 md:-m-6 md:p-6">
       <div>
-        <h1 className="text-3xl font-bold">Gestión de Precios</h1>
+        <h1 className="text-3xl font-bold">Precios</h1>
         <p className="mt-1 text-lg opacity-60">{total} productos encontrados</p>
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <div className="relative min-w-48 flex-1">
-          <input
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Buscar por nombre…"
-            aria-label="Buscar productos"
-            className="h-12 w-full rounded-lg border border-line bg-surface px-3 pr-11 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
-          />
-          {searchInput !== '' && (
-            <button
-              type="button"
-              onClick={() => setSearchInput('')}
-              aria-label="Limpiar búsqueda"
-              className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-ink/50 transition-colors hover:text-brand"
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-7 w-7"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          )}
-        </div>
+        <input
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          placeholder="Buscar por nombre…"
+          aria-label="Buscar productos"
+          className="h-12 min-w-48 flex-1 rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
+        />
+        <SelectMenu
+          value={String(pageSize)}
+          onChange={(value) => {
+            setPageSize(Number(value))
+            setPage(1)
+          }}
+          ariaLabel="Cantidad por página"
+          className="w-56"
+          options={[
+            { value: '10', label: '10 por página' },
+            { value: '25', label: '25 por página' },
+            { value: '50', label: '50 por página' },
+          ]}
+        />
+        <button
+          type="button"
+          disabled={searchInput === ''}
+          onClick={() => setSearchInput('')}
+          className="h-12 w-56 rounded-lg border-2 border-brand bg-surface text-lg font-semibold text-brand transition-colors hover:bg-brand hover:text-brand-contrast disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:font-normal disabled:text-ink/40 disabled:hover:bg-surface disabled:hover:text-ink/40"
+        >
+          Limpiar búsqueda
+        </button>
       </div>
 
       {actionError !== null && (

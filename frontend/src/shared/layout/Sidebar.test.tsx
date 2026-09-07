@@ -116,4 +116,17 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: 'Productos' })).toBeInTheDocument()
     expect(screen.getByText('Ventas')).toBeInTheDocument()
   })
+
+  it('shows "Cuentas" only for administrador and above', () => {
+    renderSidebar('/products')
+    expect(screen.getByRole('link', { name: 'Cuentas' })).toBeInTheDocument()
+  })
+
+  it('hides "Cuentas" for gerente and empleado', () => {
+    renderSidebar('/products', false, vi.fn(), { ...ADMINISTRADOR_ACCOUNT, role: 'Gerente' })
+    expect(screen.queryByText('Cuentas')).not.toBeInTheDocument()
+
+    renderSidebar('/products', false, vi.fn(), { ...ADMINISTRADOR_ACCOUNT, role: 'Empleado' })
+    expect(screen.queryAllByText('Cuentas')).toHaveLength(0)
+  })
 })

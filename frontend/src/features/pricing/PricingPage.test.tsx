@@ -143,6 +143,52 @@ describe('PricingPage', () => {
     expect(productCalls.at(-1)?.[0]).toContain('search=cinta')
   })
 
+  it('changes the page size and clears the search with the clear-filters button', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    const clearButton = screen.getByRole('button', { name: 'Limpiar búsqueda' })
+    expect(clearButton).toBeDisabled()
+
+    fetchMock.mockResolvedValueOnce(productPage(PRODUCTS, { total: 2, page_size: 10 }))
+    fetchMock.mockResolvedValueOnce(currentPrice(10, '150.00'))
+    fetchMock.mockResolvedValueOnce(currentPrice(20, '10.00'))
+    fetchMock.mockResolvedValueOnce(currentPrice(21, '20.00'))
+
+    await user.click(screen.getByRole('button', { name: 'Cantidad por página' }))
+    await user.click(screen.getByRole('option', { name: '10 por página' }))
+
+    await waitFor(() => {
+      const productCalls = fetchMock.mock.calls.filter((call) => String(call[0]).includes('/products?'))
+      expect(productCalls.at(-1)?.[0]).toContain('page_size=10')
+    })
+
+    await user.type(screen.getByLabelText('Buscar productos'), 'cinta')
+    await waitFor(() => expect(clearButton).toBeEnabled())
+
+    fetchMock.mockResolvedValueOnce(productPage(PRODUCTS, { total: 2, page_size: 10 }))
+    fetchMock.mockResolvedValueOnce(currentPrice(10, '150.00'))
+    fetchMock.mockResolvedValueOnce(currentPrice(20, '10.00'))
+    fetchMock.mockResolvedValueOnce(currentPrice(21, '20.00'))
+
+    await user.click(clearButton)
+
+    expect(screen.getByLabelText('Buscar productos')).toHaveValue('')
+    await waitFor(() => expect(clearButton).toBeDisabled())
+  })
+
+  it('does not render an inline clear icon inside the search box', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    await user.type(screen.getByLabelText('Buscar productos'), 'cinta')
+
+    expect(screen.queryByLabelText('Limpiar búsqueda')).not.toBeInTheDocument()
+  })
+
   it('enables Actualizar only for the row whose price was edited, and changes it on confirm', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>

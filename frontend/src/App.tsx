@@ -2,7 +2,8 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './features/access/AuthContext'
 import { LoginPage } from './features/access/LoginPage'
 import { ProtectedRoute } from './features/access/ProtectedRoute'
-import { canViewDashboard } from './features/access/roles'
+import { canManageAccounts, canViewDashboard } from './features/access/roles'
+import { AccountsPage } from './features/accounts/AccountsPage'
 import { AttributesPage } from './features/catalog/AttributesPage'
 import { CategoriesPage } from './features/catalog/CategoriesPage'
 import { ProductDetailPage } from './features/catalog/ProductDetailPage'
@@ -23,6 +24,16 @@ function HomeRoute() {
   return <DashboardPage />
 }
 
+function AccountsRoute() {
+  const { account } = useAuth()
+
+  if (!canManageAccounts(account)) {
+    return <Navigate to="/products" replace />
+  }
+
+  return <AccountsPage />
+}
+
 export function App() {
   return (
     <AuthProvider>
@@ -39,6 +50,7 @@ export function App() {
               <Route path=":productId" element={<ProductDetailPage />} />
             </Route>
             <Route path="/precios" element={<PricingPage />} />
+            <Route path="/cuentas" element={<AccountsRoute />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -117,6 +117,15 @@ def update_account(
         role = _get_role(db, role_name)
         access = _get_business_access(db, account.id, business.id)
         if access is None:
+            access = db.scalars(
+                select(BusinessAccess)
+                .where(
+                    BusinessAccess.account_id == account.id,
+                    BusinessAccess.status == EntityStatus.ACTIVE.value,
+                )
+                .order_by(BusinessAccess.business_id)
+            ).first()
+        if access is None:
             raise AccountNotFound
         access.role_id = role.id
 
@@ -166,6 +175,21 @@ def list_accounts(db: Session, business_id: int) -> list[Account]:
     )
 
 
+def list_accounts_for_businesses(db: Session, business_ids: list[int]) -> list[Account]:
+    return list(
+        db.scalars(
+            select(Account)
+            .join(BusinessAccess, BusinessAccess.account_id == Account.id)
+            .where(
+                BusinessAccess.business_id.in_(business_ids),
+                BusinessAccess.status == EntityStatus.ACTIVE.value,
+            )
+            .distinct()
+            .order_by(Account.id)
+        ).all()
+    )
+
+
 def get_account(db: Session, account_id: int) -> Account:
     return _get_account(db, account_id)
 
@@ -175,3 +199,17 @@ def get_role_name(db: Session, account_id: int, business_id: int) -> str | None:
     if access is None:
         return None
     return access.role.name
+
+
+def get_primary_role_name(db: Session, account_id: int, preferred_business_id: int) -> str | None:
+    access = _get_business_access(db, account_id, preferred_business_id)
+    if access is None:
+        access = db.scalars(
+            select(BusinessAccess)
+            .where(
+                BusinessAccess.account_id == account_id,
+                BusinessAccess.status == EntityStatus.ACTIVE.value,
+            )
+            .order_by(BusinessAccess.business_id)
+        ).first()
+    return access.role.name if access is not None else None

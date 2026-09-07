@@ -98,3 +98,12 @@ export interface CurrentPrice {
   variant_id: number
   price: Price | null
 }
+
+export interface ManagedAccount {
+  id: number
+  name: string
+  user_name: string
+  status: string
+  role: string | null
+  businesses: Business[]
+}

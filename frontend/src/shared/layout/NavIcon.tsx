@@ -27,6 +27,14 @@ const CONTENT: Record<NavIcon, ReactNode> = {
       <circle cx="17" cy="18" r="1.8" />
     </>
   ),
+  accounts: (
+    <>
+      <circle cx="9" cy="7" r="4" />
+      <path d="M2 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2" />
+      <path d="M17 8a3 3 0 0 1 0 6" />
+      <path d="M21 21v-2a4 4 0 0 0-3-3.87" />
+    </>
+  ),
 }
 
 interface Props {
