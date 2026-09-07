@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -8,7 +9,7 @@ export interface RowMenuItem {
   onClick: () => void
   danger?: boolean
   success?: boolean
-  icon?: string
+  icon?: ReactNode
   disabled?: boolean
 }
 

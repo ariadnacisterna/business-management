@@ -12,10 +12,15 @@ import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { HighlightedText } from '../../shared/HighlightedText'
+import { EyeIcon, PencilIcon } from '../../shared/icons'
 import { Pagination } from '../../shared/Pagination'
+import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
+import { HEADER_ACTION_BUTTON_CLASSES } from '../../shared/headerActionButton'
 import { RowMenu } from '../../shared/RowMenu'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
+import type { ViewMode } from '../../shared/ViewToggle'
+import { ViewToggle } from '../../shared/ViewToggle'
 
 type Status = 'loading' | 'success' | 'error'
 type StatusFilter = 'all' | 'active' | 'inactive'
@@ -46,8 +51,6 @@ function productPriceInfo(product: Product): { amount: number; hasRange: boolean
 
 const inputClasses =
   'h-12 rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
-const primaryButtonClasses =
-  'h-12 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90'
 
 export function ProductsPage() {
   const { account } = useAuth()
@@ -62,6 +65,8 @@ export function ProductsPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [confirmingProduct, setConfirmingProduct] = useState<Product | null>(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('cards')
 
   const [searchInput, setSearchInput] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
@@ -71,6 +76,7 @@ export function ProductsPage() {
   const { tableScrollRef, theadRef, scrollbar, updateScrollbar, handleThumbPointerDown } = useTableScrollbar([
     products,
     filters.pageSize,
+    viewMode,
   ])
 
   useEffect(() => {
@@ -150,6 +156,33 @@ export function ProductsPage() {
     setConfirmingProduct(null)
   }
 
+  function productRowMenuItems(product: Product) {
+    return [
+      { label: 'Ver detalle', icon: <EyeIcon />, onClick: () => navigate(`/products/${product.id}`) },
+      ...(canManage
+        ? [
+            {
+              label: 'Cambiar precio',
+              icon: <span className="text-xl font-semibold">$</span>,
+              onClick: () => navigate(`/products/${product.id}?changePrice=1`),
+            },
+            {
+              label: 'Editar producto',
+              icon: <PencilIcon />,
+              onClick: () => navigate(`/products/${product.id}?edit=1`),
+            },
+            {
+              label: product.status === 'active' ? 'Desactivar' : 'Activar',
+              icon: '⊘',
+              danger: product.status === 'active',
+              success: product.status !== 'active',
+              onClick: () => setConfirmingProduct(product),
+            },
+          ]
+        : []),
+    ]
+  }
+
   function toggleSort() {
     setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))
   }
@@ -170,89 +203,107 @@ export function ProductsPage() {
   }, [products, sortDir])
 
   return (
-    <section className="-m-4 flex h-[calc(100svh-4rem)] flex-col gap-4 overflow-hidden bg-line/10 p-4 md:-m-6 md:p-6">
+    <section className="-m-4 flex flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Productos</h1>
           <p className="mt-1 text-lg opacity-60">{total} productos encontrados</p>
         </div>
-        <div className="flex items-center gap-2">
-          {canManage && (
-            <Link to="/products/new" className={`${primaryButtonClasses} flex items-center gap-2`}>
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-5 w-5"
-              >
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              Nuevo Producto
-            </Link>
-          )}
-        </div>
+        <ViewToggle mode={viewMode} onChange={setViewMode} />
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <input
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
-          placeholder="Buscar nombre, código, categoría…"
-          aria-label="Buscar productos"
-          className={`${inputClasses} min-w-48 flex-1`}
-        />
-        <SelectMenu
-          value={filters.categoryId === 'all' ? 'all' : String(filters.categoryId)}
-          onChange={(value) =>
-            setFilters((current) => ({
-              ...current,
-              categoryId: value === 'all' ? 'all' : Number(value),
-              page: 1,
-            }))
-          }
-          ariaLabel="Filtrar por categoría"
-          className="w-56"
-          options={[
-            { value: 'all', label: 'Todas las categorías' },
-            ...categories.map((category) => ({ value: String(category.id), label: category.name })),
-          ]}
-        />
-        <SelectMenu
-          value={filters.status}
-          onChange={(value: StatusFilter) => setFilters((current) => ({ ...current, status: value, page: 1 }))}
-          ariaLabel="Filtrar por estado"
-          className="w-56"
-          options={[
-            { value: 'all', label: 'Todos los estados' },
-            { value: 'active', label: 'Activo' },
-            { value: 'inactive', label: 'Inactivo' },
-          ]}
-        />
-        <SelectMenu
-          value={String(filters.pageSize)}
-          onChange={(value) => setFilters((current) => ({ ...current, pageSize: Number(value), page: 1 }))}
-          ariaLabel="Cantidad por página"
-          className="w-56"
-          options={[
-            { value: '10', label: '10 por página' },
-            { value: '25', label: '25 por página' },
-            { value: '50', label: '50 por página' },
-          ]}
-        />
-        <button
-          type="button"
-          disabled={!hasActiveFilters}
-          onClick={clearFilters}
-          className="h-12 w-56 rounded-lg border-2 border-brand bg-surface text-lg font-semibold text-brand transition-colors hover:bg-brand hover:text-brand-contrast disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:font-normal disabled:text-ink/40 disabled:hover:bg-surface disabled:hover:text-ink/40"
-        >
-          Limpiar búsqueda
-        </button>
+      <div className="flex items-center gap-3">
+        <FiltersButton onClick={() => setFiltersOpen(true)} hasActiveFilters={hasActiveFilters} />
+        {canManage && (
+          <Link
+            to="/products/new"
+            className={`${HEADER_ACTION_BUTTON_CLASSES} flex-1 bg-brand text-brand-contrast hover:bg-brand/90`}
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Nuevo Producto
+          </Link>
+        )}
       </div>
+
+      {(() => {
+        const filterControls = (
+          <>
+            <input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Buscar nombre, código, categoría…"
+              aria-label="Buscar productos"
+              className={`${inputClasses} w-full lg:min-w-48 lg:flex-1`}
+            />
+            <SelectMenu
+              value={filters.categoryId === 'all' ? 'all' : String(filters.categoryId)}
+              onChange={(value) =>
+                setFilters((current) => ({
+                  ...current,
+                  categoryId: value === 'all' ? 'all' : Number(value),
+                  page: 1,
+                }))
+              }
+              ariaLabel="Filtrar por categoría"
+              className="w-full lg:w-56"
+              options={[
+                { value: 'all', label: 'Todas las categorías' },
+                ...categories.map((category) => ({ value: String(category.id), label: category.name })),
+              ]}
+            />
+            <SelectMenu
+              value={filters.status}
+              onChange={(value: StatusFilter) => setFilters((current) => ({ ...current, status: value, page: 1 }))}
+              ariaLabel="Filtrar por estado"
+              className="w-full lg:w-56"
+              options={[
+                { value: 'all', label: 'Todos los estados' },
+                { value: 'active', label: 'Activo' },
+                { value: 'inactive', label: 'Inactivo' },
+              ]}
+            />
+            <SelectMenu
+              value={String(filters.pageSize)}
+              onChange={(value) => setFilters((current) => ({ ...current, pageSize: Number(value), page: 1 }))}
+              ariaLabel="Cantidad por página"
+              className="w-full lg:w-56"
+              options={[
+                { value: '10', label: '10 por página' },
+                { value: '25', label: '25 por página' },
+                { value: '50', label: '50 por página' },
+              ]}
+            />
+            <button
+              type="button"
+              disabled={!hasActiveFilters}
+              onClick={clearFilters}
+              className="h-12 w-full rounded-lg border-2 border-brand bg-surface text-lg font-semibold text-brand transition-colors hover:bg-brand hover:text-brand-contrast disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:font-normal disabled:text-ink/40 disabled:hover:bg-surface disabled:hover:text-ink/40 lg:w-56"
+            >
+              Limpiar búsqueda
+            </button>
+          </>
+        )
+        return (
+          <>
+            <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+              {filterControls}
+            </FiltersSheet>
+            <div className="hidden flex-wrap gap-3 lg:flex">{filterControls}</div>
+          </>
+        )
+      })()}
 
       {actionError !== null && (
         <p
@@ -318,6 +369,64 @@ export function ProductsPage() {
 
       {status === 'success' && total > 0 && (
         <>
+          {viewMode === 'cards' && (
+            <div className="scrollbar-clean flex flex-col gap-3 lg:min-h-0 lg:flex-1 lg:overflow-auto">
+              {sorted.map((product) => {
+                const isUndifferentiated = product.variants.length === 1 && product.variants[0].is_implicit
+                const priceInfo = productPriceInfo(product)
+                return (
+                  <div key={product.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-base opacity-50">Próximamente</span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
+                            product.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
+                          }`}
+                        >
+                          ● {product.status === 'active' ? 'Activo' : 'Inactivo'}
+                        </span>
+                        <RowMenu title={product.name} items={productRowMenuItems(product)} />
+                      </div>
+                    </div>
+                    <div>
+                      <Link to={`/products/${product.id}`} className="text-xl font-bold hover:text-brand">
+                        <HighlightedText text={product.name} query={appliedSearch} />
+                      </Link>
+                      <p className="mt-0.5 text-lg opacity-60">{categoryName(product.category_id)}</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 border-t border-line pt-3">
+                      <div>
+                        <p className="text-sm font-bold uppercase tracking-wide opacity-50">Precio</p>
+                        <p className="mt-0.5 text-lg font-bold">
+                          {priceInfo === null ? (
+                            <span className="italic opacity-40">Sin precio</span>
+                          ) : (
+                            <span className="text-brand">
+                              {priceFormatter.format(priceInfo.amount)}
+                              {priceInfo.hasRange && (
+                                <span className="ml-1 text-sm font-normal opacity-60">desde</span>
+                              )}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold uppercase tracking-wide opacity-50">Unidad</p>
+                        <p className="mt-0.5 text-lg font-bold">{unitName(product.unit_id)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold uppercase tracking-wide opacity-50">Variantes</p>
+                        <p className="mt-0.5 text-lg font-bold">{isUndifferentiated ? '—' : product.variants.length}</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {viewMode === 'table' && (
           <div className="relative flex min-h-0 shrink flex-col overflow-hidden rounded-xl border border-line bg-surface">
             <div
               ref={tableScrollRef}
@@ -385,33 +494,7 @@ export function ProductsPage() {
                         </span>
                       </td>
                       <td className="py-3.5 pl-4 pr-8 text-center">
-                        <RowMenu
-                          title={product.name}
-                          items={[
-                            { label: 'Ver detalle', icon: '👁', onClick: () => navigate(`/products/${product.id}`) },
-                            ...(canManage
-                              ? [
-                                  {
-                                    label: 'Cambiar precio',
-                                    icon: '$',
-                                    onClick: () => navigate(`/products/${product.id}?changePrice=1`),
-                                  },
-                                  {
-                                    label: 'Editar producto',
-                                    icon: '✎',
-                                    onClick: () => navigate(`/products/${product.id}?edit=1`),
-                                  },
-                                  {
-                                    label: product.status === 'active' ? 'Desactivar' : 'Activar',
-                                    icon: '⊘',
-                                    danger: product.status === 'active',
-                                    success: product.status !== 'active',
-                                    onClick: () => setConfirmingProduct(product),
-                                  },
-                                ]
-                              : []),
-                          ]}
-                        />
+                        <RowMenu title={product.name} items={productRowMenuItems(product)} />
                       </td>
                     </tr>
                   )
@@ -434,6 +517,7 @@ export function ProductsPage() {
               </div>
             )}
           </div>
+          )}
 
           <div className="mt-auto pt-1">
             <Pagination

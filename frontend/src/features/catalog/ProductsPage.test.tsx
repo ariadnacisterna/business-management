@@ -117,7 +117,7 @@ describe('ProductsPage', () => {
 
     expect(await screen.findByText('Cinta bebé')).toBeInTheDocument()
     expect(screen.getByText('Tela de lino')).toBeInTheDocument()
-    expect(screen.getByRole('cell', { name: 'Cintas' })).toBeInTheDocument()
+    expect(screen.getByText('Cintas')).toBeInTheDocument()
     expect(screen.getByText('2 productos encontrados')).toBeInTheDocument()
   })
 

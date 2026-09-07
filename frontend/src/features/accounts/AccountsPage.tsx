@@ -11,11 +11,17 @@ import { ApiError } from '../../api/client'
 import type { Business, ManagedAccount } from '../../api/types'
 import { ROLES, type Role } from '../access/roles'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { FieldRow } from '../../shared/FieldRow'
+import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
+import { HEADER_ACTION_BUTTON_CLASSES } from '../../shared/headerActionButton'
 import { HighlightedText } from '../../shared/HighlightedText'
+import { LockIcon, PencilIcon } from '../../shared/icons'
 import { Pagination } from '../../shared/Pagination'
 import { RowMenu } from '../../shared/RowMenu'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
+import type { ViewMode } from '../../shared/ViewToggle'
+import { ViewToggle } from '../../shared/ViewToggle'
 
 type Status = 'loading' | 'success' | 'error'
 type RoleFilter = Role | 'all'
@@ -300,9 +306,12 @@ export function AccountsPage() {
   const [editingAccount, setEditingAccount] = useState<ManagedAccount | null>(null)
   const [resettingAccount, setResettingAccount] = useState<ManagedAccount | null>(null)
   const [confirmingAccount, setConfirmingAccount] = useState<ManagedAccount | null>(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('cards')
 
   const { tableScrollRef, theadRef, scrollbar, updateScrollbar, handleThumbPointerDown } = useTableScrollbar([
     accounts,
+    viewMode,
   ])
 
   function load() {
@@ -427,98 +436,127 @@ export function AccountsPage() {
     })
   }
 
+  function accountRowMenuItems(account: ManagedAccount) {
+    return [
+      { label: 'Editar cuenta', icon: <PencilIcon />, onClick: () => setEditingAccount(account) },
+      { label: 'Restablecer contraseña', icon: <LockIcon />, onClick: () => setResettingAccount(account) },
+      {
+        label: account.status === 'active' ? 'Desactivar' : 'Activar',
+        icon: '⊘',
+        danger: account.status === 'active',
+        success: account.status !== 'active',
+        onClick: () => setConfirmingAccount(account),
+      },
+    ]
+  }
+
   return (
-    <section className="-m-4 flex h-[calc(100svh-4rem)] flex-col gap-4 overflow-hidden bg-line/10 p-4 md:-m-6 md:p-6">
+    <section className="-m-4 flex flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Cuentas</h1>
           <p className="mt-1 text-lg opacity-60">{accounts.length} cuentas registradas</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className={`${primaryButtonClasses} flex items-center gap-2`}
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5"
-            >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Nueva cuenta
-          </button>
-        </div>
+        <ViewToggle mode={viewMode} onChange={setViewMode} />
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <input
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
-          placeholder="Buscar nombre o usuario…"
-          aria-label="Buscar cuentas"
-          className={`${inputClasses} min-w-48 flex-1`}
-        />
-        <SelectMenu
-          value={roleFilter}
-          onChange={(value: RoleFilter) => setRoleFilter(value)}
-          ariaLabel="Filtrar por rol"
-          className="w-56"
-          options={[
-            { value: 'all', label: 'Todos los roles' },
-            ...ROLES.map((role) => ({ value: role, label: role })),
-          ]}
-        />
-        <SelectMenu
-          value={businessFilter === 'all' ? 'all' : String(businessFilter)}
-          onChange={(value) => setBusinessFilter(value === 'all' ? 'all' : Number(value))}
-          ariaLabel="Filtrar por negocio"
-          className="w-56"
-          options={[
-            { value: 'all', label: 'Todos los negocios' },
-            ...businessOptions.map((business) => ({ value: String(business.id), label: business.name })),
-          ]}
-        />
-        <SelectMenu
-          value={statusFilter}
-          onChange={(value: StatusFilter) => setStatusFilter(value)}
-          ariaLabel="Filtrar por estado"
-          className="w-56"
-          options={[
-            { value: 'all', label: 'Todos los estados' },
-            { value: 'active', label: 'Activo' },
-            { value: 'inactive', label: 'Inactivo' },
-          ]}
-        />
-        {sorted.length > 10 && (
-          <SelectMenu
-            value={String(pageSize)}
-            onChange={(value) => setPageSize(Number(value))}
-            ariaLabel="Cantidad por página"
-            className="w-56"
-            options={[
-              { value: '10', label: '10 por página' },
-              { value: '25', label: '25 por página' },
-              { value: '50', label: '50 por página' },
-            ]}
-          />
-        )}
+      <div className="flex items-center gap-3">
+        <FiltersButton onClick={() => setFiltersOpen(true)} hasActiveFilters={hasActiveFilters} />
         <button
           type="button"
-          disabled={!hasActiveFilters}
-          onClick={clearFilters}
-          className="h-12 w-56 rounded-lg border-2 border-brand bg-surface text-lg font-semibold text-brand transition-colors hover:bg-brand hover:text-brand-contrast disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:font-normal disabled:text-ink/40 disabled:hover:bg-surface disabled:hover:text-ink/40"
+          onClick={() => setCreating(true)}
+          className={`${HEADER_ACTION_BUTTON_CLASSES} flex-1 bg-brand text-brand-contrast hover:bg-brand/90`}
         >
-          Limpiar búsqueda
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-5 w-5"
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          Nueva cuenta
         </button>
       </div>
+
+      {(() => {
+        const filterControls = (
+          <>
+            <input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Buscar nombre o usuario…"
+              aria-label="Buscar cuentas"
+              className={`${inputClasses} w-full lg:min-w-48 lg:flex-1`}
+            />
+            <SelectMenu
+              value={roleFilter}
+              onChange={(value: RoleFilter) => setRoleFilter(value)}
+              ariaLabel="Filtrar por rol"
+              className="w-full lg:w-56"
+              options={[
+                { value: 'all', label: 'Todos los roles' },
+                ...ROLES.map((role) => ({ value: role, label: role })),
+              ]}
+            />
+            <SelectMenu
+              value={businessFilter === 'all' ? 'all' : String(businessFilter)}
+              onChange={(value) => setBusinessFilter(value === 'all' ? 'all' : Number(value))}
+              ariaLabel="Filtrar por negocio"
+              className="w-full lg:w-56"
+              options={[
+                { value: 'all', label: 'Todos los negocios' },
+                ...businessOptions.map((business) => ({ value: String(business.id), label: business.name })),
+              ]}
+            />
+            <SelectMenu
+              value={statusFilter}
+              onChange={(value: StatusFilter) => setStatusFilter(value)}
+              ariaLabel="Filtrar por estado"
+              className="w-full lg:w-56"
+              options={[
+                { value: 'all', label: 'Todos los estados' },
+                { value: 'active', label: 'Activo' },
+                { value: 'inactive', label: 'Inactivo' },
+              ]}
+            />
+            {sorted.length > 10 && (
+              <SelectMenu
+                value={String(pageSize)}
+                onChange={(value) => setPageSize(Number(value))}
+                ariaLabel="Cantidad por página"
+                className="w-full lg:w-56"
+                options={[
+                  { value: '10', label: '10 por página' },
+                  { value: '25', label: '25 por página' },
+                  { value: '50', label: '50 por página' },
+                ]}
+              />
+            )}
+            <button
+              type="button"
+              disabled={!hasActiveFilters}
+              onClick={clearFilters}
+              className="h-12 w-full rounded-lg border-2 border-brand bg-surface text-lg font-semibold text-brand transition-colors hover:bg-brand hover:text-brand-contrast disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:font-normal disabled:text-ink/40 disabled:hover:bg-surface disabled:hover:text-ink/40 lg:w-56"
+            >
+              Limpiar búsqueda
+            </button>
+          </>
+        )
+        return (
+          <>
+            <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+              {filterControls}
+            </FiltersSheet>
+            <div className="hidden flex-wrap gap-3 lg:flex">{filterControls}</div>
+          </>
+        )
+      })()}
 
       {actionError !== null && (
         <p
@@ -566,6 +604,68 @@ export function AccountsPage() {
 
       {status === 'success' && sorted.length > 0 && (
         <>
+        {viewMode === 'cards' && (
+          <div className="scrollbar-clean flex flex-col gap-3 lg:min-h-0 lg:flex-1 lg:overflow-auto">
+            {paginated.map((account) => (
+              <div key={account.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-bold text-brand-contrast">
+                      {initials(account.name)}
+                    </span>
+                    <span className="text-xl font-bold">
+                      <HighlightedText text={account.name} query={searchInput} />
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
+                        account.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
+                      }`}
+                    >
+                      ● {account.status === 'active' ? 'Activo' : 'Inactivo'}
+                    </span>
+                    <RowMenu title={account.name} items={accountRowMenuItems(account)} />
+                  </div>
+                </div>
+                <div className="border-t border-line pt-3">
+                  <FieldRow label="Usuario" value={<HighlightedText text={account.user_name} query={searchInput} />} />
+                </div>
+                <FieldRow
+                  label="Rol"
+                  value={
+                    account.role !== null ? (
+                      <span
+                        className={`inline-flex items-center whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${ROLE_BADGE_CLASSES[account.role as Role]}`}
+                      >
+                        {account.role}
+                      </span>
+                    ) : (
+                      '—'
+                    )
+                  }
+                />
+                <FieldRow
+                  label="Negocio"
+                  value={
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      {account.businesses.map((business) => (
+                        <span
+                          key={business.id}
+                          className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold ${businessBadgeClasses(business)}`}
+                        >
+                          {business.name}
+                        </span>
+                      ))}
+                    </div>
+                  }
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {viewMode === 'table' && (
         <div className="relative flex min-h-0 shrink flex-col overflow-hidden rounded-xl border border-line bg-surface">
           <div
             ref={tableScrollRef}
@@ -638,28 +738,7 @@ export function AccountsPage() {
                       </span>
                     </td>
                     <td className="py-3.5 pl-4 pr-8 text-center">
-                      <RowMenu
-                        title={account.name}
-                        items={[
-                          {
-                            label: 'Editar cuenta',
-                            icon: '✎',
-                            onClick: () => setEditingAccount(account),
-                          },
-                          {
-                            label: 'Restablecer contraseña',
-                            icon: '🔑',
-                            onClick: () => setResettingAccount(account),
-                          },
-                          {
-                            label: account.status === 'active' ? 'Desactivar' : 'Activar',
-                            icon: '⊘',
-                            danger: account.status === 'active',
-                            success: account.status !== 'active',
-                            onClick: () => setConfirmingAccount(account),
-                          },
-                        ]}
-                      />
+                      <RowMenu title={account.name} items={accountRowMenuItems(account)} />
                     </td>
                   </tr>
                 ))}
@@ -681,6 +760,7 @@ export function AccountsPage() {
             </div>
           )}
         </div>
+        )}
 
         <div className="mt-auto pt-1">
           <Pagination page={currentPage} totalPages={totalPages} onPageChange={setPage} />

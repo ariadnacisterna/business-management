@@ -197,7 +197,7 @@ describe('PricingPage', () => {
     await screen.findByText('Cinta bebé')
 
     const priceInput = screen.getByLabelText('Nuevo precio para Cinta bebé Estándar')
-    const row = priceInput.closest('tr') as HTMLElement
+    const row = priceInput.closest('[data-testid="price-row"]') as HTMLElement
     const updateButton = within(row).getByRole('button', { name: 'Actualizar' })
     expect(updateButton).toBeDisabled()
 
@@ -234,7 +234,7 @@ describe('PricingPage', () => {
 
     await screen.findByText('Cinta bebé')
     const priceInput = screen.getByLabelText('Nuevo precio para Cinta bebé Estándar')
-    const row = priceInput.closest('tr') as HTMLElement
+    const row = priceInput.closest('[data-testid="price-row"]') as HTMLElement
     await user.clear(priceInput)
     await user.type(priceInput, '175')
     await user.click(within(row).getByRole('button', { name: 'Actualizar' }))

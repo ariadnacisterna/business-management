@@ -32,7 +32,20 @@ export function AppLayout() {
             aria-expanded={sidebarOpen}
             className="flex h-11 w-11 items-center justify-center rounded-lg transition-colors hover:bg-surface-brand md:hidden"
           >
-            <span aria-hidden="true">☰</span>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.25"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-6 w-6"
+            >
+              <line x1="4" y1="6" x2="20" y2="6" />
+              <line x1="4" y1="12" x2="20" y2="12" />
+              <line x1="4" y1="18" x2="20" y2="18" />
+            </svg>
           </button>
 
           <HeaderClock />

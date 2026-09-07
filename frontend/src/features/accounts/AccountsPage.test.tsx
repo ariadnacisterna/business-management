@@ -143,6 +143,7 @@ describe('AccountsPage', () => {
     renderPage(ADMIN_ACCOUNT)
 
     await screen.findByText('Ada Lovelace')
+    await user.click(screen.getByRole('button', { name: 'Ver como tabla' }))
     const names = ['Ada Lovelace', 'Grace Hopper', 'Marisol Díaz']
     const namesInOrder = () =>
       screen

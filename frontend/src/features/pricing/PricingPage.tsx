@@ -12,11 +12,15 @@ import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { CloseButton } from '../../shared/CloseButton'
+import { FieldRow } from '../../shared/FieldRow'
+import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
 import { HighlightedText } from '../../shared/HighlightedText'
 import { Pagination } from '../../shared/Pagination'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
+import type { ViewMode } from '../../shared/ViewToggle'
+import { ViewToggle } from '../../shared/ViewToggle'
 
 type Status = 'loading' | 'success' | 'error'
 
@@ -113,9 +117,12 @@ export function PricingPage() {
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [historyState, setHistoryState] = useState<HistoryState | null>(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('cards')
 
   const { tableScrollRef, theadRef, scrollbar, updateScrollbar, handleThumbPointerDown } = useTableScrollbar([
     products,
+    viewMode,
   ])
 
   useEffect(() => {
@@ -308,43 +315,62 @@ export function PricingPage() {
   })()
 
   return (
-    <section className="-m-4 flex h-[calc(100svh-4rem)] flex-col gap-4 overflow-hidden bg-line/10 p-4 md:-m-6 md:p-6">
-      <div>
-        <h1 className="text-3xl font-bold">Precios</h1>
-        <p className="mt-1 text-lg opacity-60">{total} productos encontrados</p>
+    <section className="-m-4 flex flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold">Precios</h1>
+          <p className="mt-1 text-lg opacity-60">{total} productos encontrados</p>
+        </div>
+        <ViewToggle mode={viewMode} onChange={setViewMode} />
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <input
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
-          placeholder="Buscar por nombre…"
-          aria-label="Buscar productos"
-          className="h-12 min-w-48 flex-1 rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
-        />
-        <SelectMenu
-          value={String(pageSize)}
-          onChange={(value) => {
-            setPageSize(Number(value))
-            setPage(1)
-          }}
-          ariaLabel="Cantidad por página"
-          className="w-56"
-          options={[
-            { value: '10', label: '10 por página' },
-            { value: '25', label: '25 por página' },
-            { value: '50', label: '50 por página' },
-          ]}
-        />
-        <button
-          type="button"
-          disabled={searchInput === ''}
-          onClick={() => setSearchInput('')}
-          className="h-12 w-56 rounded-lg border-2 border-brand bg-surface text-lg font-semibold text-brand transition-colors hover:bg-brand hover:text-brand-contrast disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:font-normal disabled:text-ink/40 disabled:hover:bg-surface disabled:hover:text-ink/40"
-        >
-          Limpiar búsqueda
-        </button>
+      <div className="flex items-center gap-3">
+        <FiltersButton onClick={() => setFiltersOpen(true)} hasActiveFilters={searchInput !== ''} />
       </div>
+
+      {(() => {
+        const filterControls = (
+          <>
+            <input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Buscar por nombre…"
+              aria-label="Buscar productos"
+              className="h-12 w-full rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10 lg:min-w-48 lg:flex-1"
+            />
+            <SelectMenu
+              value={String(pageSize)}
+              onChange={(value) => {
+                setPageSize(Number(value))
+                setPage(1)
+              }}
+              ariaLabel="Cantidad por página"
+              className="w-full lg:w-56"
+              options={[
+                { value: '10', label: '10 por página' },
+                { value: '25', label: '25 por página' },
+                { value: '50', label: '50 por página' },
+              ]}
+            />
+            <button
+              type="button"
+              disabled={searchInput === ''}
+              onClick={() => setSearchInput('')}
+              className="h-12 w-full rounded-lg border-2 border-brand bg-surface text-lg font-semibold text-brand transition-colors hover:bg-brand hover:text-brand-contrast disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:font-normal disabled:text-ink/40 disabled:hover:bg-surface disabled:hover:text-ink/40 lg:w-56"
+            >
+              Limpiar búsqueda
+            </button>
+          </>
+        )
+        return (
+          <>
+            <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+              {filterControls}
+            </FiltersSheet>
+            <div className="hidden flex-wrap gap-3 lg:flex">{filterControls}</div>
+          </>
+        )
+      })()}
 
       {actionError !== null && (
         <p role="alert" className="m-0 rounded-lg border border-danger/20 bg-danger/10 px-3.5 py-2.5 text-lg font-medium text-danger">
@@ -394,6 +420,119 @@ export function PricingPage() {
 
       {status === 'success' && total > 0 && (
         <>
+          {viewMode === 'cards' && (
+            <div className="scrollbar-clean flex flex-col gap-3 lg:min-h-0 lg:flex-1 lg:overflow-auto">
+              {products.map((product) => {
+                const activeVariants = product.variants.filter((variant) => variant.status === 'active')
+                if (activeVariants.length === 0) return null
+                const showApplyAll = canManage && activeVariants.length > 1
+                return (
+                  <Fragment key={product.id}>
+                    {showApplyAll && (
+                      <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface-brand/40 p-4">
+                        <p className="text-lg font-semibold">
+                          <HighlightedText text={product.name} query={appliedSearch} />
+                          <span className="ml-2 text-base font-normal opacity-60">
+                            aplicar a las {activeVariants.length} variantes
+                          </span>
+                        </p>
+                        <PriceInput
+                          value={productDrafts.get(product.id) ?? ''}
+                          onChange={(value) => setProductDrafts((prev) => new Map(prev).set(product.id, value))}
+                          ariaLabel={`Nuevo precio para todas las variantes de ${product.name}`}
+                          className={`${inputClasses} w-full`}
+                        />
+                        <button
+                          type="button"
+                          disabled={(productDrafts.get(product.id) ?? '').trim() === ''}
+                          onClick={() => startProductChange(product, activeVariants)}
+                          className="h-12 w-full rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-line disabled:text-ink/40"
+                        >
+                          Actualizar todas
+                        </button>
+                      </div>
+                    )}
+                    {activeVariants.map((variant) => {
+                      const currentPrice = pricesByVariant.get(variant.id) ?? null
+                      const draft = draftFor(variant.id)
+                      const edited = draft.trim() !== '' && draft.trim() !== (currentPrice?.amount ?? '')
+                      return (
+                        <div key={variant.id} data-testid="price-row" className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
+                          <div>
+                            <p className="text-xl font-bold">
+                              <HighlightedText text={product.name} query={appliedSearch} />
+                            </p>
+                            <p className="mt-0.5 text-lg opacity-60">{variantLabel(variant)}</p>
+                          </div>
+                          <div className="border-t border-line pt-3">
+                            <FieldRow
+                              label="Precio actual"
+                              value={
+                                currentPrice !== null ? (
+                                  <span className="font-bold text-brand">{formatAmount(currentPrice.amount)}</span>
+                                ) : (
+                                  <span className="italic opacity-40">Sin precio</span>
+                                )
+                              }
+                            />
+                          </div>
+                          {canManage && (
+                            <div className="flex items-center gap-2">
+                              <PriceInput
+                                value={draft}
+                                placeholder={currentPrice?.amount}
+                                onChange={(value) => setDraft(variant.id, value)}
+                                ariaLabel={`Nuevo precio para ${product.name} ${variantLabel(variant)}`}
+                                className={`${edited ? editedInputClasses : inputClasses} flex-1`}
+                              />
+                              <button
+                                type="button"
+                                disabled={!edited}
+                                onClick={() => startVariantChange(product, variant)}
+                                className={
+                                  edited
+                                    ? 'h-12 shrink-0 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90'
+                                    : 'h-12 shrink-0 cursor-not-allowed rounded-lg bg-line px-5 text-base font-bold text-ink/40'
+                                }
+                              >
+                                Actualizar
+                              </button>
+                            </div>
+                          )}
+                          {canManage && <FieldRow label="Último cambio" value={lastChangeLabel(variant.id)} />}
+                          {canManage && (
+                            <button
+                              type="button"
+                              onClick={() => openHistory(product, variant)}
+                              aria-label={`Ver historial de precios de ${product.name} ${variantLabel(variant)}`}
+                              className="flex h-12 items-center justify-center gap-2 rounded-lg border border-line text-base font-semibold text-ink/70 transition-colors hover:bg-surface-brand hover:text-brand"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="h-5 w-5"
+                              >
+                                <circle cx="12" cy="12" r="9" />
+                                <polyline points="12 7 12 12 15.5 14" />
+                              </svg>
+                              Ver historial
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </Fragment>
+                )
+              })}
+            </div>
+          )}
+
+          {viewMode === 'table' && (
           <div className="relative flex min-h-0 shrink flex-col overflow-hidden rounded-xl border border-line bg-surface">
             <div
               ref={tableScrollRef}
@@ -459,7 +598,7 @@ export function PricingPage() {
                           const draft = draftFor(variant.id)
                           const edited = draft.trim() !== '' && draft.trim() !== (currentPrice?.amount ?? '')
                           return (
-                            <tr key={variant.id} className="border-t border-line transition-colors hover:bg-surface-brand/60">
+                            <tr key={variant.id} data-testid="price-row" className="border-t border-line transition-colors hover:bg-surface-brand/60">
                               <td className="max-w-xs px-4 py-3.5 text-lg font-semibold">
                                 <HighlightedText text={product.name} query={appliedSearch} />
                               </td>
@@ -547,6 +686,7 @@ export function PricingPage() {
               </div>
             )}
           </div>
+          )}
 
           <div className="mt-auto pt-1">
             <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -592,7 +732,7 @@ export function PricingPage() {
               <p className="text-lg opacity-60">Todavía no hay cambios de precio registrados.</p>
             )}
             {historyState.status === 'success' && historyState.prices.length > 0 && (
-              <ul className="flex flex-col gap-3 overflow-auto">
+              <ul className="scrollbar-clean flex flex-col gap-3 overflow-auto">
                 {[...historyState.prices]
                   .sort((a, b) => new Date(b.effective_from).getTime() - new Date(a.effective_from).getTime())
                   .map((price) => (

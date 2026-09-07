@@ -411,7 +411,7 @@ export function ProductDetailPage() {
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
 
-      <div className="relative flex max-h-[90vh] min-h-[16rem] w-full max-w-2xl flex-col overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl">
+      <div className="scrollbar-clean relative flex max-h-[90vh] min-h-[16rem] w-full max-w-2xl flex-col overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl">
         <CloseButton onClose={close} className="absolute right-4 top-4" />
 
         {loadStatus === 'loading' && (

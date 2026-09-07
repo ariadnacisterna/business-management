@@ -23,7 +23,7 @@ export function HeaderClock() {
   }, [])
 
   return (
-    <span className="hidden items-baseline gap-3 text-lg font-bold text-ink sm:flex">
+    <span className="hidden items-baseline gap-3 text-lg font-bold text-ink lg:flex">
       <span>{formatDate(now)}</span>
       <span aria-hidden="true" className="opacity-40">
         |
