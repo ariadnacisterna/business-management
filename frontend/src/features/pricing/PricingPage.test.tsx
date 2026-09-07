@@ -122,7 +122,7 @@ describe('PricingPage', () => {
     expect(screen.getByText('$ 150,00')).toBeInTheDocument()
     expect(screen.getByText('$ 10,00')).toBeInTheDocument()
     expect(screen.getByText('$ 20,00')).toBeInTheDocument()
-    expect(screen.getAllByText(/por Ada Lovelace/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/por Ada$/).length).toBeGreaterThan(0)
   })
 
   it('searches by product name, debouncing the request', async () => {

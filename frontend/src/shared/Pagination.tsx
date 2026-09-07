@@ -16,7 +16,7 @@ export function Pagination({ page, totalPages, onPageChange }: Props) {
   const items = buildPageList(page, totalPages)
   const pageOptions = Array.from({ length: totalPages }, (_, index) => {
     const pageNumber = index + 1
-    return { value: String(pageNumber), label: `Página ${pageNumber}` }
+    return { value: String(pageNumber), label: String(pageNumber) }
   })
 
   return (

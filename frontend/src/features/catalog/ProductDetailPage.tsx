@@ -421,11 +421,11 @@ export function ProductDetailPage() {
   return (
     <>
     {!pickingVariantForPrice && !(priceModalVariant !== null && priceModalOpenedDirectly) && (
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
 
-      <div className="scrollbar-clean relative flex max-h-[90vh] min-h-[16rem] w-full max-w-2xl flex-col overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl">
-        <CloseButton onClose={close} className="absolute right-4 top-4" />
+      <div className="scrollbar-clean relative flex max-h-[90vh] min-h-[16rem] w-full max-w-full flex-col overflow-y-auto rounded-2xl bg-surface p-4 shadow-2xl sm:max-w-2xl sm:p-6">
+        <CloseButton onClose={close} className="absolute right-3 top-3 sm:right-4 sm:top-4" />
 
         {loadStatus === 'loading' && (
           <p role="status" className="flex flex-1 items-center justify-center text-lg opacity-60">
@@ -465,12 +465,12 @@ export function ProductDetailPage() {
         {loadStatus === 'success' && product !== null && (
           <div className="flex flex-col gap-4">
             {editingProduct ? (
-              <div>
+              <div className="pr-10">
                 <h1 className="m-0 text-2xl font-bold">Editar producto</h1>
                 <p className="m-0 mt-1 font-mono text-base italic opacity-40">Próximamente</p>
               </div>
             ) : (
-              <p className="text-base opacity-60">
+              <p className="pr-10 text-base opacity-60">
                 <Link to="/products" className="hover:text-brand">
                   Catálogo
                 </Link>{' '}

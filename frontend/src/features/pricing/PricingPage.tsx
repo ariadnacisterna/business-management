@@ -17,6 +17,7 @@ import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
 import { HighlightedText } from '../../shared/HighlightedText'
 import { Pagination } from '../../shared/Pagination'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { firstName } from '../../shared/formatName'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
 import type { ViewMode } from '../../shared/ViewToggle'
@@ -181,7 +182,7 @@ export function PricingPage() {
   function lastChangeLabel(variantId: number): string {
     const price = pricesByVariant.get(variantId)
     if (price === null || price === undefined) return 'Sin registro'
-    return `${formatRelativeTime(price.effective_from)} por ${price.created_by_account_name}`
+    return `${formatRelativeTime(price.effective_from)} por ${firstName(price.created_by_account_name)}`
   }
 
   function startVariantChange(product: Product, variant: Variant) {
@@ -324,20 +325,20 @@ export function PricingPage() {
         <ViewToggle mode={viewMode} onChange={setViewMode} />
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <input
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          placeholder="Buscar por nombre…"
+          aria-label="Buscar productos"
+          className="h-12 rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10 lg:min-w-40 lg:flex-1"
+        />
         <FiltersButton onClick={() => setFiltersOpen(true)} hasActiveFilters={searchInput !== ''} />
       </div>
 
       {(() => {
         const filterControls = (
           <>
-            <input
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Buscar por nombre…"
-              aria-label="Buscar productos"
-              className="h-12 w-full rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10 lg:min-w-48 lg:flex-1"
-            />
             <SelectMenu
               value={String(pageSize)}
               onChange={(value) => {
@@ -458,23 +459,18 @@ export function PricingPage() {
                       const edited = draft.trim() !== '' && draft.trim() !== (currentPrice?.amount ?? '')
                       return (
                         <div key={variant.id} data-testid="price-row" className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
-                          <div>
-                            <p className="text-xl font-bold">
-                              <HighlightedText text={product.name} query={appliedSearch} />
-                            </p>
-                            <p className="mt-0.5 text-lg opacity-60">{variantLabel(variant)}</p>
-                          </div>
-                          <div className="border-t border-line pt-3">
-                            <FieldRow
-                              label="Precio actual"
-                              value={
-                                currentPrice !== null ? (
-                                  <span className="font-bold text-brand">{formatAmount(currentPrice.amount)}</span>
-                                ) : (
-                                  <span className="italic opacity-40">Sin precio</span>
-                                )
-                              }
-                            />
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-xl font-bold">
+                                <HighlightedText text={product.name} query={appliedSearch} />
+                              </p>
+                              <p className="mt-0.5 text-lg opacity-60">{variantLabel(variant)}</p>
+                            </div>
+                            {currentPrice !== null ? (
+                              <span className="text-2xl font-bold text-brand">{formatAmount(currentPrice.amount)}</span>
+                            ) : (
+                              <span className="text-lg italic opacity-40">Sin precio</span>
+                            )}
                           </div>
                           {canManage && (
                             <div className="flex items-center gap-2">

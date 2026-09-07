@@ -1,5 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+
+const SELECT_MENU_OPEN_EVENT = 'select-menu-open'
 
 export interface SelectOption<T extends string> {
   value: T
@@ -31,8 +33,24 @@ export function SelectMenu<T extends string>({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const instanceId = useId()
 
   const selected = options.find((option) => option.value === value)
+
+  useEffect(() => {
+    function handleOtherOpen(event: Event) {
+      const detail = (event as CustomEvent<string>).detail
+      if (detail !== instanceId) setOpen(false)
+    }
+    window.addEventListener(SELECT_MENU_OPEN_EVENT, handleOtherOpen)
+    return () => window.removeEventListener(SELECT_MENU_OPEN_EVENT, handleOtherOpen)
+  }, [instanceId])
+
+  function openMenu() {
+    window.dispatchEvent(new CustomEvent(SELECT_MENU_OPEN_EVENT, { detail: instanceId }))
+    setPositioned(false)
+    setOpen(true)
+  }
 
   useEffect(() => {
     if (!open) return
@@ -60,8 +78,11 @@ export function SelectMenu<T extends string>({
   }, [open])
 
   function toggle() {
-    if (!open) setPositioned(false)
-    setOpen((v) => !v)
+    if (open) {
+      setOpen(false)
+      return
+    }
+    openMenu()
   }
 
   function focusOption(index: number) {
@@ -72,8 +93,7 @@ export function SelectMenu<T extends string>({
   function handleTriggerKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
-      if (!open) setPositioned(false)
-      setOpen(true)
+      if (!open) openMenu()
     }
   }
 

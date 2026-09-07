@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Account, Business } from '../../api/types'
 import { isDueno } from '../../features/access/roles'
 import { ConfirmDialog } from '../ConfirmDialog'
+import { firstName } from '../formatName'
 
 interface Props {
   account: Account
@@ -16,10 +17,6 @@ function initials(name: string): string {
     .join('')
     .slice(0, 2)
     .toUpperCase()
-}
-
-function firstName(name: string): string {
-  return name.split(' ')[0]
 }
 
 export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {

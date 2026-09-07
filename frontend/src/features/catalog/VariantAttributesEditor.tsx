@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { createAttribute, createAttributeValue, fetchAttributeValues } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Attribute, AttributeValue } from '../../api/types'
+import { SelectMenu } from '../../shared/SelectMenu'
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los valores.'
 const SAVE_ERROR_MESSAGE = 'No se pudo agregar el valor. Intentá de nuevo.'
 const SAVE_ATTRIBUTE_ERROR_MESSAGE = 'No se pudo crear el atributo. Intentá de nuevo.'
 
 const CREATE_NEW_ATTRIBUTE = '__create__'
+const CREATE_NEW_VALUE = '__create_value__'
 
 export interface SelectedAttributeValue {
   id: number
@@ -24,8 +26,9 @@ interface Props {
   disabled?: boolean
 }
 
-const selectClasses = 'h-11 rounded-lg border border-line px-3 text-base focus:border-brand focus:outline-none'
 const smallButtonClasses = 'min-h-11 rounded-lg border border-line px-3 py-1.5 text-sm'
+const fieldInputClasses = 'h-12 rounded-lg border border-line px-3 text-base focus:border-brand focus:outline-none'
+const fieldLabelClasses = 'text-sm font-bold'
 
 export function VariantAttributesEditor({
   attributes,
@@ -36,6 +39,7 @@ export function VariantAttributesEditor({
   disabled,
 }: Props) {
   const [pickerAttributeId, setPickerAttributeId] = useState<number | ''>('')
+  const [pendingValueId, setPendingValueId] = useState('')
   const [availableValues, setAvailableValues] = useState<AttributeValue[]>([])
   const [loadingValues, setLoadingValues] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -53,6 +57,7 @@ export function VariantAttributesEditor({
     setLoadError(null)
     setShowNewValueInput(false)
     setNewValueText('')
+    setPendingValueId('')
 
     if (rawId === CREATE_NEW_ATTRIBUTE) {
       setPickerAttributeId('')
@@ -104,11 +109,24 @@ export function VariantAttributesEditor({
     }
   }
 
-  function handlePickValue(rawId: string) {
-    if (rawId === '') return
-    const value = availableValues.find((candidate) => candidate.id === Number(rawId))
+  function handleValueChange(rawId: string) {
+    if (rawId === CREATE_NEW_VALUE) {
+      setPendingValueId('')
+      setShowNewValueInput(true)
+      setNewValueText('')
+      setSaveError(null)
+      return
+    }
+    setShowNewValueInput(false)
+    setPendingValueId(rawId)
+  }
+
+  function handleAddPendingValue() {
+    if (pendingValueId === '') return
+    const value = availableValues.find((candidate) => candidate.id === Number(pendingValueId))
     if (value === undefined) return
     onAdd({ id: value.id, attribute_id: value.attribute_id, value: value.value })
+    setPendingValueId('')
   }
 
   async function handleCreateNewValue() {
@@ -132,49 +150,75 @@ export function VariantAttributesEditor({
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      {selectedValues.length > 0 && (
-        <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
-          {selectedValues.map((value) => (
-            <li
-              key={value.id}
-              className="flex items-center gap-1.5 rounded-full border border-line py-1 pl-3 pr-1 text-sm"
-            >
-              {value.value}
-              {!disabled && (
-                <button
-                  type="button"
-                  aria-label={`Quitar ${value.value}`}
-                  onClick={() => onRemove(value.id)}
-                  className="rounded-full px-1 leading-none hover:bg-surface-brand"
-                >
-                  ×
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="flex flex-col gap-4">
+      <div className="rounded-xl bg-line/10 p-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="m-0 text-base font-bold">Valores seleccionados</p>
+          <p className="m-0 text-sm opacity-60">{selectedValues.length} seleccionados</p>
+        </div>
+        {selectedValues.length > 0 ? (
+          <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
+            {selectedValues.map((value) => (
+              <li
+                key={value.id}
+                className="flex items-center gap-1.5 rounded-full border border-line bg-surface py-1 pl-3 pr-1 text-sm"
+              >
+                {value.value}
+                {!disabled && (
+                  <button
+                    type="button"
+                    aria-label={`Quitar ${value.value}`}
+                    onClick={() => onRemove(value.id)}
+                    className="rounded-full px-1 leading-none hover:bg-surface-brand"
+                  >
+                    ×
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="m-0 text-sm italic opacity-40">Todavía no agregaste valores.</p>
+        )}
+      </div>
 
       {!disabled && (
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            aria-label="Atributo"
-            value={pickerAttributeId}
-            onChange={(event) => handleAttributeChange(event.target.value)}
-            className={selectClasses}
-          >
-            <option value="">Agregar atributo…</option>
-            {attributes.map((attribute) => (
-              <option key={attribute.id} value={attribute.id}>
-                {attribute.name}
-              </option>
-            ))}
-            <option value={CREATE_NEW_ATTRIBUTE}>+ Crear atributo nuevo…</option>
-          </select>
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <p className={`m-0 ${fieldLabelClasses}`}>Atributo</p>
+              <SelectMenu
+                ariaLabel="Atributo"
+                value={pickerAttributeId === '' ? '' : String(pickerAttributeId)}
+                onChange={(rawId) => handleAttributeChange(rawId)}
+                options={[
+                  { value: '', label: 'Agregar atributo…' },
+                  ...attributes.map((attribute) => ({ value: String(attribute.id), label: attribute.name })),
+                  { value: CREATE_NEW_ATTRIBUTE, label: '+ Crear atributo nuevo…' },
+                ]}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <p className={`m-0 ${fieldLabelClasses}`}>Valor</p>
+              <SelectMenu
+                ariaLabel="Valor"
+                disabled={pickerAttributeId === '' || loadingValues || loadError !== null}
+                value={pendingValueId}
+                onChange={handleValueChange}
+                options={[
+                  { value: '', label: 'Elegir valor…' },
+                  ...availableValues
+                    .filter((value) => !selectedValues.some((selected) => selected.id === value.id))
+                    .map((value) => ({ value: String(value.id), label: value.value })),
+                  { value: CREATE_NEW_VALUE, label: '+ Nuevo valor…' },
+                ]}
+              />
+            </div>
+          </div>
 
           {showNewAttributeInput && (
-            <span className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <input
                 type="text"
                 aria-label="Nombre del atributo nuevo"
@@ -182,7 +226,7 @@ export function VariantAttributesEditor({
                 value={newAttributeName}
                 onChange={(event) => setNewAttributeName(event.target.value)}
                 disabled={savingNewAttribute}
-                className="h-11 rounded-lg border border-line px-3 text-base focus:border-brand focus:outline-none"
+                className={`${fieldInputClasses} h-11 flex-1`}
               />
               <button
                 type="button"
@@ -197,50 +241,26 @@ export function VariantAttributesEditor({
                   {attributeSaveError}
                 </p>
               )}
-            </span>
+            </div>
           )}
 
           {pickerAttributeId !== '' && loadingValues && <span role="status">Cargando…</span>}
 
-          {pickerAttributeId !== '' && !loadingValues && loadError === null && (
-            <select
-              aria-label="Valor"
-              value=""
-              onChange={(event) => handlePickValue(event.target.value)}
-              className={selectClasses}
-            >
-              <option value="">Elegir valor…</option>
-              {availableValues
-                .filter((value) => !selectedValues.some((selected) => selected.id === value.id))
-                .map((value) => (
-                  <option key={value.id} value={value.id}>
-                    {value.value}
-                  </option>
-                ))}
-            </select>
-          )}
-
           {loadError !== null && (
-            <p role="alert" className="m-0 w-full text-sm text-danger">
+            <p role="alert" className="m-0 text-sm text-danger">
               {loadError}
             </p>
           )}
 
-          {pickerAttributeId !== '' && !loadingValues && loadError === null && !showNewValueInput && (
-            <button type="button" onClick={() => setShowNewValueInput(true)} className={smallButtonClasses}>
-              + Nuevo valor
-            </button>
-          )}
-
           {showNewValueInput && (
-            <span className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <input
                 type="text"
                 aria-label="Nuevo valor"
                 value={newValueText}
                 onChange={(event) => setNewValueText(event.target.value)}
                 disabled={savingNewValue}
-                className="h-11 rounded-lg border border-line px-3 text-base focus:border-brand focus:outline-none"
+                className={`${fieldInputClasses} h-11 flex-1`}
               />
               <button
                 type="button"
@@ -255,8 +275,17 @@ export function VariantAttributesEditor({
                   {saveError}
                 </p>
               )}
-            </span>
+            </div>
           )}
+
+          <button
+            type="button"
+            onClick={handleAddPendingValue}
+            disabled={pendingValueId === ''}
+            className="h-12 w-full rounded-lg bg-brand text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Agregar valor
+          </button>
         </div>
       )}
     </div>

@@ -235,41 +235,43 @@ export function ProductsPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <FiltersButton onClick={() => setFiltersOpen(true)} hasActiveFilters={hasActiveFilters} />
-        {canManage && (
-          <Link
-            to="/products/new"
-            className={`${HEADER_ACTION_BUTTON_CLASSES} flex-1 bg-brand text-brand-contrast hover:bg-brand/90 lg:hidden`}
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5"
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <input
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          placeholder="Buscar nombre, código, categoría…"
+          aria-label="Buscar productos"
+          className={`${inputClasses} lg:min-w-40 lg:flex-1`}
+        />
+        <div className="flex items-center gap-3">
+          <FiltersButton onClick={() => setFiltersOpen(true)} hasActiveFilters={hasActiveFilters} />
+          {canManage && (
+            <Link
+              to="/products/new"
+              className={`${HEADER_ACTION_BUTTON_CLASSES} flex-1 bg-brand text-brand-contrast hover:bg-brand/90 lg:hidden`}
             >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Nuevo Producto
-          </Link>
-        )}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Nuevo Producto
+            </Link>
+          )}
+        </div>
       </div>
 
       {(() => {
         const filterControls = (
           <>
-            <input
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Buscar nombre, código, categoría…"
-              aria-label="Buscar productos"
-              className={`${inputClasses} w-full lg:min-w-48 lg:flex-1`}
-            />
             <SelectMenu
               value={filters.categoryId === 'all' ? 'all' : String(filters.categoryId)}
               onChange={(value) =>

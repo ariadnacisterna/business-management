@@ -199,8 +199,9 @@ describe('ProductFormPage', () => {
     )
     await user.click(screen.getByRole('button', { name: '+ Agregar variante' }))
     await user.type(screen.getByLabelText('Nombre de la variante'), 'Roja')
-    await user.selectOptions(screen.getByLabelText('Atributo'), '1')
-    await user.selectOptions(await screen.findByLabelText('Valor'), '1')
+    await pickOption(user, 'Atributo', 'Color')
+    await pickOption(user, 'Valor', 'Rojo')
+    await user.click(screen.getByRole('button', { name: 'Agregar valor' }))
 
     await user.click(screen.getByRole('button', { name: 'Guardar producto' }))
     await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Crear' }))
@@ -290,7 +291,7 @@ describe('ProductFormPage', () => {
     await screen.findByLabelText('Nombre')
     await user.click(screen.getByLabelText(/este producto tiene distintas presentaciones/i))
     await user.click(screen.getByRole('button', { name: '+ Agregar variante' }))
-    await user.selectOptions(screen.getByLabelText('Atributo'), '__create__')
+    await pickOption(user, 'Atributo', '+ Crear atributo nuevo…')
     await user.type(screen.getByLabelText('Nombre del atributo nuevo'), 'Talle')
     await user.click(screen.getByRole('button', { name: 'Crear' }))
 

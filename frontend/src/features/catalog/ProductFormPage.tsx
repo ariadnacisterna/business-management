@@ -478,27 +478,32 @@ export function ProductFormPage() {
               </label>
 
               {addVariants && (
-                <div className="flex flex-col gap-3 border-t border-line pt-3">
-                  {variantDrafts.map((draft) => (
-                    <div key={draft.key} className="flex flex-col gap-2 rounded-xl border border-line p-4">
-                      <div className="flex gap-2">
+                <div className="flex flex-col gap-4 border-t border-line pt-4">
+                  {variantDrafts.map((draft, index) => (
+                    <div key={draft.key} className="flex flex-col gap-4 rounded-2xl border border-line p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="m-0 text-sm font-bold uppercase tracking-wide text-brand">
+                          Variante {index + 1}
+                        </p>
+                        <CloseButton
+                          onClose={() => removeVariantDraft(draft.key)}
+                          className="-m-2"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label htmlFor={`variant-label-${draft.key}`} className="text-sm font-bold">
+                          Nombre <span className="font-normal opacity-60">(opcional)</span>
+                        </label>
                         <input
+                          id={`variant-label-${draft.key}`}
                           type="text"
                           aria-label="Nombre de la variante"
-                          placeholder="Nombre (opcional)"
+                          placeholder="Ej. Rojo, Talle M"
                           value={draft.label}
                           onChange={(event) => updateVariantLabel(draft.key, event.target.value)}
                           disabled={creating}
-                          className={`${inputClasses} flex-1`}
+                          className={`${inputClasses} w-full`}
                         />
-                        <button
-                          type="button"
-                          onClick={() => removeVariantDraft(draft.key)}
-                          disabled={creating}
-                          className={secondaryButtonClasses}
-                        >
-                          Quitar
-                        </button>
                       </div>
                       <VariantAttributesEditor
                         attributes={attributes}
@@ -510,7 +515,12 @@ export function ProductFormPage() {
                       />
                     </div>
                   ))}
-                  <button type="button" onClick={addVariantDraft} disabled={creating} className={secondaryButtonClasses}>
+                  <button
+                    type="button"
+                    onClick={addVariantDraft}
+                    disabled={creating}
+                    className={`${secondaryButtonClasses} mt-1`}
+                  >
                     + Agregar variante
                   </button>
                 </div>
