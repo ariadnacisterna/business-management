@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { useAuth } from '../../features/access/AuthContext'
+import { ScrollToTopButton } from '../ScrollToTopButton'
 import { AccountMenu } from './AccountMenu'
 import { HeaderClock } from './HeaderClock'
 import { Sidebar } from './Sidebar'
@@ -65,6 +66,8 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      <ScrollToTopButton />
     </div>
   )
 }

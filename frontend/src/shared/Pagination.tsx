@@ -8,7 +8,7 @@ interface Props {
 }
 
 const navButtonClasses =
-  'table-header h-11 rounded-lg border border-line px-4 text-lg font-semibold text-ink transition-colors hover:bg-line/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent'
+  'h-11 rounded-full border border-line bg-surface px-4 text-lg font-semibold text-ink/60 transition-colors hover:bg-line/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface'
 
 export function Pagination({ page, totalPages, onPageChange }: Props) {
   if (totalPages <= 1) return null
@@ -38,13 +38,13 @@ export function Pagination({ page, totalPages, onPageChange }: Props) {
           className="min-w-0 flex-1"
           options={pageOptions}
         />
-        <span className="shrink-0 text-lg font-semibold opacity-70">/ {totalPages}</span>
+        <span className="shrink-0 text-lg font-semibold text-ink/60">/ {totalPages}</span>
       </div>
 
       <div className="hidden flex-wrap items-center justify-center gap-2 sm:flex">
         {items.map((item, index) =>
           item === 'ellipsis' ? (
-            <span key={`ellipsis-${index}`} className="px-1 text-lg opacity-50" aria-hidden="true">
+            <span key={`ellipsis-${index}`} className="px-1 text-lg text-ink/60" aria-hidden="true">
               …
             </span>
           ) : (
@@ -53,10 +53,10 @@ export function Pagination({ page, totalPages, onPageChange }: Props) {
               type="button"
               aria-current={item === page ? 'page' : undefined}
               onClick={() => onPageChange(item)}
-              className={`flex h-11 w-11 items-center justify-center rounded-full border text-lg font-semibold transition-colors ${
+              className={`flex h-11 w-11 items-center justify-center rounded-full text-lg font-semibold transition-colors ${
                 item === page
-                  ? 'table-header border-line font-bold text-ink'
-                  : 'border-line bg-surface hover:bg-surface-brand'
+                  ? 'bg-line font-bold text-ink/60 shadow-lg'
+                  : 'text-ink/60 hover:bg-line/40'
               }`}
             >
               {item}
