@@ -23,6 +23,7 @@ import { ApiError } from '../../api/client'
 import type { Attribute, Category, Price, Product, Unit, Variant } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { formatPrice } from '../../shared/formatPrice'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useScrollbar } from '../../shared/useScrollbar'
@@ -33,8 +34,6 @@ import { DuplicateWarning } from './DuplicateWarning'
 import { StagedProductImageField } from './ProductImageField'
 import { VariantAttributesEditor } from './VariantAttributesEditor'
 import type { SelectedAttributeValue } from './VariantAttributesEditor'
-
-const priceFormatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' })
 
 const LOAD_ERROR_MESSAGE = 'No se pudo cargar el producto.'
 const SAVE_ERROR_MESSAGE = 'No se pudo guardar. Intentá de nuevo.'
@@ -448,9 +447,22 @@ export function ProductDetailPage() {
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
 
       <div className="relative flex max-h-[90vh] min-h-[16rem] w-full max-w-full flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl sm:max-w-2xl">
-        <CloseButton onClose={close} className="absolute right-3 top-3 sm:right-4 sm:top-4" />
+        <div ref={modalScrollRef} onScroll={updateModalScrollbar} className="scrollbar-hidden min-h-0 flex-1 overflow-auto px-4 py-4 sm:px-6 sm:py-6">
 
-        <div ref={modalScrollRef} onScroll={updateModalScrollbar} className="scrollbar-hidden min-h-0 flex-1 overflow-auto py-4 pl-4 pr-7 sm:py-6 sm:pl-6 sm:pr-9">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          {loadStatus === 'success' && product !== null ? (
+            <p className="m-0 text-base opacity-60">
+              <Link to="/products" className="hover:text-brand">
+                Catálogo
+              </Link>{' '}
+              › {product.name} ›{' '}
+              <span className="text-brand">{editingProduct ? 'Editar producto' : 'Ver detalle'}</span>
+            </p>
+          ) : (
+            <span />
+          )}
+          <CloseButton onClose={close} />
+        </div>
 
         {loadStatus === 'loading' && (
           <p role="status" className="flex flex-1 items-center justify-center text-lg opacity-60">
@@ -489,18 +501,11 @@ export function ProductDetailPage() {
 
         {loadStatus === 'success' && product !== null && (
           <div className="flex flex-col gap-4">
-            {editingProduct ? (
-              <div className="pr-10">
+            {editingProduct && (
+              <div>
                 <h1 className="m-0 text-2xl font-bold">Editar producto</h1>
                 <p className="m-0 mt-1 font-mono text-base italic opacity-40">Próximamente</p>
               </div>
-            ) : (
-              <p className="pr-10 text-base opacity-60">
-                <Link to="/products" className="hover:text-brand">
-                  Catálogo
-                </Link>{' '}
-                › {product.name} › <span className="text-brand">Ver detalle</span>
-              </p>
             )}
 
             <DuplicateWarning duplicates={duplicates} />
@@ -1061,7 +1066,7 @@ export function ProductDetailPage() {
                     <p className="m-0 text-base opacity-60">Precio</p>
                     <p className="m-0 text-xl font-bold text-brand">
                       {pricesByVariant.get(product.variants[0].id)?.amount !== undefined
-                        ? priceFormatter.format(Number(pricesByVariant.get(product.variants[0].id)!.amount))
+                        ? formatPrice(pricesByVariant.get(product.variants[0].id)!.amount)
                         : 'Sin precio'}
                     </p>
                   </div>
@@ -1177,7 +1182,7 @@ export function ProductDetailPage() {
                             </div>
                             <span className="text-xl font-bold text-brand">
                               {pricesByVariant.get(variant.id)?.amount !== undefined
-                                ? priceFormatter.format(Number(pricesByVariant.get(variant.id)!.amount))
+                                ? formatPrice(pricesByVariant.get(variant.id)!.amount)
                                 : 'Sin precio'}
                             </span>
                           </div>
@@ -1319,7 +1324,7 @@ export function ProductDetailPage() {
                     <span className="font-semibold">{describeVariant(variant, valuesById)}</span>
                     <span className="font-bold text-brand">
                       {pricesByVariant.get(variant.id)?.amount !== undefined
-                        ? priceFormatter.format(Number(pricesByVariant.get(variant.id)!.amount))
+                        ? formatPrice(pricesByVariant.get(variant.id)!.amount)
                         : 'Sin precio'}
                     </span>
                   </button>

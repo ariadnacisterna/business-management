@@ -3,16 +3,11 @@ import { changeProductPrice, changeVariantPrice } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Price, Product, Variant } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
+import { formatPrice } from '../../shared/formatPrice'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 
 const CONFLICT_ERROR_MESSAGE = 'El precio cambió mientras tanto. Cerrá y volvé a intentar.'
 const GENERIC_ERROR_MESSAGE = 'No se pudo guardar el precio. Intentá de nuevo.'
-
-const priceFormatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' })
-
-function formatAmount(amount: string): string {
-  return priceFormatter.format(Number(amount))
-}
 
 function describeVariantLabel(variant: Variant): string {
   return variant.label ?? (variant.is_implicit ? 'Estándar' : `Variante #${variant.id}`)
@@ -101,7 +96,7 @@ export function ChangePriceModal({
         <div className="flex flex-col gap-1.5 border-t border-line pt-3 text-lg">
           <div className="flex justify-between">
             <span className="opacity-60">Precio actual</span>
-            <span className="font-bold">{currentPrice !== null ? formatAmount(currentPrice.amount) : 'Sin precio'}</span>
+            <span className="font-bold">{currentPrice !== null ? formatPrice(currentPrice.amount) : 'Sin precio'}</span>
           </div>
           <div className="flex justify-between">
             <span className="opacity-60">Vigente desde</span>

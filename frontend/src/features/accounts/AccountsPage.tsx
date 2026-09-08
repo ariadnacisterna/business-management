@@ -8,7 +8,7 @@ import {
   updateAccount,
 } from '../../api/accounts'
 import { ApiError } from '../../api/client'
-import type { Business, ManagedAccount } from '../../api/types'
+import type { ManagedAccount } from '../../api/types'
 import { ROLES, type Role } from '../access/roles'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { FieldRow } from '../../shared/FieldRow'
@@ -54,32 +54,6 @@ const ROLE_BADGE_CLASSES: Record<Role, string> = {
   Gerente: 'bg-role-gerente-soft text-role-gerente',
   Administrador: 'bg-role-administrador-soft text-role-administrador',
   Dueño: 'bg-role-dueno-soft text-role-dueno',
-}
-
-const BUSINESS_NAME_BADGE_CLASSES: Record<string, string> = {
-  merceria: 'bg-business-merceria-soft text-business-merceria',
-  despensa: 'bg-business-despensa-soft text-business-despensa',
-}
-
-const BUSINESS_BADGE_CLASSES = [
-  'bg-business-1-soft text-business-1',
-  'bg-business-2-soft text-business-2',
-  'bg-business-3-soft text-business-3',
-  'bg-business-4-soft text-business-4',
-]
-
-function normalizeBusinessName(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-}
-
-function businessBadgeClasses(business: Business): string {
-  return (
-    BUSINESS_NAME_BADGE_CLASSES[normalizeBusinessName(business.name)] ??
-    BUSINESS_BADGE_CLASSES[business.id % BUSINESS_BADGE_CLASSES.length]
-  )
 }
 
 interface AccountFormValues {
@@ -487,10 +461,10 @@ export function AccountsPage() {
 
   return (
     <section className="-m-4 flex flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Cuentas</h1>
-          <p className="mt-1 text-lg opacity-60">{accounts.length} cuentas registradas</p>
+          <p className="mt-1 whitespace-nowrap text-base opacity-60 lg:text-lg">{accounts.length} cuentas registradas</p>
         </div>
         <div className="flex items-center gap-3">
           <ViewToggle mode={viewMode} onChange={setViewMode} />
@@ -587,7 +561,7 @@ export function AccountsPage() {
                 ariaLabel="Buscar cuentas"
                 className="lg:min-w-48 lg:flex-1"
               />
-              <div className="grid grid-cols-2 gap-4 lg:hidden">
+              <div className="grid grid-cols-2 gap-2 lg:hidden">
                 <FiltersButton
                   onClick={() => setFiltersOpen(true)}
                   hasActiveFilters={hasActiveFilters}
@@ -596,7 +570,7 @@ export function AccountsPage() {
                 <button
                   type="button"
                   onClick={() => setCreating(true)}
-                  className={`${HEADER_ACTION_BUTTON_CLASSES} w-full justify-center bg-brand text-brand-contrast hover:bg-brand/90`}
+                  className={`${HEADER_ACTION_BUTTON_CLASSES} w-full justify-start bg-brand text-brand-contrast hover:bg-brand/90`}
                 >
                   <svg
                     aria-hidden="true"
@@ -611,7 +585,7 @@ export function AccountsPage() {
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
-                  Nueva cuenta
+                  Nueva Cuenta
                 </button>
               </div>
               <div className="hidden flex-wrap items-center gap-3 lg:flex">{filterControls}</div>
@@ -795,9 +769,9 @@ export function AccountsPage() {
                     <td className="px-4 py-3.5">
                       {account.role !== null ? (
                         <span
-                          className={`inline-flex items-center whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${ROLE_BADGE_CLASSES[account.role as Role]}`}
+                          className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold ${ROLE_BADGE_CLASSES[account.role as Role]}`}
                         >
-                          {account.role}
+                          ● {account.role}
                         </span>
                       ) : (
                         '—'
@@ -808,8 +782,11 @@ export function AccountsPage() {
                         {account.businesses.map((business) => (
                           <span
                             key={business.id}
-                            className={`inline-flex items-center whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold ${businessBadgeClasses(business)}`}
+                            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-ink/5 py-1 pl-2 pr-3 text-sm font-semibold text-ink/70"
                           >
+                            <span className="text-sm font-extrabold text-ink">
+                              {business.name.charAt(0).toUpperCase()}
+                            </span>
                             {business.name}
                           </span>
                         ))}

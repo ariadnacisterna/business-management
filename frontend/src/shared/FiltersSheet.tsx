@@ -15,7 +15,7 @@ export function FiltersButton({
     <button
       type="button"
       onClick={onClick}
-      className={`${HEADER_ACTION_BUTTON_CLASSES} ${widthClassName} justify-center border-2 border-brand bg-surface text-brand hover:bg-brand hover:text-brand-contrast lg:hidden`}
+      className={`${HEADER_ACTION_BUTTON_CLASSES} ${widthClassName} justify-start border-2 border-brand bg-surface text-brand hover:bg-brand hover:text-brand-contrast lg:hidden`}
     >
       <svg
         aria-hidden="true"

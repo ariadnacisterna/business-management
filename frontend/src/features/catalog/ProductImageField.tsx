@@ -3,6 +3,7 @@ import { removeProductImage, uploadProductImage } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Product } from '../../api/types'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { TrashIcon } from '../../shared/icons'
 
 const UPLOAD_ERROR_MESSAGE = 'No se pudo subir la imagen. Intentá de nuevo.'
 const REMOVE_ERROR_MESSAGE = 'No se pudo quitar la imagen. Intentá de nuevo.'
@@ -25,16 +26,6 @@ function RefreshIcon() {
       <path d="M21 3v5h-5" />
       <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16" />
       <path d="M3 21v-5h5" />
-    </svg>
-  )
-}
-
-function TrashIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <path d="M4 7h16" />
-      <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-      <path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />
     </svg>
   )
 }
@@ -256,25 +247,27 @@ export function StagedProductImageField({
           )}
         </div>
       ) : (
-        <div className="flex items-start gap-4 rounded-xl border border-line p-4">
+        <div className="flex items-center gap-3 rounded-xl border border-line p-4 lg:items-start lg:gap-4">
           <img
             src={pendingFile !== null ? (previewUrl ?? undefined) : (imageUrl ?? undefined)}
             alt={productName}
-            className="h-24 w-24 shrink-0 rounded-lg border border-line object-cover"
+            className="h-16 w-16 shrink-0 rounded-lg border border-line object-cover lg:h-24 lg:w-24"
           />
-          <div className="flex h-24 flex-1 flex-col justify-between">
-            <div>
-              <p className="m-0 text-lg font-bold">{pendingFile !== null ? pendingFile.name : 'Imagen del producto'}</p>
-              <p className="m-0 mt-0.5 text-base opacity-60">
+          <div className="flex min-w-0 flex-1 flex-col gap-2 lg:h-24 lg:justify-between">
+            <div className="min-w-0">
+              <p className="m-0 truncate text-base font-bold lg:text-lg">
+                {pendingFile !== null ? pendingFile.name : 'Imagen del producto'}
+              </p>
+              <p className="m-0 mt-0.5 text-sm opacity-60 lg:text-base">
                 {pendingFile !== null ? 'Se va a guardar cuando confirmes los cambios.' : 'Podés cambiarla o quitarla.'}
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={disabled}
-                className="flex h-10 items-center gap-1.5 rounded-lg border border-line px-3 text-base transition-colors hover:bg-surface-brand disabled:opacity-40"
+                className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-line px-3 text-base transition-colors hover:bg-surface-brand disabled:opacity-40"
               >
                 <RefreshIcon />
                 Cambiar
@@ -283,7 +276,7 @@ export function StagedProductImageField({
                 type="button"
                 onClick={pendingFile !== null ? onUndo : onRemove}
                 disabled={disabled}
-                className="flex h-10 items-center gap-1.5 rounded-lg border border-line px-3 text-base text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
+                className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-line px-3 text-base text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
               >
                 <TrashIcon />
                 Quitar

@@ -170,9 +170,9 @@ describe('ProductsPage', () => {
     )
 
     await screen.findByText('Cinta bebé')
-    expect(screen.getByText('$ 150,00')).toBeInTheDocument()
+    expect(screen.getByText('$ 150')).toBeInTheDocument()
     expect(screen.getByText('Sin precio')).toBeInTheDocument()
-    expect(screen.getByText('$ 10,00')).toBeInTheDocument()
+    expect(screen.getByText('$ 10')).toBeInTheDocument()
     expect(screen.getByText('desde')).toBeInTheDocument()
   })
 

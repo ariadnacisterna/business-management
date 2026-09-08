@@ -3,7 +3,7 @@ export function DashboardPage() {
     <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div>
         <h1 className="text-3xl font-bold">Panel</h1>
-        <p className="mt-1 text-lg opacity-60">Resumen general del negocio</p>
+        <p className="mt-1 whitespace-nowrap text-base opacity-60 lg:text-lg">Resumen general del negocio</p>
       </div>
 
       <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-16 text-center">

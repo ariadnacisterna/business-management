@@ -19,6 +19,7 @@ import { HEADER_ACTION_BUTTON_CLASSES } from '../../shared/headerActionButton'
 import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { formatPrice } from '../../shared/formatPrice'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
 import type { ViewMode } from '../../shared/ViewToggle'
@@ -38,8 +39,6 @@ interface Filters {
 }
 
 const DEFAULT_FILTERS: Filters = { page: 1, pageSize: 25, categoryId: 'all', status: 'all' }
-
-const priceFormatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' })
 
 function ProductThumbnail({ product, sizeClassName }: { product: Product; sizeClassName: string }) {
   if (product.image_url !== null) {
@@ -234,10 +233,10 @@ export function ProductsPage() {
 
   return (
     <section className="-m-4 flex flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Productos</h1>
-          <p className="mt-1 text-lg opacity-60">{total} productos encontrados</p>
+          <p className="mt-1 whitespace-nowrap text-base opacity-60 lg:text-lg">{total} productos encontrados</p>
         </div>
         <div className="flex items-center gap-3">
           <ViewToggle mode={viewMode} onChange={setViewMode} />
@@ -329,7 +328,7 @@ export function ProductsPage() {
                 ariaLabel="Buscar productos"
                 className="lg:min-w-40 lg:flex-1"
               />
-              <div className="grid grid-cols-2 gap-4 lg:hidden">
+              <div className="grid grid-cols-2 gap-2 lg:hidden">
                 <FiltersButton
                   onClick={() => setFiltersOpen(true)}
                   hasActiveFilters={hasActiveFilters}
@@ -338,7 +337,7 @@ export function ProductsPage() {
                 {canManage && (
                   <Link
                     to="/products/new"
-                    className={`${HEADER_ACTION_BUTTON_CLASSES} w-full justify-center bg-brand text-brand-contrast hover:bg-brand/90`}
+                    className={`${HEADER_ACTION_BUTTON_CLASSES} w-full justify-start bg-brand text-brand-contrast hover:bg-brand/90`}
                   >
                     <svg
                       aria-hidden="true"
@@ -353,7 +352,8 @@ export function ProductsPage() {
                       <line x1="12" y1="5" x2="12" y2="19" />
                       <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
-                    Nuevo Producto
+                    <span className="hidden min-[400px]:inline">Nuevo Producto</span>
+                    <span className="min-[400px]:hidden">Nuevo Prod.</span>
                   </Link>
                 )}
               </div>
@@ -471,7 +471,7 @@ export function ProductsPage() {
                             <span className="italic opacity-40">Sin precio</span>
                           ) : (
                             <span className="text-brand">
-                              {priceFormatter.format(priceInfo.amount)}
+                              {formatPrice(priceInfo.amount)}
                               {priceInfo.hasRange && (
                                 <span className="ml-1 text-sm font-normal opacity-60">desde</span>
                               )}
@@ -561,7 +561,7 @@ export function ProductsPage() {
                           }
                           return (
                             <span className="font-bold text-brand">
-                              {priceFormatter.format(priceInfo.amount)}
+                              {formatPrice(priceInfo.amount)}
                               {priceInfo.hasRange && (
                                 <span className="ml-1 text-sm font-normal opacity-60">desde</span>
                               )}

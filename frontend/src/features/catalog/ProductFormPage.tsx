@@ -251,9 +251,21 @@ export function ProductFormPage() {
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
 
       <div className="relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl">
-        <CloseButton onClose={close} className="absolute right-4 top-4" />
+        <div ref={modalScrollRef} onScroll={updateModalScrollbar} className="scrollbar-hidden min-h-0 flex-1 overflow-auto px-6 py-6">
 
-        <div ref={modalScrollRef} onScroll={updateModalScrollbar} className="scrollbar-hidden min-h-0 flex-1 overflow-auto py-6 pl-6 pr-9">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          {loadStatus === 'success' ? (
+            <p className="m-0 text-base opacity-60">
+              <Link to="/products" className="hover:text-brand">
+                Catálogo
+              </Link>{' '}
+              › <span className="text-brand">{createdProduct !== null ? 'Precio inicial' : 'Nuevo producto'}</span>
+            </p>
+          ) : (
+            <span />
+          )}
+          <CloseButton onClose={close} />
+        </div>
 
         {loadStatus === 'loading' && (
           <p role="status" className="flex flex-1 items-center justify-center text-lg opacity-60">
@@ -269,13 +281,6 @@ export function ProductFormPage() {
 
         {loadStatus === 'success' && createdProduct !== null && (
           <div className="flex flex-col gap-4">
-            <p className="text-base opacity-60">
-              <Link to="/products" className="hover:text-brand">
-                Catálogo
-              </Link>{' '}
-              › <span className="text-brand">Precio inicial</span>
-            </p>
-
             <div>
               <h1 className="m-0 text-2xl font-bold">Precio inicial</h1>
               <p className="mt-1 opacity-70">
@@ -339,13 +344,6 @@ export function ProductFormPage() {
 
         {loadStatus === 'success' && createdProduct === null && (
           <div className="flex flex-col gap-4">
-            <p className="text-base opacity-60">
-              <Link to="/products" className="hover:text-brand">
-                Catálogo
-              </Link>{' '}
-              › <span className="text-brand">Nuevo producto</span>
-            </p>
-
             <h1 className="m-0 text-2xl font-bold">Nuevo producto</h1>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">

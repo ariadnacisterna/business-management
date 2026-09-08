@@ -13,12 +13,12 @@ import { canManageCatalog } from '../access/roles'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { CloseButton } from '../../shared/CloseButton'
 import { FieldRow } from '../../shared/FieldRow'
-import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
 import { HighlightedText } from '../../shared/HighlightedText'
 import { Pagination } from '../../shared/Pagination'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { firstName } from '../../shared/formatName'
+import { formatPrice } from '../../shared/formatPrice'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
@@ -29,12 +29,6 @@ type Status = 'loading' | 'success' | 'error'
 
 const LOAD_ERROR_MESSAGE = 'No se pudo cargar la lista de precios.'
 const SEARCH_DEBOUNCE_MS = 300
-
-const priceFormatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' })
-
-function formatAmount(amount: string): string {
-  return priceFormatter.format(Number(amount))
-}
 
 function variantLabel(variant: Variant): string {
   return variant.label ?? (variant.is_implicit ? 'Estándar' : `Variante #${variant.id}`)
@@ -120,7 +114,6 @@ export function PricingPage() {
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [historyState, setHistoryState] = useState<HistoryState | null>(null)
-  const [filtersOpen, setFiltersOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
 
   const { tableScrollRef, theadRef, scrollbar, updateScrollbar, handleThumbPointerDown } = useTableScrollbar([
@@ -283,7 +276,7 @@ export function PricingPage() {
           currentAmount: currentPrice?.amount ?? null,
           conflictMessage:
             currentPrice !== null
-              ? `El precio cambió a ${formatAmount(currentPrice.amount)} mientras tanto. Confirmá de nuevo para aplicar tu precio.`
+              ? `El precio cambió a ${formatPrice(currentPrice.amount)} mientras tanto. Confirmá de nuevo para aplicar tu precio.`
               : 'El precio cambió mientras tanto. Confirmá de nuevo para aplicar tu precio.',
         })
       } else if (error instanceof ApiError && error.status === 409 && confirmState.kind === 'product') {
@@ -321,76 +314,55 @@ export function PricingPage() {
   const confirmDescription = (() => {
     if (confirmState === null) return ''
     if (confirmState.kind === 'variant') {
-      const oldLabel = confirmState.currentAmount !== null ? formatAmount(confirmState.currentAmount) : 'sin precio'
-      const base = `"${confirmState.product.name}" (${variantLabel(confirmState.variant)}): de ${oldLabel} a ${formatAmount(confirmState.newAmount)}.`
+      const oldLabel = confirmState.currentAmount !== null ? formatPrice(confirmState.currentAmount) : 'sin precio'
+      const base = `"${confirmState.product.name}" (${variantLabel(confirmState.variant)}): de ${oldLabel} a ${formatPrice(confirmState.newAmount)}.`
       return confirmState.conflictMessage !== null ? `${confirmState.conflictMessage} ${base}` : base
     }
-    const base = `"${confirmState.product.name}" y sus ${confirmState.variants.length} variantes van a pasar a costar ${formatAmount(confirmState.newAmount)}.`
+    const base = `"${confirmState.product.name}" y sus ${confirmState.variants.length} variantes van a pasar a costar ${formatPrice(confirmState.newAmount)}.`
     return confirmState.conflictMessage !== null ? `${confirmState.conflictMessage} ${base}` : base
   })()
 
   return (
     <section className="-m-4 flex flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Precios</h1>
-          <p className="mt-1 text-lg opacity-60">{total} productos encontrados</p>
+          <p className="mt-1 whitespace-nowrap text-base opacity-60 lg:text-lg">{total} productos encontrados</p>
         </div>
         <ViewToggle mode={viewMode} onChange={setViewMode} />
       </div>
 
-      {(() => {
-        const filterControls = (
-          <>
-            <SelectMenu
-              value={String(pageSize)}
-              onChange={(value) => {
-                setPageSize(Number(value))
-                setPage(1)
-              }}
-              ariaLabel="Cantidad por página"
-              className="w-full lg:w-56"
-              options={[
-                { value: '10', label: '10 por página' },
-                { value: '25', label: '25 por página' },
-                { value: '50', label: '50 por página' },
-              ]}
-            />
-            <button
-              type="button"
-              disabled={searchInput === ''}
-              onClick={() => setSearchInput('')}
-              className="h-12 w-full rounded-lg border-2 border-brand bg-surface text-lg font-semibold text-brand transition-colors hover:bg-brand hover:text-brand-contrast disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:font-normal disabled:text-ink/40 disabled:hover:bg-surface disabled:hover:text-ink/40 lg:w-56"
-            >
-              Limpiar búsqueda
-            </button>
-          </>
-        )
-        return (
-          <>
-            <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-              {filterControls}
-            </FiltersSheet>
-            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
-              <SearchInput
-                value={searchInput}
-                onChange={setSearchInput}
-                placeholder="Buscar por nombre…"
-                ariaLabel="Buscar productos"
-                className="lg:min-w-40 lg:flex-1"
-              />
-              <div className="grid grid-cols-2 gap-4 lg:hidden">
-                <FiltersButton
-                  onClick={() => setFiltersOpen(true)}
-                  hasActiveFilters={searchInput !== ''}
-                  widthClassName="w-full"
-                />
-              </div>
-              <div className="hidden flex-wrap items-center gap-3 lg:flex">{filterControls}</div>
-            </div>
-          </>
-        )
-      })()}
+      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+        <SearchInput
+          value={searchInput}
+          onChange={setSearchInput}
+          placeholder="Buscar por nombre…"
+          ariaLabel="Buscar productos"
+          className="lg:min-w-40 lg:flex-1"
+        />
+        <SelectMenu
+          value={String(pageSize)}
+          onChange={(value) => {
+            setPageSize(Number(value))
+            setPage(1)
+          }}
+          ariaLabel="Cantidad por página"
+          className="w-full lg:w-56"
+          options={[
+            { value: '10', label: '10 por página' },
+            { value: '25', label: '25 por página' },
+            { value: '50', label: '50 por página' },
+          ]}
+        />
+        <button
+          type="button"
+          disabled={searchInput === ''}
+          onClick={() => setSearchInput('')}
+          className="hidden h-12 w-full rounded-lg border-2 border-brand bg-surface text-lg font-semibold text-brand transition-colors hover:bg-brand hover:text-brand-contrast disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:font-normal disabled:text-ink/40 disabled:hover:bg-surface disabled:hover:text-ink/40 lg:block lg:w-56"
+        >
+          Limpiar búsqueda
+        </button>
+      </div>
 
       {actionError !== null && (
         <p role="alert" className="m-0 rounded-lg border border-danger/20 bg-danger/10 px-3.5 py-2.5 text-lg font-medium text-danger">
@@ -433,6 +405,19 @@ export function PricingPage() {
 
       {status === 'success' && total === 0 && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-10 w-10 opacity-40"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
           <p className="text-xl font-semibold">No hay productos que coincidan.</p>
           <p className="text-lg opacity-60">Probá cambiar la búsqueda.</p>
         </div>
@@ -492,7 +477,7 @@ export function PricingPage() {
                               <p className="mt-0.5 text-lg opacity-60">{variantLabel(variant)}</p>
                             </div>
                             {currentPrice !== null ? (
-                              <span className="text-2xl font-bold text-brand">{formatAmount(currentPrice.amount)}</span>
+                              <span className="text-2xl font-bold text-brand">{formatPrice(currentPrice.amount)}</span>
                             ) : (
                               <span className="text-lg italic opacity-40">Sin precio</span>
                             )}
@@ -642,7 +627,7 @@ export function PricingPage() {
                               <td className="px-4 py-3.5 text-lg opacity-70">{variantLabel(variant)}</td>
                               <td className="whitespace-nowrap px-4 py-3.5 text-lg">
                                 {currentPrice !== null ? (
-                                  <span className="font-bold text-brand">{formatAmount(currentPrice.amount)}</span>
+                                  <span className="font-bold text-brand">{formatPrice(currentPrice.amount)}</span>
                                 ) : (
                                   <span className="italic opacity-40">Sin precio</span>
                                 )}
@@ -781,8 +766,8 @@ export function PricingPage() {
                       .map((price) => (
                         <li key={price.id} className="flex flex-col gap-1 rounded-lg border border-line px-4 py-3">
                           <div className="flex items-center justify-between text-lg">
-                            <span className="font-bold text-brand">{formatAmount(price.amount)}</span>
-                            <span className="opacity-60">{price.created_by_account_name}</span>
+                            <span className="font-bold text-brand">{formatPrice(price.amount)}</span>
+                            <span className="opacity-60">{firstName(price.created_by_account_name)}</span>
                           </div>
                           <p className="m-0 text-base opacity-60">
                             Vigente desde {formatRelativeTime(price.effective_from)}

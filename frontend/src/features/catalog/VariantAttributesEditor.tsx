@@ -3,6 +3,7 @@ import { createAttribute, createAttributeValue, fetchAttributeValues } from '../
 import { ApiError } from '../../api/client'
 import type { Attribute, AttributeValue } from '../../api/types'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { TrashIcon } from '../../shared/icons'
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los valores.'
 const SAVE_ERROR_MESSAGE = 'No se pudo agregar el valor. Intentá de nuevo.'
@@ -169,9 +170,9 @@ export function VariantAttributesEditor({
                     type="button"
                     aria-label={`Quitar ${value.value}`}
                     onClick={() => onRemove(value.id)}
-                    className="rounded-full px-1 leading-none hover:bg-surface-brand"
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-danger transition-colors hover:bg-danger/10"
                   >
-                    ×
+                    <TrashIcon className="h-3.5 w-3.5" />
                   </button>
                 )}
               </li>
