@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ToastProvider } from '../../shared/Toast'
 import { AuthProvider, useAuth } from '../access/AuthContext'
 import { ProductFormPage } from './ProductFormPage'
 
@@ -50,11 +51,13 @@ async function pickOption(user: ReturnType<typeof userEvent.setup>, label: strin
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={['/products/new']}>
-      <AuthProvider>
-        <ReadyGate>
-          <ProductFormPage />
-        </ReadyGate>
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <ReadyGate>
+            <ProductFormPage />
+          </ReadyGate>
+        </AuthProvider>
+      </ToastProvider>
     </MemoryRouter>,
   )
 }
@@ -116,6 +119,7 @@ describe('ProductFormPage', () => {
     const heading = await screen.findByRole('heading', { name: 'Precio inicial' })
     expect(heading).toBeInTheDocument()
     expect(screen.queryByText(/variante/i)).not.toBeInTheDocument()
+    expect(await screen.findByRole('status')).toHaveTextContent('Producto creado correctamente.')
 
     await user.type(screen.getByLabelText('Precio'), '150')
     await user.click(screen.getByRole('button', { name: /guardar precio/i }))
@@ -153,6 +157,27 @@ describe('ProductFormPage', () => {
     expect(fetchMock.mock.calls.length).toBe(callsBeforeConfirm)
     expect(screen.queryByRole('heading', { name: 'Precio inicial' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Nombre')).toHaveValue('Hilo blanco')
+  })
+
+  it('shows an error toast when creating the product fails', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse(ATTRIBUTES))
+      .mockResolvedValueOnce(jsonResponse({ detail: 'Ya existe un producto con ese nombre.' }, 409))
+
+    renderPage()
+
+    await user.type(await screen.findByLabelText('Nombre'), 'Hilo blanco')
+    await pickOption(user, 'Categoría', 'Mercería')
+    await pickOption(user, 'Unidad', 'Unidad (un)')
+    await user.click(screen.getByRole('button', { name: 'Guardar producto' }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Crear' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ya existe un producto con ese nombre.')
+    expect(screen.queryByRole('heading', { name: 'Precio inicial' })).not.toBeInTheDocument()
   })
 
   it('lets the user add variants with attribute values and creates one variant per row', async () => {

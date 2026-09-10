@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   changeActiveBusiness,
   fetchCurrentAccount,
@@ -7,6 +7,7 @@ import {
 } from '../../api/auth'
 import { setUnauthorizedHandler } from '../../api/client'
 import type { Account } from '../../api/types'
+import { useToast } from '../../shared/Toast'
 
 type SessionStatus = 'loading' | 'ready'
 
@@ -23,12 +24,23 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { showError } = useToast()
   const [account, setAccount] = useState<Account | null>(null)
   const [status, setStatus] = useState<SessionStatus>('loading')
   const [justLoggedIn, setJustLoggedIn] = useState(false)
+  const accountRef = useRef<Account | null>(null)
 
   useEffect(() => {
-    setUnauthorizedHandler(() => setAccount(null))
+    accountRef.current = account
+  }, [account])
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      if (accountRef.current !== null) {
+        showError('Tu sesión expiró. Iniciá sesión de nuevo.')
+      }
+      setAccount(null)
+    })
 
     fetchCurrentAccount()
       .then(setAccount)
@@ -36,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setStatus('ready'))
 
     return () => setUnauthorizedHandler(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const value = useMemo<AuthContextValue>(

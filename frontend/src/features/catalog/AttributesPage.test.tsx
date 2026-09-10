@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
+import { ToastProvider } from '../../shared/Toast'
 import { AuthProvider, useAuth } from '../access/AuthContext'
 import { AttributesPage } from './AttributesPage'
 
@@ -36,11 +37,13 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function renderPage() {
   return render(
-    <AuthProvider>
-      <ReadyGate>
-        <AttributesPage />
-      </ReadyGate>
-    </AuthProvider>,
+    <ToastProvider>
+      <AuthProvider>
+        <ReadyGate>
+          <AttributesPage />
+        </ReadyGate>
+      </AuthProvider>
+    </ToastProvider>,
   )
 }
 
@@ -77,6 +80,7 @@ describe('AttributesPage', () => {
       '/attribute-values/10/deactivate',
       expect.objectContaining({ method: 'POST' }),
     )
+    expect(await screen.findByRole('status')).toHaveTextContent('Valor desactivado.')
 
     const activarButton = await screen.findByRole('button', { name: 'Activar' })
     await user.click(activarButton)

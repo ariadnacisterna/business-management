@@ -2,14 +2,15 @@ import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { InvalidCredentialsError } from '../../api/auth'
 import { Brand } from '../../shared/Brand'
+import { useToast } from '../../shared/Toast'
 import { useAuth } from './AuthContext'
 import { LoginHelpDialog } from './LoginHelpDialog'
 
 export function LoginPage() {
   const { account, status, login } = useAuth()
+  const { showError } = useToast()
   const [userName, setUserName] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
 
@@ -19,12 +20,11 @@ export function LoginPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setError(null)
     setSubmitting(true)
     try {
       await login(userName, password)
     } catch (submitError) {
-      setError(
+      showError(
         submitError instanceof InvalidCredentialsError
           ? 'Usuario o contraseña incorrectos.'
           : 'No se pudo iniciar sesión. Intentá de nuevo.',
@@ -83,16 +83,6 @@ export function LoginPage() {
             className="h-11 w-full rounded-lg border border-line px-3.5 text-base transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
           />
         </div>
-
-        {error !== null && (
-          <p
-            role="alert"
-            className="m-0 flex items-center gap-2 rounded-lg border border-danger/20 bg-danger/10 px-3.5 py-2.5 text-sm font-medium text-danger"
-          >
-            <span aria-hidden="true">⚠</span>
-            {error}
-          </p>
-        )}
 
         <button
           type="submit"

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ManagedAccount } from '../../api/types'
+import { ToastProvider } from '../../shared/Toast'
 import { AuthProvider, useAuth } from '../access/AuthContext'
 import { AccountsPage } from './AccountsPage'
 
@@ -65,6 +66,7 @@ function renderPage(account: unknown, accounts: ManagedAccount[] = MANAGED_ACCOU
 
   return render(
     <MemoryRouter initialEntries={['/cuentas']}>
+      <ToastProvider>
       <AuthProvider>
         <ReadyGate>
           <Routes>
@@ -72,6 +74,7 @@ function renderPage(account: unknown, accounts: ManagedAccount[] = MANAGED_ACCOU
           </Routes>
         </ReadyGate>
       </AuthProvider>
+      </ToastProvider>
     </MemoryRouter>,
   )
 }

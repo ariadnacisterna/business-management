@@ -16,10 +16,12 @@ import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
 import { HEADER_ACTION_BUTTON_CLASSES } from '../../shared/headerActionButton'
 import { HighlightedText } from '../../shared/HighlightedText'
 import { LockIcon, PencilIcon } from '../../shared/icons'
+import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { Pagination } from '../../shared/Pagination'
 import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useToast } from '../../shared/Toast'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
 import type { ViewMode } from '../../shared/ViewToggle'
@@ -75,14 +77,15 @@ function AccountFormModal({
   onSubmit: (values: AccountFormValues & { initial_password?: string }) => Promise<void>
   onCancel: () => void
 }) {
+  const { showSuccess, showError } = useToast()
   const [name, setName] = useState(initialValues.name)
   const [userName, setUserName] = useState(initialValues.user_name)
   const [role, setRole] = useState<Role>(initialValues.role)
   const [password, setPassword] = useState('')
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
 
+  const isCreate = initialValues.name === ''
   const canSubmit =
     name.trim() !== '' && userName.trim() !== '' && (!showPassword || password.trim() !== '')
 
@@ -95,7 +98,6 @@ function AccountFormModal({
   async function confirmSubmit() {
     setConfirming(false)
     setSaving(true)
-    setError(null)
     try {
       await onSubmit({
         name: name.trim(),
@@ -103,8 +105,9 @@ function AccountFormModal({
         role,
         ...(showPassword ? { initial_password: password } : {}),
       })
+      showSuccess(isCreate ? 'Cuenta creada.' : 'Cuenta actualizada.')
     } catch (submitError) {
-      setError(submitError instanceof ApiError ? submitError.message : SAVE_ERROR_MESSAGE)
+      showError(submitError instanceof ApiError ? submitError.message : SAVE_ERROR_MESSAGE)
       setSaving(false)
     }
   }
@@ -168,12 +171,6 @@ function AccountFormModal({
           />
         </label>
 
-        {error !== null && (
-          <p role="alert" className="m-0 text-base text-danger">
-            {error}
-          </p>
-        )}
-
         <div className="flex gap-2">
           <button type="submit" disabled={!canSubmit || saving} className={`${primaryButtonClasses} flex-1`}>
             Guardar
@@ -212,10 +209,10 @@ function ResetPasswordModal({
   onSubmit: (newPassword: string) => Promise<void>
   onCancel: () => void
 }) {
+  const { showSuccess, showError } = useToast()
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const mismatch = confirmation !== '' && password !== confirmation
   const canSubmit = password.trim() !== '' && password === confirmation
@@ -224,11 +221,11 @@ function ResetPasswordModal({
     event.preventDefault()
     if (!canSubmit) return
     setSaving(true)
-    setError(null)
     try {
       await onSubmit(password)
+      showSuccess('Contraseña restablecida.')
     } catch (submitError) {
-      setError(submitError instanceof ApiError ? submitError.message : SAVE_ERROR_MESSAGE)
+      showError(submitError instanceof ApiError ? submitError.message : SAVE_ERROR_MESSAGE)
       setSaving(false)
     }
   }
@@ -273,12 +270,6 @@ function ResetPasswordModal({
           </p>
         )}
 
-        {error !== null && (
-          <p role="alert" className="m-0 text-base text-danger">
-            {error}
-          </p>
-        )}
-
         <div className="flex gap-2">
           <button type="submit" disabled={!canSubmit || saving} className={`${primaryButtonClasses} flex-1`}>
             Restablecer
@@ -293,10 +284,10 @@ function ResetPasswordModal({
 }
 
 export function AccountsPage() {
+  const { showSuccess, showError } = useToast()
   const [accounts, setAccounts] = useState<ManagedAccount[]>([])
   const [status, setStatus] = useState<Status>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
 
   const [searchInput, setSearchInput] = useState('')
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
@@ -436,13 +427,16 @@ export function AccountsPage() {
     if (confirmingAccount === null) return
     const account = confirmingAccount
     setConfirmingAccount(null)
-    setActionError(null)
+    const activating = account.status !== 'active'
     const request = account.status === 'active' ? deactivateAccount(account.id) : activateAccount(account.id)
-    request.then(applyAccountUpdate).catch(() => {
-      setActionError(
-        account.status === 'active' ? 'No se pudo desactivar la cuenta.' : 'No se pudo activar la cuenta.',
-      )
-    })
+    request
+      .then((updated) => {
+        applyAccountUpdate(updated)
+        showSuccess(activating ? 'Cuenta activada.' : 'Cuenta desactivada.')
+      })
+      .catch(() => {
+        showError(activating ? 'No se pudo activar la cuenta.' : 'No se pudo desactivar la cuenta.')
+      })
   }
 
   function accountRowMenuItems(account: ManagedAccount) {
@@ -594,15 +588,6 @@ export function AccountsPage() {
         )
       })()}
 
-      {actionError !== null && (
-        <p
-          role="alert"
-          className="m-0 rounded-lg border border-danger/20 bg-danger/10 px-3.5 py-2.5 text-lg font-medium text-danger"
-        >
-          {actionError}
-        </p>
-      )}
-
       {status === 'loading' && (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface px-6 py-12 text-center" role="status">
           <span className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-brand" />
@@ -610,14 +595,7 @@ export function AccountsPage() {
         </div>
       )}
 
-      {status === 'error' && (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface px-6 py-12 text-center" role="alert">
-          <p className="m-0 text-xl font-semibold">{loadError}</p>
-          <button type="button" onClick={load} className={`${primaryButtonClasses} flex items-center gap-2`}>
-            Reintentar
-          </button>
-        </div>
-      )}
+      {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
 
       {status === 'success' && sorted.length === 0 && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">

@@ -14,9 +14,12 @@ import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { CloseButton } from '../../shared/CloseButton'
 import { FieldRow } from '../../shared/FieldRow'
 import { HighlightedText } from '../../shared/HighlightedText'
+import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { Pagination } from '../../shared/Pagination'
+import { PriceInput } from '../../shared/PriceInput'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useToast } from '../../shared/Toast'
 import { firstName } from '../../shared/formatName'
 import { formatPrice } from '../../shared/formatPrice'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
@@ -67,34 +70,10 @@ const inputClasses =
 const editedInputClasses =
   'h-12 w-40 rounded-lg border-2 border-brand bg-surface pl-7 pr-3 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-brand/10'
 
-function PriceInput(props: {
-  value: string
-  placeholder?: string
-  onChange: (value: string) => void
-  ariaLabel: string
-  className: string
-}) {
-  return (
-    <div className="relative">
-      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-lg font-bold opacity-60">$</span>
-      <input
-        value={props.value}
-        placeholder={props.placeholder}
-        onChange={(event) => props.onChange(event.target.value)}
-        type="number"
-        min="0.01"
-        step="0.01"
-        inputMode="decimal"
-        aria-label={props.ariaLabel}
-        className={props.className}
-      />
-    </div>
-  )
-}
-
 export function PricingPage() {
   const { account } = useAuth()
   const canManage = canManageCatalog(account)
+  const { showSuccess, showError } = useToast()
 
   const [products, setProducts] = useState<Product[]>([])
   const [total, setTotal] = useState(0)
@@ -102,7 +81,6 @@ export function PricingPage() {
   const [pageSize, setPageSize] = useState(25)
   const [status, setStatus] = useState<Status>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
 
   const [searchInput, setSearchInput] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
@@ -195,7 +173,6 @@ export function PricingPage() {
   function startVariantChange(product: Product, variant: Variant) {
     const trimmed = draftFor(variant.id).trim()
     if (trimmed === '') return
-    setActionError(null)
     setConfirmState({
       kind: 'variant',
       product,
@@ -210,7 +187,6 @@ export function PricingPage() {
   function startProductChange(product: Product, variants: Variant[]) {
     const trimmed = (productDrafts.get(product.id) ?? '').trim()
     if (trimmed === '') return
-    setActionError(null)
     const expectedPriceIds: Record<number, number | null> = {}
     for (const variant of variants) {
       expectedPriceIds[variant.id] = pricesByVariant.get(variant.id)?.id ?? null
@@ -243,6 +219,7 @@ export function PricingPage() {
           return next
         })
         setConfirmState(null)
+        showSuccess('Precio actualizado.')
       } else {
         const result = await changeProductPrice(
           confirmState.product.id,
@@ -265,19 +242,21 @@ export function PricingPage() {
           return next
         })
         setConfirmState(null)
+        showSuccess('Precio actualizado para todas las variantes.')
       }
     } catch (error) {
       if (error instanceof ApiError && error.status === 409 && confirmState.kind === 'variant') {
         const body = error.body as { current_price?: Price | null } | null
         const currentPrice = body?.current_price ?? null
+        const conflictMessage =
+          currentPrice !== null
+            ? `El precio cambió a ${formatPrice(currentPrice.amount)} mientras tanto. Confirmá de nuevo para aplicar tu precio.`
+            : 'El precio cambió mientras tanto. Confirmá de nuevo para aplicar tu precio.'
         setConfirmState({
           ...confirmState,
           expectedPriceId: currentPrice?.id ?? null,
           currentAmount: currentPrice?.amount ?? null,
-          conflictMessage:
-            currentPrice !== null
-              ? `El precio cambió a ${formatPrice(currentPrice.amount)} mientras tanto. Confirmá de nuevo para aplicar tu precio.`
-              : 'El precio cambió mientras tanto. Confirmá de nuevo para aplicar tu precio.',
+          conflictMessage,
         })
       } else if (error instanceof ApiError && error.status === 409 && confirmState.kind === 'product') {
         const body = error.body as { current_prices?: Record<string, Price | null> } | null
@@ -292,7 +271,7 @@ export function PricingPage() {
           conflictMessage: 'Algunos precios cambiaron mientras tanto. Confirmá de nuevo para aplicar tu precio.',
         })
       } else {
-        setActionError('No se pudo actualizar el precio. Intentá de nuevo.')
+        showError('No se pudo actualizar el precio. Intentá de nuevo.')
         setConfirmState(null)
       }
     } finally {
@@ -364,12 +343,6 @@ export function PricingPage() {
         </button>
       </div>
 
-      {actionError !== null && (
-        <p role="alert" className="m-0 rounded-lg border border-danger/20 bg-danger/10 px-3.5 py-2.5 text-lg font-medium text-danger">
-          {actionError}
-        </p>
-      )}
-
       {status === 'loading' && (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface px-6 py-12 text-center" role="status">
           <span className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-brand" />
@@ -377,31 +350,7 @@ export function PricingPage() {
         </div>
       )}
 
-      {status === 'error' && (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface px-6 py-12 text-center" role="alert">
-          <p className="m-0 text-xl font-semibold">{loadError}</p>
-          <button
-            type="button"
-            onClick={load}
-            className="flex h-12 items-center gap-2 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90"
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5"
-            >
-              <polyline points="1 4 1 10 7 10" />
-              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-            </svg>
-            Reintentar
-          </button>
-        </div>
-      )}
+      {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
 
       {status === 'success' && total === 0 && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">

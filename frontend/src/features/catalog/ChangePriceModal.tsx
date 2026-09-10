@@ -3,6 +3,7 @@ import { changeProductPrice, changeVariantPrice } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Price, Product, Variant } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
+import { useToast } from '../../shared/Toast'
 import { formatPrice } from '../../shared/formatPrice'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 
@@ -32,10 +33,10 @@ export function ChangePriceModal({
   onClose,
   onSuccess,
 }: Props) {
+  const { showSuccess, showError } = useToast()
   const [amount, setAmount] = useState('')
   const [applyToAll, setApplyToAll] = useState(defaultApplyToAll)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const activeVariantCount = activeVariantPrices.size
 
@@ -45,7 +46,6 @@ export function ChangePriceModal({
     if (trimmed === '') return
 
     setSaving(true)
-    setError(null)
     try {
       if (applyToAll) {
         const expectedIds: Record<number, number | null> = {}
@@ -54,12 +54,14 @@ export function ChangePriceModal({
         }
         const result = await changeProductPrice(product.id, trimmed, expectedIds)
         onSuccess(result.prices.map((price) => ({ variantId: price.variant_id, price })))
+        showSuccess('Precio actualizado para todas las variantes.')
       } else {
         const price = await changeVariantPrice(variant.id, trimmed, currentPrice?.id ?? null)
         onSuccess([{ variantId: variant.id, price }])
+        showSuccess('Precio actualizado.')
       }
     } catch (submitError) {
-      setError(
+      showError(
         submitError instanceof ApiError && submitError.status === 409
           ? CONFLICT_ERROR_MESSAGE
           : GENERIC_ERROR_MESSAGE,
@@ -141,12 +143,6 @@ export function ChangePriceModal({
             />
             Aplicar a TODAS las variantes ({activeVariantCount})
           </label>
-        )}
-
-        {error !== null && (
-          <p role="alert" className="m-0 text-lg text-danger">
-            {error}
-          </p>
         )}
 
         <div className="flex gap-2">

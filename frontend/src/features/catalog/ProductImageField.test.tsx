@@ -2,7 +2,9 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import * as catalogApi from '../../api/catalog'
+import { ApiError } from '../../api/client'
 import type { Product } from '../../api/types'
+import { ToastProvider } from '../../shared/Toast'
 import { ProductImageField } from './ProductImageField'
 
 const PRODUCT: Product = {
@@ -20,6 +22,14 @@ const PRODUCT_WITH_IMAGE: Product = {
   image_url: 'https://example.supabase.co/storage/v1/object/public/product-images/products/1.png',
 }
 
+function renderField(product: Product, onUpdated: (product: Product) => void) {
+  return render(
+    <ToastProvider>
+      <ProductImageField product={product} onUpdated={onUpdated} />
+    </ToastProvider>,
+  )
+}
+
 describe('ProductImageField', () => {
   it('asks for confirmation before uploading a selected image', async () => {
     const user = userEvent.setup()
@@ -27,7 +37,7 @@ describe('ProductImageField', () => {
     const uploadSpy = vi.spyOn(catalogApi, 'uploadProductImage').mockResolvedValue(uploaded)
     const onUpdated = vi.fn()
 
-    render(<ProductImageField product={PRODUCT} onUpdated={onUpdated} />)
+    renderField(PRODUCT, onUpdated)
 
     const file = new File(['fake-bytes'], 'photo.png', { type: 'image/png' })
     const input = screen.getByLabelText('Elegir imagen del producto') as HTMLInputElement
@@ -46,7 +56,7 @@ describe('ProductImageField', () => {
     const user = userEvent.setup()
     const uploadSpy = vi.spyOn(catalogApi, 'uploadProductImage').mockResolvedValue(PRODUCT_WITH_IMAGE)
 
-    render(<ProductImageField product={PRODUCT} onUpdated={vi.fn()} />)
+    renderField(PRODUCT, vi.fn())
 
     const file = new File(['fake-bytes'], 'photo.png', { type: 'image/png' })
     const input = screen.getByLabelText('Elegir imagen del producto') as HTMLInputElement
@@ -65,7 +75,7 @@ describe('ProductImageField', () => {
     const removeSpy = vi.spyOn(catalogApi, 'removeProductImage').mockResolvedValue(removed)
     const onUpdated = vi.fn()
 
-    render(<ProductImageField product={PRODUCT_WITH_IMAGE} onUpdated={onUpdated} />)
+    renderField(PRODUCT_WITH_IMAGE, onUpdated)
 
     await user.click(screen.getByRole('button', { name: 'Quitar' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Quitar imagen' })
@@ -79,8 +89,39 @@ describe('ProductImageField', () => {
   })
 
   it('shows the current image when the product has one', () => {
-    render(<ProductImageField product={PRODUCT_WITH_IMAGE} onUpdated={vi.fn()} />)
+    renderField(PRODUCT_WITH_IMAGE, vi.fn())
 
     expect(screen.getByAltText('Cinta bebé')).toHaveAttribute('src', PRODUCT_WITH_IMAGE.image_url as string)
+  })
+
+  it('shows a toast with the storage-not-configured message when the upload fails', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(catalogApi, 'uploadProductImage').mockRejectedValue(
+      new ApiError(503, 'El almacenamiento de imágenes no está configurado.'),
+    )
+
+    renderField(PRODUCT, vi.fn())
+
+    const file = new File(['fake-bytes'], 'photo.png', { type: 'image/png' })
+    const input = screen.getByLabelText('Elegir imagen del producto') as HTMLInputElement
+    await user.upload(input, file)
+    await user.click(screen.getByRole('button', { name: 'Subir' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'El almacenamiento de imágenes no está configurado.',
+    )
+  })
+
+  it('shows a toast when removing the image fails', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(catalogApi, 'removeProductImage').mockRejectedValue(new Error('network down'))
+
+    renderField(PRODUCT_WITH_IMAGE, vi.fn())
+
+    await user.click(screen.getByRole('button', { name: 'Quitar' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Quitar imagen' })
+    await user.click(within(dialog).getByRole('button', { name: 'Quitar' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo quitar la imagen. Intentá de nuevo.')
   })
 })

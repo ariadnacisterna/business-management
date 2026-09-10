@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
+import { ToastProvider } from '../../shared/Toast'
 import { AuthProvider, useAuth } from '../access/AuthContext'
 import { CategoriesPage } from './CategoriesPage'
 
@@ -36,11 +37,13 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function renderPage() {
   return render(
-    <AuthProvider>
-      <ReadyGate>
-        <CategoriesPage />
-      </ReadyGate>
-    </AuthProvider>,
+    <ToastProvider>
+      <AuthProvider>
+        <ReadyGate>
+          <CategoriesPage />
+        </ReadyGate>
+      </AuthProvider>
+    </ToastProvider>,
   )
 }
 
@@ -147,5 +150,23 @@ describe('CategoriesPage', () => {
     renderPage()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudieron cargar las categorías.')
+  })
+
+  it('reloads the list when Reintentar is pressed after a failed load', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockRejectedValueOnce(new TypeError('fail'))
+      .mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 0 }))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 0 }))
+
+    renderPage()
+
+    await screen.findByRole('alert')
+    await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+
+    expect(await screen.findByText('Mercería')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })

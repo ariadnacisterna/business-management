@@ -57,6 +57,41 @@ export function TrashIcon({ className = 'h-5 w-5' }: { className?: string }) {
   )
 }
 
+export function CheckIcon({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <polyline points="5 13 10 18 19 7" />
+    </svg>
+  )
+}
+
+export function CrossIcon({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <line x1="6" y1="6" x2="18" y2="18" />
+      <line x1="18" y1="6" x2="6" y2="18" />
+    </svg>
+  )
+}
+
 export function LockIcon({ className = 'h-5 w-5' }: { className?: string }) {
   return (
     <svg

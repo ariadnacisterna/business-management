@@ -16,9 +16,11 @@ import { EyeIcon, PencilIcon } from '../../shared/icons'
 import { Pagination } from '../../shared/Pagination'
 import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
 import { HEADER_ACTION_BUTTON_CLASSES } from '../../shared/headerActionButton'
+import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useToast } from '../../shared/Toast'
 import { formatPrice } from '../../shared/formatPrice'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
@@ -79,6 +81,7 @@ export function ProductsPage() {
   const { account } = useAuth()
   const canManage = canManageCatalog(account)
   const navigate = useNavigate()
+  const { showSuccess, showError } = useToast()
 
   const [products, setProducts] = useState<Product[]>([])
   const [total, setTotal] = useState(0)
@@ -86,7 +89,6 @@ export function ProductsPage() {
   const [units, setUnits] = useState<Unit[]>([])
   const [status, setStatus] = useState<Status>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
   const [confirmingProduct, setConfirmingProduct] = useState<Product | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
@@ -166,16 +168,15 @@ export function ProductsPage() {
   }
 
   function toggleActive(product: Product) {
-    setActionError(null)
+    const activating = product.status !== 'active'
     const request = product.status === 'active' ? deactivateProduct(product.id) : reactivateProduct(product.id)
     request
-      .then(applyProductUpdate)
+      .then((updated) => {
+        applyProductUpdate(updated)
+        showSuccess(activating ? 'Producto activado.' : 'Producto desactivado.')
+      })
       .catch(() => {
-        setActionError(
-          product.status === 'active'
-            ? 'No se pudo desactivar el producto.'
-            : 'No se pudo activar el producto.',
-        )
+        showError(activating ? 'No se pudo activar el producto.' : 'No se pudo desactivar el producto.')
       })
   }
 
@@ -363,15 +364,6 @@ export function ProductsPage() {
         )
       })()}
 
-      {actionError !== null && (
-        <p
-          role="alert"
-          className="m-0 rounded-lg border border-danger/20 bg-danger/10 px-3.5 py-2.5 text-lg font-medium text-danger"
-        >
-          {actionError}
-        </p>
-      )}
-
       {status === 'loading' && (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface px-6 py-12 text-center" role="status">
           <span className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-brand" />
@@ -379,31 +371,7 @@ export function ProductsPage() {
         </div>
       )}
 
-      {status === 'error' && (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface px-6 py-12 text-center" role="alert">
-          <p className="m-0 text-xl font-semibold">{loadError}</p>
-          <button
-            type="button"
-            onClick={load}
-            className="flex h-12 items-center gap-2 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90"
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5"
-            >
-              <polyline points="1 4 1 10 7 10" />
-              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-            </svg>
-            Reintentar
-          </button>
-        </div>
-      )}
+      {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
 
       {status === 'success' && total === 0 && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">

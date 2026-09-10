@@ -13,6 +13,8 @@ import type { Attribute, AttributeValue } from '../../api/types'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { useToast } from '../../shared/Toast'
 
 type Status = 'loading' | 'success' | 'error'
 
@@ -29,6 +31,7 @@ const secondaryButtonClasses = 'h-11 rounded-lg border border-line px-3 text-bas
 export function AttributesPage() {
   const { account } = useAuth()
   const canManage = canManageCatalog(account)
+  const { showSuccess, showError } = useToast()
 
   const [attributes, setAttributes] = useState<Attribute[]>([])
   const [status, setStatus] = useState<Status>('loading')
@@ -42,16 +45,13 @@ export function AttributesPage() {
   const [creatingAttribute, setCreatingAttribute] = useState(false)
   const [newAttributeName, setNewAttributeName] = useState('')
   const [savingAttribute, setSavingAttribute] = useState(false)
-  const [createAttributeError, setCreateAttributeError] = useState<string | null>(null)
 
   const [newValue, setNewValue] = useState('')
   const [creatingValue, setCreatingValue] = useState(false)
-  const [createValueError, setCreateValueError] = useState<string | null>(null)
 
   const [editingValueId, setEditingValueId] = useState<number | null>(null)
   const [editingValue, setEditingValue] = useState('')
   const [savingValue, setSavingValue] = useState(false)
-  const [editValueError, setEditValueError] = useState<string | null>(null)
 
   const [confirmingStatusChange, setConfirmingStatusChange] = useState<AttributeValue | null>(null)
   const [statusChangeError, setStatusChangeError] = useState<string | null>(null)
@@ -102,7 +102,6 @@ export function AttributesPage() {
 
   function handleCreateAttribute(event: React.FormEvent) {
     event.preventDefault()
-    setCreateAttributeError(null)
     if (newAttributeName.trim() === '') return
     setConfirmingCreateAttribute(true)
   }
@@ -118,8 +117,9 @@ export function AttributesPage() {
       setAttributes((prev) => [...prev, attribute])
       setNewAttributeName('')
       setCreatingAttribute(false)
+      showSuccess('Atributo creado.')
     } catch (error) {
-      setCreateAttributeError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
     } finally {
       setSavingAttribute(false)
     }
@@ -128,7 +128,6 @@ export function AttributesPage() {
   function handleCreateValue(event: React.FormEvent) {
     event.preventDefault()
     if (selectedId === null) return
-    setCreateValueError(null)
     if (newValue.trim() === '') return
     setConfirmingCreateValue(true)
   }
@@ -144,8 +143,9 @@ export function AttributesPage() {
       const value = await createAttributeValue(selectedId, trimmed)
       setValues((prev) => [...prev, value])
       setNewValue('')
+      showSuccess('Valor agregado.')
     } catch (error) {
-      setCreateValueError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
     } finally {
       setCreatingValue(false)
     }
@@ -154,13 +154,11 @@ export function AttributesPage() {
   function startEditValue(value: AttributeValue) {
     setEditingValueId(value.id)
     setEditingValue(value.value)
-    setEditValueError(null)
   }
 
   function cancelEditValue() {
     setEditingValueId(null)
     setEditingValue('')
-    setEditValueError(null)
   }
 
   function handleSaveValue(event: React.FormEvent) {
@@ -179,13 +177,13 @@ export function AttributesPage() {
 
     setConfirmingEditValue(null)
     setSavingValue(true)
-    setEditValueError(null)
     try {
       const updated = await updateAttributeValue(editingValueId, trimmed)
       setValues((prev) => prev.map((value) => (value.id === updated.id ? updated : value)))
       cancelEditValue()
+      showSuccess('Valor actualizado.')
     } catch (error) {
-      setEditValueError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
     } finally {
       setSavingValue(false)
     }
@@ -201,6 +199,7 @@ export function AttributesPage() {
         value.status === 'active' ? await deactivateAttributeValue(value.id) : await reactivateAttributeValue(value.id)
       setValues((prev) => prev.map((candidate) => (candidate.id === updated.id ? updated : candidate)))
       setConfirmingStatusChange(null)
+      showSuccess(updated.status === 'active' ? 'Valor activado.' : 'Valor desactivado.')
     } catch (error) {
       setStatusChangeError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
     }
@@ -247,31 +246,18 @@ export function AttributesPage() {
             onClick={() => {
               setCreatingAttribute(false)
               setNewAttributeName('')
-              setCreateAttributeError(null)
             }}
             disabled={savingAttribute}
             className={secondaryButtonClasses}
           >
             Cancelar
           </button>
-          {createAttributeError !== null && (
-            <p role="alert" className="m-0 w-full text-base text-danger">
-              {createAttributeError}
-            </p>
-          )}
         </form>
       )}
 
       {status === 'loading' && <p role="status">Cargando…</p>}
 
-      {status === 'error' && (
-        <div className="flex items-center gap-3" role="alert">
-          <p className="m-0 text-danger">{loadError}</p>
-          <button type="button" onClick={loadAttributes} className={secondaryButtonClasses}>
-            Reintentar
-          </button>
-        </div>
-      )}
+      {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={loadAttributes} />}
 
       {status === 'success' && (
         <div className="max-w-3xl overflow-hidden rounded-xl border border-line bg-surface">
@@ -319,12 +305,10 @@ export function AttributesPage() {
           {valuesStatus === 'loading' && <p role="status">Cargando…</p>}
 
           {valuesStatus === 'error' && (
-            <div className="flex items-center gap-3" role="alert">
-              <p className="m-0 text-danger">{valuesError}</p>
-              <button type="button" onClick={() => loadValues(selectedAttribute.id)} className={secondaryButtonClasses}>
-                Reintentar
-              </button>
-            </div>
+            <LoadErrorCard
+              message={valuesError ?? LOAD_VALUES_ERROR_MESSAGE}
+              onRetry={() => loadValues(selectedAttribute.id)}
+            />
           )}
 
           {valuesStatus === 'success' && (
@@ -350,11 +334,6 @@ export function AttributesPage() {
                       <button type="button" onClick={cancelEditValue} disabled={savingValue} className={secondaryButtonClasses}>
                         Cancelar
                       </button>
-                      {editValueError !== null && (
-                        <p role="alert" className="m-0 w-full text-base text-danger">
-                          {editValueError}
-                        </p>
-                      )}
                     </form>
                   ) : (
                     <>
@@ -405,11 +384,6 @@ export function AttributesPage() {
               <button type="submit" disabled={creatingValue || newValue.trim() === ''} className={primaryButtonClasses}>
                 Crear
               </button>
-              {createValueError !== null && (
-                <p role="alert" className="m-0 w-full text-base text-danger">
-                  {createValueError}
-                </p>
-              )}
             </form>
           )}
         </div>

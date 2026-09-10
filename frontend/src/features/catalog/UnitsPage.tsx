@@ -3,6 +3,8 @@ import { createUnit, fetchProducts, fetchUnits, updateUnit } from '../../api/cat
 import { ApiError } from '../../api/client'
 import type { Product, Unit } from '../../api/types'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { useToast } from '../../shared/Toast'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 
@@ -30,6 +32,7 @@ const rowButtonClasses = 'min-h-11 rounded-lg border border-line px-2.5 text-sm 
 export function UnitsPage() {
   const { account } = useAuth()
   const canManage = canManageCatalog(account)
+  const { showSuccess, showError } = useToast()
 
   const [units, setUnits] = useState<Unit[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -39,12 +42,10 @@ export function UnitsPage() {
   const [creating, setCreating] = useState(false)
   const [draft, setDraft] = useState<UnitDraft>(EMPTY_DRAFT)
   const [savingNew, setSavingNew] = useState(false)
-  const [createError, setCreateError] = useState<string | null>(null)
 
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editingDraft, setEditingDraft] = useState<UnitDraft>(EMPTY_DRAFT)
   const [savingEdit, setSavingEdit] = useState(false)
-  const [editError, setEditError] = useState<string | null>(null)
 
   const [confirmingCreate, setConfirmingCreate] = useState(false)
   const [confirmingEdit, setConfirmingEdit] = useState<Unit | null>(null)
@@ -76,7 +77,6 @@ export function UnitsPage() {
 
   function handleCreate(event: React.FormEvent) {
     event.preventDefault()
-    setCreateError(null)
     if (draft.name.trim() === '' || draft.abbreviation.trim() === '') return
     setConfirmingCreate(true)
   }
@@ -93,8 +93,9 @@ export function UnitsPage() {
       setUnits((prev) => [...prev, unit])
       setDraft(EMPTY_DRAFT)
       setCreating(false)
+      showSuccess('Unidad creada.')
     } catch (error) {
-      setCreateError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
     } finally {
       setSavingNew(false)
     }
@@ -103,13 +104,11 @@ export function UnitsPage() {
   function startEdit(unit: Unit) {
     setEditingId(unit.id)
     setEditingDraft({ name: unit.name, abbreviation: unit.abbreviation, allowsFraction: unit.allows_fraction })
-    setEditError(null)
   }
 
   function cancelEdit() {
     setEditingId(null)
     setEditingDraft(EMPTY_DRAFT)
-    setEditError(null)
   }
 
   function handleSaveEdit(event: React.FormEvent) {
@@ -129,7 +128,6 @@ export function UnitsPage() {
 
     setConfirmingEdit(null)
     setSavingEdit(true)
-    setEditError(null)
     try {
       const updated = await updateUnit(editingId, {
         name,
@@ -138,8 +136,9 @@ export function UnitsPage() {
       })
       setUnits((prev) => prev.map((unit) => (unit.id === updated.id ? updated : unit)))
       cancelEdit()
+      showSuccess('Unidad actualizada.')
     } catch (error) {
-      setEditError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
     } finally {
       setSavingEdit(false)
     }
@@ -204,31 +203,18 @@ export function UnitsPage() {
             onClick={() => {
               setCreating(false)
               setDraft(EMPTY_DRAFT)
-              setCreateError(null)
             }}
             disabled={savingNew}
             className={secondaryButtonClasses}
           >
             Cancelar
           </button>
-          {createError !== null && (
-            <p role="alert" className="m-0 w-full text-base text-danger">
-              {createError}
-            </p>
-          )}
         </form>
       )}
 
       {status === 'loading' && <p role="status">Cargando…</p>}
 
-      {status === 'error' && (
-        <div className="flex items-center gap-3" role="alert">
-          <p className="m-0 text-danger">{loadError}</p>
-          <button type="button" onClick={load} className={secondaryButtonClasses}>
-            Reintentar
-          </button>
-        </div>
-      )}
+      {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
 
       {status === 'success' && (
         <div className="max-w-3xl overflow-x-auto rounded-xl border border-line bg-surface">
@@ -285,11 +271,6 @@ export function UnitsPage() {
                         <button type="button" onClick={cancelEdit} disabled={savingEdit} className={secondaryButtonClasses}>
                           Cancelar
                         </button>
-                        {editError !== null && (
-                          <p role="alert" className="m-0 w-full text-base text-danger">
-                            {editError}
-                          </p>
-                        )}
                       </form>
                     </td>
                   ) : (

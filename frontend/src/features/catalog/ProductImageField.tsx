@@ -4,6 +4,7 @@ import { ApiError } from '../../api/client'
 import type { Product } from '../../api/types'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { TrashIcon } from '../../shared/icons'
+import { useToast } from '../../shared/Toast'
 
 const UPLOAD_ERROR_MESSAGE = 'No se pudo subir la imagen. Intentá de nuevo.'
 const REMOVE_ERROR_MESSAGE = 'No se pudo quitar la imagen. Intentá de nuevo.'
@@ -296,16 +297,15 @@ interface Props {
 }
 
 export function ProductImageField({ product, disabled = false, onUpdated }: Props) {
+  const { showError } = useToast()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
 
   function selectFile(file: File | null) {
     if (file !== null) {
-      setError(null)
       setPendingFile(file)
     }
   }
@@ -325,13 +325,12 @@ export function ProductImageField({ product, disabled = false, onUpdated }: Prop
   async function confirmUpload() {
     if (pendingFile === null) return
     setSaving(true)
-    setError(null)
     try {
       const updated = await uploadProductImage(product.id, pendingFile)
       onUpdated(updated)
       setPendingFile(null)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : UPLOAD_ERROR_MESSAGE)
+      showError(err instanceof ApiError ? err.message : UPLOAD_ERROR_MESSAGE)
     } finally {
       setSaving(false)
     }
@@ -340,12 +339,11 @@ export function ProductImageField({ product, disabled = false, onUpdated }: Prop
   async function confirmRemove() {
     setConfirmingRemove(false)
     setSaving(true)
-    setError(null)
     try {
       const updated = await removeProductImage(product.id)
       onUpdated(updated)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : REMOVE_ERROR_MESSAGE)
+      showError(err instanceof ApiError ? err.message : REMOVE_ERROR_MESSAGE)
     } finally {
       setSaving(false)
     }
@@ -423,12 +421,6 @@ export function ProductImageField({ product, disabled = false, onUpdated }: Prop
             </button>
           </div>
         </div>
-      )}
-
-      {error !== null && (
-        <p role="alert" className="m-0 text-base text-danger">
-          {error}
-        </p>
       )}
 
       {pendingFile !== null && (

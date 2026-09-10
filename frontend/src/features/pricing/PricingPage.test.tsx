@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Product } from '../../api/types'
+import { ToastProvider } from '../../shared/Toast'
 import { AuthProvider, useAuth } from '../access/AuthContext'
 import { PricingPage } from './PricingPage'
 
@@ -100,6 +101,7 @@ function renderPage(account: unknown, products: Product[] = PRODUCTS) {
 
   return render(
     <MemoryRouter initialEntries={['/precios']}>
+      <ToastProvider>
       <AuthProvider>
         <ReadyGate>
           <Routes>
@@ -107,6 +109,7 @@ function renderPage(account: unknown, products: Product[] = PRODUCTS) {
           </Routes>
         </ReadyGate>
       </AuthProvider>
+      </ToastProvider>
     </MemoryRouter>,
   )
 }

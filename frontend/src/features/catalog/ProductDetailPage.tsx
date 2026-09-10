@@ -25,7 +25,9 @@ import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { formatPrice } from '../../shared/formatPrice'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
+import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useToast } from '../../shared/Toast'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
@@ -81,6 +83,7 @@ export function ProductDetailPage() {
   const { account } = useAuth()
   const canManage = canManageCatalog(account)
   const outletContext = useOutletContext<ProductsOutletContext>() as ProductsOutletContext | undefined
+  const { showSuccess, showError } = useToast()
   const {
     scrollRef: modalScrollRef,
     scrollbar: modalScrollbar,
@@ -98,7 +101,6 @@ export function ProductDetailPage() {
   const [editingProduct, setEditingProduct] = useState(false)
   const [productDraft, setProductDraft] = useState({ name: '', categoryId: 0, unitId: 0, status: 'active' })
   const [savingProduct, setSavingProduct] = useState(false)
-  const [productError, setProductError] = useState<string | null>(null)
   const [confirmingStatusChange, setConfirmingStatusChange] = useState(false)
   const [confirmingProductEdit, setConfirmingProductEdit] = useState(false)
   const [pendingImageFile, setPendingImageFile] = useState<File | null>(null)
@@ -110,18 +112,15 @@ export function ProductDetailPage() {
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [savingNewCategory, setSavingNewCategory] = useState(false)
-  const [newCategoryError, setNewCategoryError] = useState<string | null>(null)
 
   const [creatingUnit, setCreatingUnit] = useState(false)
   const [newUnit, setNewUnit] = useState({ name: '', abbreviation: '', allows_fraction: false })
   const [savingNewUnit, setSavingNewUnit] = useState(false)
-  const [newUnitError, setNewUnitError] = useState<string | null>(null)
 
   const [editingVariantId, setEditingVariantId] = useState<number | null>(null)
   const [variantLabel, setVariantLabel] = useState('')
   const [variantValues, setVariantValues] = useState<SelectedAttributeValue[]>([])
   const [savingVariant, setSavingVariant] = useState(false)
-  const [variantError, setVariantError] = useState<string | null>(null)
   const [confirmingVariantEdit, setConfirmingVariantEdit] = useState(false)
 
   const [duplicates, setDuplicates] = useState<Variant[]>([])
@@ -218,15 +217,15 @@ export function ProductDetailPage() {
     if (trimmed === '') return
 
     setSavingNewCategory(true)
-    setNewCategoryError(null)
     try {
       const created = await createCategory(trimmed)
       setCategories((prev) => [...prev, created])
       setProductDraft((prev) => ({ ...prev, categoryId: created.id }))
       setCreatingCategory(false)
       setNewCategoryName('')
+      showSuccess('Categoría creada.')
     } catch (error) {
-      setNewCategoryError(error instanceof ApiError ? error.message : CREATE_CATEGORY_ERROR_MESSAGE)
+      showError(error instanceof ApiError ? error.message : CREATE_CATEGORY_ERROR_MESSAGE)
     } finally {
       setSavingNewCategory(false)
     }
@@ -238,7 +237,6 @@ export function ProductDetailPage() {
     if (trimmedName === '' || trimmedAbbreviation === '') return
 
     setSavingNewUnit(true)
-    setNewUnitError(null)
     try {
       const created = await createUnit({
         name: trimmedName,
@@ -249,8 +247,9 @@ export function ProductDetailPage() {
       setProductDraft((prev) => ({ ...prev, unitId: created.id }))
       setCreatingUnit(false)
       setNewUnit({ name: '', abbreviation: '', allows_fraction: false })
+      showSuccess('Unidad creada.')
     } catch (error) {
-      setNewUnitError(error instanceof ApiError ? error.message : CREATE_UNIT_ERROR_MESSAGE)
+      showError(error instanceof ApiError ? error.message : CREATE_UNIT_ERROR_MESSAGE)
     } finally {
       setSavingNewUnit(false)
     }
@@ -259,13 +258,11 @@ export function ProductDetailPage() {
   function cancelCreateCategory() {
     setCreatingCategory(false)
     setNewCategoryName('')
-    setNewCategoryError(null)
   }
 
   function cancelCreateUnit() {
     setCreatingUnit(false)
     setNewUnit({ name: '', abbreviation: '', allows_fraction: false })
-    setNewUnitError(null)
   }
 
   function handleSaveProduct(event: React.FormEvent) {
@@ -294,7 +291,6 @@ export function ProductDetailPage() {
     if (product === null) return
 
     setSavingProduct(true)
-    setProductError(null)
     try {
       let updated = await updateProduct(product.id, {
         name: productDraft.name.trim(),
@@ -353,9 +349,10 @@ export function ProductDetailPage() {
       setPendingImageFile(null)
       setImageRemoved(false)
       setEditingProduct(false)
+      showSuccess('Producto actualizado.')
       close()
     } catch (error) {
-      setProductError(
+      showError(
         error instanceof ApiError && error.status === 409
           ? 'Un precio cambió mientras tanto. Cerrá y volvé a intentar.'
           : error instanceof ApiError
@@ -376,13 +373,11 @@ export function ProductDetailPage() {
         return { id: valueId, attribute_id: 0, value: info?.value ?? `#${valueId}` }
       }),
     )
-    setVariantError(null)
   }
 
   function cancelEditVariant() {
     setEditingVariantId(null)
     setVariantValues([])
-    setVariantError(null)
   }
 
   function handleSaveVariant(event: React.FormEvent) {
@@ -396,7 +391,6 @@ export function ProductDetailPage() {
 
     setConfirmingVariantEdit(false)
     setSavingVariant(true)
-    setVariantError(null)
     try {
       const result = await updateVariant(editingVariantId, {
         label: variantLabel.trim() === '' ? null : variantLabel.trim(),
@@ -414,8 +408,9 @@ export function ProductDetailPage() {
       )
       setDuplicates(result.possible_duplicates)
       cancelEditVariant()
+      showSuccess('Variante actualizada.')
     } catch (error) {
-      setVariantError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
     } finally {
       setSavingVariant(false)
     }
@@ -435,6 +430,7 @@ export function ProductDetailPage() {
           : { ...prev, variants: prev.variants.map((candidate) => (candidate.id === updated.id ? updated : candidate)) },
       )
       setConfirmingVariantStatusChange(null)
+      showSuccess(updated.status === 'active' ? 'Variante activada.' : 'Variante desactivada.')
     } catch (error) {
       setVariantStatusError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
     }
@@ -471,31 +467,8 @@ export function ProductDetailPage() {
         )}
 
         {loadStatus === 'error' && (
-          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center" role="alert">
-            <p className="m-0 text-xl font-semibold text-danger">{LOAD_ERROR_MESSAGE}</p>
-            <button
-              type="button"
-              onClick={load}
-              aria-label="Reintentar"
-              title="Reintentar"
-              className="flex h-14 w-14 items-center justify-center rounded-full border border-line transition-colors hover:bg-surface-brand hover:text-brand"
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-7 w-7"
-              >
-                <path d="M3 12a9 9 0 0 1 15.36-6.36L21 8" />
-                <path d="M21 3v5h-5" />
-                <path d="M21 12a9 9 0 0 1-15.36 6.36L3 16" />
-                <path d="M8 16H3v5" />
-              </svg>
-            </button>
+          <div className="flex flex-1 items-center justify-center">
+            <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={load} />
           </div>
         )}
 
@@ -705,12 +678,6 @@ export function ProductDetailPage() {
                           </p>
                         </div>
 
-                        {newCategoryError !== null && (
-                          <p role="alert" className="m-0 text-base text-danger">
-                            {newCategoryError}
-                          </p>
-                        )}
-
                         <div className="flex gap-2">
                           <button
                             type="button"
@@ -802,12 +769,6 @@ export function ProductDetailPage() {
                           />
                           Permite decimales (fraccionable)
                         </label>
-
-                        {newUnitError !== null && (
-                          <p role="alert" className="m-0 text-base text-danger">
-                            {newUnitError}
-                          </p>
-                        )}
 
                         <div className="flex gap-2">
                           <button
@@ -966,12 +927,6 @@ export function ProductDetailPage() {
                     </div>
                   )}
                 </div>
-
-                {productError !== null && (
-                  <p role="alert" className="m-0 text-base text-danger">
-                    {productError}
-                  </p>
-                )}
 
                 <div className="flex gap-2">
                   <button type="submit" disabled={savingProduct} className={`${primaryButtonClasses} flex-1`}>
@@ -1146,11 +1101,6 @@ export function ProductDetailPage() {
                             onAttributeCreated={(attribute) => setAttributes((prev) => [...prev, attribute])}
                             disabled={savingVariant}
                           />
-                          {variantError !== null && (
-                            <p role="alert" className="m-0 text-base text-danger">
-                              {variantError}
-                            </p>
-                          )}
                           <div className="flex gap-2">
                             <button type="submit" disabled={savingVariant} className={primaryButtonClasses}>
                               Guardar

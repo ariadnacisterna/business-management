@@ -3,6 +3,7 @@ import { createAttribute, createAttributeValue, fetchAttributeValues } from '../
 import { ApiError } from '../../api/client'
 import type { Attribute, AttributeValue } from '../../api/types'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useToast } from '../../shared/Toast'
 import { TrashIcon } from '../../shared/icons'
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los valores.'
@@ -39,6 +40,7 @@ export function VariantAttributesEditor({
   onAttributeCreated,
   disabled,
 }: Props) {
+  const { showSuccess, showError } = useToast()
   const [pickerAttributeId, setPickerAttributeId] = useState<number | ''>('')
   const [pendingValueId, setPendingValueId] = useState('')
   const [availableValues, setAvailableValues] = useState<AttributeValue[]>([])
@@ -47,12 +49,10 @@ export function VariantAttributesEditor({
   const [showNewValueInput, setShowNewValueInput] = useState(false)
   const [newValueText, setNewValueText] = useState('')
   const [savingNewValue, setSavingNewValue] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
 
   const [showNewAttributeInput, setShowNewAttributeInput] = useState(false)
   const [newAttributeName, setNewAttributeName] = useState('')
   const [savingNewAttribute, setSavingNewAttribute] = useState(false)
-  const [attributeSaveError, setAttributeSaveError] = useState<string | null>(null)
 
   function handleAttributeChange(rawId: string) {
     setLoadError(null)
@@ -65,7 +65,6 @@ export function VariantAttributesEditor({
       setAvailableValues([])
       setShowNewAttributeInput(true)
       setNewAttributeName('')
-      setAttributeSaveError(null)
       return
     }
 
@@ -94,7 +93,6 @@ export function VariantAttributesEditor({
     if (trimmed === '') return
 
     setSavingNewAttribute(true)
-    setAttributeSaveError(null)
     try {
       const created = await createAttribute(trimmed)
       onAttributeCreated(created)
@@ -103,8 +101,9 @@ export function VariantAttributesEditor({
       setShowNewAttributeInput(false)
       setNewAttributeName('')
       setShowNewValueInput(true)
+      showSuccess('Atributo creado.')
     } catch (error) {
-      setAttributeSaveError(error instanceof ApiError ? error.message : SAVE_ATTRIBUTE_ERROR_MESSAGE)
+      showError(error instanceof ApiError ? error.message : SAVE_ATTRIBUTE_ERROR_MESSAGE)
     } finally {
       setSavingNewAttribute(false)
     }
@@ -115,7 +114,6 @@ export function VariantAttributesEditor({
       setPendingValueId('')
       setShowNewValueInput(true)
       setNewValueText('')
-      setSaveError(null)
       return
     }
     setShowNewValueInput(false)
@@ -136,15 +134,15 @@ export function VariantAttributesEditor({
     if (trimmed === '') return
 
     setSavingNewValue(true)
-    setSaveError(null)
     try {
       const created = await createAttributeValue(pickerAttributeId, trimmed)
       setAvailableValues((prev) => [...prev, created])
       onAdd({ id: created.id, attribute_id: created.attribute_id, value: created.value })
       setNewValueText('')
       setShowNewValueInput(false)
+      showSuccess('Valor agregado.')
     } catch (error) {
-      setSaveError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
     } finally {
       setSavingNewValue(false)
     }
@@ -237,11 +235,6 @@ export function VariantAttributesEditor({
               >
                 Crear
               </button>
-              {attributeSaveError !== null && (
-                <p role="alert" className="m-0 text-sm text-danger">
-                  {attributeSaveError}
-                </p>
-              )}
             </div>
           )}
 
@@ -271,11 +264,6 @@ export function VariantAttributesEditor({
               >
                 Agregar
               </button>
-              {saveError !== null && (
-                <p role="alert" className="m-0 text-sm text-danger">
-                  {saveError}
-                </p>
-              )}
             </div>
           )}
 

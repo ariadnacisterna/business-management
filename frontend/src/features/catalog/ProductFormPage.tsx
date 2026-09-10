@@ -14,25 +14,32 @@ import { ApiError } from '../../api/client'
 import type { Attribute, Category, Product, Unit, Variant } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { PriceInput } from '../../shared/PriceInput'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useToast } from '../../shared/Toast'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 import { DuplicateWarning } from './DuplicateWarning'
-import { NewProductImagePicker, ProductImageField } from './ProductImageField'
+import { NewProductImagePicker } from './ProductImageField'
 import { VariantAttributesEditor } from './VariantAttributesEditor'
 import type { SelectedAttributeValue } from './VariantAttributesEditor'
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los datos necesarios para el formulario.'
 const CREATE_ERROR_MESSAGE = 'No se pudo crear el producto. Intentá de nuevo.'
+const CREATE_SUCCESS_MESSAGE = 'Producto creado correctamente.'
 const PRICE_ERROR_MESSAGE = 'No se pudo guardar el precio. Intentá de nuevo.'
 const CREATE_CATEGORY_ERROR_MESSAGE = 'No se pudo crear la categoría. Intentá de nuevo.'
 const CREATE_UNIT_ERROR_MESSAGE = 'No se pudo crear la unidad. Intentá de nuevo.'
+const IMAGE_UPLOAD_ERROR_MESSAGE = 'El producto se creó, pero no se pudo subir la imagen.'
 
 const CREATE_NEW_OPTION = '__create__'
 
 const inputClasses =
   'h-12 rounded-lg border border-line px-3.5 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
+const priceInputClasses =
+  'h-12 w-full rounded-lg border border-line pl-7 pr-3.5 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
 const primaryButtonClasses =
   'h-12 self-start rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40'
 const secondaryButtonClasses = 'min-h-12 rounded-lg border border-line px-4 text-base transition-colors hover:bg-surface-brand'
@@ -47,6 +54,7 @@ let nextDraftKey = 1
 
 export function ProductFormPage() {
   const navigate = useNavigate()
+  const { showSuccess, showError } = useToast()
   const { account } = useAuth()
   const canManage = canManageCatalog(account)
   const {
@@ -67,7 +75,6 @@ export function ProductFormPage() {
   const [addVariants, setAddVariants] = useState(false)
   const [variantDrafts, setVariantDrafts] = useState<VariantDraft[]>([])
   const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imageUploadError, setImageUploadError] = useState(false)
 
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -80,7 +87,6 @@ export function ProductFormPage() {
   const [newUnitError, setNewUnitError] = useState<string | null>(null)
 
   const [creating, setCreating] = useState(false)
-  const [createError, setCreateError] = useState<string | null>(null)
   const [confirmingCreate, setConfirmingCreate] = useState(false)
 
   const [createdProduct, setCreatedProduct] = useState<Product | null>(null)
@@ -90,7 +96,8 @@ export function ProductFormPage() {
   const [priceError, setPriceError] = useState<string | null>(null)
   const [savedVariantIds, setSavedVariantIds] = useState<Set<number>>(new Set())
 
-  useEffect(() => {
+  function loadFormData() {
+    setLoadStatus('loading')
     Promise.all([fetchCategories(), fetchUnits(), fetchAttributes()])
       .then(([categoryList, unitList, attributeList]) => {
         setCategories(categoryList.filter((category) => category.status === 'active'))
@@ -99,7 +106,9 @@ export function ProductFormPage() {
         setLoadStatus('success')
       })
       .catch(() => setLoadStatus('error'))
-  }, [])
+  }
+
+  useEffect(loadFormData, [])
 
   function close() {
     navigate('/products')
@@ -184,7 +193,6 @@ export function ProductFormPage() {
     if (categoryId === '' || unitId === '') return
     setConfirmingCreate(false)
     setCreating(true)
-    setCreateError(null)
     try {
       const result = await createProduct({
         name: name.trim(),
@@ -203,14 +211,15 @@ export function ProductFormPage() {
         try {
           product = await uploadProductImage(product.id, imageFile)
         } catch {
-          setImageUploadError(true)
+          showError(IMAGE_UPLOAD_ERROR_MESSAGE)
         }
       }
       setCreatedProduct(product)
       setDuplicates(result.possible_duplicates)
       setPrices(Object.fromEntries(result.product.variants.map((variant) => [variant.id, ''])))
+      showSuccess(CREATE_SUCCESS_MESSAGE)
     } catch (error) {
-      setCreateError(error instanceof ApiError ? error.message : CREATE_ERROR_MESSAGE)
+      showError(error instanceof ApiError ? error.message : CREATE_ERROR_MESSAGE)
     } finally {
       setCreating(false)
     }
@@ -259,7 +268,14 @@ export function ProductFormPage() {
               <Link to="/products" className="hover:text-brand">
                 Catálogo
               </Link>{' '}
-              › <span className="text-brand">{createdProduct !== null ? 'Precio inicial' : 'Nuevo producto'}</span>
+              ›{' '}
+              {createdProduct !== null && (
+                <>
+                  {createdProduct.name}
+                  {' › '}
+                </>
+              )}
+              <span className="text-brand">{createdProduct !== null ? 'Precio inicial' : 'Nuevo producto'}</span>
             </p>
           ) : (
             <span />
@@ -273,11 +289,7 @@ export function ProductFormPage() {
           </p>
         )}
 
-        {loadStatus === 'error' && (
-          <p role="alert" className="text-danger">
-            {LOAD_ERROR_MESSAGE}
-          </p>
-        )}
+        {loadStatus === 'error' && <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={loadFormData} />}
 
         {loadStatus === 'success' && createdProduct !== null && (
           <div className="flex flex-col gap-4">
@@ -292,42 +304,27 @@ export function ProductFormPage() {
 
             <DuplicateWarning duplicates={duplicates} />
 
-            {imageUploadError && (
-              <p role="alert" className="m-0 text-base text-danger">
-                El producto se creó, pero no se pudo subir la imagen. Podés reintentarlo acá abajo.
-              </p>
-            )}
-
-            <ProductImageField
-              product={createdProduct}
-              disabled={savingPrices}
-              onUpdated={(updated) => {
-                setImageUploadError(false)
-                setCreatedProduct(updated)
-              }}
-            />
-
             <form onSubmit={handleSavePrices} className="flex flex-col gap-3">
-              {createdProduct.variants.map((variant) => (
-                <label key={variant.id} className="flex flex-col gap-1">
-                  <span className="text-lg font-semibold">
-                    {createdProduct.variants.length === 1 && createdProduct.variants[0].is_implicit
-                      ? 'Precio'
-                      : (variant.label ?? `Variante #${variant.id}`)}
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    inputMode="decimal"
-                    value={prices[variant.id] ?? ''}
-                    onChange={(event) => setPrices((prev) => ({ ...prev, [variant.id]: event.target.value }))}
-                    disabled={savingPrices}
-                    required
-                    className={inputClasses}
-                  />
-                </label>
-              ))}
+              {createdProduct.variants.map((variant) => {
+                const label =
+                  createdProduct.variants.length === 1 && createdProduct.variants[0].is_implicit
+                    ? 'Precio'
+                    : (variant.label ?? `Variante #${variant.id}`)
+                return (
+                  <label key={variant.id} className="flex flex-col gap-1">
+                    <span className="text-lg font-semibold">{label}</span>
+                    <PriceInput
+                      value={prices[variant.id] ?? ''}
+                      placeholder="0.00"
+                      onChange={(value) => setPrices((prev) => ({ ...prev, [variant.id]: value }))}
+                      ariaLabel={label}
+                      disabled={savingPrices}
+                      required
+                      className={priceInputClasses}
+                    />
+                  </label>
+                )
+              })}
 
               {priceError !== null && (
                 <p role="alert" className="m-0 text-base text-danger">
@@ -560,12 +557,6 @@ export function ProductFormPage() {
                     + Agregar variante
                   </button>
                 </div>
-              )}
-
-              {createError !== null && (
-                <p role="alert" className="m-0 text-base text-danger">
-                  {createError}
-                </p>
               )}
 
               <button

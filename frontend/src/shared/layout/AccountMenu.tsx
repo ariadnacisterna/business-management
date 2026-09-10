@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Account, Business } from '../../api/types'
 import { isDueno } from '../../features/access/roles'
 import { ConfirmDialog } from '../ConfirmDialog'
+import { useToast } from '../Toast'
 import { firstName } from '../formatName'
 
 interface Props {
@@ -20,30 +21,28 @@ function initials(name: string): string {
 }
 
 export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {
+  const { showSuccess, showError } = useToast()
   const [open, setOpen] = useState(false)
-  const [logoutError, setLogoutError] = useState<string | null>(null)
-  const [switchError, setSwitchError] = useState<string | null>(null)
   const [switchingId, setSwitchingId] = useState<number | null>(null)
   const [pendingBusiness, setPendingBusiness] = useState<Business | null>(null)
 
   const canSwitchBusiness = isDueno(account) && account.businesses.length > 1
 
   async function handleLogout() {
-    setLogoutError(null)
     try {
       await onLogout()
     } catch {
-      setLogoutError('No se pudo cerrar sesión. Intentá de nuevo.')
+      showError('No se pudo cerrar sesión. Intentá de nuevo.')
     }
   }
 
   async function handleSwitchBusiness(businessId: number) {
-    setSwitchError(null)
     setSwitchingId(businessId)
     try {
       await onSwitchBusiness(businessId)
+      showSuccess('Negocio cambiado.')
     } catch {
-      setSwitchError('No se pudo cambiar de negocio. Intentá de nuevo.')
+      showError('No se pudo cambiar de negocio. Intentá de nuevo.')
     } finally {
       setSwitchingId(null)
     }
@@ -102,11 +101,6 @@ export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {
                     </button>
                   )
                 })}
-                {switchError !== null && (
-                  <p role="alert" className="px-4 pt-1 text-sm text-danger">
-                    {switchError}
-                  </p>
-                )}
               </div>
             )}
             <button
@@ -130,11 +124,6 @@ export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {
               </svg>
               Cerrar sesión
             </button>
-            {logoutError !== null && (
-              <p role="alert" className="px-4 pb-3 text-sm text-danger">
-                {logoutError}
-              </p>
-            )}
           </div>
         </>
       )}

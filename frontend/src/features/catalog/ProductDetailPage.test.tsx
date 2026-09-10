@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ToastProvider } from '../../shared/Toast'
 import { AuthProvider, useAuth } from '../access/AuthContext'
 import { ProductDetailPage } from './ProductDetailPage'
 
@@ -52,6 +53,7 @@ function renderPage(initialPath: string) {
 
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
+      <ToastProvider>
       <AuthProvider>
         <ReadyGate>
           <Routes>
@@ -60,6 +62,7 @@ function renderPage(initialPath: string) {
           </Routes>
         </ReadyGate>
       </AuthProvider>
+      </ToastProvider>
     </MemoryRouter>,
   )
 }
@@ -140,6 +143,7 @@ describe('ProductDetailPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/products/6']}>
+        <ToastProvider>
         <AuthProvider>
           <ReadyGate>
             <Routes>
@@ -148,6 +152,7 @@ describe('ProductDetailPage', () => {
             </Routes>
           </ReadyGate>
         </AuthProvider>
+        </ToastProvider>
       </MemoryRouter>,
     )
 
@@ -168,6 +173,7 @@ describe('ProductDetailPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/products/6']}>
+        <ToastProvider>
         <AuthProvider>
           <ReadyGate>
             <Routes>
@@ -176,6 +182,7 @@ describe('ProductDetailPage', () => {
             </Routes>
           </ReadyGate>
         </AuthProvider>
+        </ToastProvider>
       </MemoryRouter>,
     )
 
@@ -235,6 +242,7 @@ describe('ProductDetailPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/products/5']}>
+        <ToastProvider>
         <AuthProvider>
           <ReadyGate>
             <Routes>
@@ -243,6 +251,7 @@ describe('ProductDetailPage', () => {
             </Routes>
           </ReadyGate>
         </AuthProvider>
+        </ToastProvider>
       </MemoryRouter>,
     )
 
@@ -286,6 +295,7 @@ describe('ProductDetailPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/products/5']}>
+        <ToastProvider>
         <AuthProvider>
           <ReadyGate>
             <Routes>
@@ -294,6 +304,7 @@ describe('ProductDetailPage', () => {
             </Routes>
           </ReadyGate>
         </AuthProvider>
+        </ToastProvider>
       </MemoryRouter>,
     )
 
@@ -321,6 +332,7 @@ describe('ProductDetailPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/products/6']}>
+        <ToastProvider>
         <AuthProvider>
           <ReadyGate>
             <Routes>
@@ -329,6 +341,7 @@ describe('ProductDetailPage', () => {
             </Routes>
           </ReadyGate>
         </AuthProvider>
+        </ToastProvider>
       </MemoryRouter>,
     )
 

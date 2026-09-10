@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
+import { ToastProvider } from '../../shared/Toast'
 import { AuthProvider, useAuth } from '../access/AuthContext'
 import { UnitsPage } from './UnitsPage'
 
@@ -34,11 +35,13 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function renderPage() {
   return render(
-    <AuthProvider>
-      <ReadyGate>
-        <UnitsPage />
-      </ReadyGate>
-    </AuthProvider>,
+    <ToastProvider>
+      <AuthProvider>
+        <ReadyGate>
+          <UnitsPage />
+        </ReadyGate>
+      </AuthProvider>
+    </ToastProvider>,
   )
 }
 
@@ -101,6 +104,7 @@ describe('UnitsPage', () => {
         body: JSON.stringify({ name: 'Metro', abbreviation: 'm', allows_fraction: false }),
       }),
     )
+    expect(screen.getByRole('status')).toHaveTextContent('Unidad creada.')
   })
 
   it('does not offer creation or edition to an employee', async () => {

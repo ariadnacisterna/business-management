@@ -13,6 +13,7 @@ import { UnitsPage } from './features/catalog/UnitsPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { PricingPage } from './features/pricing/PricingPage'
 import { AppLayout } from './shared/layout/AppLayout'
+import { ToastProvider } from './shared/Toast'
 
 function HomeRoute() {
   const { account } = useAuth()
@@ -36,26 +37,28 @@ function AccountsRoute() {
 
 export function App() {
   return (
-    <AuthProvider>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route element={<ProtectedRoute />}>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<HomeRoute />} />
-            <Route path="/categories" element={<CategoriesPage />} />
-            <Route path="/units" element={<UnitsPage />} />
-            <Route path="/attributes" element={<AttributesPage />} />
-            <Route path="/products" element={<ProductsPage />}>
-              <Route path="new" element={<ProductFormPage />} />
-              <Route path=":productId" element={<ProductDetailPage />} />
+    <ToastProvider>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<HomeRoute />} />
+              <Route path="/categories" element={<CategoriesPage />} />
+              <Route path="/units" element={<UnitsPage />} />
+              <Route path="/attributes" element={<AttributesPage />} />
+              <Route path="/products" element={<ProductsPage />}>
+                <Route path="new" element={<ProductFormPage />} />
+                <Route path=":productId" element={<ProductDetailPage />} />
+              </Route>
+              <Route path="/precios" element={<PricingPage />} />
+              <Route path="/cuentas" element={<AccountsRoute />} />
             </Route>
-            <Route path="/precios" element={<PricingPage />} />
-            <Route path="/cuentas" element={<AccountsRoute />} />
           </Route>
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </AuthProvider>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
+    </ToastProvider>
   )
 }
 

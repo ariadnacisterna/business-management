@@ -3,6 +3,8 @@ import { createCategory, fetchCategories, fetchProducts, updateCategory } from '
 import { ApiError } from '../../api/client'
 import type { Category, Product } from '../../api/types'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { useToast } from '../../shared/Toast'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 
@@ -22,6 +24,7 @@ const rowButtonClasses = 'min-h-11 rounded-lg border border-line px-2.5 text-sm 
 export function CategoriesPage() {
   const { account } = useAuth()
   const canManage = canManageCatalog(account)
+  const { showSuccess, showError } = useToast()
 
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -31,12 +34,10 @@ export function CategoriesPage() {
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [savingNew, setSavingNew] = useState(false)
-  const [createError, setCreateError] = useState<string | null>(null)
 
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editingName, setEditingName] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
-  const [editError, setEditError] = useState<string | null>(null)
 
   const [confirmingCreate, setConfirmingCreate] = useState(false)
   const [confirmingEdit, setConfirmingEdit] = useState<Category | null>(null)
@@ -68,7 +69,6 @@ export function CategoriesPage() {
 
   function handleCreate(event: React.FormEvent) {
     event.preventDefault()
-    setCreateError(null)
     if (newName.trim() === '') return
     setConfirmingCreate(true)
   }
@@ -84,8 +84,9 @@ export function CategoriesPage() {
       setCategories((prev) => [...prev, category])
       setNewName('')
       setCreating(false)
+      showSuccess('Categoría creada.')
     } catch (error) {
-      setCreateError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
     } finally {
       setSavingNew(false)
     }
@@ -94,13 +95,11 @@ export function CategoriesPage() {
   function startEdit(category: Category) {
     setEditingId(category.id)
     setEditingName(category.name)
-    setEditError(null)
   }
 
   function cancelEdit() {
     setEditingId(null)
     setEditingName('')
-    setEditError(null)
   }
 
   function handleSaveEdit(event: React.FormEvent) {
@@ -119,13 +118,13 @@ export function CategoriesPage() {
 
     setConfirmingEdit(null)
     setSavingEdit(true)
-    setEditError(null)
     try {
       const updated = await updateCategory(editingId, trimmed)
       setCategories((prev) => prev.map((category) => (category.id === updated.id ? updated : category)))
       cancelEdit()
+      showSuccess('Categoría actualizada.')
     } catch (error) {
-      setEditError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
     } finally {
       setSavingEdit(false)
     }
@@ -166,31 +165,18 @@ export function CategoriesPage() {
             onClick={() => {
               setCreating(false)
               setNewName('')
-              setCreateError(null)
             }}
             disabled={savingNew}
             className={secondaryButtonClasses}
           >
             Cancelar
           </button>
-          {createError !== null && (
-            <p role="alert" className="m-0 w-full text-base text-danger">
-              {createError}
-            </p>
-          )}
         </form>
       )}
 
       {status === 'loading' && <p role="status">Cargando…</p>}
 
-      {status === 'error' && (
-        <div className="flex items-center gap-3" role="alert">
-          <p className="m-0 text-danger">{loadError}</p>
-          <button type="button" onClick={load} className={secondaryButtonClasses}>
-            Reintentar
-          </button>
-        </div>
-      )}
+      {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
 
       {status === 'success' && (
         <div className="max-w-2xl overflow-hidden rounded-xl border border-line bg-surface">
@@ -229,11 +215,6 @@ export function CategoriesPage() {
                         <button type="button" onClick={cancelEdit} disabled={savingEdit} className={secondaryButtonClasses}>
                           Cancelar
                         </button>
-                        {editError !== null && (
-                          <p role="alert" className="m-0 w-full text-base text-danger">
-                            {editError}
-                          </p>
-                        )}
                       </form>
                     </td>
                   ) : (

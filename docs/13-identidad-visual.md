@@ -119,6 +119,42 @@ cancelar. Usar un modal para una confirmación puntual (ej. cambiar un
 precio); una pantalla completa para un flujo con varios pasos (ej.
 importación).
 
+### Notificaciones (popup/toast) y tarjeta de error de carga
+
+Desde T-043, `shared/Toast.tsx` (`ToastProvider`/`useToast`) es el
+componente para confirmar el resultado de **cualquier** alta o
+modificación (crear, editar, activar/desactivar, cambiar un precio,
+iniciar/cerrar sesión, cambiar de negocio, etc.) y para **cualquier**
+error de esas acciones, a pedido explícito del Responsable — no se
+reserva para casos puntuales. Tarjeta blanca con un círculo de ícono
+grande (`success`/`danger`) que sobresale del borde superior, título en
+negrita bien grande (`text-3xl`, "¡Listo!"/"Error") y el mensaje debajo
+en `text-xl` — a propósito más grande que el resto de la interfaz, no
+solo llamativo: el público de +50 años (ver criterio de accesibilidad
+de este documento) necesita poder leerlo de un vistazo sin acercarse a
+la pantalla. Fondo difuminado detrás (igual que un modal, pero sin
+bloquear los clics: el fondo sigue siendo usable). Aparece centrado en
+la pantalla, se apila si hay más de una, se cierra con una X (el mismo
+`CloseButton` de cualquier modal) o solo a los 5 segundos (pausa
+mientras el puntero o el foco están encima). No lleva botón de acción:
+al cerrarse solo, un botón de "aceptar" no aportaría nada.
+
+Excepción: no agregar un popup en paralelo a un error que ya está
+embebido en la descripción de un `ConfirmDialog` para pedir "reconfirmá
+con el dato actualizado" (ej. conflicto 409 al cambiar un precio,
+activar/desactivar un valor de atributo o una variante). El popup se
+renderiza por encima del diálogo (z-index) y repite el mismo texto,
+tapando el diálogo que el usuario todavía necesita para reconfirmar —
+en esos casos el mensaje embebido en el diálogo es la única
+notificación.
+
+Para cuando una pantalla entera no puede cargar sus datos (error de
+conexión, 400, 500), usar en cambio `shared/LoadErrorCard.tsx`: misma
+identidad visual (círculo con ícono, título "Error", mensaje) pero con
+un botón "Reintentar" que vuelve a pedir los datos — no se autodescarta,
+porque reemplaza el contenido de la pantalla en vez de superponerse a
+él.
+
 ## Responsividad
 
 Los mismos puntos de corte para todas las pantallas:
