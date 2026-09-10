@@ -103,7 +103,7 @@ Estos valores son objetivos iniciales y deberán validarse mediante una prueba r
 
 ### Etapa 2: reposición
 
-Proveedores, faltantes, cantidades solicitadas, listas agrupadas por proveedor o categoría, estados de compra y recordatorios.
+Proveedores, faltantes, cantidades solicitadas, listas agrupadas por proveedor o categoría, estados de compra y recordatorios. Incluye también fiados a clientes (D-051): quién debe, cuánto, sin desglose de productos por ahora — resuelve el mismo problema que los faltantes (un cuaderno que se pierde), aunque conceptualmente esté más cerca de una venta que de una compra.
 
 ### Etapa 3: operación e inventario
 
@@ -111,15 +111,15 @@ Stock exacto por variante y negocio, movimientos, ventas cargadas manualmente, c
 
 Estas dos capacidades se agrupan deliberadamente: un stock exacto solo se mantiene confiable si las ventas lo descuentan. Incorporar existencias sin registrar ventas produciría un dato que se desincroniza en pocas semanas y que las usuarias dejarían de creer.
 
-### Etapa 4: identificación por código
+### Etapa 4: varios negocios
+
+Administración de más de un negocio dentro de una organización, permisos por negocio y vista consolidada para quien acceda a más de uno.
+
+### Etapa 5: identificación por código
 
 Códigos de barras asociados a la variante, lectura mediante escáner o cámara del dispositivo, y alta o consulta de un producto a partir de su código.
 
 Esta etapa es la que vuelve práctico el uso en rubros con productos etiquetados de fábrica, como una despensa. Aparece después del inventario porque su beneficio principal es acelerar la carga de ventas y el recuento de existencias, no la consulta de precios.
-
-### Etapa 5: varios negocios
-
-Administración de más de un negocio dentro de una organización, permisos por negocio y vista consolidada para quien acceda a más de uno.
 
 ### Etapa 6: análisis
 
@@ -129,5 +129,5 @@ Pronóstico de demanda, sugerencias de reposición, costos, márgenes y optimiza
 
 La reposición precede al inventario por dos motivos: resuelve un problema que hoy existe y produce pérdidas —los faltantes anotados en hojas sueltas que se transcriben a cuadernos y a veces se olvidan hasta la compra siguiente— y no exige que se registre toda la operación diaria para seguir siendo útil. El inventario exacto, en cambio, solo se sostiene si el registro es completo.
 
-Las etapas 4 y 5 no dependen entre sí y su orden podrá invertirse según lo que el negocio necesite primero.
+Las etapas 4 y 5 no dependen entre sí; el Responsable decidió (2026-09-08) darle prioridad a varios negocios (antes Etapa 5) sobre identificación por código (antes Etapa 4), quedando en ese orden.
 

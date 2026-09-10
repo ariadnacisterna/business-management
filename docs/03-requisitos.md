@@ -69,6 +69,22 @@ Ejemplo esperado para RF-002 a RF-005: la consulta `cinta bebe 2 roja` debe pode
 | RF-034 | Cuando una variante utilice un atributo normalizado, su valor deberá seleccionarse de la lista activa de ese atributo. | Alta |
 | RF-040 | El sistema permitirá definir atributos normalizados adicionales, como marca o presentación, sin modificar el código de la aplicación. | Media |
 
+### Reposición (Etapa 2)
+
+| ID | Requisito | Prioridad |
+|---|---|---:|
+| RF-041 | Un Usuario autorizado podrá crear, modificar y desactivar proveedores de un negocio, con razón social, contacto, email, teléfono y las categorías que provee. | Alta |
+| RF-042 | Una usuaria autorizada podrá asignar un proveedor habitual a un producto. | Media |
+| RF-043 | Cualquier Usuario con sesión activa podrá marcar una variante como faltante, sin necesitar un permiso especial. | Alta |
+| RF-044 | El sistema mostrará una lista de faltantes pendientes (en estado Faltante o Pedido), agrupable por proveedor o por categoría. | Alta |
+| RF-045 | Un Usuario autorizado podrá avanzar un faltante de Faltante a Pedido y de Pedido a Recibido, o cancelarlo (volver a Faltante) mientras no esté Recibido. | Alta |
+| RF-046 | El sistema mostrará, en algún lugar visible de la navegación, un contador de faltantes pendientes. | Media |
+| RF-047 | El sistema registrará la fecha de la última compra de un proveedor. | Baja |
+| RF-048 | Un Usuario autorizado podrá crear y modificar clientes, con nombre y teléfono opcional. | Alta |
+| RF-049 | Un Usuario autorizado podrá registrar un cargo o un pago en la cuenta corriente de un cliente. | Alta |
+| RF-050 | El sistema mostrará el saldo actual de cada cliente, calculado a partir de sus cargos y pagos. | Alta |
+| RF-051 | El sistema mostrará una lista de clientes con saldo pendiente. | Media |
+
 ## Requisitos no funcionales
 
 | ID | Dimensión | Requisito |

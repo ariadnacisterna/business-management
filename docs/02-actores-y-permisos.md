@@ -14,11 +14,11 @@ Puede buscar y consultar precios, navegar el catálogo por categoría, ver el hi
 
 ### Gerente
 
-Posee todas las capacidades del Empleado. Además, administra el catálogo y los precios: crea y modifica productos y variantes, cambia precios, administra categorías, unidades y valores de atributos, desactiva o reactiva productos y variantes, y gestiona el inventario (etapa futura). No administra cuentas ni roles, ni realiza la importación inicial, ni ve el Panel: esas acciones quedan reservadas a Administrador y superiores.
+Posee todas las capacidades del Empleado. Además, administra el catálogo, los precios y los proveedores: crea y modifica productos y variantes, cambia precios, administra categorías, unidades y valores de atributos, desactiva o reactiva productos y variantes, administra proveedores y gestiona el inventario (etapa futura). Empleado y Gerente comparten la reposición (marcar y gestionar faltantes, Etapa 2): no requiere administrar el catálogo. Gerente no administra cuentas ni roles, ni realiza la importación inicial, ni ve el Panel: esas acciones quedan reservadas a Administrador y superiores.
 
 ### Administrador
 
-Posee todas las capacidades del Gerente. Además, ve el Panel, administra proveedores (etapa futura), administra cuentas y roles, y realiza importaciones. Opera sobre un único negocio: no elige con cuál trabajar, aunque tenga acceso a más de uno (queda fijo al de menor id, D-044/D-045).
+Posee todas las capacidades del Gerente. Además, ve el Panel, administra cuentas y roles, y realiza importaciones. Opera sobre un único negocio: no elige con cuál trabajar, aunque tenga acceso a más de uno (queda fijo al de menor id, D-044/D-045).
 
 ### Dueño
 
@@ -61,13 +61,24 @@ Una contraseña se recupera mediante un restablecimiento realizado por un Admini
 | Administrar cuentas y roles | No | No | Sí | Sí |
 | Elegir con qué negocio trabajar (D-045) | No | No | No | Sí |
 
+## Matriz de permisos de reposición (Etapa 2)
+
+| Acción | Empleado | Gerente | Administrador | Dueño |
+|---|---:|---:|---:|---:|
+| Marcar una variante como faltante | Sí | Sí | Sí | Sí |
+| Consultar la lista de faltantes pendientes | Sí | Sí | Sí | Sí |
+| Avanzar o cancelar el estado de un faltante | Sí | Sí | Sí | Sí |
+| Administrar proveedores | No | Sí | Sí | Sí |
+| Asignar el proveedor habitual de un producto | No | Sí | Sí | Sí |
+| Crear y modificar clientes | Sí | Sí | Sí | Sí |
+| Registrar un cargo o un pago de un cliente | Sí | Sí | Sí | Sí |
+| Consultar el saldo de los clientes | Sí | Sí | Sí | Sí |
+
 ## Permisos previstos para etapas futuras
 
 | Información o acción | Empleado | Gerente | Administrador | Dueño |
 |---|---:|---:|---:|---:|
-| Registrar faltantes | Sí | Sí | Sí | Sí |
 | Consultar listas de compra | Según definición futura | Sí | Sí | Sí |
-| Administrar proveedores | No | No | Sí | Sí |
 | Registrar ventas | Sí | Sí | Sí | Sí |
 | Consultar cantidades de inventario | Según definición futura | Sí | Sí | Sí |
 | Consultar ingresos, egresos y márgenes | No | No | No | Sí |

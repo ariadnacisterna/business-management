@@ -2,11 +2,12 @@
 
 ## Estado
 
-La documentación funcional (01 a 08) está lista para el alcance del MVP y la
-arquitectura técnica (09) fue aprobada el 27 de agosto de 2026: juntas
-autorizan el inicio de la programación. Quedan decisiones pendientes (`DP`)
-explícitas en el documento 08, pero ninguna bloquea comenzar — dependen de la
-muestra real del negocio y se resuelven en paralelo.
+El MVP (catálogo y precios) está construido, verificado y desplegado en
+producción (T-029, docs/14). El proyecto avanza ahora sobre la Etapa 2
+(reposición: proveedores, faltantes, clientes y fiados; docs/01, D-050,
+D-051), documentada en 01 a 08 con el mismo criterio que el MVP. Quedan
+decisiones pendientes (`DP`) explícitas en el documento 08, pero ninguna
+bloquea seguir — dependen del uso real del negocio y se resuelven en paralelo.
 
 ## Propósito
 
@@ -24,17 +25,18 @@ de avanzar.
 
 ## Cómo están organizados
 
-Los doce documentos se agrupan en cuatro bloques con un propósito distinto
+Los catorce documentos se agrupan en cinco bloques con un propósito distinto
 cada uno:
 
 ```mermaid
 flowchart TD
     A["01 a 07<br/>Qué construir<br/>(visión, requisitos, reglas,<br/>casos de uso, historias, modelo)"]
     B["08<br/>Por qué, y qué falta<br/>(trazabilidad y decisiones)"]
-    C["09<br/>Cómo, técnicamente<br/>(arquitectura aprobada)"]
+    C["09, 13<br/>Cómo, técnicamente<br/>(arquitectura e identidad visual)"]
     D["10, 11, 12<br/>Cómo se trabaja<br/>(flujo, seguridad, estándares)"]
+    E["14<br/>Cómo se despliega<br/>(hosting y pasos manuales)"]
 
-    A --> B --> C --> D
+    A --> B --> C --> D --> E
 ```
 
 - **01 a 07 — qué construir:** la especificación funcional. Se leen de
@@ -43,12 +45,14 @@ flowchart TD
   con sus `RF`/`CU`/`HU`, y lista todo lo decidido (`D`) con su motivo y lo
   pendiente (`DP`). Cuando otro documento dice «ver D-024», la respuesta
   completa está acá.
-- **09 — cómo, técnicamente:** traduce el grupo anterior a stack, esquema de
-  base de datos y operaciones críticas.
+- **09 y 13 — cómo, técnicamente:** traducen el grupo anterior a stack,
+  esquema de base de datos, operaciones críticas e identidad visual de la SPA.
 - **10, 11 y 12 — cómo se trabaja:** no describen el negocio ni sus precios,
   sino cómo debe comportarse cualquier conversación de tarea al programar
   (flujo entre conversaciones, seguridad, estándares de código). Los tres
   alimentan el mismo checklist de verificación.
+- **14 — cómo se despliega:** hosting elegido (Render + Supabase) y los pasos
+  manuales que solo el Responsable puede hacer (crear cuentas, pegar claves).
 
 ## Documentos
 
@@ -64,14 +68,16 @@ flowchart TD
 10. [Flujo de trabajo entre conversaciones](10-flujo-de-trabajo.md)
 11. [Seguridad y privacidad](11-seguridad-y-privacidad.md)
 12. [Estándares de código](12-estandares-de-codigo.md)
+13. [Identidad visual](13-identidad-visual.md)
+14. [Despliegue](14-despliegue.md)
 
 ## Convenciones
 
 - La documentación describe roles y procesos, sin identificar personas, relaciones personales ni dispositivos concretos.
-- **MVP:** primera versión útil del sistema.
-- **Usuario:** persona autenticada con rol de Administrador, Gerente o Empleado.
-- **Organización:** titular de uno o más negocios. Es el ámbito del catálogo y de las cuentas.
-- **Negocio:** comercio concreto donde se venden los productos. Es el ámbito del precio y, en el futuro, de la existencia y las ventas. El MVP funciona con uno solo.
+- **MVP:** primera versión útil del sistema (catálogo y precios), ya construida y en producción.
+- **Usuario:** persona autenticada con rol de Empleado, Gerente, Administrador o Dueño (D-045).
+- **Organización:** titular de uno o más negocios. Es el ámbito de las cuentas; el catálogo pertenece a cada negocio por separado (D-046), no a la organización.
+- **Negocio:** comercio concreto donde se venden los productos. Es el ámbito del catálogo, el precio y, en el futuro, la existencia y las ventas. Casa Diaco tiene dos: Mercería y Despensa (D-039).
 - **Producto:** agrupación comercial que sirve para buscar y navegar. No lleva precio.
 - **Variante:** unidad vendible; lo que efectivamente se vende y se cotiza. Todo producto tiene al menos una, implícita cuando no hay diferencias reales. En el futuro llevará su código de barras y su stock.
 - **Atributo normalizado:** característica con una lista cerrada de valores, como el color. Los atributos y sus valores son datos, no parte del sistema.

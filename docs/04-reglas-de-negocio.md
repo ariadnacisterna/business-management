@@ -11,7 +11,7 @@
 | RN-011 | Un producto desactivado deja de aparecer en las consultas normales, pero conserva su historial. |
 | RN-012 | La desactivación se prefiere al borrado para preservar trazabilidad y futuras referencias. |
 | RN-026 | Todo producto tiene al menos una variante. Cuando no existan diferencias reales, el sistema crea una variante implícita y no la expone en la interfaz. |
-| RN-027 | El catálogo pertenece a la organización. Las categorías, unidades, atributos y valores se definen una sola vez y quedan disponibles para todos sus negocios. |
+| RN-027 | El catálogo pertenece al negocio, no a la organización (D-046). Las categorías, unidades, atributos y valores se definen por separado en cada negocio, aunque coincidan en nombre entre dos negocios de la misma organización. |
 
 ## Precios
 
@@ -48,6 +48,22 @@
 | RN-032 | Un Gerente puede administrar el catálogo y los precios —crear y modificar productos y variantes, cambiar precios, administrar categorías, unidades y atributos, y desactivar o reactivar productos y variantes— pero no puede administrar cuentas ni roles, ni realizar la importación inicial. |
 | RN-025 | Toda sesión vence según la política de seguridad configurada y el Usuario puede cerrarla antes. |
 | RN-031 | El acceso de una cuenta se otorga sobre uno o más negocios de su organización. Una cuenta solo consulta y modifica información de los negocios habilitados para ella. |
+
+## Reposición (Etapa 2)
+
+| ID | Regla |
+|---|---|
+| RN-033 | El proveedor pertenece al negocio, no a la organización, igual que el resto del catálogo (RN-027). |
+| RN-034 | Un producto tiene, a lo sumo, un proveedor habitual. Un proveedor puede proveer muchos productos. |
+| RN-035 | Cualquier Usuario con sesión activa puede marcar una variante como faltante; no se restringe por rol, a diferencia de administrar el catálogo. |
+| RN-036 | El faltante se marca sobre la variante, no sobre el producto: es la unidad que efectivamente se repone. |
+| RN-037 | Un faltante no registra cantidad, solo que la variante necesita reponerse. |
+| RN-038 | Un faltante tiene exactamente tres estados posibles, en este orden: Faltante → Pedido → Recibido. No puede saltar un estado ni retroceder, salvo cancelarlo (volver a Faltante) mientras no esté Recibido. |
+| RN-039 | Una variante no puede tener más de un faltante abierto (en estado Faltante o Pedido) a la vez. Al llegar a Recibido, el faltante se cierra y una nueva marca abre uno nuevo. |
+| RN-040 | El cliente pertenece al negocio, no a la organización, igual que el resto del catálogo (RN-027). |
+| RN-041 | Un fiado no desglosa productos, solo un importe y si es cargo o pago. |
+| RN-042 | El saldo de un cliente es la suma de sus cargos menos sus pagos; no puede editarse directamente, solo a través de nuevos movimientos. |
+| RN-043 | Todo fiado debe identificar a la cuenta que lo registró y el momento del registro (mismo criterio que un cambio de precio, RN-006). |
 
 ## Concurrencia e importación
 

@@ -1,17 +1,18 @@
-# Sistema de consulta y gestión para mercería/librería
+# Casa Diaco — sistema de consulta y gestión de catálogo
 
-Este repositorio comienza por la definición funcional del producto. El MVP busca reemplazar la consulta manual de precios en carpetas por una consulta rápida desde tablet y celulares.
+Reemplaza la consulta manual de precios en carpetas por una consulta rápida desde tablet y celular. El MVP (catálogo y precios) ya está construido y en producción; el proyecto avanza ahora sobre la Etapa 2 (reposición: proveedores, faltantes, clientes y fiados).
 
-El primer destinatario es una mercería y librería concreta. El sistema se
-concibe además como una herramienta reutilizable en otros rubros minoristas y en
-organizaciones con más de un negocio, pero esa ambición no adelanta
-funcionalidad: solo determina un conjunto acotado de decisiones estructurales
-que serían costosas de corregir una vez cargado el historial de precios.
+El destinatario es Casa Diaco, con dos negocios reales (mercería y
+despensa) de la misma organización. El sistema se concibe además como una
+herramienta reutilizable en otros rubros minoristas y en organizaciones con
+más de un negocio, pero esa ambición no adelanta funcionalidad: solo
+determina un conjunto acotado de decisiones estructurales que serían
+costosas de corregir una vez cargado el historial de precios.
 
 Se eligieron FastAPI para la API, PostgreSQL para la persistencia y una
-aplicación cliente separada (SPA) con TypeScript para la interfaz. La
-propuesta de arquitectura técnica fue aprobada el 27 de agosto de 2026 y
-autoriza el inicio de la programación del MVP.
+aplicación cliente separada (SPA) con TypeScript para la interfaz,
+desplegadas en Render (backend + SPA) y Supabase (base de datos y
+almacenamiento de imágenes).
 
 ## Documentación
 
@@ -28,3 +29,5 @@ autoriza el inicio de la programación del MVP.
 - [Flujo de trabajo entre conversaciones](docs/10-flujo-de-trabajo.md)
 - [Seguridad y privacidad](docs/11-seguridad-y-privacidad.md)
 - [Estándares de código](docs/12-estandares-de-codigo.md)
+- [Identidad visual](docs/13-identidad-visual.md)
+- [Despliegue](docs/14-despliegue.md)

@@ -181,3 +181,72 @@ Antes del desarrollo se decidirá si una importación con errores aplica únicam
 5. El sistema cambia el estado, conserva el historial y registra la responsable.
 
 Desactivar un producto retira también sus variantes de las consultas. Desactivar una variante no afecta a las demás.
+
+## CU-11 — Marcar una variante como faltante
+
+**Actor principal:** Usuario
+**Precondición:** El Usuario inició sesión.
+
+### Flujo principal
+
+1. El Usuario localiza la variante que necesita reponerse.
+2. La marca como faltante.
+3. El sistema crea el faltante en estado Faltante y registra quién lo marcó y cuándo.
+
+### Flujos alternativos
+
+- **A1 — Ya tiene un faltante abierto:** si la variante ya tiene un faltante en estado Faltante o Pedido, el sistema no crea uno nuevo y muestra el existente (RN-039).
+
+## CU-12 — Gestionar el estado de un faltante
+
+**Actor principal:** Usuario
+**Precondición:** El Usuario inició sesión y existe al menos un faltante abierto.
+
+### Flujo principal
+
+1. El Usuario consulta la lista de faltantes pendientes, agrupada por proveedor o por categoría.
+2. Elige un faltante y lo avanza al siguiente estado (Faltante → Pedido, o Pedido → Recibido).
+3. El sistema guarda el cambio y, si llegó a Recibido, cierra el faltante y lo saca de la lista de pendientes.
+
+### Flujos alternativos
+
+- **A1 — Cancelar un pedido:** mientras el faltante no llegó a Recibido, el Usuario puede volverlo a Faltante.
+
+## CU-13 — Administrar proveedores
+
+**Actor principal:** Usuario
+**Precondición:** El Usuario inició sesión y posee permiso para administrar el catálogo.
+
+### Flujo principal
+
+1. El Usuario crea o modifica un proveedor: razón social, nombre de contacto, email, teléfono y las categorías que provee.
+2. Opcionalmente, asigna ese proveedor como el habitual de uno o más productos.
+3. El sistema guarda los cambios.
+
+El proveedor no se borra, se desactiva (mismo criterio que el resto del catálogo, RN-012).
+
+## CU-14 — Registrar un fiado
+
+**Actor principal:** Usuario
+**Precondición:** El Usuario inició sesión y posee permiso para administrar fiados.
+
+### Flujo principal
+
+1. El Usuario localiza al cliente (o lo crea si es la primera vez, con nombre y opcionalmente teléfono).
+2. Registra un cargo (se llevó algo, indica el importe) o un pago (entregó dinero, indica el importe).
+3. El sistema guarda el movimiento con fecha, hora y responsable, y recalcula el saldo del cliente.
+
+### Flujos alternativos
+
+- **A1 — Cliente sin deuda:** un pago puede dejar el saldo en cero; el sistema no lo impide ni lo marca como error.
+
+## CU-15 — Consultar quién debe
+
+**Actor principal:** Usuario
+**Precondición:** El Usuario inició sesión.
+
+### Flujo principal
+
+1. El Usuario abre la lista de clientes con saldo pendiente.
+2. El sistema muestra cada cliente y su saldo actual.
+3. El Usuario puede entrar a un cliente para ver el detalle de sus cargos y pagos.

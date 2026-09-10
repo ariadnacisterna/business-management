@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { InvalidCredentialsError } from '../../api/auth'
 import { Brand } from '../../shared/Brand'
 import { useAuth } from './AuthContext'
+import { LoginHelpDialog } from './LoginHelpDialog'
 
 export function LoginPage() {
   const { account, status, login } = useAuth()
@@ -10,6 +11,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
 
   if (status === 'ready' && account !== null) {
     return <Navigate to="/" replace />
@@ -101,9 +103,15 @@ export function LoginPage() {
         </button>
       </form>
 
-      <a href="#" className="mt-4 text-sm text-ink/60 hover:text-brand hover:underline">
+      <button
+        type="button"
+        onClick={() => setShowHelp(true)}
+        className="mt-4 text-sm text-ink/60 hover:text-brand hover:underline"
+      >
         ¿Problemas para acceder?
-      </a>
+      </button>
+
+      {showHelp && <LoginHelpDialog onClose={() => setShowHelp(false)} />}
     </main>
   )
 }

@@ -144,6 +144,78 @@
 
 Esta historia no es necesaria para la mercería, donde las variantes suelen compartir precio, pero verifica que el modelo admita un rubro como despensa sin rehacer el historial ya cargado.
 
+## HU-11 — Anotar lo que falta sin usar papel
+
+**Como** Usuario,
+**quiero** marcar que una variante se está por terminar,
+**para** no depender de un cuaderno que se pierde o se olvida hasta la compra siguiente.
+
+### Criterios de aceptación
+
+- Cualquier Usuario con sesión activa puede marcar una variante como faltante, sin necesitar un permiso especial.
+- No hace falta indicar cantidad, solo que falta.
+- Si la variante ya tiene un faltante abierto, no se crea uno duplicado.
+
+## HU-12 — Ver de un vistazo qué hay que pedir
+
+**Como** Usuario,
+**quiero** una lista de los faltantes pendientes, agrupada por proveedor o por categoría,
+**para** organizar el pedido sin tener que recorrer todo el catálogo buscando qué falta.
+
+### Criterios de aceptación
+
+- La lista muestra solo los faltantes en estado Faltante o Pedido (los Recibidos ya no aparecen).
+- Se puede agrupar por proveedor o por categoría.
+- Hay un contador visible en la navegación con la cantidad de faltantes pendientes.
+
+## HU-13 — Llevar el pedido de Faltante a Recibido
+
+**Como** Usuario,
+**quiero** marcar cuándo pedí algo al proveedor y cuándo llegó,
+**para** saber qué ya está en camino y qué todavía ni pedí.
+
+### Criterios de aceptación
+
+- Un faltante avanza en orden: Faltante → Pedido → Recibido.
+- Se puede cancelar un Pedido (volver a Faltante) mientras no llegó.
+- Al llegar a Recibido, el faltante se cierra y desaparece de la lista de pendientes.
+
+## HU-14 — Saber a quién llamar
+
+**Como** Usuario,
+**quiero** guardar los datos de contacto de cada proveedor y qué categorías provee,
+**para** encontrar rápido a quién pedirle cada cosa sin buscar en otro lado.
+
+### Criterios de aceptación
+
+- Un proveedor guarda razón social, nombre de contacto, email, teléfono y las categorías que provee.
+- Un producto puede tener asignado un proveedor habitual.
+- Un proveedor se desactiva, no se borra, igual que el resto del catálogo.
+
+## HU-15 — Llevar la cuenta de quién fía
+
+**Como** Usuario,
+**quiero** anotar cuánto se lleva fiado un cliente y cuánto va pagando,
+**para** no depender de un cuaderno y saber cuánto me debe cada uno.
+
+### Criterios de aceptación
+
+- Se puede crear un cliente con nombre y, si se conoce, un teléfono.
+- Se puede registrar un cargo (se llevó algo) o un pago, cada uno con un importe.
+- El sistema muestra el saldo actual de cada cliente, calculado solo, sin tener que sumarlo a mano.
+- No hace falta indicar qué productos se llevó, solo el importe.
+
+## HU-16 — Ver quién me debe
+
+**Como** Usuario,
+**quiero** una lista de los clientes con saldo pendiente,
+**para** saber a quién recordarle sin repasar cliente por cliente.
+
+### Criterios de aceptación
+
+- La lista muestra solo clientes con saldo mayor a cero.
+- Se puede entrar a un cliente y ver el detalle de sus cargos y pagos, ordenados cronológicamente.
+
 ## Orden sugerido del MVP
 
 1. HU-03 — Consulta del precio vigente.

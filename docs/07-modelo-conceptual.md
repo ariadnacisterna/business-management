@@ -14,6 +14,7 @@ erDiagram
     NEGOCIO ||--o{ ACCESO_A_NEGOCIO : habilita
     USUARIO ||--o{ ACCESO_A_NEGOCIO : recibe
     ROL ||--o{ ACCESO_A_NEGOCIO : define
+    NEGOCIO ||--o{ PROVEEDOR : define
 
     CATEGORIA ||--o{ PRODUCTO : clasifica
     UNIDAD_VENTA ||--o{ PRODUCTO : mide
@@ -24,6 +25,13 @@ erDiagram
     USUARIO ||--o{ PRECIO : registra
     USUARIO ||--o{ OPERACION_AUDITADA : realiza
     PRODUCTO ||--o{ OPERACION_AUDITADA : afecta
+    PROVEEDOR ||--o{ PRODUCTO : provee
+    PROVEEDOR }o--o{ CATEGORIA : abastece
+    VARIANTE ||--o{ FALTANTE : registra
+    USUARIO ||--o{ FALTANTE : marca
+    NEGOCIO ||--o{ CLIENTE : define
+    CLIENTE ||--o{ FIADO : acumula
+    USUARIO ||--o{ FIADO : registra
 
     ORGANIZACION {
         id identificador
@@ -92,6 +100,32 @@ erDiagram
         fecha_hora fecha_hora
         resumen texto
     }
+    PROVEEDOR {
+        id identificador
+        razon_social texto
+        contacto texto
+        email texto_opcional
+        telefono texto_opcional
+        ultima_compra fecha_opcional
+        estado activo_inactivo
+    }
+    FALTANTE {
+        id identificador
+        estado faltante_pedido_recibido
+        marcado_en fecha_hora
+    }
+    CLIENTE {
+        id identificador
+        nombre texto
+        telefono texto_opcional
+        estado activo_inactivo
+    }
+    FIADO {
+        id identificador
+        tipo cargo_o_pago
+        importe decimal
+        fecha_hora fecha_hora
+    }
 ```
 
 ## Conceptos
@@ -152,7 +186,7 @@ Una misma variante puede tener precios distintos en dos negocios de la misma org
 
 ### Usuario, rol y acceso
 
-Identifican a toda persona que accede al sistema y determinan sus permisos. Los roles iniciales son Administrador, Gerente y Empleado; no existe consulta pública del catálogo.
+Identifican a toda persona que accede al sistema y determinan sus permisos. Los roles son Empleado, Gerente, Administrador y Dueño (D-045); no existe consulta pública del catálogo.
 
 El acceso se otorga sobre un negocio: una persona puede trabajar en un negocio, en varios o en todos los de la organización. Quien accede a más de uno podrá ver la información consolidada. En el MVP, con un único negocio, todas las cuentas acceden a él.
 
@@ -160,13 +194,25 @@ El acceso se otorga sobre un negocio: una persona puede trabajar en un negocio, 
 
 Registro de una acción relevante, como crear, editar, desactivar o importar. Complementa el historial específico de precios.
 
-## Extensiones futuras previstas
+### Proveedor
 
-- Código de identificación de la variante, incluido el código de barras.
-- Proveedor y relación entre proveedor y producto o variante.
-- Faltante y cantidad solicitada.
-- Lista de compra agrupada por proveedor o categoría.
-- Estado de reposición y sus transiciones.
+Comercio o persona a quien se le compra mercadería para un negocio (no se comparte entre negocios de la misma organización, igual que el resto del catálogo, D-046). Guarda razón social, nombre de contacto, email, teléfono, la fecha de la última compra y las categorías que provee (para poder agrupar una lista de faltantes por proveedor). Un producto tiene un único proveedor habitual.
+
+### Faltante
+
+Marca que una variante necesita reponerse. La pone cualquier Usuario con sesión activa, sobre la variante (no el producto: es lo que efectivamente se repone). No registra cantidad, solo que falta. Tiene tres estados posibles: **Faltante** (recién marcado) → **Pedido** (ya se le avisó al proveedor) → **Recibido** (llegó y se cierra). Sostiene el "recordatorio": una lista de faltantes pendientes, agrupable por proveedor o categoría, y un contador visible en la navegación para quien tenga permiso de verla.
+
+### Cliente y fiado
+
+Cliente: persona a la que se le puede fiar (vender a crédito). Pertenece al negocio, igual que el resto del catálogo. Guarda nombre y, si se conoce, un teléfono de contacto.
+
+Fiado: movimiento de la cuenta corriente de un cliente. Es un **cargo** (se llevó algo, aumenta lo que debe) o un **pago** (entregó dinero, disminuye lo que debe), con un importe y una fecha; no desglosa qué productos se llevó, solo el monto (a diferencia de una venta real, que es una extensión de etapas futuras). El saldo de un cliente es la suma de sus cargos menos sus pagos.
+
+## Extensiones futuras previstas (etapas posteriores a la 2)
+
+- Código de identificación de la variante, incluido el código de barras (Etapa 5).
+- Cantidad solicitada de un faltante (más allá del MVP de reposición de la Etapa 2).
+- Estado de reposición y sus transiciones (más allá de Faltante/Pedido/Recibido).
 - Existencia por variante y negocio.
 - Movimiento de inventario.
 - Venta, detalle de venta y cobro.
