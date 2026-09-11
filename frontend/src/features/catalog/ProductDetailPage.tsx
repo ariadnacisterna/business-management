@@ -10,8 +10,10 @@ import {
   fetchAttributeValues,
   fetchCategories,
   fetchProduct,
+  fetchProductsPage,
   fetchUnits,
   fetchVariantCurrentPrice,
+  fetchVariantPriceHistory,
   reactivateProduct,
   reactivateVariant,
   removeProductImage,
@@ -26,6 +28,8 @@ import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { formatPrice } from '../../shared/formatPrice'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { normalizeForComparison } from '../../shared/normalizeForComparison'
+import { PriceInput } from '../../shared/PriceInput'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useToast } from '../../shared/Toast'
 import { useScrollbar } from '../../shared/useScrollbar'
@@ -46,6 +50,12 @@ const CREATE_NEW_OPTION = '__create__'
 
 const inputClasses =
   'h-11 rounded-lg border border-line px-3 text-base focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
+const inputErrorClasses = 'border-danger focus:border-danger focus:ring-danger/10'
+
+function fieldClasses(hasError: boolean): string {
+  return hasError ? `${inputClasses} ${inputErrorClasses}` : inputClasses
+}
+
 const primaryButtonClasses =
   'min-h-11 rounded-lg bg-brand px-4 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40'
 const secondaryButtonClasses = 'h-11 rounded-lg border border-line px-3 text-base transition-colors hover:bg-surface-brand'
@@ -53,6 +63,12 @@ const secondaryButtonClasses = 'h-11 rounded-lg border border-line px-3 text-bas
 interface ValueInfo {
   attribute_name: string
   value: string
+}
+
+interface HistoryState {
+  variant: Variant
+  status: 'loading' | 'success' | 'error'
+  prices: Price[]
 }
 
 export interface ProductsOutletContext {
@@ -100,6 +116,10 @@ export function ProductDetailPage() {
 
   const [editingProduct, setEditingProduct] = useState(false)
   const [productDraft, setProductDraft] = useState({ name: '', categoryId: 0, unitId: 0, status: 'active' })
+  const [productNameTouched, setProductNameTouched] = useState(false)
+  const [attemptedProductSubmit, setAttemptedProductSubmit] = useState(false)
+  const [duplicateProductNameError, setDuplicateProductNameError] = useState<string | null>(null)
+  const [checkingProductName, setCheckingProductName] = useState(false)
   const [savingProduct, setSavingProduct] = useState(false)
   const [confirmingStatusChange, setConfirmingStatusChange] = useState(false)
   const [confirmingProductEdit, setConfirmingProductEdit] = useState(false)
@@ -133,6 +153,14 @@ export function ProductDetailPage() {
   const [priceModalOpenedDirectly, setPriceModalOpenedDirectly] = useState(false)
   const [pickingVariantForPrice, setPickingVariantForPrice] = useState(false)
   const [priceModalApplyToAll, setPriceModalApplyToAll] = useState(false)
+
+  const [historyState, setHistoryState] = useState<HistoryState | null>(null)
+  const {
+    scrollRef: historyScrollRef,
+    scrollbar: historyScrollbar,
+    updateScrollbar: updateHistoryScrollbar,
+    handleThumbPointerDown: handleHistoryThumbPointerDown,
+  } = useScrollbar([historyState])
 
   const activeAttributes = useMemo(
     () => attributes.filter((attribute) => attribute.status === 'active'),
@@ -265,9 +293,34 @@ export function ProductDetailPage() {
     setNewUnit({ name: '', abbreviation: '', allows_fraction: false })
   }
 
-  function handleSaveProduct(event: React.FormEvent) {
+  const productNameError =
+    productDraft.name.trim() === '' ? 'El nombre es obligatorio.' : duplicateProductNameError
+  const showProductNameError = (productNameTouched || attemptedProductSubmit) && productNameError !== null
+
+  async function handleSaveProduct(event: React.FormEvent) {
     event.preventDefault()
     if (product === null) return
+    setAttemptedProductSubmit(true)
+    if (productNameError !== null) return
+
+    const trimmedName = productDraft.name.trim()
+    if (normalizeForComparison(trimmedName) !== normalizeForComparison(product.name)) {
+      setCheckingProductName(true)
+      const isDuplicate = await fetchProductsPage({ page: 1, pageSize: 10, search: trimmedName })
+        .then((result) => {
+          const normalizedTyped = normalizeForComparison(trimmedName)
+          return result.items.some(
+            (item) => item.id !== product.id && normalizeForComparison(item.name) === normalizedTyped,
+          )
+        })
+        .catch(() => false)
+      setCheckingProductName(false)
+
+      if (isDuplicate) {
+        setDuplicateProductNameError('Ya existe un producto con ese nombre.')
+        return
+      }
+    }
 
     if (productDraft.status !== product.status) {
       setConfirmingStatusChange(true)
@@ -352,8 +405,13 @@ export function ProductDetailPage() {
       showSuccess('Producto actualizado.')
       close()
     } catch (error) {
+      const isPriceConflict =
+        error instanceof ApiError &&
+        error.status === 409 &&
+        typeof error.body === 'object' &&
+        error.body !== null
       showError(
-        error instanceof ApiError && error.status === 409
+        isPriceConflict
           ? 'Un precio cambió mientras tanto. Cerrá y volvé a intentar.'
           : error instanceof ApiError
             ? error.message
@@ -436,6 +494,13 @@ export function ProductDetailPage() {
     }
   }
 
+  function openHistory(variant: Variant) {
+    setHistoryState({ variant, status: 'loading', prices: [] })
+    fetchVariantPriceHistory(variant.id)
+      .then((prices) => setHistoryState({ variant, status: 'success', prices }))
+      .catch(() => setHistoryState({ variant, status: 'error', prices: [] }))
+  }
+
   return (
     <>
     {!pickingVariantForPrice && !(priceModalVariant !== null && priceModalOpenedDirectly) && (
@@ -497,10 +562,22 @@ export function ProductDetailPage() {
                     id="edit-product-name"
                     type="text"
                     value={productDraft.name}
-                    onChange={(event) => setProductDraft((prev) => ({ ...prev, name: event.target.value }))}
+                    onChange={(event) => {
+                      setProductDraft((prev) => ({ ...prev, name: event.target.value }))
+                      setDuplicateProductNameError(null)
+                    }}
+                    onBlur={() => setProductNameTouched(true)}
                     disabled={savingProduct}
-                    className={inputClasses}
+                    className={fieldClasses(showProductNameError)}
                   />
+                  {showProductNameError && (
+                    <span role="alert" className="-mt-2 text-sm text-danger">
+                      {productNameError}
+                    </span>
+                  )}
+                  {!showProductNameError && checkingProductName && (
+                    <span className="-mt-2 text-sm opacity-60">Verificando nombre…</span>
+                  )}
 
                   <StagedProductImageField
                     imageUrl={product.image_url}
@@ -829,30 +906,23 @@ export function ProductDetailPage() {
                   {product.variants.length === 1 && product.variants[0].is_implicit ? (
                     <div className="flex flex-col gap-2">
                       <span className="text-base font-bold uppercase tracking-wide opacity-60">
-                        Precio <span className="text-danger">*</span>
+                        Precio <span className="font-normal normal-case opacity-70">(opcional)</span>
                       </span>
-                      <div className="relative">
-                        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-lg font-bold opacity-50">
-                          $
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          inputMode="decimal"
-                          aria-label="Precio"
-                          value={priceDraft}
-                          onChange={(event) => setPriceDraft(event.target.value)}
-                          disabled={savingProduct}
-                          className={`${inputClasses} w-full pl-8`}
-                        />
-                      </div>
+                      <PriceInput
+                        ariaLabel="Precio"
+                        value={priceDraft}
+                        onChange={setPriceDraft}
+                        disabled={savingProduct}
+                        className={`${inputClasses} w-full pl-8`}
+                      />
                     </div>
                   ) : (
                     <div className="flex flex-col gap-2">
                       <div className="grid grid-cols-[1fr_9rem_2.75rem] gap-2 text-base font-bold uppercase tracking-wide opacity-60">
                         <span>Nombre de variante</span>
-                        <span>Precio</span>
+                        <span>
+                          Precio <span className="font-normal normal-case opacity-70">(opcional)</span>
+                        </span>
                         <span />
                       </div>
                       {variantDraftRows.map((row, index) => (
@@ -871,28 +941,19 @@ export function ProductDetailPage() {
                             disabled={savingProduct}
                             className={inputClasses}
                           />
-                          <div className="relative">
-                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 opacity-50">
-                              $
-                            </span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              inputMode="decimal"
-                              aria-label={`Precio de la variante ${index + 1}`}
-                              value={row.price}
-                              onChange={(event) =>
-                                setVariantDraftRows((prev) =>
-                                  prev.map((candidate) =>
-                                    candidate.id === row.id ? { ...candidate, price: event.target.value } : candidate,
-                                  ),
-                                )
-                              }
-                              disabled={savingProduct}
-                              className={`${inputClasses} w-full pl-6`}
-                            />
-                          </div>
+                          <PriceInput
+                            ariaLabel={`Precio de la variante ${index + 1}`}
+                            value={row.price}
+                            onChange={(value) =>
+                              setVariantDraftRows((prev) =>
+                                prev.map((candidate) =>
+                                  candidate.id === row.id ? { ...candidate, price: value } : candidate,
+                                ),
+                              )
+                            }
+                            disabled={savingProduct}
+                            className={`${inputClasses} w-full pl-6`}
+                          />
                           <button
                             type="button"
                             disabled
@@ -929,8 +990,12 @@ export function ProductDetailPage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <button type="submit" disabled={savingProduct} className={`${primaryButtonClasses} flex-1`}>
-                    Guardar cambios
+                  <button
+                    type="submit"
+                    disabled={savingProduct || productNameError !== null || checkingProductName}
+                    className={`${primaryButtonClasses} flex-1`}
+                  >
+                    {checkingProductName ? 'Verificando…' : 'Guardar cambios'}
                   </button>
                   <button
                     type="button"
@@ -1060,7 +1125,11 @@ export function ProductDetailPage() {
                       </button>
                     )}
                     {canManage && (
-                      <button type="button" disabled className={`${secondaryButtonClasses} opacity-40`}>
+                      <button
+                        type="button"
+                        onClick={() => openHistory(product.variants[0])}
+                        className={secondaryButtonClasses}
+                      >
                         Ver historial
                       </button>
                     )}
@@ -1171,7 +1240,11 @@ export function ProductDetailPage() {
                               </button>
                             )}
                             {canManage && (
-                              <button type="button" disabled className={`${secondaryButtonClasses} opacity-40`}>
+                              <button
+                                type="button"
+                                onClick={() => openHistory(variant)}
+                                className={secondaryButtonClasses}
+                              >
                                 Ver historial
                               </button>
                             )}
@@ -1320,6 +1393,83 @@ export function ProductDetailPage() {
             setPriceModalVariant(null)
           }}
         />
+      )}
+
+      {historyState !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-ink/20 backdrop-blur-sm"
+            onClick={() => setHistoryState(null)}
+            aria-hidden="true"
+          />
+          <div
+            role="dialog"
+            aria-label={`Historial de precios de ${product?.name ?? ''}`}
+            className="relative flex max-h-[80vh] w-full max-w-lg flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="m-0 text-2xl font-bold">Historial de precios</h2>
+                <p className="m-0 text-lg opacity-60">
+                  {product?.name} — {describeVariant(historyState.variant, valuesById)}
+                </p>
+              </div>
+              <CloseButton onClose={() => setHistoryState(null)} />
+            </div>
+
+            {historyState.status === 'loading' && <p role="status">Cargando…</p>}
+            {historyState.status === 'error' && (
+              <p role="alert" className="text-lg text-danger">
+                No se pudo cargar el historial.
+              </p>
+            )}
+            {historyState.status === 'success' && historyState.prices.length === 0 && (
+              <p className="text-lg opacity-60">Todavía no hay cambios de precio registrados.</p>
+            )}
+            {historyState.status === 'success' && historyState.prices.length > 0 && (
+              <div className="relative min-h-0 flex-1">
+                <div
+                  ref={historyScrollRef}
+                  onScroll={updateHistoryScrollbar}
+                  className="scrollbar-hidden h-full overflow-auto pr-5"
+                >
+                  <ul className="m-0 flex list-none flex-col gap-3 p-0">
+                    {[...historyState.prices]
+                      .sort((a, b) => new Date(b.effective_from).getTime() - new Date(a.effective_from).getTime())
+                      .map((price) => (
+                        <li key={price.id} className="flex flex-col gap-1 rounded-lg border border-line px-4 py-3">
+                          <div className="flex items-center justify-between text-lg">
+                            <span className="font-bold text-brand">{formatPrice(price.amount)}</span>
+                            <span className="opacity-60">{price.created_by_account_name}</span>
+                          </div>
+                          <p className="m-0 text-base opacity-60">
+                            Vigente desde {formatRelativeTime(price.effective_from)}
+                            {price.effective_to !== null
+                              ? ` hasta ${formatRelativeTime(price.effective_to)}`
+                              : ' (actual)'}
+                          </p>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+
+                {historyScrollbar.visible && (
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute right-0 top-0 w-3 rounded-full bg-line/40"
+                    style={{ bottom: 0 }}
+                  >
+                    <div
+                      onPointerDown={handleHistoryThumbPointerDown}
+                      className="pointer-events-auto absolute right-0 w-3 cursor-grab rounded-full bg-brand active:cursor-grabbing"
+                      style={{ top: historyScrollbar.thumbTop, height: historyScrollbar.thumbHeight }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {confirmingVariantStatusChange !== null && (

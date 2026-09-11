@@ -23,7 +23,9 @@ from app.domain.catalog.errors import (
     DuplicateAttributeName,
     DuplicateAttributeValue,
     DuplicateCategoryName,
+    DuplicateProductName,
     DuplicateUnitName,
+    DuplicateVariantInProduct,
     ImageTooLarge,
     ImplicitVariantNeedsLabel,
     InvalidAttributeValue,
@@ -31,6 +33,7 @@ from app.domain.catalog.errors import (
     InvalidImageType,
     ProductNotFound,
     UnitNotFound,
+    VariantLabelRequired,
     VariantNotFound,
 )
 from app.domain.catalog.product_images import remove_product_image, set_product_image
@@ -574,8 +577,12 @@ def create_product(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unidad invalida") from exc
     except InvalidAttributeValue as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
-    except InvalidCatalogInput as exc:
+    except (InvalidCatalogInput, VariantLabelRequired) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    except DuplicateProductName as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Ya existe un producto con ese nombre.") from exc
+    except DuplicateVariantInProduct as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
     return ProductCreationResponse(
         product=_product_response(product),
@@ -671,6 +678,8 @@ def update_product(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unidad invalida") from exc
     except InvalidCatalogInput as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    except DuplicateProductName as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Ya existe un producto con ese nombre.") from exc
 
     return _product_response(product)
 
@@ -737,10 +746,12 @@ def add_variant(
         )
     except ProductNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
-    except ImplicitVariantNeedsLabel as exc:
+    except (ImplicitVariantNeedsLabel, VariantLabelRequired) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     except InvalidAttributeValue as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    except DuplicateVariantInProduct as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
     return VariantCreationResponse(
         variant=_variant_response(variant),
@@ -811,6 +822,10 @@ def update_variant(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
     except InvalidAttributeValue as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    except VariantLabelRequired as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    except DuplicateVariantInProduct as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
     return VariantCreationResponse(
         variant=_variant_response(variant),

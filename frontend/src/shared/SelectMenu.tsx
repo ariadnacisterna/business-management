@@ -15,6 +15,8 @@ interface Props<T extends string> {
   ariaLabel: string
   className?: string
   disabled?: boolean
+  hasError?: boolean
+  onBlur?: () => void
 }
 
 const VIEWPORT_MARGIN = 8
@@ -26,6 +28,8 @@ export function SelectMenu<T extends string>({
   ariaLabel,
   className = '',
   disabled = false,
+  hasError = false,
+  onBlur,
 }: Props<T>) {
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0 })
@@ -133,11 +137,16 @@ export function SelectMenu<T extends string>({
         type="button"
         onClick={toggle}
         onKeyDown={handleTriggerKeyDown}
+        onBlur={onBlur}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
-        className="flex h-12 w-full items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 text-left text-lg transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10 disabled:cursor-not-allowed disabled:opacity-50"
+        className={`flex h-12 w-full items-center justify-between gap-2 rounded-lg border bg-surface px-3 text-left text-lg transition-colors focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+          hasError
+            ? 'border-danger focus:border-danger focus:ring-danger/10'
+            : 'border-line focus:border-brand focus:ring-brand/10'
+        }`}
       >
         <span className="truncate">{selected?.label ?? ''}</span>
         <svg

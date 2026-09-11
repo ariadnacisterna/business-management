@@ -17,6 +17,7 @@ import { HEADER_ACTION_BUTTON_CLASSES } from '../../shared/headerActionButton'
 import { HighlightedText } from '../../shared/HighlightedText'
 import { LockIcon, PencilIcon } from '../../shared/icons'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { normalizeForComparison } from '../../shared/normalizeForComparison'
 import { Pagination } from '../../shared/Pagination'
 import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
@@ -35,8 +36,48 @@ type StatusFilter = 'all' | 'active' | 'inactive'
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar las cuentas.'
 const SAVE_ERROR_MESSAGE = 'No se pudo guardar. Intentá de nuevo.'
 
+const USERNAME_MIN_LENGTH = 3
+const PASSWORD_MIN_LENGTH = 4
+
+const PASSWORD_CHECKS: { label: string; test: (password: string) => boolean }[] = [
+  { label: `Al menos ${PASSWORD_MIN_LENGTH} caracteres`, test: (password) => password.length >= PASSWORD_MIN_LENGTH },
+  { label: 'Una letra mayúscula', test: (password) => /[A-Z]/.test(password) },
+  { label: 'Una letra minúscula', test: (password) => /[a-z]/.test(password) },
+  { label: 'Un número', test: (password) => /\d/.test(password) },
+]
+
+function isPasswordSecure(password: string): boolean {
+  return PASSWORD_CHECKS.every((check) => check.test(password))
+}
+
+function PasswordChecklist({ password }: { password: string }) {
+  return (
+    <ul className="m-0 flex list-none flex-col gap-1 p-0">
+      {PASSWORD_CHECKS.map((check) => {
+        const passed = check.test(password)
+        return (
+          <li
+            key={check.label}
+            className={`flex items-center gap-2 text-base font-medium ${passed ? 'text-success' : 'text-ink/50'}`}
+          >
+            <span aria-hidden="true">{passed ? '✓' : '○'}</span>
+            <span className="sr-only">{passed ? 'Cumplido: ' : 'Falta: '}</span>
+            {check.label}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 const inputClasses =
   'h-12 rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
+const inputErrorClasses = 'border-danger focus:border-danger focus:ring-danger/10'
+
+function fieldClasses(hasError: boolean): string {
+  return hasError ? `${inputClasses} ${inputErrorClasses}` : inputClasses
+}
+
 const primaryButtonClasses =
   'h-12 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40'
 const secondaryButtonClasses =
@@ -68,12 +109,14 @@ function AccountFormModal({
   title,
   initialValues,
   showPassword,
+  existingUserNames,
   onSubmit,
   onCancel,
 }: {
   title: string
   initialValues: AccountFormValues
   showPassword: boolean
+  existingUserNames: string[]
   onSubmit: (values: AccountFormValues & { initial_password?: string }) => Promise<void>
   onCancel: () => void
 }) {
@@ -84,13 +127,43 @@ function AccountFormModal({
   const [password, setPassword] = useState('')
   const [saving, setSaving] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [touched, setTouched] = useState({ name: false, userName: false, password: false })
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false)
 
   const isCreate = initialValues.name === ''
-  const canSubmit =
-    name.trim() !== '' && userName.trim() !== '' && (!showPassword || password.trim() !== '')
+
+  const nameError = name.trim() === '' ? 'El nombre es obligatorio.' : null
+  const userNameError =
+    userName.trim() === ''
+      ? 'El usuario es obligatorio.'
+      : userName.trim().length < USERNAME_MIN_LENGTH
+        ? `El usuario debe tener al menos ${USERNAME_MIN_LENGTH} caracteres.`
+        : existingUserNames.some(
+              (existing) => normalizeForComparison(existing) === normalizeForComparison(userName),
+            )
+          ? 'Ya existe una cuenta con ese usuario.'
+          : null
+  const passwordError = !showPassword
+    ? null
+    : password === ''
+      ? 'La contraseña es obligatoria.'
+      : !isPasswordSecure(password)
+        ? 'La contraseña no cumple los requisitos.'
+        : null
+
+  const canSubmit = nameError === null && userNameError === null && passwordError === null
+
+  const showNameError = (touched.name || attemptedSubmit) && nameError !== null
+  const showUserNameError = (touched.userName || attemptedSubmit) && userNameError !== null
+  const showPasswordError = (touched.password || attemptedSubmit) && passwordError !== null
+
+  function markTouched(field: keyof typeof touched) {
+    setTouched((prev) => ({ ...prev, [field]: true }))
+  }
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    setAttemptedSubmit(true)
     if (!canSubmit) return
     setConfirming(true)
   }
@@ -128,41 +201,72 @@ function AccountFormModal({
       >
         <h2 className="m-0 text-2xl font-bold">{title}</h2>
 
-        <label className="flex flex-col gap-1.5">
-          <span className="text-base font-semibold">Nombre</span>
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            disabled={saving}
-            className={inputClasses}
-          />
-        </label>
-
-        <label className="flex flex-col gap-1.5">
-          <span className="text-base font-semibold">Usuario</span>
-          <input
-            value={userName}
-            onChange={(event) => setUserName(event.target.value)}
-            disabled={saving}
-            className={inputClasses}
-          />
-        </label>
-
-        {showPassword && (
+        <div className="flex flex-col gap-1.5">
           <label className="flex flex-col gap-1.5">
-            <span className="text-base font-semibold">Contraseña inicial</span>
+            <span className="text-base font-semibold">
+              Nombre <span className="text-danger">*</span>
+            </span>
             <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              onBlur={() => markTouched('name')}
               disabled={saving}
-              className={inputClasses}
+              className={fieldClasses(showNameError)}
             />
           </label>
+          {showNameError && (
+            <span role="alert" className="text-sm text-danger">
+              {nameError}
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-base font-semibold">
+              Usuario <span className="text-danger">*</span>
+            </span>
+            <input
+              value={userName}
+              onChange={(event) => setUserName(event.target.value)}
+              onBlur={() => markTouched('userName')}
+              disabled={saving}
+              className={fieldClasses(showUserNameError)}
+            />
+          </label>
+          <span className={`text-sm ${showUserNameError ? 'text-danger' : 'opacity-60'}`}>
+            {showUserNameError ? userNameError : `Mínimo ${USERNAME_MIN_LENGTH} caracteres.`}
+          </span>
+        </div>
+
+        {showPassword && (
+          <div className="flex flex-col gap-1.5">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-base font-semibold">
+                Contraseña inicial <span className="text-danger">*</span>
+              </span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                onBlur={() => markTouched('password')}
+                disabled={saving}
+                className={fieldClasses(showPasswordError)}
+              />
+            </label>
+            {showPasswordError && password === '' && (
+              <span role="alert" className="text-sm text-danger">
+                {passwordError}
+              </span>
+            )}
+            <PasswordChecklist password={password} />
+          </div>
         )}
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-base font-semibold">Rol</span>
+          <span className="text-base font-semibold">
+            Rol <span className="text-danger">*</span>
+          </span>
           <SelectMenu
             value={role}
             onChange={(value: Role) => setRole(value)}
@@ -213,12 +317,34 @@ function ResetPasswordModal({
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
   const [saving, setSaving] = useState(false)
+  const [touched, setTouched] = useState({ password: false, confirmation: false })
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false)
 
+  const passwordError =
+    password === ''
+      ? 'La contraseña es obligatoria.'
+      : !isPasswordSecure(password)
+        ? 'La contraseña no cumple los requisitos.'
+        : null
   const mismatch = confirmation !== '' && password !== confirmation
-  const canSubmit = password.trim() !== '' && password === confirmation
+  const confirmationError =
+    confirmation === ''
+      ? 'Repetí la contraseña.'
+      : mismatch
+        ? 'Las contraseñas no coinciden.'
+        : null
+  const canSubmit = passwordError === null && confirmationError === null
+
+  const showPasswordError = (touched.password || attemptedSubmit) && passwordError !== null
+  const showConfirmationError = mismatch || ((touched.confirmation || attemptedSubmit) && confirmationError !== null)
+
+  function markTouched(field: keyof typeof touched) {
+    setTouched((prev) => ({ ...prev, [field]: true }))
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    setAttemptedSubmit(true)
     if (!canSubmit) return
     setSaving(true)
     try {
@@ -242,31 +368,45 @@ function ResetPasswordModal({
         <h2 className="m-0 text-2xl font-bold">Restablecer contraseña</h2>
         <p className="m-0 text-lg opacity-70">Nueva contraseña para "{accountName}".</p>
 
-        <label className="flex flex-col gap-1.5">
-          <span className="text-base font-semibold">Contraseña nueva</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            disabled={saving}
-            className={inputClasses}
-          />
-        </label>
+        <div className="flex flex-col gap-1.5">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-base font-semibold">
+              Contraseña nueva <span className="text-danger">*</span>
+            </span>
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              onBlur={() => markTouched('password')}
+              disabled={saving}
+              className={fieldClasses(showPasswordError)}
+            />
+          </label>
+          {showPasswordError && password === '' && (
+            <span role="alert" className="text-sm text-danger">
+              {passwordError}
+            </span>
+          )}
+          <PasswordChecklist password={password} />
+        </div>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-base font-semibold">Repetir contraseña</span>
+          <span className="text-base font-semibold">
+            Repetir contraseña <span className="text-danger">*</span>
+          </span>
           <input
             type="password"
             value={confirmation}
             onChange={(event) => setConfirmation(event.target.value)}
+            onBlur={() => markTouched('confirmation')}
             disabled={saving}
-            className={inputClasses}
+            className={fieldClasses(showConfirmationError)}
           />
         </label>
 
-        {mismatch && (
+        {showConfirmationError && (
           <p role="alert" className="m-0 text-base text-danger">
-            Las contraseñas no coinciden.
+            {confirmationError}
           </p>
         )}
 
@@ -815,6 +955,7 @@ export function AccountsPage() {
           title="Nueva cuenta"
           initialValues={{ name: '', user_name: '', role: 'Empleado' }}
           showPassword
+          existingUserNames={accounts.map((account) => account.user_name)}
           onSubmit={handleCreate}
           onCancel={() => setCreating(false)}
         />
@@ -829,6 +970,9 @@ export function AccountsPage() {
             role: (editingAccount.role ?? 'Empleado') as Role,
           }}
           showPassword={false}
+          existingUserNames={accounts
+            .filter((account) => account.id !== editingAccount.id)
+            .map((account) => account.user_name)}
           onSubmit={handleEdit}
           onCancel={() => setEditingAccount(null)}
         />

@@ -34,6 +34,8 @@ const PRODUCT = {
   variants: [{ id: 10, product_id: 5, label: 'Estándar', is_implicit: false, status: 'active', attribute_value_ids: [] }],
 }
 
+const EMPTY_PRODUCT_PAGE = { items: [], total: 0, page: 1, page_size: 10 }
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -129,6 +131,35 @@ describe('ProductDetailPage', () => {
 
     expect(await screen.findByText(/45,50/)).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Cambiar Precio' })).not.toBeInTheDocument()
+  })
+
+  it('opens the price history dialog for a variant', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage('/products/5')
+
+    expect(await screen.findByRole('heading', { name: 'Cinta bebé' })).toBeInTheDocument()
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse([
+        {
+          id: 1,
+          variant_id: 10,
+          business_id: 1,
+          amount: '45.50',
+          effective_from: '2026-01-01T00:00:00Z',
+          effective_to: null,
+          created_by_account_id: 1,
+          created_by_account_name: 'Ada Lovelace',
+          created_at: '2026-01-01T00:00:00Z',
+        },
+      ]),
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Ver historial' }))
+
+    expect(await screen.findByRole('dialog', { name: /Historial de precios/ })).toBeInTheDocument()
+    expect(await screen.findByText(/45,50/)).toBeInTheDocument()
   })
 
   it('shows a single price with a "Cambiar precio" action for a product without real variants', async () => {
@@ -352,12 +383,15 @@ describe('ProductDetailPage', () => {
 
   it('keeps the edit draft when canceling the status change confirmation', async () => {
     const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
     renderPage('/products/5?edit=1')
 
     const nameInput = await screen.findByLabelText(/^Nombre\s?\*?$/)
     await user.clear(nameInput)
     await user.type(nameInput, 'Cinta nueva')
     await user.click(screen.getByRole('button', { name: '○ Inactivo' }))
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(EMPTY_PRODUCT_PAGE))
     await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     const dialog = await screen.findByRole('alertdialog', { name: 'Desactivar producto' })
@@ -366,5 +400,40 @@ describe('ProductDetailPage', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(screen.getByLabelText(/^Nombre\s?\*?$/)).toHaveValue('Cinta nueva')
     expect(screen.getByRole('button', { name: '○ Inactivo' })).toBeInTheDocument()
+  })
+
+  it('shows an error and marks the name field as soon as it is left empty', async () => {
+    const user = userEvent.setup()
+    renderPage('/products/5?edit=1')
+
+    const nameInput = await screen.findByLabelText(/^Nombre\s?\*?$/)
+    await user.clear(nameInput)
+    await user.tab()
+
+    expect(screen.getByText('El nombre es obligatorio.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeDisabled()
+  })
+
+  it('blocks renaming to a duplicate product name before showing the confirmation', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage('/products/5?edit=1')
+
+    const nameInput = await screen.findByLabelText(/^Nombre\s?\*?$/)
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Otro producto')
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        items: [{ id: 9, name: 'Otro producto', category_id: 1, unit_id: 1, status: 'active', image_url: null, variants: [] }],
+        total: 1,
+        page: 1,
+        page_size: 10,
+      }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    expect(await screen.findByText('Ya existe un producto con ese nombre.')).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 })

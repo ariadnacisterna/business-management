@@ -22,6 +22,10 @@ class InvalidUsername(AccessError):
     pass
 
 
+class InvalidAccountName(AccessError):
+    pass
+
+
 class InvalidPassword(AccessError):
     pass
 

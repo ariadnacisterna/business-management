@@ -6,6 +6,7 @@ import {
   createUnit,
   fetchAttributes,
   fetchCategories,
+  fetchProductsPage,
   fetchUnits,
   setInitialVariantPrice,
   uploadProductImage,
@@ -15,6 +16,7 @@ import type { Attribute, Category, Product, Unit, Variant } from '../../api/type
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { normalizeForComparison } from '../../shared/normalizeForComparison'
 import { PriceInput } from '../../shared/PriceInput'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useToast } from '../../shared/Toast'
@@ -38,6 +40,12 @@ const CREATE_NEW_OPTION = '__create__'
 
 const inputClasses =
   'h-12 rounded-lg border border-line px-3.5 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
+const inputErrorClasses = 'border-danger focus:border-danger focus:ring-danger/10'
+
+function fieldClasses(hasError: boolean): string {
+  return hasError ? `${inputClasses} ${inputErrorClasses}` : inputClasses
+}
+
 const priceInputClasses =
   'h-12 w-full rounded-lg border border-line pl-7 pr-3.5 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
 const primaryButtonClasses =
@@ -72,6 +80,10 @@ export function ProductFormPage() {
   const [name, setName] = useState('')
   const [categoryId, setCategoryId] = useState<number | ''>('')
   const [unitId, setUnitId] = useState<number | ''>('')
+  const [touched, setTouched] = useState({ name: false, category: false, unit: false })
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false)
+  const [duplicateNameError, setDuplicateNameError] = useState<string | null>(null)
+  const [checkingName, setCheckingName] = useState(false)
   const [addVariants, setAddVariants] = useState(false)
   const [variantDrafts, setVariantDrafts] = useState<VariantDraft[]>([])
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -183,9 +195,43 @@ export function ProductFormPage() {
     )
   }
 
-  function handleSubmit(event: React.FormEvent) {
+  const hasUndistinguishedVariant =
+    addVariants &&
+    variantDrafts.length > 1 &&
+    variantDrafts.some((draft) => draft.label.trim() === '' && draft.values.length === 0)
+
+  const nameError = name.trim() === '' ? 'El nombre es obligatorio.' : duplicateNameError
+  const categoryError = categoryId === '' ? 'Elegí una categoría.' : null
+  const unitError = unitId === '' ? 'Elegí una unidad.' : null
+
+  const showNameError = (touched.name || attemptedSubmit) && nameError !== null
+  const showCategoryError = (touched.category || attemptedSubmit) && categoryError !== null
+  const showUnitError = (touched.unit || attemptedSubmit) && unitError !== null
+
+  function markTouched(field: keyof typeof touched) {
+    setTouched((prev) => ({ ...prev, [field]: true }))
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    if (categoryId === '' || unitId === '' || name.trim() === '') return
+    setAttemptedSubmit(true)
+    if (name.trim() === '' || categoryError !== null || unitError !== null || hasUndistinguishedVariant) return
+
+    const trimmedName = name.trim()
+    setCheckingName(true)
+    const isDuplicate = await fetchProductsPage({ page: 1, pageSize: 10, search: trimmedName })
+      .then((result) => {
+        const normalizedTyped = normalizeForComparison(trimmedName)
+        return result.items.some((item) => normalizeForComparison(item.name) === normalizedTyped)
+      })
+      .catch(() => false)
+    setCheckingName(false)
+
+    if (isDuplicate) {
+      setDuplicateNameError('Ya existe un producto con ese nombre.')
+      return
+    }
+
     setConfirmingCreate(true)
   }
 
@@ -345,22 +391,37 @@ export function ProductFormPage() {
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
               <label htmlFor="product-name" className="text-lg font-semibold">
-                Nombre
+                Nombre <span className="text-danger">*</span>
               </label>
               <input
                 id="product-name"
                 type="text"
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(event) => {
+                  setName(event.target.value)
+                  setDuplicateNameError(null)
+                }}
+                onBlur={() => markTouched('name')}
                 disabled={creating}
-                required
-                className={inputClasses}
+                className={fieldClasses(showNameError)}
               />
+              {showNameError && (
+                <span role="alert" className="-mt-2 text-sm text-danger">
+                  {nameError}
+                </span>
+              )}
+              {!showNameError && checkingName && (
+                <span className="-mt-2 text-sm opacity-60">Verificando nombre…</span>
+              )}
 
-              <span className="text-lg font-semibold">Categoría</span>
+              <span className="text-lg font-semibold">
+                Categoría <span className="text-danger">*</span>
+              </span>
               <SelectMenu
                 ariaLabel="Categoría"
                 disabled={creating}
+                hasError={showCategoryError}
+                onBlur={() => markTouched('category')}
                 value={categoryId === '' ? '' : String(categoryId)}
                 onChange={(value) => {
                   if (value === CREATE_NEW_OPTION) {
@@ -375,6 +436,11 @@ export function ProductFormPage() {
                   { value: CREATE_NEW_OPTION, label: '+ Crear categoría nueva…' },
                 ]}
               />
+              {showCategoryError && (
+                <span role="alert" className="-mt-2 text-sm text-danger">
+                  {categoryError}
+                </span>
+              )}
 
               {creatingCategory && (
                 <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3">
@@ -415,10 +481,14 @@ export function ProductFormPage() {
                 </div>
               )}
 
-              <span className="text-lg font-semibold">Unidad</span>
+              <span className="text-lg font-semibold">
+                Unidad <span className="text-danger">*</span>
+              </span>
               <SelectMenu
                 ariaLabel="Unidad"
                 disabled={creating}
+                hasError={showUnitError}
+                onBlur={() => markTouched('unit')}
                 value={unitId === '' ? '' : String(unitId)}
                 onChange={(value) => {
                   if (value === CREATE_NEW_OPTION) {
@@ -433,6 +503,11 @@ export function ProductFormPage() {
                   { value: CREATE_NEW_OPTION, label: '+ Crear unidad nueva…' },
                 ]}
               />
+              {showUnitError && (
+                <span role="alert" className="-mt-2 text-sm text-danger">
+                  {unitError}
+                </span>
+              )}
 
               {creatingUnit && (
                 <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3">
@@ -525,7 +600,7 @@ export function ProductFormPage() {
                       </div>
                       <div className="flex flex-col gap-1">
                         <label htmlFor={`variant-label-${draft.key}`} className="text-sm font-bold">
-                          Nombre <span className="font-normal opacity-60">(opcional)</span>
+                          Nombre <span className="font-normal normal-case opacity-70">(opcional)</span>
                         </label>
                         <input
                           id={`variant-label-${draft.key}`}
@@ -556,15 +631,28 @@ export function ProductFormPage() {
                   >
                     + Agregar variante
                   </button>
+
+                  {hasUndistinguishedVariant && (
+                    <p role="alert" className="m-0 text-base text-danger">
+                      Cada variante necesita un nombre o un atributo que la diferencie de las demás.
+                    </p>
+                  )}
                 </div>
               )}
 
               <button
                 type="submit"
-                disabled={creating || name.trim() === '' || categoryId === '' || unitId === ''}
+                disabled={
+                  creating ||
+                  nameError !== null ||
+                  categoryError !== null ||
+                  unitError !== null ||
+                  hasUndistinguishedVariant ||
+                  checkingName
+                }
                 className={primaryButtonClasses}
               >
-                Guardar producto
+                {checkingName ? 'Verificando…' : 'Guardar producto'}
               </button>
             </form>
           </div>

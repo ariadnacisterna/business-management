@@ -9,11 +9,14 @@ from app.core.text import normalize_for_comparison
 from app.db.models import AttributeValue, Category, Product, Unit, Variant
 from app.domain.catalog.errors import (
     CategoryNotFound,
+    DuplicateProductName,
+    DuplicateVariantInProduct,
     ImplicitVariantNeedsLabel,
     InvalidAttributeValue,
     InvalidCatalogInput,
     ProductNotFound,
     UnitNotFound,
+    VariantLabelRequired,
     VariantNotFound,
 )
 
@@ -36,6 +39,18 @@ def _normalize_label(label: str | None) -> str | None:
         return None
     stripped = label.strip()
     return stripped or None
+
+
+def _check_duplicate_product_name(
+    db: Session, business_id: int, name: str, exclude_id: int | None = None
+) -> None:
+    normalized = normalize_for_comparison(name)
+    query = select(Product).where(Product.business_id == business_id)
+    if exclude_id is not None:
+        query = query.where(Product.id != exclude_id)
+    for existing in db.scalars(query):
+        if normalize_for_comparison(existing.name) == normalized:
+            raise DuplicateProductName
 
 
 def _get_category(db: Session, category_id: int, business_id: int) -> Category:
@@ -71,15 +86,56 @@ def _resolve_attribute_values(db: Session, attribute_value_ids: list[int]) -> li
     return values
 
 
+def _active_variant_count(product: Product) -> int:
+    return sum(1 for variant in product.variants if variant.status == EntityStatus.ACTIVE.value)
+
+
+def _check_variant_identity(
+    db: Session,
+    product_id: int,
+    label: str | None,
+    attribute_value_ids: set[int],
+    total_active_variants: int,
+    exclude_variant_id: int | None = None,
+) -> None:
+    if total_active_variants > 1 and not label and not attribute_value_ids:
+        raise VariantLabelRequired(
+            "El producto tiene mas de una variante: esta necesita un nombre o un atributo que la "
+            "diferencie de las demas"
+        )
+
+    normalized_label = normalize_for_comparison(label) if label else ""
+    siblings = db.scalars(
+        select(Variant).where(
+            Variant.product_id == product_id,
+            Variant.status == EntityStatus.ACTIVE.value,
+        )
+    ).all()
+    for sibling in siblings:
+        if exclude_variant_id is not None and sibling.id == exclude_variant_id:
+            continue
+        sibling_label = normalize_for_comparison(sibling.label) if sibling.label else ""
+        if sibling_label != normalized_label:
+            continue
+        sibling_attribute_ids = {value.id for value in sibling.attribute_values}
+        if sibling_attribute_ids != attribute_value_ids:
+            continue
+        raise DuplicateVariantInProduct("Ya existe una variante igual en este producto")
+
+
 def _build_variant(
     db: Session,
     product: Product,
     variant_input: VariantInput,
     is_implicit: bool,
     actor_account_id: int,
+    total_active_variants: int,
 ) -> Variant:
     label = _normalize_label(variant_input.label)
     attribute_values = _resolve_attribute_values(db, variant_input.attribute_value_ids)
+    attribute_value_ids = {value.id for value in attribute_values}
+
+    _check_variant_identity(db, product.id, label, attribute_value_ids, total_active_variants)
 
     now = datetime.now(UTC)
     variant = Variant(
@@ -145,6 +201,7 @@ def _create_product_core(
     variants: list[VariantInput] | None = None,
 ) -> tuple[Product, list[Variant], list[Variant]]:
     name = _validate_name(name)
+    _check_duplicate_product_name(db, business_id, name)
     category = _get_category(db, category_id, business_id)
     unit = _get_unit(db, unit_id, business_id)
 
@@ -165,9 +222,10 @@ def _create_product_core(
 
     is_implicit = not variants
     variant_inputs = variants if variants else [VariantInput()]
+    total_variants = len(variant_inputs)
 
     created_variants = [
-        _build_variant(db, product, variant_input, is_implicit, actor_account_id)
+        _build_variant(db, product, variant_input, is_implicit, actor_account_id, total_variants)
         for variant_input in variant_inputs
     ]
 
@@ -217,7 +275,9 @@ def update_product(
     product = get_product(db, business_id, product_id)
 
     if name is not None:
-        product.name = _validate_name(name)
+        name = _validate_name(name)
+        _check_duplicate_product_name(db, business_id, name, exclude_id=product.id)
+        product.name = name
 
     if category_id is not None:
         category = _get_category(db, category_id, business_id)
@@ -254,8 +314,14 @@ def _add_variant_core(
         )
 
     variant_input = VariantInput(label=label, attribute_value_ids=attribute_value_ids or [])
+    total_active_variants = _active_variant_count(product) + 1
     variant = _build_variant(
-        db, product, variant_input, is_implicit=False, actor_account_id=actor_account_id
+        db,
+        product,
+        variant_input,
+        is_implicit=False,
+        actor_account_id=actor_account_id,
+        total_active_variants=total_active_variants,
     )
     db.expire(product, ["variants"])
 
@@ -297,6 +363,23 @@ def update_variant(
     attribute_value_ids: list[int] | None = None,
 ) -> tuple[Variant, list[Variant]]:
     variant = get_variant(db, business_id, variant_id)
+
+    if label is not None or attribute_value_ids is not None:
+        prospective_label = _normalize_label(label) if label is not None else variant.label
+        if attribute_value_ids is not None:
+            prospective_attribute_values = _resolve_attribute_values(db, attribute_value_ids)
+        else:
+            prospective_attribute_values = variant.attribute_values
+        prospective_attribute_value_ids = {value.id for value in prospective_attribute_values}
+        total_active_variants = _active_variant_count(variant.product)
+        _check_variant_identity(
+            db,
+            variant.product_id,
+            prospective_label,
+            prospective_attribute_value_ids,
+            total_active_variants,
+            exclude_variant_id=variant.id,
+        )
 
     if label is not None:
         variant.label = _normalize_label(label)

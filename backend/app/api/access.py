@@ -23,6 +23,7 @@ from app.domain.access.errors import (
     BusinessNotAccessible,
     DuplicateUsername,
     InactiveAccount,
+    InvalidAccountName,
     InvalidCredentials,
     InvalidPassword,
     InvalidRole,
@@ -229,7 +230,7 @@ def create_account(
         raise HTTPException(
             status.HTTP_409_CONFLICT, "El nombre de usuario ya esta en uso"
         ) from exc
-    except (InvalidRole, InvalidUsername, InvalidPassword) as exc:
+    except (InvalidRole, InvalidUsername, InvalidPassword, InvalidAccountName) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 
     return _account_response(db, account, business)
@@ -291,7 +292,7 @@ def update_account(
         raise HTTPException(
             status.HTTP_409_CONFLICT, "El nombre de usuario ya esta en uso"
         ) from exc
-    except (InvalidRole, InvalidUsername) as exc:
+    except (InvalidRole, InvalidUsername, InvalidAccountName) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 
     return _account_response(db, account, business)

@@ -74,7 +74,9 @@ export function NewProductImagePicker({ file, disabled = false, onChange }: NewP
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-base font-bold uppercase tracking-wide opacity-60">Imagen (opcional)</span>
+      <span className="text-base font-bold uppercase tracking-wide opacity-60">
+        Imagen <span className="font-normal normal-case opacity-70">(opcional)</span>
+      </span>
 
       <input
         ref={fileInputRef}
@@ -187,7 +189,9 @@ export function StagedProductImageField({
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-base font-bold uppercase tracking-wide opacity-60">Imagen</span>
+      <span className="text-base font-bold uppercase tracking-wide opacity-60">
+        Imagen <span className="font-normal normal-case opacity-70">(opcional)</span>
+      </span>
 
       <input
         ref={fileInputRef}

@@ -1,3 +1,5 @@
+import re
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,11 +11,21 @@ from app.db.models import Account, Business, BusinessAccess, Role
 from app.domain.access.errors import (
     AccountNotFound,
     DuplicateUsername,
+    InvalidAccountName,
     InvalidPassword,
     InvalidRole,
     InvalidUsername,
 )
 from app.domain.access.sessions import delete_sessions_for_account
+
+_PASSWORD_COMPLEXITY_PATTERN = re.compile(r"(?=.*[a-z])(?=.*[A-Z])(?=.*\d)")
+
+
+def _validate_name(name: str) -> str:
+    stripped = name.strip()
+    if not stripped:
+        raise InvalidAccountName("El nombre no puede estar vacio")
+    return stripped
 
 
 def _validate_user_name(user_name: str) -> None:
@@ -26,6 +38,10 @@ def _validate_user_name(user_name: str) -> None:
 def _validate_password(password: str) -> None:
     if len(password) < PASSWORD_MIN_LENGTH:
         raise InvalidPassword(f"La contrasena debe tener al menos {PASSWORD_MIN_LENGTH} caracteres")
+    if not _PASSWORD_COMPLEXITY_PATTERN.search(password):
+        raise InvalidPassword(
+            "La contrasena debe incluir al menos una mayuscula, una minuscula y un numero"
+        )
 
 
 def _get_role(db: Session, role_name: str) -> Role:
@@ -61,6 +77,7 @@ def create_account(
     initial_password: str,
     role_name: str,
 ) -> Account:
+    name = _validate_name(name)
     _validate_user_name(user_name)
     _validate_password(initial_password)
     role = _get_role(db, role_name)
@@ -102,7 +119,7 @@ def update_account(
     account = _get_account(db, account_id)
 
     if name is not None:
-        account.name = name
+        account.name = _validate_name(name)
 
     if user_name is not None and user_name != account.user_name:
         _validate_user_name(user_name)

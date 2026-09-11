@@ -29,7 +29,7 @@ def _create_account(client, admin_cookies, user_name, role, name="Cuenta de prue
         json={
             "name": name,
             "user_name": user_name,
-            "initial_password": "clave-segura-1",
+            "initial_password": "Clave-segura-1",
             "role": role,
         },
         cookies=admin_cookies,
@@ -305,7 +305,7 @@ def test_account_with_single_business_access_cannot_see_the_other_business_catal
     )
 
     _create_account(client, admin_cookies, "empleada-negocio-a", EMPLEADO)
-    restricted_cookies = _login(client, "empleada-negocio-a", "clave-segura-1")
+    restricted_cookies = _login(client, "empleada-negocio-a", "Clave-segura-1")
 
     me_response = client.get("/auth/me", cookies=restricted_cookies)
     assert me_response.json()["active_business_id"] == first_business_id
@@ -341,7 +341,7 @@ def test_gerente_and_empleado_cannot_switch_active_business_even_with_access_to_
     for user_name, role in (("gerenta-dual", GERENTE), ("empleada-dual", EMPLEADO)):
         account = _create_account(client, admin_cookies, user_name, role)
         _grant_access(db_session, account["id"], second_business.id, role)
-        cookies = _login(client, user_name, "clave-segura-1")
+        cookies = _login(client, user_name, "Clave-segura-1")
 
         response = client.post(
             "/auth/active-business",
@@ -363,7 +363,7 @@ def test_administrador_cannot_switch_active_business_but_dueno_can(client, db_se
 
     administrador_account = _create_account(client, admin_cookies, "admin-dual", ADMINISTRADOR)
     _grant_access(db_session, administrador_account["id"], second_business.id, ADMINISTRADOR)
-    administrador_cookies = _login(client, "admin-dual", "clave-segura-1")
+    administrador_cookies = _login(client, "admin-dual", "Clave-segura-1")
 
     denied = client.post(
         "/auth/active-business",
@@ -444,7 +444,7 @@ def test_administrador_account_listing_is_scoped_to_the_active_business(
 
     administrador_account = _create_account(client, admin_cookies, "admin-dual", ADMINISTRADOR)
     _grant_access(db_session, administrador_account["id"], second_business.id, ADMINISTRADOR)
-    administrador_cookies = _login(client, "admin-dual", "clave-segura-1")
+    administrador_cookies = _login(client, "admin-dual", "Clave-segura-1")
 
     _create_account(client, admin_cookies, "empleada-negocio-a", EMPLEADO)
 

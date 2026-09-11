@@ -389,7 +389,9 @@ describe('ProductsPage', () => {
     await user.clear(nameInput)
     await user.type(nameInput, 'Cinta bebé XL')
 
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ...PRODUCTS[0], name: 'Cinta bebé XL' }))
+    fetchMock
+      .mockResolvedValueOnce(productPage([]))
+      .mockResolvedValueOnce(jsonResponse({ ...PRODUCTS[0], name: 'Cinta bebé XL' }))
     await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
     await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Guardar' }))
 

@@ -41,6 +41,18 @@ alembic upgrade head
 alembic check      # confirma que los modelos y la última revisión no difieren
 ```
 
+## Cómo correr
+
+Con el entorno virtual activado y la base migrada:
+
+```
+uvicorn app.main:app --reload
+```
+
+Queda en `http://127.0.0.1:8000`. En desarrollo, el servidor de Vite del
+frontend proxya las llamadas hacia acá (mismo origen visto desde el
+navegador).
+
 ## Pruebas
 
 ```

@@ -236,9 +236,9 @@ describe('AccountsPage', () => {
     await screen.findByText('Ada Lovelace')
     await user.click(screen.getAllByRole('button', { name: /nueva cuenta/i })[0])
 
-    await user.type(screen.getByLabelText('Nombre'), 'Nuevo Empleado')
-    await user.type(screen.getByLabelText('Usuario'), 'nuevo')
-    await user.type(screen.getByLabelText('Contraseña inicial'), 'clave123')
+    await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Nuevo Empleado')
+    await user.type(screen.getByLabelText(/^Usuario \*?$/), 'nuevo')
+    await user.type(screen.getByLabelText(/^Contraseña inicial \*?$/), 'Clave123')
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -260,8 +260,79 @@ describe('AccountsPage', () => {
       name: 'Nuevo Empleado',
       user_name: 'nuevo',
       role: 'Empleado',
-      initial_password: 'clave123',
+      initial_password: 'Clave123',
     })
+  })
+
+  it('keeps account creation disabled until the password meets the security requirements', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Ada Lovelace')
+    await user.click(screen.getAllByRole('button', { name: /nueva cuenta/i })[0])
+
+    await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Nuevo Empleado')
+    await user.type(screen.getByLabelText(/^Usuario \*?$/), 'nuevo')
+    const passwordInput = screen.getByLabelText(/^Contraseña inicial \*?$/)
+    const saveButton = screen.getByRole('button', { name: 'Guardar' })
+
+    await user.type(passwordInput, 'clave123')
+    expect(saveButton).toBeDisabled()
+
+    await user.clear(passwordInput)
+    await user.type(passwordInput, 'Clave123')
+    expect(saveButton).toBeEnabled()
+  })
+
+  it('shows the minimum length hint for the username and an error when it is too short', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Ada Lovelace')
+    await user.click(screen.getAllByRole('button', { name: /nueva cuenta/i })[0])
+
+    expect(screen.getByText('Mínimo 3 caracteres.')).toBeInTheDocument()
+
+    const userNameInput = screen.getByLabelText(/^Usuario \*?$/)
+    await user.type(userNameInput, 'ab')
+    await user.tab()
+
+    expect(screen.getByText('El usuario debe tener al menos 3 caracteres.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBeDisabled()
+  })
+
+  it('blocks a duplicate username before showing the confirmation, without a round trip to the server', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Ada Lovelace')
+    const callsBeforeTyping = fetchMock.mock.calls.length
+    await user.click(screen.getAllByRole('button', { name: /nueva cuenta/i })[0])
+
+    await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Otra Ada')
+    const userNameInput = screen.getByLabelText(/^Usuario \*?$/)
+    await user.type(userNameInput, 'ADA')
+    await user.tab()
+
+    expect(screen.getByText('Ya existe una cuenta con ese usuario.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBeDisabled()
+    expect(fetchMock.mock.calls.length).toBe(callsBeforeTyping)
+  })
+
+  it('marks required fields with an error as soon as they are left empty', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Ada Lovelace')
+    await user.click(screen.getAllByRole('button', { name: /nueva cuenta/i })[0])
+
+    const nameInput = screen.getByLabelText(/^Nombre \*?$/)
+    await user.click(nameInput)
+    await user.tab()
+
+    expect(screen.getByText('El nombre es obligatorio.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBeDisabled()
   })
 
   it('does not create the account when the confirmation is cancelled', async () => {
@@ -272,9 +343,9 @@ describe('AccountsPage', () => {
     await screen.findByText('Ada Lovelace')
     await user.click(screen.getAllByRole('button', { name: /nueva cuenta/i })[0])
 
-    await user.type(screen.getByLabelText('Nombre'), 'Nuevo Empleado')
-    await user.type(screen.getByLabelText('Usuario'), 'nuevo')
-    await user.type(screen.getByLabelText('Contraseña inicial'), 'clave123')
+    await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Nuevo Empleado')
+    await user.type(screen.getByLabelText(/^Usuario \*?$/), 'nuevo')
+    await user.type(screen.getByLabelText(/^Contraseña inicial \*?$/), 'Clave123')
 
     const callsBeforeConfirm = fetchMock.mock.calls.length
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
@@ -285,7 +356,7 @@ describe('AccountsPage', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(fetchMock.mock.calls.length).toBe(callsBeforeConfirm)
     expect(screen.queryByText('Nuevo Empleado')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Nombre')).toHaveValue('Nuevo Empleado')
+    expect(screen.getByLabelText(/^Nombre \*?$/)).toHaveValue('Nuevo Empleado')
   })
 
   it('edits an existing account', async () => {
@@ -297,7 +368,7 @@ describe('AccountsPage', () => {
     await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[1])
     await user.click(screen.getByRole('button', { name: 'Editar cuenta' }))
 
-    const nameInput = await screen.findByLabelText('Nombre')
+    const nameInput = await screen.findByLabelText(/^Nombre \*?$/)
     await user.clear(nameInput)
     await user.type(nameInput, 'Grace Hopper Rear Admiral')
 
@@ -358,13 +429,13 @@ describe('AccountsPage', () => {
     await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[1])
     await user.click(screen.getByRole('button', { name: 'Restablecer contraseña' }))
 
-    await user.type(screen.getByLabelText('Contraseña nueva'), 'nuevaClave1')
-    await user.type(screen.getByLabelText('Repetir contraseña'), 'otraClave2')
+    await user.type(screen.getByLabelText(/^Contraseña nueva \*?$/), 'nuevaClave1')
+    await user.type(screen.getByLabelText(/^Repetir contraseña \*?$/), 'otraClave2')
     expect(screen.getByText('Las contraseñas no coinciden.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Restablecer' })).toBeDisabled()
 
-    await user.clear(screen.getByLabelText('Repetir contraseña'))
-    await user.type(screen.getByLabelText('Repetir contraseña'), 'nuevaClave1')
+    await user.clear(screen.getByLabelText(/^Repetir contraseña \*?$/))
+    await user.type(screen.getByLabelText(/^Repetir contraseña \*?$/), 'nuevaClave1')
 
     fetchMock.mockResolvedValueOnce(jsonResponse(MANAGED_ACCOUNTS[1]))
     await user.click(screen.getByRole('button', { name: 'Restablecer' }))
@@ -373,5 +444,22 @@ describe('AccountsPage', () => {
     const lastCall = fetchMock.mock.calls.at(-1)
     expect(lastCall?.[0]).toBe('/accounts/2/reset-password')
     expect(JSON.parse(lastCall?.[1]?.body as string)).toEqual({ new_password: 'nuevaClave1' })
+  })
+
+  it('marks the reset-password fields with an error as soon as they are left empty', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Grace Hopper')
+    await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[1])
+    await user.click(screen.getByRole('button', { name: 'Restablecer contraseña' }))
+
+    await user.click(screen.getByLabelText(/^Contraseña nueva \*?$/))
+    await user.click(screen.getByLabelText(/^Repetir contraseña \*?$/))
+    await user.tab()
+
+    expect(screen.getByText('La contraseña es obligatoria.')).toBeInTheDocument()
+    expect(screen.getByText('Repetí la contraseña.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Restablecer' })).toBeDisabled()
   })
 })

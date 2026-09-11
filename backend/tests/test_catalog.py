@@ -28,7 +28,7 @@ def _create_account(client, admin_cookies, user_name, role):
         json={
             "name": "Cuenta de prueba",
             "user_name": user_name,
-            "initial_password": "clave-segura-1",
+            "initial_password": "Clave-segura-1",
             "role": role,
         },
         cookies=admin_cookies,
@@ -40,12 +40,12 @@ def _create_account(client, admin_cookies, user_name, role):
 
 def _gerente_cookies(client, admin_cookies, user_name="gerente-catalogo"):
     _create_account(client, admin_cookies, user_name, GERENTE)
-    return _login(client, user_name, "clave-segura-1")
+    return _login(client, user_name, "Clave-segura-1")
 
 
 def _empleado_cookies(client, admin_cookies, user_name="empleado-catalogo"):
     _create_account(client, admin_cookies, user_name, EMPLEADO)
-    return _login(client, user_name, "clave-segura-1")
+    return _login(client, user_name, "Clave-segura-1")
 
 
 def _create_category(client, cookies, name="Cintas"):
@@ -288,7 +288,7 @@ def test_create_product_with_explicit_variants_and_colors(client):
     assert {blue["id"]} in [set(v["attribute_value_ids"]) for v in variants]
 
 
-def test_create_product_warns_about_possible_duplicate_variant(client):
+def test_create_product_rejects_a_duplicate_name_in_the_same_category(client):
     admin_cookies = _admin_cookies(client)
     category = _create_category(client, admin_cookies, "Merceria duplicados")
     unit = _create_unit(client, admin_cookies, "Metro duplicado", "md", True)
@@ -320,9 +320,48 @@ def test_create_product_warns_about_possible_duplicate_variant(client):
         headers=_auth_headers(admin_cookies),
     )
 
-    assert second.status_code == 201, second.text
-    body = second.json()
-    assert len(body["possible_duplicates"]) == 1
+    assert second.status_code == 409, second.text
+
+
+def test_create_product_rejects_a_duplicate_name_even_in_a_different_category(client):
+    admin_cookies = _admin_cookies(client)
+    category_a = _create_category(client, admin_cookies, "Merceria nombre unico A")
+    category_b = _create_category(client, admin_cookies, "Merceria nombre unico B")
+    unit = _create_unit(client, admin_cookies, "Metro nombre unico", "mnu", True)
+
+    first = client.post(
+        "/products",
+        json={"name": "Producto repetido", "category_id": category_a["id"], "unit_id": unit["id"]},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+    assert first.status_code == 201, first.text
+
+    second = client.post(
+        "/products",
+        json={"name": "Producto repetido", "category_id": category_b["id"], "unit_id": unit["id"]},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert second.status_code == 409, second.text
+
+
+def test_update_product_rejects_renaming_to_an_existing_product_name(client):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Merceria renombrar duplicado")
+    unit = _create_unit(client, admin_cookies, "Metro renombrar duplicado", "mrd", True)
+    _create_product(client, admin_cookies, "Producto A", category["id"], unit["id"])
+    product_b = _create_product(client, admin_cookies, "Producto B", category["id"], unit["id"])
+
+    response = client.patch(
+        f"/products/{product_b['id']}",
+        json={"name": "producto a"},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 409, response.text
 
 
 def test_add_variant_rejects_unlabeled_implicit_variant(client):
@@ -422,6 +461,95 @@ def test_update_variant_changes_label_and_attribute_values(client):
     body = response.json()["variant"]
     assert body["label"] == "Verde brillante"
     assert body["attribute_value_ids"] == [green["id"]]
+
+
+def test_create_product_rejects_a_variant_with_no_label_and_no_attributes_when_there_is_more_than_one(
+    client,
+):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Merceria variante sin nombre")
+    unit = _create_unit(client, admin_cookies, "Metro sin nombre", "msn", True)
+
+    response = client.post(
+        "/products",
+        json={
+            "name": "Cinta sin diferenciar",
+            "category_id": category["id"],
+            "unit_id": unit["id"],
+            "variants": [{"label": "Roja"}, {}],
+        },
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 422, response.text
+
+
+def test_create_product_rejects_two_identical_variants_in_the_same_product(client):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Merceria variante repetida")
+    unit = _create_unit(client, admin_cookies, "Metro repetida", "mrp", True)
+
+    response = client.post(
+        "/products",
+        json={
+            "name": "Cinta con variantes repetidas",
+            "category_id": category["id"],
+            "unit_id": unit["id"],
+            "variants": [{"label": "Roja"}, {"label": "roja"}],
+        },
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 409, response.text
+
+
+def test_add_variant_rejects_a_duplicate_of_an_existing_variant_in_the_same_product(client):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Merceria agregar duplicada")
+    unit = _create_unit(client, admin_cookies, "Metro agregar duplicada", "mad", True)
+    product = _create_product(
+        client,
+        admin_cookies,
+        "Cinta para agregar duplicada",
+        category["id"],
+        unit["id"],
+        variants=[{"label": "Roja"}],
+    )
+
+    response = client.post(
+        f"/products/{product['id']}/variants",
+        json={"label": "Roja"},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 409, response.text
+
+
+def test_update_variant_rejects_becoming_a_duplicate_of_a_sibling(client):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Merceria editar duplicada")
+    unit = _create_unit(client, admin_cookies, "Metro editar duplicada", "med", True)
+    product = _create_product(
+        client,
+        admin_cookies,
+        "Cinta para editar duplicada",
+        category["id"],
+        unit["id"],
+        variants=[{"label": "Roja"}, {"label": "Azul"}],
+    )
+    blue_variant_id = product["variants"][1]["id"]
+
+    response = client.patch(
+        f"/variants/{blue_variant_id}",
+        json={"label": "Roja"},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 409, response.text
 
 
 def test_create_product_rejects_repeated_attribute_on_same_variant(client):

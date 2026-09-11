@@ -24,7 +24,7 @@ def _create_account(client, admin_cookies, user_name, role):
         json={
             "name": "Cuenta de prueba",
             "user_name": user_name,
-            "initial_password": "clave-segura-1",
+            "initial_password": "Clave-segura-1",
             "role": role,
         },
         cookies=admin_cookies,
@@ -36,7 +36,7 @@ def _create_account(client, admin_cookies, user_name, role):
 
 def _empleado_cookies(client, admin_cookies, user_name="empleado-busqueda"):
     _create_account(client, admin_cookies, user_name, EMPLEADO)
-    return _login(client, user_name, "clave-segura-1")
+    return _login(client, user_name, "Clave-segura-1")
 
 
 def _create_category(client, cookies, name):

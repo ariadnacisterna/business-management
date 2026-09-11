@@ -3,6 +3,7 @@ import { changeProductPrice, changeVariantPrice } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Price, Product, Variant } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
+import { PriceInput } from '../../shared/PriceInput'
 import { useToast } from '../../shared/Toast'
 import { formatPrice } from '../../shared/formatPrice'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
@@ -39,11 +40,12 @@ export function ChangePriceModal({
   const [saving, setSaving] = useState(false)
 
   const activeVariantCount = activeVariantPrices.size
+  const canSubmit = amount.trim() !== '' && Number(amount) > 0
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     const trimmed = amount.trim()
-    if (trimmed === '') return
+    if (!canSubmit) return
 
     setSaving(true)
     try {
@@ -110,20 +112,14 @@ export function ChangePriceModal({
 
         <div>
           <label htmlFor="new-price-amount" className="text-lg font-semibold uppercase tracking-wide opacity-70">
-            Nuevo precio (ARS)
+            Nuevo precio (ARS) <span className="text-danger">*</span>
           </label>
-          <div className="relative mt-1.5">
-            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-lg font-bold opacity-50">
-              $
-            </span>
-            <input
+          <div className="mt-1.5">
+            <PriceInput
               id="new-price-amount"
-              type="number"
-              min="0.01"
-              step="0.01"
-              inputMode="decimal"
               value={amount}
-              onChange={(event) => setAmount(event.target.value)}
+              onChange={setAmount}
+              ariaLabel="Nuevo precio (ARS)"
               disabled={saving}
               required
               autoFocus
@@ -148,7 +144,7 @@ export function ChangePriceModal({
         <div className="flex gap-2">
           <button
             type="submit"
-            disabled={saving || amount.trim() === ''}
+            disabled={saving || !canSubmit}
             className="h-12 flex-1 rounded-xl bg-brand/80 text-lg font-bold text-brand-contrast transition-colors hover:bg-brand disabled:opacity-40"
           >
             Confirmar

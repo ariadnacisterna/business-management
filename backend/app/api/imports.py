@@ -9,6 +9,7 @@ from app.constants.roles import ADMINISTRADOR
 from app.db.models import Account, Business
 from app.db.session import get_db
 from app.domain.access.permissions import get_active_business, require_csrf, require_role
+from app.domain.catalog.errors import DuplicateProductName
 from app.domain.import_.applying import ImportResult, apply_import
 from app.domain.import_.errors import (
     EmptyFile,
@@ -226,6 +227,12 @@ def confirm_import(
     except ImportPlanHasErrors as exc:
         detail = _preview_response(exc.plan).model_dump(mode="json")
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail) from exc
+    except DuplicateProductName as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Uno de los productos a crear ya existe con ese nombre en otra categoria. "
+            "Corregi el archivo y volve a analizarlo.",
+        ) from exc
 
     return ImportConfirmResponse(
         import_run=_import_run_response(result), summary=_summary_response(result.plan)

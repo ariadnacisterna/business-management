@@ -29,7 +29,7 @@ def _create_account(client, admin_cookies, user_name, role):
         json={
             "name": "Cuenta de prueba",
             "user_name": user_name,
-            "initial_password": "clave-segura-1",
+            "initial_password": "Clave-segura-1",
             "role": role,
         },
         cookies=admin_cookies,
@@ -41,12 +41,12 @@ def _create_account(client, admin_cookies, user_name, role):
 
 def _gerente_cookies(client, admin_cookies, user_name="gerente-import"):
     _create_account(client, admin_cookies, user_name, GERENTE)
-    return _login(client, user_name, "clave-segura-1")
+    return _login(client, user_name, "Clave-segura-1")
 
 
 def _empleado_cookies(client, admin_cookies, user_name="empleado-import"):
     _create_account(client, admin_cookies, user_name, EMPLEADO)
-    return _login(client, user_name, "clave-segura-1")
+    return _login(client, user_name, "Clave-segura-1")
 
 
 def _create_category(client, cookies, name):
@@ -374,43 +374,6 @@ def test_confirm_validates_independently_without_a_prior_preview_call(client):
 
     assert response.status_code == 422, response.text
     assert response.json()["detail"]["rows"][0]["errors"][0]["field"] == "price"
-
-
-def _assert_row_was_not_treated_as_an_unrelated_brand_new_product(row):
-    assert row["is_valid"] is True
-    if row["outcome"] == "update":
-        assert row["possible_duplicates"] == []
-    else:
-        assert row["outcome"] == "new"
-        assert len(row["possible_duplicates"]) == 1
-
-
-def test_row_matching_two_pre_existing_same_named_products_updates_or_flags_duplicate(client):
-    admin_cookies = _admin_cookies(client)
-    category = _create_category(client, admin_cookies, "Merceria")
-    unit = _create_unit(client, admin_cookies, "Metro merceria", "mm")
-    _create_product(
-        client,
-        admin_cookies,
-        "Cinta Bebe N 2",
-        category["id"],
-        unit["id"],
-        variants=[{"label": "Verde"}],
-    )
-    _create_product(
-        client,
-        admin_cookies,
-        "cinta bebe n 2",
-        category["id"],
-        unit["id"],
-        variants=[{"label": "Amarillo"}],
-    )
-    csv_text = BASIC_HEADER + "Merceria,Cinta bebe N 2,Metro merceria,Amarillo,,60.00\n"
-
-    response = _preview(client, admin_cookies, _csv_file(csv_text))
-
-    assert response.status_code == 200, response.text
-    _assert_row_was_not_treated_as_an_unrelated_brand_new_product(response.json()["rows"][0])
 
 
 def test_adding_a_new_variant_to_a_product_with_an_unlabeled_implicit_variant_is_an_error(client):

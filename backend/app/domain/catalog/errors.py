@@ -46,11 +46,23 @@ class ProductNotFound(CatalogError):
     pass
 
 
+class DuplicateProductName(CatalogError):
+    pass
+
+
 class VariantNotFound(CatalogError):
     pass
 
 
 class ImplicitVariantNeedsLabel(CatalogError):
+    pass
+
+
+class VariantLabelRequired(CatalogError):
+    pass
+
+
+class DuplicateVariantInProduct(CatalogError):
     pass
 
 

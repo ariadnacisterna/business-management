@@ -35,6 +35,7 @@ const EMPLOYEE_ACCOUNT = {
 const CATEGORIES = [{ id: 1, name: 'Mercería', status: 'active' }]
 const UNITS = [{ id: 1, name: 'Unidad', abbreviation: 'un', allows_fraction: false, status: 'active' }]
 const ATTRIBUTES = [{ id: 1, name: 'Color', status: 'active' }]
+const EMPTY_PRODUCT_PAGE = { items: [], total: 0, page: 1, page_size: 10 }
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -77,6 +78,7 @@ describe('ProductFormPage', () => {
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
       .mockResolvedValueOnce(jsonResponse(ATTRIBUTES))
+      .mockResolvedValueOnce(jsonResponse(EMPTY_PRODUCT_PAGE))
       .mockResolvedValueOnce(
         jsonResponse(
           {
@@ -110,7 +112,7 @@ describe('ProductFormPage', () => {
 
     renderPage()
 
-    await user.type(await screen.findByLabelText('Nombre'), 'Hilo blanco')
+    await user.type(await screen.findByLabelText(/^Nombre \*?$/), 'Hilo blanco')
     await pickOption(user, 'Categoría', 'Mercería')
     await pickOption(user, 'Unidad', 'Unidad (un)')
     await user.click(screen.getByRole('button', { name: 'Guardar producto' }))
@@ -133,7 +135,7 @@ describe('ProductFormPage', () => {
     )
   })
 
-  it('does not create the product when the confirmation is cancelled', async () => {
+  it('shows an error and marks the name field as soon as it is left empty', async () => {
     const user = userEvent.setup()
     fetchMock
       .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
@@ -143,20 +145,85 @@ describe('ProductFormPage', () => {
 
     renderPage()
 
-    await user.type(await screen.findByLabelText('Nombre'), 'Hilo blanco')
+    const nameInput = await screen.findByLabelText(/^Nombre \*?$/)
+    await user.click(nameInput)
+    await user.tab()
+
+    expect(screen.getByText('El nombre es obligatorio.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Guardar producto' })).toBeDisabled()
+  })
+
+  it('shows an error for categoría and unidad once they lose focus while empty', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse(ATTRIBUTES))
+
+    renderPage()
+
+    await screen.findByLabelText(/^Nombre \*?$/)
+    await user.click(screen.getByRole('button', { name: 'Categoría' }))
+    expect(await screen.findByText('Elegí una categoría.')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+
+    await user.click(screen.getByRole('button', { name: 'Unidad' }))
+    expect(await screen.findByText('Elegí una unidad.')).toBeInTheDocument()
+  })
+
+  it('blocks a duplicate product name before showing the confirmation, and never asks to confirm', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse(ATTRIBUTES))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [{ id: 9, name: 'Hilo Blanco', category_id: 1, unit_id: 1, status: 'active', image_url: null, variants: [] }],
+          total: 1,
+          page: 1,
+          page_size: 10,
+        }),
+      )
+
+    renderPage()
+
+    await user.type(await screen.findByLabelText(/^Nombre \*?$/), 'hilo blanco')
+    await pickOption(user, 'Categoría', 'Mercería')
+    await pickOption(user, 'Unidad', 'Unidad (un)')
+    await user.click(screen.getByRole('button', { name: 'Guardar producto' }))
+
+    expect(await screen.findByText('Ya existe un producto con ese nombre.')).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  })
+
+  it('does not create the product when the confirmation is cancelled', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse(ATTRIBUTES))
+      .mockResolvedValueOnce(jsonResponse(EMPTY_PRODUCT_PAGE))
+
+    renderPage()
+
+    await user.type(await screen.findByLabelText(/^Nombre \*?$/), 'Hilo blanco')
     await pickOption(user, 'Categoría', 'Mercería')
     await pickOption(user, 'Unidad', 'Unidad (un)')
 
-    const callsBeforeConfirm = fetchMock.mock.calls.length
     await user.click(screen.getByRole('button', { name: 'Guardar producto' }))
-
     const dialog = await screen.findByRole('alertdialog')
+
+    const callsBeforeConfirm = fetchMock.mock.calls.length
     await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(fetchMock.mock.calls.length).toBe(callsBeforeConfirm)
     expect(screen.queryByRole('heading', { name: 'Precio inicial' })).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Nombre')).toHaveValue('Hilo blanco')
+    expect(screen.getByLabelText(/^Nombre \*?$/)).toHaveValue('Hilo blanco')
   })
 
   it('shows an error toast when creating the product fails', async () => {
@@ -166,11 +233,12 @@ describe('ProductFormPage', () => {
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
       .mockResolvedValueOnce(jsonResponse(ATTRIBUTES))
+      .mockResolvedValueOnce(jsonResponse(EMPTY_PRODUCT_PAGE))
       .mockResolvedValueOnce(jsonResponse({ detail: 'Ya existe un producto con ese nombre.' }, 409))
 
     renderPage()
 
-    await user.type(await screen.findByLabelText('Nombre'), 'Hilo blanco')
+    await user.type(await screen.findByLabelText(/^Nombre \*?$/), 'Hilo blanco')
     await pickOption(user, 'Categoría', 'Mercería')
     await pickOption(user, 'Unidad', 'Unidad (un)')
     await user.click(screen.getByRole('button', { name: 'Guardar producto' }))
@@ -188,6 +256,7 @@ describe('ProductFormPage', () => {
       .mockResolvedValueOnce(jsonResponse(UNITS))
       .mockResolvedValueOnce(jsonResponse(ATTRIBUTES))
       .mockResolvedValueOnce(jsonResponse([{ id: 1, attribute_id: 1, value: 'Rojo', status: 'active' }]))
+      .mockResolvedValueOnce(jsonResponse(EMPTY_PRODUCT_PAGE))
       .mockResolvedValueOnce(
         jsonResponse(
           {
@@ -216,7 +285,7 @@ describe('ProductFormPage', () => {
 
     renderPage()
 
-    await user.type(await screen.findByLabelText('Nombre'), 'Cinta')
+    await user.type(await screen.findByLabelText(/^Nombre \*?$/), 'Cinta')
     await pickOption(user, 'Categoría', 'Mercería')
     await pickOption(user, 'Unidad', 'Unidad (un)')
     await user.click(
@@ -313,7 +382,7 @@ describe('ProductFormPage', () => {
 
     renderPage()
 
-    await screen.findByLabelText('Nombre')
+    await screen.findByLabelText(/^Nombre \*?$/)
     await user.click(screen.getByLabelText(/este producto tiene distintas presentaciones/i))
     await user.click(screen.getByRole('button', { name: '+ Agregar variante' }))
     await pickOption(user, 'Atributo', '+ Crear atributo nuevo…')
