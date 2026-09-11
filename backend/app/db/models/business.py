@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from app.db.models.attribute import Attribute
     from app.db.models.business_access import BusinessAccess
     from app.db.models.category import Category
+    from app.db.models.customer import Customer
     from app.db.models.organization import Organization
     from app.db.models.product import Product
     from app.db.models.provider import Provider
@@ -37,3 +38,4 @@ class Business(Base):
     attributes: Mapped[list["Attribute"]] = relationship(back_populates="business")
     products: Mapped[list["Product"]] = relationship(back_populates="business")
     providers: Mapped[list["Provider"]] = relationship(back_populates="business")
+    customers: Mapped[list["Customer"]] = relationship(back_populates="business")

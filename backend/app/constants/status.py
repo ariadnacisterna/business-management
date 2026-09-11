@@ -13,3 +13,8 @@ class ShortageStatus(enum.StrEnum):
 
 
 SHORTAGE_OPEN_STATUSES = (ShortageStatus.FALTANTE.value, ShortageStatus.PEDIDO.value)
+
+
+class CreditType(enum.StrEnum):
+    CARGO = "cargo"
+    PAGO = "pago"

@@ -92,3 +92,19 @@ class DuplicateOpenShortage(CatalogError):
 
 class InvalidShortageTransition(CatalogError):
     pass
+
+
+class CustomerNotFound(CatalogError):
+    pass
+
+
+class DuplicateCustomerName(CatalogError):
+    pass
+
+
+class InvalidCreditType(CatalogError):
+    pass
+
+
+class InvalidCreditAmount(CatalogError):
+    pass

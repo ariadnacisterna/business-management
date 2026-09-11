@@ -12,6 +12,8 @@ from app.db.models import (
     Account,
     AttributeValue,
     Business,
+    Credit,
+    Customer,
     Price,
     Product,
     Provider,
@@ -29,6 +31,8 @@ from app.domain.catalog import (
     attribute_values,
     attributes,
     categories,
+    credits,
+    customers,
     products,
     providers,
     shortages,
@@ -38,9 +42,11 @@ from app.domain.catalog.errors import (
     AttributeNotFound,
     AttributeValueNotFound,
     CategoryNotFound,
+    CustomerNotFound,
     DuplicateAttributeName,
     DuplicateAttributeValue,
     DuplicateCategoryName,
+    DuplicateCustomerName,
     DuplicateOpenShortage,
     DuplicateProductName,
     DuplicateProviderName,
@@ -50,6 +56,8 @@ from app.domain.catalog.errors import (
     ImplicitVariantNeedsLabel,
     InvalidAttributeValue,
     InvalidCatalogInput,
+    InvalidCreditAmount,
+    InvalidCreditType,
     InvalidImageType,
     InvalidShortageTransition,
     ProductNotFound,
@@ -250,6 +258,47 @@ class ShortageCountResponse(BaseModel):
     count: int
 
 
+class CustomerResponse(BaseModel):
+    id: int
+    name: str
+    phone: str | None
+    status: str
+
+
+class CreateCustomerRequest(BaseModel):
+    name: str
+    phone: str | None = None
+
+
+class UpdateCustomerRequest(BaseModel):
+    name: str | None = None
+    phone: str | None = None
+
+
+class CustomerBalanceResponse(BaseModel):
+    customer_id: int
+    balance: Decimal
+
+
+class CreditResponse(BaseModel):
+    id: int
+    customer_id: int
+    type: str
+    amount: Decimal
+    created_at: str
+    created_by_account_id: int
+
+
+class CreateCreditRequest(BaseModel):
+    type: str
+    amount: Decimal
+
+
+class CustomerWithBalanceResponse(BaseModel):
+    customer: CustomerResponse
+    balance: Decimal
+
+
 def _category_response(category) -> CategoryResponse:
     return CategoryResponse(id=category.id, name=category.name, status=category.status)
 
@@ -332,6 +381,23 @@ def _shortage_response(shortage: Shortage) -> ShortageResponse:
         status=shortage.status,
         created_at=shortage.created_at.isoformat(),
         created_by_account_id=shortage.created_by_account_id,
+    )
+
+
+def _customer_response(customer: Customer) -> CustomerResponse:
+    return CustomerResponse(
+        id=customer.id, name=customer.name, phone=customer.phone, status=customer.status
+    )
+
+
+def _credit_response(credit: Credit) -> CreditResponse:
+    return CreditResponse(
+        id=credit.id,
+        customer_id=credit.customer_id,
+        type=credit.type,
+        amount=credit.amount,
+        created_at=credit.created_at.isoformat(),
+        created_by_account_id=credit.created_by_account_id,
     )
 
 
@@ -1262,3 +1328,184 @@ def change_shortage_status(
         raise HTTPException(status.HTTP_409_CONFLICT, "Transicion de estado invalida") from exc
 
     return _shortage_response(shortage)
+
+
+@router.post(
+    "/customers",
+    response_model=CustomerResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_csrf)],
+)
+def create_customer(
+    payload: CreateCustomerRequest,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> CustomerResponse:
+    try:
+        customer = customers.create_customer(
+            db, business.id, payload.name, _actor.id, phone=payload.phone
+        )
+    except DuplicateCustomerName as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, "El cliente ya existe") from exc
+    except InvalidCatalogInput as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+    return _customer_response(customer)
+
+
+@router.get("/customers", response_model=list[CustomerResponse])
+def list_customers(
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> list[CustomerResponse]:
+    return [_customer_response(customer) for customer in customers.list_customers(db, business.id)]
+
+
+@router.get("/customers/pending-balance", response_model=list[CustomerWithBalanceResponse])
+def list_customers_with_pending_balance(
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> list[CustomerWithBalanceResponse]:
+    return [
+        CustomerWithBalanceResponse(customer=_customer_response(customer), balance=balance)
+        for customer, balance in credits.list_customers_with_pending_balance(db, business.id)
+    ]
+
+
+@router.get("/customers/{customer_id}", response_model=CustomerResponse)
+def get_customer(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> CustomerResponse:
+    try:
+        customer = customers.get_customer(db, business.id, customer_id)
+    except CustomerNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado") from exc
+
+    return _customer_response(customer)
+
+
+@router.patch(
+    "/customers/{customer_id}",
+    response_model=CustomerResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def update_customer(
+    customer_id: int,
+    payload: UpdateCustomerRequest,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> CustomerResponse:
+    try:
+        customer = customers.update_customer(
+            db, business.id, customer_id, _actor.id, name=payload.name, phone=payload.phone
+        )
+    except CustomerNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado") from exc
+    except DuplicateCustomerName as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, "El cliente ya existe") from exc
+    except InvalidCatalogInput as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+    return _customer_response(customer)
+
+
+@router.post(
+    "/customers/{customer_id}/deactivate",
+    response_model=CustomerResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def deactivate_customer(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> CustomerResponse:
+    try:
+        customer = customers.deactivate_customer(db, business.id, customer_id, _actor.id)
+    except CustomerNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado") from exc
+
+    return _customer_response(customer)
+
+
+@router.post(
+    "/customers/{customer_id}/reactivate",
+    response_model=CustomerResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def reactivate_customer(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> CustomerResponse:
+    try:
+        customer = customers.reactivate_customer(db, business.id, customer_id, _actor.id)
+    except CustomerNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado") from exc
+
+    return _customer_response(customer)
+
+
+@router.get("/customers/{customer_id}/balance", response_model=CustomerBalanceResponse)
+def get_customer_balance(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> CustomerBalanceResponse:
+    try:
+        balance = credits.get_customer_balance(db, business.id, customer_id)
+    except CustomerNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado") from exc
+
+    return CustomerBalanceResponse(customer_id=customer_id, balance=balance)
+
+
+@router.get("/customers/{customer_id}/credits", response_model=list[CreditResponse])
+def list_credits(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> list[CreditResponse]:
+    try:
+        credit_list = credits.list_credits(db, business.id, customer_id)
+    except CustomerNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado") from exc
+
+    return [_credit_response(credit) for credit in credit_list]
+
+
+@router.post(
+    "/customers/{customer_id}/credits",
+    response_model=CreditResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_csrf)],
+)
+def create_credit(
+    customer_id: int,
+    payload: CreateCreditRequest,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> CreditResponse:
+    try:
+        credit = credits.create_credit(
+            db, business.id, customer_id, payload.type, payload.amount, _actor.id
+        )
+    except CustomerNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado") from exc
+    except InvalidCreditType as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Tipo de fiado invalido") from exc
+    except InvalidCreditAmount as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Importe invalido") from exc
+
+    return _credit_response(credit)
