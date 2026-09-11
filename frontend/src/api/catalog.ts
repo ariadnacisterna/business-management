@@ -3,7 +3,11 @@ import type {
   Attribute,
   AttributeValue,
   Category,
+  Credit,
   CurrentPrice,
+  Customer,
+  CustomerBalance,
+  CustomerWithBalance,
   Price,
   Product,
   ProductCreationResult,
@@ -278,4 +282,35 @@ export function changeShortageStatus(id: number, status: string): Promise<Shorta
 
 export function fetchShortageCount(): Promise<{ count: number }> {
   return apiFetch<{ count: number }>('/shortages/count')
+}
+
+export function fetchCustomers(): Promise<Customer[]> {
+  return apiFetch<Customer[]>('/customers')
+}
+
+export function fetchCustomersWithPendingBalance(): Promise<CustomerWithBalance[]> {
+  return apiFetch<CustomerWithBalance[]>('/customers/pending-balance')
+}
+
+export function createCustomer(input: { name: string; phone?: string }): Promise<Customer> {
+  return apiFetch<Customer>('/customers', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function updateCustomer(id: number, input: { name?: string; phone?: string }): Promise<Customer> {
+  return apiFetch<Customer>(`/customers/${id}`, { method: 'PATCH', body: JSON.stringify(input) })
+}
+
+export function fetchCustomerBalance(id: number): Promise<CustomerBalance> {
+  return apiFetch<CustomerBalance>(`/customers/${id}/balance`)
+}
+
+export function fetchCustomerCredits(id: number): Promise<Credit[]> {
+  return apiFetch<Credit[]>(`/customers/${id}/credits`)
+}
+
+export function createCredit(customerId: number, type: string, amount: string): Promise<Credit> {
+  return apiFetch<Credit>(`/customers/${customerId}/credits`, {
+    method: 'POST',
+    body: JSON.stringify({ type, amount }),
+  })
 }

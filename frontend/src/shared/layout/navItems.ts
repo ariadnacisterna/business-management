@@ -1,6 +1,15 @@
 import type { Role } from '../../features/access/roles'
 
-export type NavIcon = 'panel' | 'products' | 'prices' | 'inventory' | 'sales' | 'suppliers' | 'accounts' | 'shortages'
+export type NavIcon =
+  | 'panel'
+  | 'products'
+  | 'prices'
+  | 'inventory'
+  | 'sales'
+  | 'suppliers'
+  | 'accounts'
+  | 'shortages'
+  | 'customers'
 
 export interface NavItem {
   to: string
@@ -19,5 +28,6 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/ventas', label: 'Ventas', icon: 'sales', disabled: true },
   { to: '/proveedores', label: 'Proveedores', icon: 'suppliers', minRole: 'Gerente' },
   { to: '/faltantes', label: 'Faltantes', icon: 'shortages' },
+  { to: '/clientes', label: 'Clientes', icon: 'customers' },
   { to: '/cuentas', label: 'Cuentas', icon: 'accounts', minRole: 'Administrador' },
 ]

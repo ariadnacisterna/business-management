@@ -42,6 +42,12 @@ const CONTENT: Record<NavIcon, ReactNode> = {
       <circle cx="12" cy="17.3" r="0.9" fill="currentColor" stroke="none" />
     </>
   ),
+  customers: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21v-1a8 8 0 0 1 16 0v1" />
+    </>
+  ),
 }
 
 interface Props {
