@@ -11,7 +11,7 @@ from app.db.base import Base
 if TYPE_CHECKING:
     from app.db.models.variant import Variant
 
-SHORTAGE_STATUS_CHECK_NAME = "shortage_status_valid"
+SHORTAGE_STATUS_CHECK_NAME = "status_valid"
 
 
 class Shortage(Base, AuditedMixin):

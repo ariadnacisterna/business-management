@@ -12,8 +12,8 @@ from app.db.base import Base
 if TYPE_CHECKING:
     from app.db.models.customer import Customer
 
-CREDIT_AMOUNT_POSITIVE_CONSTRAINT_NAME = "credit_amount_positive"
-CREDIT_TYPE_CHECK_NAME = "credit_type_valid"
+CREDIT_AMOUNT_POSITIVE_CONSTRAINT_NAME = "amount_positive"
+CREDIT_TYPE_CHECK_NAME = "type_valid"
 
 
 class Credit(Base):
