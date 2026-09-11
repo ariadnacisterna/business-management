@@ -10,6 +10,7 @@ import { ProductDetailPage } from './features/catalog/ProductDetailPage'
 import { ProductFormPage } from './features/catalog/ProductFormPage'
 import { ProductsPage } from './features/catalog/ProductsPage'
 import { UnitsPage } from './features/catalog/UnitsPage'
+import { CustomersPage } from './features/customers/CustomersPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { PricingPage } from './features/pricing/PricingPage'
 import { ShortagesPage } from './features/suppliers/ShortagesPage'
@@ -66,6 +67,7 @@ export function App() {
               <Route path="/precios" element={<PricingPage />} />
               <Route path="/proveedores" element={<SuppliersRoute />} />
               <Route path="/faltantes" element={<ShortagesPage />} />
+              <Route path="/clientes" element={<CustomersPage />} />
               <Route path="/cuentas" element={<AccountsRoute />} />
             </Route>
           </Route>

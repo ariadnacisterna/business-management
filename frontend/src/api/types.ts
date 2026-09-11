@@ -124,6 +124,32 @@ export interface CurrentPrice {
   price: Price | null
 }
 
+export interface Customer {
+  id: number
+  name: string
+  phone: string | null
+  status: string
+}
+
+export interface CustomerBalance {
+  customer_id: number
+  balance: string
+}
+
+export interface Credit {
+  id: number
+  customer_id: number
+  type: string
+  amount: string
+  created_at: string
+  created_by_account_id: number
+}
+
+export interface CustomerWithBalance {
+  customer: Customer
+  balance: string
+}
+
 export interface ManagedAccount {
   id: number
   name: string
