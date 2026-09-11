@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.constants.status import EntityStatus
 from app.core.text import normalize_for_comparison
-from app.db.models import AttributeValue, Category, Product, Unit, Variant
+from app.db.models import AttributeValue, Category, Product, Provider, Unit, Variant
 from app.domain.catalog.errors import (
     CategoryNotFound,
     DuplicateProductName,
@@ -15,6 +15,7 @@ from app.domain.catalog.errors import (
     InvalidAttributeValue,
     InvalidCatalogInput,
     ProductNotFound,
+    ProviderNotFound,
     UnitNotFound,
     VariantLabelRequired,
     VariantNotFound,
@@ -286,6 +287,30 @@ def update_product(
     if unit_id is not None:
         unit = _get_unit(db, unit_id, business_id)
         product.unit_id = unit.id
+
+    product.updated_by_account_id = actor_account_id
+    product.updated_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+def set_product_provider(
+    db: Session,
+    business_id: int,
+    product_id: int,
+    actor_account_id: int,
+    provider_id: int | None,
+) -> Product:
+    product = get_product(db, business_id, product_id)
+
+    if provider_id is not None:
+        provider = db.get(Provider, provider_id)
+        if provider is None or provider.business_id != business_id:
+            raise ProviderNotFound
+        product.provider_id = provider.id
+    else:
+        product.provider_id = None
 
     product.updated_by_account_id = actor_account_id
     product.updated_at = datetime.now(UTC)

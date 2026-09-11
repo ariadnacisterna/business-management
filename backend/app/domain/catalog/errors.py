@@ -72,3 +72,23 @@ class InvalidImageType(CatalogError):
 
 class ImageTooLarge(CatalogError):
     pass
+
+
+class ProviderNotFound(CatalogError):
+    pass
+
+
+class DuplicateProviderName(CatalogError):
+    pass
+
+
+class ShortageNotFound(CatalogError):
+    pass
+
+
+class DuplicateOpenShortage(CatalogError):
+    pass
+
+
+class InvalidShortageTransition(CatalogError):
+    pass

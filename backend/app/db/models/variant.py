@@ -12,6 +12,7 @@ from app.db.constraints import status_check_constraint
 if TYPE_CHECKING:
     from app.db.models.attribute_value import AttributeValue
     from app.db.models.product import Product
+    from app.db.models.shortage import Shortage
 
 
 class Variant(Base, AuditedMixin):
@@ -30,3 +31,4 @@ class Variant(Base, AuditedMixin):
     attribute_values: Mapped[list["AttributeValue"]] = relationship(
         secondary="variant_attribute_value", back_populates="variants"
     )
+    shortages: Mapped[list["Shortage"]] = relationship(back_populates="variant")

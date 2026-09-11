@@ -12,6 +12,7 @@ from app.db.constraints import status_check_constraint
 if TYPE_CHECKING:
     from app.db.models.business import Business
     from app.db.models.product import Product
+    from app.db.models.provider import Provider
 
 
 class Category(Base, AuditedMixin):
@@ -30,3 +31,6 @@ class Category(Base, AuditedMixin):
 
     business: Mapped["Business"] = relationship(back_populates="categories")
     products: Mapped[list["Product"]] = relationship(back_populates="category")
+    providers: Mapped[list["Provider"]] = relationship(
+        secondary="provider_category", back_populates="categories"
+    )

@@ -12,6 +12,7 @@ from app.db.constraints import status_check_constraint
 if TYPE_CHECKING:
     from app.db.models.business import Business
     from app.db.models.category import Category
+    from app.db.models.provider import Provider
     from app.db.models.unit import Unit
     from app.db.models.variant import Variant
 
@@ -24,6 +25,7 @@ class Product(Base, AuditedMixin):
     business_id: Mapped[int] = mapped_column(ForeignKey("business.id"), nullable=False)
     category_id: Mapped[int] = mapped_column(ForeignKey("category.id"), nullable=False)
     unit_id: Mapped[int] = mapped_column(ForeignKey("unit.id"), nullable=False)
+    provider_id: Mapped[int | None] = mapped_column(ForeignKey("provider.id"), nullable=True)
     name: Mapped[str] = mapped_column(String(NAME_MAX_LENGTH), nullable=False)
     status: Mapped[str] = mapped_column(
         String(STATUS_MAX_LENGTH), nullable=False, default=EntityStatus.ACTIVE.value
@@ -33,4 +35,5 @@ class Product(Base, AuditedMixin):
     business: Mapped["Business"] = relationship(back_populates="products")
     category: Mapped["Category"] = relationship(back_populates="products")
     unit: Mapped["Unit"] = relationship(back_populates="products")
+    provider: Mapped["Provider | None"] = relationship(back_populates="products")
     variants: Mapped[list["Variant"]] = relationship(back_populates="product")

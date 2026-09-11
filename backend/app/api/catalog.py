@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
@@ -5,9 +6,18 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.constants.roles import GERENTE
-from app.constants.status import EntityStatus
+from app.constants.status import EntityStatus, ShortageStatus
 from app.core.storage import StorageNotConfigured, StorageRequestFailed
-from app.db.models import Account, AttributeValue, Business, Price, Product, Variant
+from app.db.models import (
+    Account,
+    AttributeValue,
+    Business,
+    Price,
+    Product,
+    Provider,
+    Shortage,
+    Variant,
+)
 from app.db.session import get_db
 from app.domain.access.permissions import (
     get_active_business,
@@ -15,7 +25,15 @@ from app.domain.access.permissions import (
     require_csrf,
     require_role,
 )
-from app.domain.catalog import attribute_values, attributes, categories, products, units
+from app.domain.catalog import (
+    attribute_values,
+    attributes,
+    categories,
+    products,
+    providers,
+    shortages,
+    units,
+)
 from app.domain.catalog.errors import (
     AttributeNotFound,
     AttributeValueNotFound,
@@ -23,7 +41,9 @@ from app.domain.catalog.errors import (
     DuplicateAttributeName,
     DuplicateAttributeValue,
     DuplicateCategoryName,
+    DuplicateOpenShortage,
     DuplicateProductName,
+    DuplicateProviderName,
     DuplicateUnitName,
     DuplicateVariantInProduct,
     ImageTooLarge,
@@ -31,7 +51,10 @@ from app.domain.catalog.errors import (
     InvalidAttributeValue,
     InvalidCatalogInput,
     InvalidImageType,
+    InvalidShortageTransition,
     ProductNotFound,
+    ProviderNotFound,
+    ShortageNotFound,
     UnitNotFound,
     VariantLabelRequired,
     VariantNotFound,
@@ -122,6 +145,7 @@ class ProductResponse(BaseModel):
     name: str
     category_id: int
     unit_id: int
+    provider_id: int | None
     status: str
     image_url: str | None
     variants: list[VariantResponse]
@@ -165,6 +189,65 @@ class ProductCreationResponse(BaseModel):
 class VariantCreationResponse(BaseModel):
     variant: VariantResponse
     possible_duplicates: list[VariantResponse]
+
+
+class ProviderResponse(BaseModel):
+    id: int
+    name: str
+    contact_name: str | None
+    email: str | None
+    phone: str | None
+    last_purchase_at: date | None
+    status: str
+    category_ids: list[int]
+
+
+class CreateProviderRequest(BaseModel):
+    name: str
+    contact_name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    category_ids: list[int] = []
+
+
+class UpdateProviderRequest(BaseModel):
+    name: str | None = None
+    contact_name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    last_purchase_at: date | None = None
+
+
+class SetProviderCategoriesRequest(BaseModel):
+    category_ids: list[int]
+
+
+class SetProductProviderRequest(BaseModel):
+    provider_id: int | None
+
+
+class ShortageResponse(BaseModel):
+    id: int
+    variant_id: int
+    product_id: int
+    product_name: str
+    category_id: int
+    provider_id: int | None
+    status: str
+    created_at: str
+    created_by_account_id: int
+
+
+class CreateShortageRequest(BaseModel):
+    variant_id: int
+
+
+class ChangeShortageStatusRequest(BaseModel):
+    status: str
+
+
+class ShortageCountResponse(BaseModel):
+    count: int
 
 
 def _category_response(category) -> CategoryResponse:
@@ -217,9 +300,38 @@ def _product_response(
         name=product.name,
         category_id=product.category_id,
         unit_id=product.unit_id,
+        provider_id=product.provider_id,
         status=product.status,
         image_url=product.image_url,
         variants=[_variant_response(variant, current_prices) for variant in product.variants],
+    )
+
+
+def _provider_response(provider: Provider) -> ProviderResponse:
+    return ProviderResponse(
+        id=provider.id,
+        name=provider.name,
+        contact_name=provider.contact_name,
+        email=provider.email,
+        phone=provider.phone,
+        last_purchase_at=provider.last_purchase_at,
+        status=provider.status,
+        category_ids=[category.id for category in provider.categories],
+    )
+
+
+def _shortage_response(shortage: Shortage) -> ShortageResponse:
+    product = shortage.variant.product
+    return ShortageResponse(
+        id=shortage.id,
+        variant_id=shortage.variant_id,
+        product_id=product.id,
+        product_name=product.name,
+        category_id=product.category_id,
+        provider_id=product.provider_id,
+        status=shortage.status,
+        created_at=shortage.created_at.isoformat(),
+        created_by_account_id=shortage.created_by_account_id,
     )
 
 
@@ -887,3 +999,266 @@ def delete_product_image(
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "No se pudo eliminar la imagen") from exc
 
     return _product_response(product)
+
+
+@router.post(
+    "/providers",
+    response_model=ProviderResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_csrf)],
+)
+def create_provider(
+    payload: CreateProviderRequest,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
+) -> ProviderResponse:
+    try:
+        provider = providers.create_provider(
+            db,
+            business.id,
+            payload.name,
+            _actor.id,
+            contact_name=payload.contact_name,
+            email=payload.email,
+            phone=payload.phone,
+            category_ids=payload.category_ids,
+        )
+    except DuplicateProviderName as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, "El proveedor ya existe") from exc
+    except CategoryNotFound as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Categoria invalida") from exc
+    except InvalidCatalogInput as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+    return _provider_response(provider)
+
+
+@router.get("/providers", response_model=list[ProviderResponse])
+def list_providers(
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> list[ProviderResponse]:
+    return [_provider_response(provider) for provider in providers.list_providers(db, business.id)]
+
+
+@router.get("/providers/{provider_id}", response_model=ProviderResponse)
+def get_provider(
+    provider_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> ProviderResponse:
+    try:
+        provider = providers.get_provider(db, business.id, provider_id)
+    except ProviderNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Proveedor no encontrado") from exc
+
+    return _provider_response(provider)
+
+
+@router.patch(
+    "/providers/{provider_id}",
+    response_model=ProviderResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def update_provider(
+    provider_id: int,
+    payload: UpdateProviderRequest,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
+) -> ProviderResponse:
+    try:
+        provider = providers.update_provider(
+            db,
+            business.id,
+            provider_id,
+            _actor.id,
+            name=payload.name,
+            contact_name=payload.contact_name,
+            email=payload.email,
+            phone=payload.phone,
+            last_purchase_at=payload.last_purchase_at,
+        )
+    except ProviderNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Proveedor no encontrado") from exc
+    except DuplicateProviderName as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, "El proveedor ya existe") from exc
+    except InvalidCatalogInput as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+    return _provider_response(provider)
+
+
+@router.put(
+    "/providers/{provider_id}/categories",
+    response_model=ProviderResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def set_provider_categories(
+    provider_id: int,
+    payload: SetProviderCategoriesRequest,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
+) -> ProviderResponse:
+    try:
+        provider = providers.set_provider_categories(
+            db, business.id, provider_id, _actor.id, payload.category_ids
+        )
+    except ProviderNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Proveedor no encontrado") from exc
+    except CategoryNotFound as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Categoria invalida") from exc
+
+    return _provider_response(provider)
+
+
+@router.post(
+    "/providers/{provider_id}/deactivate",
+    response_model=ProviderResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def deactivate_provider(
+    provider_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
+) -> ProviderResponse:
+    try:
+        provider = providers.deactivate_provider(db, business.id, provider_id, _actor.id)
+    except ProviderNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Proveedor no encontrado") from exc
+
+    return _provider_response(provider)
+
+
+@router.post(
+    "/providers/{provider_id}/reactivate",
+    response_model=ProviderResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def reactivate_provider(
+    provider_id: int,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
+) -> ProviderResponse:
+    try:
+        provider = providers.reactivate_provider(db, business.id, provider_id, _actor.id)
+    except ProviderNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Proveedor no encontrado") from exc
+
+    return _provider_response(provider)
+
+
+@router.put(
+    "/products/{product_id}/provider",
+    response_model=ProductResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def set_product_provider(
+    product_id: int,
+    payload: SetProductProviderRequest,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(require_role(GERENTE)),
+    business: Business = Depends(get_active_business),
+) -> ProductResponse:
+    try:
+        product = products.set_product_provider(
+            db, business.id, product_id, _actor.id, payload.provider_id
+        )
+    except ProductNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
+    except ProviderNotFound as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Proveedor invalido") from exc
+
+    return _product_response(product)
+
+
+@router.post(
+    "/shortages",
+    response_model=ShortageResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_csrf)],
+)
+def create_shortage(
+    payload: CreateShortageRequest,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> ShortageResponse:
+    try:
+        shortage = shortages.create_shortage(db, business.id, payload.variant_id, _actor.id)
+    except VariantNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
+    except DuplicateOpenShortage as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "La variante ya tiene un faltante abierto"
+        ) from exc
+
+    return _shortage_response(shortage)
+
+
+@router.get("/shortages", response_model=list[ShortageResponse])
+def list_shortages(
+    status_filter: str | None = Query(default=None, alias="status"),
+    provider_id: int | None = None,
+    category_id: int | None = None,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> list[ShortageResponse]:
+    if status_filter is not None and status_filter not in (
+        ShortageStatus.FALTANTE.value,
+        ShortageStatus.PEDIDO.value,
+        ShortageStatus.RECIBIDO.value,
+    ):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "status invalido")
+
+    shortage_list = shortages.list_shortages(
+        db, business.id, status=status_filter, provider_id=provider_id, category_id=category_id
+    )
+    return [_shortage_response(shortage) for shortage in shortage_list]
+
+
+@router.get("/shortages/count", response_model=ShortageCountResponse)
+def count_shortages(
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> ShortageCountResponse:
+    return ShortageCountResponse(count=shortages.count_open_shortages(db, business.id))
+
+
+@router.patch(
+    "/shortages/{shortage_id}",
+    response_model=ShortageResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def change_shortage_status(
+    shortage_id: int,
+    payload: ChangeShortageStatusRequest,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> ShortageResponse:
+    if payload.status not in (
+        ShortageStatus.FALTANTE.value,
+        ShortageStatus.PEDIDO.value,
+        ShortageStatus.RECIBIDO.value,
+    ):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "status invalido")
+
+    try:
+        shortage = shortages.change_shortage_status(
+            db, business.id, shortage_id, _actor.id, payload.status
+        )
+    except ShortageNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Faltante no encontrado") from exc
+    except InvalidShortageTransition as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Transicion de estado invalida") from exc
+
+    return _shortage_response(shortage)

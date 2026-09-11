@@ -17,9 +17,12 @@ from app.db.models import (  # noqa: F401
     Organization,
     Price,
     Product,
+    Provider,
     Role,
+    Shortage,
     Unit,
     Variant,
+    provider_category,
     variant_attribute_value,
 )
 
