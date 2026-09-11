@@ -51,6 +51,7 @@ function renderPage(initialPath: string) {
     .mockResolvedValueOnce(jsonResponse(CATEGORIES))
     .mockResolvedValueOnce(jsonResponse(UNITS))
     .mockResolvedValueOnce(jsonResponse([]))
+    .mockResolvedValueOnce(jsonResponse([]))
     .mockResolvedValueOnce(jsonResponse({ variant_id: 10, price: null }))
 
   return render(
@@ -170,6 +171,7 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
 
     render(
@@ -199,6 +201,7 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse(SINGLE_VARIANT_PRODUCT))
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
 
@@ -268,6 +271,7 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 10, price: null }))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 11, price: null }))
 
@@ -321,6 +325,7 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 10, price: null }))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 11, price: null }))
 
@@ -358,6 +363,7 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse(SINGLE_VARIANT_PRODUCT))
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
 
@@ -412,6 +418,58 @@ describe('ProductDetailPage', () => {
 
     expect(screen.getByText('El nombre es obligatorio.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeDisabled()
+  })
+
+  it('changes the preferred provider and saves after confirming', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    const providers = [
+      { id: 1, name: 'Textiles del Sur', contact_name: null, email: null, phone: null, last_purchase_at: null, status: 'active', category_ids: [] },
+      { id: 2, name: 'Mercería Central', contact_name: null, email: null, phone: null, last_purchase_at: null, status: 'active', category_ids: [] },
+    ]
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(PRODUCT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(providers))
+      .mockResolvedValueOnce(jsonResponse({ variant_id: 10, price: null }))
+
+    render(
+      <MemoryRouter initialEntries={['/products/5']}>
+        <ToastProvider>
+        <AuthProvider>
+          <ReadyGate>
+            <Routes>
+              <Route path="/products" element={<h1>Productos</h1>} />
+              <Route path="/products/:productId" element={<ProductDetailPage />} />
+            </Routes>
+          </ReadyGate>
+        </AuthProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Cinta bebé' })).toBeInTheDocument()
+    expect(screen.getByText('Sin proveedor asignado')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Cambiar' }))
+    await user.click(screen.getByRole('button', { name: 'Proveedor preferido' }))
+    await user.click(screen.getByRole('option', { name: 'Mercería Central' }))
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Cambiar proveedor preferido' })
+    expect(dialog).toHaveTextContent('Mercería Central')
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...PRODUCT, provider_id: 2 }))
+    await user.click(within(dialog).getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByText('Mercería Central')).toBeInTheDocument()
+    expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
+    const lastCall = fetchMock.mock.calls.at(-1)!
+    expect(lastCall[0]).toContain('/products/5/provider')
+    expect(JSON.parse((lastCall[1] as RequestInit).body as string)).toEqual({ provider_id: 2 })
   })
 
   it('blocks renaming to a duplicate product name before showing the confirmation', async () => {

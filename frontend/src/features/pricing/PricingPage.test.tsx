@@ -33,6 +33,7 @@ const PRODUCTS: Product[] = [
     unit_id: 1,
     status: 'active',
     image_url: null,
+    provider_id: null,
     variants: [
       {
         id: 10,
@@ -52,6 +53,7 @@ const PRODUCTS: Product[] = [
     unit_id: 1,
     status: 'active',
     image_url: null,
+    provider_id: null,
     variants: [
       { id: 20, product_id: 2, label: 'Chico', is_implicit: false, status: 'active', attribute_value_ids: [], price_amount: '10.00' },
       { id: 21, product_id: 2, label: 'Grande', is_implicit: false, status: 'active', attribute_value_ids: [], price_amount: '20.00' },

@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Outlet, useNavigate } from 'react-router-dom'
 import {
+  createShortage,
   deactivateProduct,
   fetchCategories,
   fetchProductsPage,
   fetchUnits,
   reactivateProduct,
 } from '../../api/catalog'
-import type { Category, Product, Unit } from '../../api/types'
+import { ApiError } from '../../api/client'
+import type { Category, Product, Unit, Variant } from '../../api/types'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
+import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { HighlightedText } from '../../shared/HighlightedText'
 import { EyeIcon, PencilIcon } from '../../shared/icons'
@@ -90,6 +93,8 @@ export function ProductsPage() {
   const [status, setStatus] = useState<Status>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [confirmingProduct, setConfirmingProduct] = useState<Product | null>(null)
+  const [pickingVariantForShortage, setPickingVariantForShortage] = useState<Product | null>(null)
+  const [confirmingShortage, setConfirmingShortage] = useState<{ product: Product; variant: Variant } | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
 
@@ -186,9 +191,34 @@ export function ProductsPage() {
     setConfirmingProduct(null)
   }
 
+  function openMarkAsShortage(product: Product) {
+    const activeVariants = product.variants.filter((variant) => variant.status === 'active')
+    if (activeVariants.length > 1) {
+      setPickingVariantForShortage(product)
+      return
+    }
+    const variant = activeVariants[0] ?? product.variants[0]
+    if (variant === undefined) return
+    setConfirmingShortage({ product, variant })
+  }
+
+  function confirmMarkAsShortage() {
+    if (confirmingShortage === null) return
+    const { variant } = confirmingShortage
+    setConfirmingShortage(null)
+    createShortage(variant.id)
+      .then(() => {
+        showSuccess('La variante ahora figura como faltante.')
+      })
+      .catch((error) => {
+        showError(error instanceof ApiError ? error.message : 'No se pudo marcar como faltante.')
+      })
+  }
+
   function productRowMenuItems(product: Product) {
     return [
       { label: 'Ver detalle', icon: <EyeIcon />, onClick: () => navigate(`/products/${product.id}`) },
+      { label: 'Marcar como faltante', icon: '⚠', onClick: () => openMarkAsShortage(product) },
       ...(canManage
         ? [
             {
@@ -586,6 +616,54 @@ export function ProductsPage() {
       )}
 
       <Outlet context={{ onProductUpdated: applyProductUpdate }} />
+
+      {pickingVariantForShortage !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-ink/20 backdrop-blur-sm"
+            onClick={() => setPickingVariantForShortage(null)}
+            aria-hidden="true"
+          />
+          <div className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl">
+            <div className="flex items-start justify-between">
+              <h2 className="m-0 text-2xl font-bold">Elegir variante</h2>
+              <CloseButton onClose={() => setPickingVariantForShortage(null)} />
+            </div>
+            <p className="m-0 text-base opacity-60">
+              ¿Qué variante de "{pickingVariantForShortage.name}" querés marcar como faltante?
+            </p>
+            <ul className="m-0 flex list-none flex-col gap-2 p-0">
+              {pickingVariantForShortage.variants
+                .filter((variant) => variant.status === 'active')
+                .map((variant) => (
+                  <li key={variant.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const product = pickingVariantForShortage
+                        setPickingVariantForShortage(null)
+                        setConfirmingShortage({ product, variant })
+                      }}
+                      className="flex w-full items-center justify-between gap-3 rounded-lg border border-line px-4 py-3 text-left text-base transition-colors hover:border-brand hover:bg-surface-brand"
+                    >
+                      {variant.label ?? 'Sin diferenciar'}
+                    </button>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {confirmingShortage !== null && (
+        <ConfirmDialog
+          title="Marcar como faltante"
+          description={`"${confirmingShortage.product.name}" va a figurar como faltante hasta que se marque como recibido.`}
+          confirmLabel="Marcar como faltante"
+          onConfirm={confirmMarkAsShortage}
+          onCancel={() => setConfirmingShortage(null)}
+        />
+      )}
 
       {confirmingProduct !== null && (
         <ConfirmDialog

@@ -35,6 +35,13 @@ const CONTENT: Record<NavIcon, ReactNode> = {
       <path d="M21 21v-2a4 4 0 0 0-3-3.87" />
     </>
   ),
+  shortages: (
+    <>
+      <path d="M12 3 2 20h20L12 3Z" />
+      <line x1="12" y1="10" x2="12" y2="14.5" />
+      <circle cx="12" cy="17.3" r="0.9" fill="currentColor" stroke="none" />
+    </>
+  ),
 }
 
 interface Props {

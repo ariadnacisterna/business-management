@@ -59,6 +59,30 @@ export interface Product {
   status: string
   image_url: string | null
   variants: Variant[]
+  provider_id: number | null
+}
+
+export interface Provider {
+  id: number
+  name: string
+  contact_name: string | null
+  email: string | null
+  phone: string | null
+  last_purchase_at: string | null
+  status: string
+  category_ids: number[]
+}
+
+export interface Shortage {
+  id: number
+  variant_id: number
+  product_id: number
+  product_name: string
+  category_id: number
+  provider_id: number | null
+  status: string
+  created_at: string
+  created_by_account_id: number
 }
 
 export interface ProductPage {
