@@ -144,7 +144,7 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: /Despensa/ }))
 
-    expect(fetchMock).toHaveBeenLastCalledWith(
+    expect(fetchMock).toHaveBeenCalledWith(
       '/auth/active-business',
       expect.objectContaining({
         method: 'POST',
@@ -221,6 +221,7 @@ describe('App', () => {
     const user = userEvent.setup()
     fetchMock
       .mockResolvedValueOnce(jsonResponse(DUENO_TWO_BUSINESS_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse({ count: 0 }))
       .mockResolvedValueOnce(
         jsonResponse({ ...DUENO_TWO_BUSINESS_ACCOUNT, active_business_id: 2 }),
       )
@@ -238,7 +239,7 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Despensa' }))
     await user.click(await screen.findByRole('button', { name: 'Cambiar' }))
 
-    expect(fetchMock).toHaveBeenLastCalledWith(
+    expect(fetchMock).toHaveBeenCalledWith(
       '/auth/active-business',
       expect.objectContaining({
         method: 'POST',

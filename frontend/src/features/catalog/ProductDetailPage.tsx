@@ -11,18 +11,20 @@ import {
   fetchCategories,
   fetchProduct,
   fetchProductsPage,
+  fetchProviders,
   fetchUnits,
   fetchVariantCurrentPrice,
   fetchVariantPriceHistory,
   reactivateProduct,
   reactivateVariant,
   removeProductImage,
+  setProductProvider,
   updateProduct,
   updateVariant,
   uploadProductImage,
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
-import type { Attribute, Category, Price, Product, Unit, Variant } from '../../api/types'
+import type { Attribute, Category, Price, Product, Provider, Unit, Variant } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { formatPrice } from '../../shared/formatPrice'
@@ -110,6 +112,11 @@ export function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [units, setUnits] = useState<Unit[]>([])
+  const [providers, setProviders] = useState<Provider[]>([])
+  const [editingProvider, setEditingProvider] = useState(false)
+  const [providerDraft, setProviderDraft] = useState<number | null>(null)
+  const [savingProvider, setSavingProvider] = useState(false)
+  const [confirmingProviderChange, setConfirmingProviderChange] = useState(false)
   const [attributes, setAttributes] = useState<Attribute[]>([])
   const [valuesById, setValuesById] = useState<Map<number, ValueInfo>>(new Map())
   const [loadStatus, setLoadStatus] = useState<'loading' | 'success' | 'error'>('loading')
@@ -172,13 +179,15 @@ export function ProductDetailPage() {
   function load() {
     const requestId = ++requestIdRef.current
     setLoadStatus('loading')
-    Promise.all([fetchProduct(id), fetchCategories(), fetchUnits(), fetchAttributes()])
-      .then(async ([productResult, categoryList, unitList, attributeList]) => {
+    Promise.all([fetchProduct(id), fetchCategories(), fetchUnits(), fetchAttributes(), fetchProviders()])
+      .then(async ([productResult, categoryList, unitList, attributeList, providerList]) => {
         if (requestId !== requestIdRef.current) return
         setProduct(productResult)
         setCategories(categoryList)
         setUnits(unitList)
         setAttributes(attributeList)
+        setProviders(providerList)
+        setProviderDraft(productResult.provider_id)
 
         const valueLists = await Promise.all(
           attributeList.map((attribute) => fetchAttributeValues(attribute.id)),
@@ -419,6 +428,27 @@ export function ProductDetailPage() {
       )
     } finally {
       setSavingProduct(false)
+    }
+  }
+
+  function handleSaveProvider() {
+    setConfirmingProviderChange(true)
+  }
+
+  async function confirmSaveProvider() {
+    if (product === null) return
+    setConfirmingProviderChange(false)
+    setSavingProvider(true)
+    try {
+      const updated = await setProductProvider(product.id, providerDraft)
+      setProduct(updated)
+      outletContext?.onProductUpdated(updated)
+      setEditingProvider(false)
+      showSuccess('Proveedor preferido actualizado.')
+    } catch (error) {
+      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+    } finally {
+      setSavingProvider(false)
     }
   }
 
@@ -1069,6 +1099,61 @@ export function ProductDetailPage() {
                     </div>
                   </div>
                   <div className="border-t border-line pt-4">
+                    <p className="m-0 text-base uppercase tracking-wide opacity-60">Proveedor preferido</p>
+                    {editingProvider ? (
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <SelectMenu
+                          ariaLabel="Proveedor preferido"
+                          disabled={savingProvider}
+                          value={providerDraft === null ? 'none' : String(providerDraft)}
+                          onChange={(value) => setProviderDraft(value === 'none' ? null : Number(value))}
+                          className="w-56"
+                          options={[
+                            { value: 'none', label: 'Sin proveedor asignado' },
+                            ...providers
+                              .filter((provider) => provider.status === 'active' || provider.id === providerDraft)
+                              .map((provider) => ({ value: String(provider.id), label: provider.name })),
+                          ]}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSaveProvider}
+                          disabled={savingProvider}
+                          className={primaryButtonClasses}
+                        >
+                          Guardar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingProvider(false)
+                            setProviderDraft(product.provider_id)
+                          }}
+                          disabled={savingProvider}
+                          className={secondaryButtonClasses}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <p className="m-0 font-bold">
+                          {providers.find((provider) => provider.id === product.provider_id)?.name ??
+                            'Sin proveedor asignado'}
+                        </p>
+                        {canManage && (
+                          <button
+                            type="button"
+                            onClick={() => setEditingProvider(true)}
+                            className="text-base font-semibold text-brand hover:underline"
+                          >
+                            Cambiar
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="border-t border-line pt-4">
                     <p className="m-0 text-base uppercase tracking-wide opacity-60">Descripción</p>
                     <p className="m-0 italic opacity-40">Próximamente</p>
                   </div>
@@ -1511,6 +1596,18 @@ export function ProductDetailPage() {
           confirmLabel="Guardar"
           onConfirm={confirmProductEditAndSave}
           onCancel={() => setConfirmingProductEdit(false)}
+        />
+      )}
+
+      {confirmingProviderChange && product !== null && (
+        <ConfirmDialog
+          title="Cambiar proveedor preferido"
+          description={`"${product.name}" va a quedar asociado a ${
+            providerDraft === null ? '"Sin proveedor asignado"' : `"${providers.find((provider) => provider.id === providerDraft)?.name ?? ''}"`
+          }.`}
+          confirmLabel="Guardar"
+          onConfirm={confirmSaveProvider}
+          onCancel={() => setConfirmingProviderChange(false)}
         />
       )}
 

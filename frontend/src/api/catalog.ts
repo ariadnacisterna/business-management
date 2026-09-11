@@ -8,6 +8,8 @@ import type {
   Product,
   ProductCreationResult,
   ProductPage,
+  Provider,
+  Shortage,
   Unit,
   Variant,
   VariantCreationResult,
@@ -196,4 +198,84 @@ export function deactivateVariant(variantId: number): Promise<Variant> {
 
 export function reactivateVariant(variantId: number): Promise<Variant> {
   return apiFetch<Variant>(`/variants/${variantId}/reactivate`, { method: 'POST' })
+}
+
+export function fetchProviders(): Promise<Provider[]> {
+  return apiFetch<Provider[]>('/providers')
+}
+
+export function fetchProvider(id: number): Promise<Provider> {
+  return apiFetch<Provider>(`/providers/${id}`)
+}
+
+export function createProvider(input: {
+  name: string
+  contact_name?: string
+  email?: string
+  phone?: string
+  category_ids?: number[]
+}): Promise<Provider> {
+  return apiFetch<Provider>('/providers', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function updateProvider(
+  id: number,
+  input: {
+    name?: string
+    contact_name?: string
+    email?: string
+    phone?: string
+    last_purchase_at?: string
+  },
+): Promise<Provider> {
+  return apiFetch<Provider>(`/providers/${id}`, { method: 'PATCH', body: JSON.stringify(input) })
+}
+
+export function setProviderCategories(id: number, categoryIds: number[]): Promise<Provider> {
+  return apiFetch<Provider>(`/providers/${id}/categories`, {
+    method: 'PUT',
+    body: JSON.stringify({ category_ids: categoryIds }),
+  })
+}
+
+export function deactivateProvider(id: number): Promise<Provider> {
+  return apiFetch<Provider>(`/providers/${id}/deactivate`, { method: 'POST' })
+}
+
+export function reactivateProvider(id: number): Promise<Provider> {
+  return apiFetch<Provider>(`/providers/${id}/reactivate`, { method: 'POST' })
+}
+
+export function setProductProvider(productId: number, providerId: number | null): Promise<Product> {
+  return apiFetch<Product>(`/products/${productId}/provider`, {
+    method: 'PUT',
+    body: JSON.stringify({ provider_id: providerId }),
+  })
+}
+
+export interface ShortageFilters {
+  status?: string
+  providerId?: number
+  categoryId?: number
+}
+
+export function fetchShortages(filters: ShortageFilters = {}): Promise<Shortage[]> {
+  const query = new URLSearchParams()
+  if (filters.status !== undefined) query.set('status', filters.status)
+  if (filters.providerId !== undefined) query.set('provider_id', String(filters.providerId))
+  if (filters.categoryId !== undefined) query.set('category_id', String(filters.categoryId))
+  const queryString = query.toString()
+  return apiFetch<Shortage[]>(`/shortages${queryString === '' ? '' : `?${queryString}`}`)
+}
+
+export function createShortage(variantId: number): Promise<Shortage> {
+  return apiFetch<Shortage>('/shortages', { method: 'POST', body: JSON.stringify({ variant_id: variantId }) })
+}
+
+export function changeShortageStatus(id: number, status: string): Promise<Shortage> {
+  return apiFetch<Shortage>(`/shortages/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) })
+}
+
+export function fetchShortageCount(): Promise<{ count: number }> {
+  return apiFetch<{ count: number }>('/shortages/count')
 }

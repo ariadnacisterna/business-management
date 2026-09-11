@@ -14,6 +14,7 @@ const PRODUCT: Product = {
   unit_id: 1,
   status: 'active',
   image_url: null,
+  provider_id: null,
   variants: [],
 }
 
