@@ -216,6 +216,32 @@ Esta historia no es necesaria para la mercería, donde las variantes suelen comp
 - La lista muestra solo clientes con saldo mayor a cero.
 - Se puede entrar a un cliente y ver el detalle de sus cargos y pagos, ordenados cronológicamente.
 
+## HU-17 — Saber cuánto queda de cada cosa
+
+**Como** Gerente o superior,
+**quiero** ajustar la cantidad en stock de una variante indicando cuánto hay ahora y por qué cambió,
+**para** reemplazar el cuaderno donde anoto entradas y salidas de mercadería.
+
+### Criterios de aceptación
+
+- Al ajustar, indico la cantidad nueva (no cuánto entró o salió) y un motivo.
+- El sistema calcula y guarda la diferencia, junto con quién lo hizo y cuándo.
+- Puedo agregar motivos nuevos si los que ya existen no alcanzan, igual que con categorías.
+- Un Empleado puede ver el stock pero no ajustarlo.
+
+## HU-18 — Ver qué se está por acabar
+
+**Como** Usuario,
+**quiero** ver de un vistazo qué variantes tienen poco o nada de stock,
+**para** saber qué reponer antes de que falte.
+
+### Criterios de aceptación
+
+- Cada variante muestra su estado: Normal, Stock bajo o Sin stock, según su cantidad y su stock mínimo.
+- Puedo definir un stock mínimo distinto para una variante puntual; si no lo hago, se usa un valor por defecto.
+- Un contador visible en la navegación muestra cuántas variantes están en Stock bajo o Sin stock.
+- Puedo ver el historial de movimientos de una variante: fecha, motivo, cantidad, antes y después, y quién lo hizo.
+
 ## Orden sugerido del MVP
 
 1. HU-03 — Consulta del precio vigente.

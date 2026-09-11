@@ -84,6 +84,12 @@ Ejemplo esperado para RF-002 a RF-005: la consulta `cinta bebe 2 roja` debe pode
 | RF-049 | Un Usuario autorizado podrá registrar un cargo o un pago en la cuenta corriente de un cliente. | Alta |
 | RF-050 | El sistema mostrará el saldo actual de cada cliente, calculado a partir de sus cargos y pagos. | Alta |
 | RF-051 | El sistema mostrará una lista de clientes con saldo pendiente. | Media |
+| RF-052 | Un Usuario autorizado podrá ajustar la cantidad en stock de una variante, indicando la cantidad nueva y un motivo. | Alta |
+| RF-053 | El sistema calculará y mostrará el estado de stock de cada variante (Normal, Stock bajo o Sin stock) según su cantidad actual y su stock mínimo. | Alta |
+| RF-054 | El sistema registrará un historial de movimientos de stock por variante: fecha, motivo, cantidad, valores antes y después, cuenta que lo hizo, y una observación opcional. | Alta |
+| RF-055 | Un Usuario autorizado podrá crear, editar y desactivar motivos de movimiento de stock, igual que categorías o unidades. | Media |
+| RF-056 | Un Usuario autorizado podrá definir el stock mínimo de cada variante; el sistema aplicará un valor por defecto si no se define uno. | Media |
+| RF-057 | El sistema mostrará, en algún lugar visible de la navegación, un contador de variantes con stock bajo o sin stock. | Media |
 
 ## Requisitos no funcionales
 

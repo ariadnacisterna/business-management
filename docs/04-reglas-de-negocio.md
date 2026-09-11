@@ -64,6 +64,13 @@
 | RN-041 | Un fiado no desglosa productos, solo un importe y si es cargo o pago. |
 | RN-042 | El saldo de un cliente es la suma de sus cargos menos sus pagos; no puede editarse directamente, solo a través de nuevos movimientos. |
 | RN-043 | Todo fiado debe identificar a la cuenta que lo registró y el momento del registro (mismo criterio que un cambio de precio, RN-006). |
+| RN-044 | El stock se registra por variante, no por producto (mismo criterio que el faltante, RN-036), y pertenece al negocio. |
+| RN-045 | Ajustar el stock de una variante está reservado a Gerente y superiores, a diferencia de marcar un faltante (RN-035), porque afecta un número que el resto del equipo consulta para decidir. |
+| RN-046 | Ajustar stock reemplaza la cantidad actual por una cantidad nueva indicada por quien ajusta (no una diferencia); el sistema calcula la diferencia para el historial. |
+| RN-047 | Todo movimiento de stock debe identificar la cuenta que lo hizo y el momento (mismo criterio que un cambio de precio, RN-006), además del motivo, la cantidad antes y después, y una observación opcional. |
+| RN-048 | El motivo de un movimiento de stock es un catálogo editable por el negocio (crear, editar, desactivar), igual que categoría o unidad — no una lista fija en el código. |
+| RN-049 | El estado de stock de una variante es Sin stock si la cantidad es 0, Stock bajo si es mayor que 0 y menor o igual a su stock mínimo, o Normal en cualquier otro caso. |
+| RN-050 | El stock mínimo se define por variante; si no se definió uno, se usa un valor por defecto del sistema. |
 
 ## Concurrencia e importación
 

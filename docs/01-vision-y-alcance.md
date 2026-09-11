@@ -109,7 +109,7 @@ Proveedores, faltantes, cantidades solicitadas, listas agrupadas por proveedor o
 
 Stock exacto por variante y negocio, movimientos, ventas cargadas manualmente, compras, ajustes y permisos para información financiera.
 
-Estas dos capacidades se agrupan deliberadamente: un stock exacto solo se mantiene confiable si las ventas lo descuentan. Incorporar existencias sin registrar ventas produciría un dato que se desincroniza en pocas semanas y que las usuarias dejarían de creer.
+Estas dos capacidades se agrupaban originalmente porque un stock exacto solo se mantiene confiable si las ventas lo descuentan: incorporar existencias sin registrar ventas produce un dato que se desincroniza con el tiempo. El Responsable decidió (2026-09-11, D-052) arrancar igual con la parte de inventario (cantidad en stock por variante, ajustada a mano con motivo, historial de movimientos) sin esperar a ventas: reemplaza el cuaderno físico que ya usa, con el mismo riesgo de desincronización que ya tiene hoy (un ajuste que alguien se olvida de anotar), no uno nuevo. Ventas cargadas manualmente, compras y permisos para información financiera quedan pendientes dentro de esta misma etapa, sin fecha.
 
 ### Etapa 4: varios negocios
 
