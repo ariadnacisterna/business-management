@@ -12,12 +12,16 @@ import {
 import { ApiError } from '../../api/client'
 import type { Category, Provider } from '../../api/types'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { HEADER_ACTION_BUTTON_CLASSES } from '../../shared/headerActionButton'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { Pagination } from '../../shared/Pagination'
 import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useToast } from '../../shared/Toast'
+import { NavIconGlyph } from '../../shared/layout/NavIcon'
+import type { ViewMode } from '../../shared/ViewToggle'
+import { ViewToggle } from '../../shared/ViewToggle'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 
@@ -331,6 +335,7 @@ export function SuppliersPage() {
   const [searchInput, setSearchInput] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
+  const [viewMode, setViewMode] = useState<ViewMode>('cards')
 
   const [creating, setCreating] = useState(false)
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null)
@@ -442,39 +447,63 @@ export function SuppliersPage() {
   }
 
   return (
-    <section className="-m-4 flex flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
+    <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Proveedores</h1>
           <p className="mt-1 text-base opacity-60 lg:text-lg">{providers.length} proveedores registrados</p>
         </div>
-        {tab === 'providers' && canManage && (
-          <button type="button" onClick={() => setCreating(true)} className={primaryButtonClasses}>
-            + Nuevo proveedor
+        <div className="flex items-center gap-3">
+          {status === 'success' && tab === 'providers' && providers.length > 0 && (
+            <ViewToggle mode={viewMode} onChange={setViewMode} />
+          )}
+          {tab === 'providers' && canManage && (
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className={`${HEADER_ACTION_BUTTON_CLASSES} bg-brand text-brand-contrast hover:bg-brand/90`}
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Nuevo proveedor
           </button>
-        )}
+          )}
+        </div>
       </div>
 
-      <div className="flex gap-2 border-b border-line">
-        <button
-          type="button"
-          onClick={() => setTab('providers')}
-          className={`min-h-12 px-4 text-lg font-semibold transition-colors ${
-            tab === 'providers' ? 'border-b-2 border-brand text-brand' : 'text-ink/50 hover:text-ink'
-          }`}
-        >
-          Proveedores
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('purchase-orders')}
-          className={`min-h-12 px-4 text-lg font-semibold transition-colors ${
-            tab === 'purchase-orders' ? 'border-b-2 border-brand text-brand' : 'text-ink/50 hover:text-ink'
-          }`}
-        >
-          Órdenes de compra
-        </button>
-      </div>
+      {status === 'success' && providers.length > 0 && (
+        <div className="flex gap-2 border-b border-line">
+          <button
+            type="button"
+            onClick={() => setTab('providers')}
+            className={`min-h-12 px-4 text-lg font-semibold transition-colors ${
+              tab === 'providers' ? 'border-b-2 border-brand text-brand' : 'text-ink/50 hover:text-ink'
+            }`}
+          >
+            Proveedores
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('purchase-orders')}
+            className={`min-h-12 px-4 text-lg font-semibold transition-colors ${
+              tab === 'purchase-orders' ? 'border-b-2 border-brand text-brand' : 'text-ink/50 hover:text-ink'
+            }`}
+          >
+            Órdenes de compra
+          </button>
+        </div>
+      )}
 
       {tab === 'purchase-orders' && <PurchaseOrdersTab />}
 
@@ -505,13 +534,20 @@ export function SuppliersPage() {
             </div>
           )}
 
-          {status === 'loading' && <p role="status">Cargando…</p>}
+          {status === 'loading' && (
+            <div className="flex flex-col items-center gap-3 py-12 text-center" role="status">
+              <span className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-brand" />
+              <p className="text-xl font-semibold">Cargando…</p>
+            </div>
+          )}
 
           {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
 
           {status === 'success' && providers.length === 0 && (
-            <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
-              <p className="text-xl font-semibold">No hay proveedores registrados.</p>
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-16 text-center">
+              <NavIconGlyph icon="suppliers" className="h-10 w-10 opacity-40" />
+              <p className="text-xl font-semibold opacity-70">No hay proveedores registrados</p>
+              <p className="text-lg opacity-50">Cuando cargues proveedores, van a aparecer acá.</p>
             </div>
           )}
 
@@ -523,7 +559,8 @@ export function SuppliersPage() {
 
           {status === 'success' && filteredProviders.length > 0 && (
             <>
-              <div className="hidden overflow-hidden rounded-xl border border-line bg-surface sm:block">
+              {viewMode === 'table' && (
+              <div className="overflow-hidden rounded-xl border border-line bg-surface">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-line bg-surface-brand/40">
@@ -573,8 +610,10 @@ export function SuppliersPage() {
                   </tbody>
                 </table>
               </div>
+              )}
 
-              <div className="flex flex-col gap-3 sm:hidden">
+              {viewMode === 'cards' && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {paginatedProviders.map((provider) => (
                   <div key={provider.id} className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4">
                     <div className="flex items-start justify-between gap-3">
@@ -594,6 +633,7 @@ export function SuppliersPage() {
                   </div>
                 ))}
               </div>
+              )}
 
               {filteredProviders.length > pageSize && (
                 <Pagination page={currentPage} totalPages={totalPages} onPageChange={setPage} />

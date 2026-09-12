@@ -10,6 +10,7 @@ import {
 import { ApiError } from '../../api/client'
 import type { Credit, Customer } from '../../api/types'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { HEADER_ACTION_BUTTON_CLASSES } from '../../shared/headerActionButton'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { Pagination } from '../../shared/Pagination'
 import { PriceInput } from '../../shared/PriceInput'
@@ -17,6 +18,9 @@ import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useToast } from '../../shared/Toast'
+import { NavIconGlyph } from '../../shared/layout/NavIcon'
+import type { ViewMode } from '../../shared/ViewToggle'
+import { ViewToggle } from '../../shared/ViewToggle'
 
 type Status = 'loading' | 'success' | 'error'
 
@@ -342,6 +346,7 @@ export function CustomersPage() {
   const [searchInput, setSearchInput] = useState('')
   const [page, setPageState] = useState(1)
   const [pageSize, setPageSize] = useState(25)
+  const [viewMode, setViewMode] = useState<ViewMode>('cards')
 
   const [creating, setCreating] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
@@ -430,15 +435,35 @@ export function CustomersPage() {
   }, [searchInput, pageSize])
 
   return (
-    <section className="-m-4 flex flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
+    <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Clientes</h1>
           <p className="mt-1 text-base opacity-60 lg:text-lg">{customers.length} clientes registrados</p>
         </div>
-        <button type="button" onClick={() => setCreating(true)} className={primaryButtonClasses}>
-          + Nuevo cliente
-        </button>
+        <div className="flex items-center gap-3">
+          {status === 'success' && customers.length > 0 && <ViewToggle mode={viewMode} onChange={setViewMode} />}
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className={`${HEADER_ACTION_BUTTON_CLASSES} bg-brand text-brand-contrast hover:bg-brand/90`}
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Nuevo cliente
+          </button>
+        </div>
       </div>
 
       {status === 'success' && customers.length > 0 && (
@@ -466,13 +491,20 @@ export function CustomersPage() {
         </div>
       )}
 
-      {status === 'loading' && <p role="status">Cargando…</p>}
+      {status === 'loading' && (
+        <div className="flex flex-col items-center gap-3 py-12 text-center" role="status">
+          <span className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-brand" />
+          <p className="text-xl font-semibold">Cargando…</p>
+        </div>
+      )}
 
       {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
 
       {status === 'success' && customers.length === 0 && (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
-          <p className="text-xl font-semibold">No hay clientes registrados.</p>
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-16 text-center">
+          <NavIconGlyph icon="customers" className="h-10 w-10 opacity-40" />
+          <p className="text-xl font-semibold opacity-70">No hay clientes registrados</p>
+          <p className="text-lg opacity-50">Cuando cargues clientes, van a aparecer acá.</p>
         </div>
       )}
 
@@ -484,7 +516,8 @@ export function CustomersPage() {
 
       {status === 'success' && filteredCustomers.length > 0 && (
         <>
-          <div className="hidden overflow-hidden rounded-xl border border-line bg-surface sm:block">
+          {viewMode === 'table' && (
+          <div className="overflow-hidden rounded-xl border border-line bg-surface">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-line bg-surface-brand/40">
@@ -524,8 +557,10 @@ export function CustomersPage() {
               </tbody>
             </table>
           </div>
+          )}
 
-          <div className="flex flex-col gap-3 sm:hidden">
+          {viewMode === 'cards' && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {paginatedCustomers.map((customer) => (
               <div key={customer.id} className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -542,6 +577,7 @@ export function CustomersPage() {
               </div>
             ))}
           </div>
+          )}
 
           {filteredCustomers.length > pageSize && (
             <Pagination page={currentPage} totalPages={totalPages} onPageChange={setPageState} />

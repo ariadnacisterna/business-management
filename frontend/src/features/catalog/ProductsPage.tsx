@@ -25,6 +25,7 @@ import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useToast } from '../../shared/Toast'
 import { formatPrice } from '../../shared/formatPrice'
+import { NavIconGlyph } from '../../shared/layout/NavIcon'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
 import type { ViewMode } from '../../shared/ViewToggle'
@@ -263,14 +264,16 @@ export function ProductsPage() {
   }, [products, sortDir])
 
   return (
-    <section className="-m-4 flex flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
+    <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Productos</h1>
           <p className="mt-1 whitespace-nowrap text-base opacity-60 lg:text-lg">{total} productos encontrados</p>
         </div>
         <div className="flex items-center gap-3">
-          <ViewToggle mode={viewMode} onChange={setViewMode} />
+          {status === 'success' && (total > 0 || hasActiveFilters) && (
+            <ViewToggle mode={viewMode} onChange={setViewMode} />
+          )}
           {canManage && (
             <Link
               to="/products/new"
@@ -346,56 +349,64 @@ export function ProductsPage() {
             </button>
           </>
         )
+        const newProductLink = canManage && (
+          <Link
+            to="/products/new"
+            className={`${HEADER_ACTION_BUTTON_CLASSES} w-full justify-start bg-brand text-brand-contrast hover:bg-brand/90 lg:hidden`}
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span className="hidden min-[400px]:inline">Nuevo Producto</span>
+            <span className="min-[400px]:hidden">Nuevo Prod.</span>
+          </Link>
+        )
+        if (status !== 'success') return null
         return (
           <>
-            <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-              {filterControls}
-            </FiltersSheet>
-            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
-              <SearchInput
-                value={searchInput}
-                onChange={setSearchInput}
-                placeholder="Buscar nombre, código, categoría…"
-                ariaLabel="Buscar productos"
-                className="lg:min-w-40 lg:flex-1"
-              />
-              <div className="grid grid-cols-2 gap-2 lg:hidden">
-                <FiltersButton
-                  onClick={() => setFiltersOpen(true)}
-                  hasActiveFilters={hasActiveFilters}
-                  widthClassName="w-full"
-                />
-                {canManage && (
-                  <Link
-                    to="/products/new"
-                    className={`${HEADER_ACTION_BUTTON_CLASSES} w-full justify-start bg-brand text-brand-contrast hover:bg-brand/90`}
-                  >
-                    <svg
-                      aria-hidden="true"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-5 w-5"
-                    >
-                      <line x1="12" y1="5" x2="12" y2="19" />
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                    <span className="hidden min-[400px]:inline">Nuevo Producto</span>
-                    <span className="min-[400px]:hidden">Nuevo Prod.</span>
-                  </Link>
-                )}
-              </div>
-              <div className="hidden flex-wrap items-center gap-3 lg:flex">{filterControls}</div>
-            </div>
+            {total > 0 || hasActiveFilters ? (
+              <>
+                <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+                  {filterControls}
+                </FiltersSheet>
+                <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+                  <SearchInput
+                    value={searchInput}
+                    onChange={setSearchInput}
+                    placeholder="Buscar nombre, código, categoría…"
+                    ariaLabel="Buscar productos"
+                    className="lg:min-w-40 lg:flex-1"
+                  />
+                  <div className="grid grid-cols-2 gap-2 lg:hidden">
+                    <FiltersButton
+                      onClick={() => setFiltersOpen(true)}
+                      hasActiveFilters={hasActiveFilters}
+                      widthClassName="w-full"
+                    />
+                    {newProductLink}
+                  </div>
+                  <div className="hidden flex-wrap items-center gap-3 lg:flex">{filterControls}</div>
+                </div>
+              </>
+            ) : (
+              canManage && <div className="lg:hidden">{newProductLink}</div>
+            )}
           </>
         )
       })()}
 
       {status === 'loading' && (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface px-6 py-12 text-center" role="status">
+        <div className="flex flex-col items-center gap-3 py-12 text-center" role="status">
           <span className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-brand" />
           <p className="text-xl font-semibold">Cargando…</p>
         </div>
@@ -403,7 +414,7 @@ export function ProductsPage() {
 
       {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
 
-      {status === 'success' && total === 0 && (
+      {status === 'success' && total === 0 && hasActiveFilters && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
           <svg
             aria-hidden="true"
@@ -420,6 +431,14 @@ export function ProductsPage() {
           </svg>
           <p className="text-xl font-semibold">No hay productos que coincidan.</p>
           <p className="text-lg opacity-60">Probá cambiar la búsqueda o los filtros.</p>
+        </div>
+      )}
+
+      {status === 'success' && total === 0 && !hasActiveFilters && (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-16 text-center">
+          <NavIconGlyph icon="products" className="h-10 w-10 opacity-40" />
+          <p className="text-xl font-semibold opacity-70">No hay productos cargados</p>
+          <p className="text-lg opacity-50">Cuando cargues productos, van a aparecer acá.</p>
         </div>
       )}
 

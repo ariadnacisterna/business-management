@@ -62,21 +62,57 @@ describe('CustomersPage', () => {
     vi.stubGlobal('fetch', vi.fn())
   })
 
+  it('shows only the loading spinner, not search/view toggle, while loading', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValueOnce(jsonResponse(ACCOUNT)).mockImplementationOnce(() => new Promise(() => {}))
+
+    render(
+      <MemoryRouter>
+        <ToastProvider>
+          <AuthProvider>
+            <ReadyGate>
+              <CustomersPage />
+            </ReadyGate>
+          </AuthProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Cargando…')
+    expect(screen.queryByRole('textbox', { name: 'Buscar clientes' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver como tarjetas')).not.toBeInTheDocument()
+  })
+
   it('lists customers with phone, address and pending balance', async () => {
     renderPage()
 
     expect((await screen.findAllByText('Ana Gómez')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Beto Ruiz').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Calle Falsa 123').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('$150,00').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('$0,00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText((_, element) => element?.textContent === 'Saldo: $150,00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText((_, element) => element?.textContent === 'Saldo: $0,00').length).toBeGreaterThan(0)
+  })
+
+  it('shows the card/table view toggle once there are customers, and switches views', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findAllByText('Ana Gómez')
+    expect(screen.getByLabelText('Ver como tarjetas')).toBeInTheDocument()
+    expect(screen.getByLabelText('Ver como tabla')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+
+    await user.click(screen.getByLabelText('Ver como tabla'))
+    expect(screen.getByRole('table')).toBeInTheDocument()
   })
 
   it('shows an empty state, not an error, when there are no customers yet', async () => {
     renderPage([], [])
 
-    expect(await screen.findByText('No hay clientes registrados.')).toBeInTheDocument()
+    expect(await screen.findByText('No hay clientes registrados')).toBeInTheDocument()
     expect(screen.queryByText(/No se pudieron cargar/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver como tarjetas')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver como tabla')).not.toBeInTheDocument()
   })
 
   it('filters customers by name', async () => {
@@ -117,7 +153,7 @@ describe('CustomersPage', () => {
     renderPage()
 
     await screen.findAllByText('Ana Gómez')
-    await user.click(screen.getByRole('button', { name: '+ Nuevo cliente' }))
+    await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }))
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Carla Díaz')
 
     fetchMock.mockResolvedValueOnce(
@@ -137,7 +173,7 @@ describe('CustomersPage', () => {
     renderPage()
 
     await screen.findAllByText('Ana Gómez')
-    await user.click(screen.getByRole('button', { name: '+ Nuevo cliente' }))
+    await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }))
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Carla Díaz')
 
     const callsBeforeConfirm = fetchMock.mock.calls.length

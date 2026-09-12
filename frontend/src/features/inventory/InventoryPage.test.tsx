@@ -87,6 +87,27 @@ describe('InventoryPage', () => {
     vi.stubGlobal('fetch', vi.fn())
   })
 
+  it('shows only the loading spinner, not search/filters/view toggle, while loading', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValueOnce(jsonResponse(GERENTE_ACCOUNT)).mockImplementationOnce(() => new Promise(() => {}))
+
+    render(
+      <MemoryRouter>
+        <ToastProvider>
+          <AuthProvider>
+            <ReadyGate>
+              <InventoryPage />
+            </ReadyGate>
+          </AuthProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Cargando…')
+    expect(screen.queryByLabelText('Ver como tarjetas')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Buscar producto…')).not.toBeInTheDocument()
+  })
+
   it('lists stock with counts and status', async () => {
     renderPage()
 
@@ -329,6 +350,8 @@ describe('InventoryPage', () => {
 
     expect(await screen.findByText('No hay inventario cargado')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver como tarjetas')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver como tabla')).not.toBeInTheDocument()
   })
 
   it('opens the per-variant stock history modal with its movements', async () => {

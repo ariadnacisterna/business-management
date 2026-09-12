@@ -84,6 +84,29 @@ describe('AccountsPage', () => {
     vi.stubGlobal('fetch', vi.fn())
   })
 
+  it('shows only the loading spinner, not search/filters/view toggle, while loading', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT)).mockImplementationOnce(() => new Promise(() => {}))
+
+    render(
+      <MemoryRouter initialEntries={['/cuentas']}>
+        <ToastProvider>
+          <AuthProvider>
+            <ReadyGate>
+              <Routes>
+                <Route path="/cuentas" element={<AccountsPage />} />
+              </Routes>
+            </ReadyGate>
+          </AuthProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Cargando…')
+    expect(screen.queryByRole('textbox', { name: 'Buscar cuentas' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver como tarjetas')).not.toBeInTheDocument()
+  })
+
   it('lists accounts with their username, role, business and status', async () => {
     renderPage(ADMIN_ACCOUNT)
 

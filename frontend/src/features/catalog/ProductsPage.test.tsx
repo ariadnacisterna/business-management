@@ -119,6 +119,76 @@ describe('ProductsPage', () => {
     vi.stubGlobal('fetch', vi.fn())
   })
 
+  it('shows only the loading spinner, not search/filters/view toggle, while loading', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockImplementationOnce(() => new Promise(() => {}))
+
+    render(
+      <MemoryRouter initialEntries={['/products']}>
+        <ToastProvider>
+          <AuthProvider>
+            <ReadyGate>
+              <Routes>
+                <Route path="/products" element={<ProductsPage />} />
+              </Routes>
+            </ReadyGate>
+          </AuthProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Cargando…')
+    expect(screen.queryByPlaceholderText('Buscar nombre, código, categoría…')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver como tarjetas')).not.toBeInTheDocument()
+  })
+
+  it('shows a normal empty state when there are no products yet, not an error', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(productPage([], { total: 0 }))
+
+    render(
+      <MemoryRouter initialEntries={['/products']}>
+        <ToastProvider>
+          <AuthProvider>
+            <ReadyGate>
+              <Routes>
+                <Route path="/products" element={<ProductsPage />} />
+              </Routes>
+            </ReadyGate>
+          </AuthProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('No hay productos cargados')).toBeInTheDocument()
+    expect(screen.queryByText('No hay productos que coincidan.')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Buscar nombre, código, categoría…')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver como tarjetas')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver como tabla')).not.toBeInTheDocument()
+  })
+
+  it('shows the no-matches state when a search finds nothing', async () => {
+    renderPage(ADMIN_ACCOUNT)
+
+    expect(await screen.findByText('Cinta bebé')).toBeInTheDocument()
+
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValueOnce(productPage([], { total: 0 }))
+
+    await userEvent.type(screen.getByPlaceholderText('Buscar nombre, código, categoría…'), 'inexistente')
+
+    expect(await screen.findByText('No hay productos que coincidan.')).toBeInTheDocument()
+    expect(screen.getByText('Probá cambiar la búsqueda o los filtros.')).toBeInTheDocument()
+  })
+
   it('lists products with their category and unit', async () => {
     renderPage(ADMIN_ACCOUNT)
 
@@ -194,8 +264,10 @@ describe('ProductsPage', () => {
 
     await user.type(screen.getByLabelText('Buscar productos'), 'lino')
 
-    await waitFor(() => expect(screen.queryByText('Cinta bebé')).not.toBeInTheDocument(), { timeout: 2000 })
-    expect(screen.getByText('lino').closest('a')).toHaveTextContent('Tela de lino')
+    await waitFor(() => expect(screen.getByText('lino').closest('a')).toHaveTextContent('Tela de lino'), {
+      timeout: 2000,
+    })
+    expect(screen.queryByText('Cinta bebé')).not.toBeInTheDocument()
 
     const lastCall = fetchMock.mock.calls.at(-1)?.[0] as string
     expect(lastCall).toContain('search=lino')

@@ -607,7 +607,7 @@ function StockTab({
       </div>
 
       {status === 'loading' && (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface px-6 py-12 text-center" role="status">
+        <div className="flex flex-col items-center gap-3 py-12 text-center" role="status">
           <span className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-brand" />
           <p className="text-xl font-semibold">Cargando…</p>
         </div>
@@ -1028,7 +1028,7 @@ export function InventoryPage() {
   }
 
   return (
-    <section className="-m-4 flex flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
+    <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Inventario</h1>
@@ -1038,7 +1038,7 @@ export function InventoryPage() {
             <span className="whitespace-nowrap">{summary.sinStock} sin stock</span>
           </div>
         </div>
-        <ViewToggle mode={viewMode} onChange={setViewMode} />
+        {status === 'success' && summary.total > 0 && <ViewToggle mode={viewMode} onChange={setViewMode} />}
       </div>
 
       {status === 'success' && summary.total > 0 && summary.sinStock > 0 && !bannerDismissed && (
@@ -1079,7 +1079,7 @@ export function InventoryPage() {
       )}
 
       {status === 'loading' && (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface px-6 py-12 text-center" role="status">
+        <div className="flex flex-col items-center gap-3 py-12 text-center" role="status">
           <span className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-brand" />
           <p className="text-xl font-semibold">Cargando…</p>
         </div>

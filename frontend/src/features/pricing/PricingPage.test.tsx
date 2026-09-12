@@ -121,6 +121,53 @@ describe('PricingPage', () => {
     vi.stubGlobal('fetch', vi.fn())
   })
 
+  it('shows only the loading spinner, not search/view toggle, while loading', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT)).mockImplementationOnce(() => new Promise(() => {}))
+
+    render(
+      <MemoryRouter initialEntries={['/precios']}>
+        <ToastProvider>
+          <AuthProvider>
+            <ReadyGate>
+              <Routes>
+                <Route path="/precios" element={<PricingPage />} />
+              </Routes>
+            </ReadyGate>
+          </AuthProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Cargando…')
+    expect(screen.queryByPlaceholderText('Buscar por nombre…')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver como tarjetas')).not.toBeInTheDocument()
+  })
+
+  it('shows a normal empty state when there are no products yet, not an error', async () => {
+    renderPage(ADMIN_ACCOUNT, [])
+
+    expect(await screen.findByText('No hay precios cargados')).toBeInTheDocument()
+    expect(screen.queryByText('No hay productos que coincidan.')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Buscar por nombre…')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver como tarjetas')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver como tabla')).not.toBeInTheDocument()
+  })
+
+  it('shows the no-matches state when a search finds nothing', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    fetchMock.mockResolvedValueOnce(productPage([], { total: 0 }))
+
+    await user.type(screen.getByPlaceholderText('Buscar por nombre…'), 'inexistente')
+
+    expect(await screen.findByText('No hay productos que coincidan.')).toBeInTheDocument()
+    expect(screen.getByText('Probá cambiar la búsqueda.')).toBeInTheDocument()
+  })
+
   it('lists each active variant with its current price', async () => {
     renderPage(ADMIN_ACCOUNT)
 
@@ -156,8 +203,7 @@ describe('PricingPage', () => {
     renderPage(ADMIN_ACCOUNT)
 
     await screen.findByText('Cinta bebé')
-    const clearButton = screen.getByRole('button', { name: 'Limpiar búsqueda' })
-    expect(clearButton).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Limpiar búsqueda' })).toBeDisabled()
 
     fetchMock.mockResolvedValueOnce(productPage(PRODUCTS, { total: 2, page_size: 10 }))
     fetchMock.mockResolvedValueOnce(currentPrice(10, '150.00'))
@@ -173,17 +219,17 @@ describe('PricingPage', () => {
     })
 
     await user.type(screen.getByLabelText('Buscar productos'), 'cinta')
-    await waitFor(() => expect(clearButton).toBeEnabled())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Limpiar búsqueda' })).toBeEnabled())
 
     fetchMock.mockResolvedValueOnce(productPage(PRODUCTS, { total: 2, page_size: 10 }))
     fetchMock.mockResolvedValueOnce(currentPrice(10, '150.00'))
     fetchMock.mockResolvedValueOnce(currentPrice(20, '10.00'))
     fetchMock.mockResolvedValueOnce(currentPrice(21, '20.00'))
 
-    await user.click(clearButton)
+    await user.click(screen.getByRole('button', { name: 'Limpiar búsqueda' }))
 
     expect(screen.getByLabelText('Buscar productos')).toHaveValue('')
-    await waitFor(() => expect(clearButton).toBeDisabled())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Limpiar búsqueda' })).toBeDisabled())
   })
 
   it('does not render an inline clear icon inside the search box', async () => {

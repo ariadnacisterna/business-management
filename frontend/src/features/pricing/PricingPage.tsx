@@ -15,6 +15,7 @@ import { CloseButton } from '../../shared/CloseButton'
 import { FieldRow } from '../../shared/FieldRow'
 import { HighlightedText } from '../../shared/HighlightedText'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { NavIconGlyph } from '../../shared/layout/NavIcon'
 import { Pagination } from '../../shared/Pagination'
 import { PriceInput } from '../../shared/PriceInput'
 import { SearchInput } from '../../shared/SearchInput'
@@ -302,49 +303,53 @@ export function PricingPage() {
   })()
 
   return (
-    <section className="-m-4 flex flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
+    <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Precios</h1>
           <p className="mt-1 whitespace-nowrap text-base opacity-60 lg:text-lg">{total} productos encontrados</p>
         </div>
-        <ViewToggle mode={viewMode} onChange={setViewMode} />
+        {status === 'success' && (total > 0 || appliedSearch !== '') && (
+          <ViewToggle mode={viewMode} onChange={setViewMode} />
+        )}
       </div>
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
-        <SearchInput
-          value={searchInput}
-          onChange={setSearchInput}
-          placeholder="Buscar por nombre…"
-          ariaLabel="Buscar productos"
-          className="lg:min-w-40 lg:flex-1"
-        />
-        <SelectMenu
-          value={String(pageSize)}
-          onChange={(value) => {
-            setPageSize(Number(value))
-            setPage(1)
-          }}
-          ariaLabel="Cantidad por página"
-          className="w-full lg:w-56"
-          options={[
-            { value: '10', label: '10 por página' },
-            { value: '25', label: '25 por página' },
-            { value: '50', label: '50 por página' },
-          ]}
-        />
-        <button
-          type="button"
-          disabled={searchInput === ''}
-          onClick={() => setSearchInput('')}
-          className="hidden h-12 w-full rounded-lg border-2 border-brand bg-surface text-lg font-semibold text-brand transition-colors hover:bg-brand hover:text-brand-contrast disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:font-normal disabled:text-ink/40 disabled:hover:bg-surface disabled:hover:text-ink/40 lg:block lg:w-56"
-        >
-          Limpiar búsqueda
-        </button>
-      </div>
+      {status === 'success' && (total > 0 || appliedSearch !== '') && (
+        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+          <SearchInput
+            value={searchInput}
+            onChange={setSearchInput}
+            placeholder="Buscar por nombre…"
+            ariaLabel="Buscar productos"
+            className="lg:min-w-40 lg:flex-1"
+          />
+          <SelectMenu
+            value={String(pageSize)}
+            onChange={(value) => {
+              setPageSize(Number(value))
+              setPage(1)
+            }}
+            ariaLabel="Cantidad por página"
+            className="w-full lg:w-56"
+            options={[
+              { value: '10', label: '10 por página' },
+              { value: '25', label: '25 por página' },
+              { value: '50', label: '50 por página' },
+            ]}
+          />
+          <button
+            type="button"
+            disabled={searchInput === ''}
+            onClick={() => setSearchInput('')}
+            className="hidden h-12 w-full rounded-lg border-2 border-brand bg-surface text-lg font-semibold text-brand transition-colors hover:bg-brand hover:text-brand-contrast disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:font-normal disabled:text-ink/40 disabled:hover:bg-surface disabled:hover:text-ink/40 lg:block lg:w-56"
+          >
+            Limpiar búsqueda
+          </button>
+        </div>
+      )}
 
       {status === 'loading' && (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface px-6 py-12 text-center" role="status">
+        <div className="flex flex-col items-center gap-3 py-12 text-center" role="status">
           <span className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-brand" />
           <p className="text-xl font-semibold">Cargando…</p>
         </div>
@@ -352,7 +357,7 @@ export function PricingPage() {
 
       {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
 
-      {status === 'success' && total === 0 && (
+      {status === 'success' && total === 0 && appliedSearch !== '' && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
           <svg
             aria-hidden="true"
@@ -369,6 +374,14 @@ export function PricingPage() {
           </svg>
           <p className="text-xl font-semibold">No hay productos que coincidan.</p>
           <p className="text-lg opacity-60">Probá cambiar la búsqueda.</p>
+        </div>
+      )}
+
+      {status === 'success' && total === 0 && appliedSearch === '' && (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-16 text-center">
+          <NavIconGlyph icon="prices" className="h-10 w-10 opacity-40" />
+          <p className="text-xl font-semibold opacity-70">No hay precios cargados</p>
+          <p className="text-lg opacity-50">Cuando tengas productos con variantes activas, sus precios van a aparecer acá.</p>
         </div>
       )}
 

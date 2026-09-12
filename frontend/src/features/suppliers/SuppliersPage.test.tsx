@@ -78,6 +78,28 @@ describe('SuppliersPage', () => {
     vi.stubGlobal('fetch', vi.fn())
   })
 
+  it('shows only the loading spinner, not tabs/search/view toggle, while loading', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValueOnce(jsonResponse(GERENTE_ACCOUNT)).mockImplementationOnce(() => new Promise(() => {}))
+
+    render(
+      <MemoryRouter>
+        <ToastProvider>
+          <AuthProvider>
+            <ReadyGate>
+              <SuppliersPage />
+            </ReadyGate>
+          </AuthProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Cargando…')
+    expect(screen.queryByRole('button', { name: 'Órdenes de compra' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Buscar proveedores' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver como tarjetas')).not.toBeInTheDocument()
+  })
+
   it('lists providers with contact and status', async () => {
     renderPage()
 
@@ -87,11 +109,27 @@ describe('SuppliersPage', () => {
     expect(screen.getAllByText(/Inactivo/).length).toBeGreaterThan(0)
   })
 
+  it('shows the card/table view toggle once there are providers, and switches views', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findAllByText('Distribuidora Norte')
+    expect(screen.getByLabelText('Ver como tarjetas')).toBeInTheDocument()
+    expect(screen.getByLabelText('Ver como tabla')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+
+    await user.click(screen.getByLabelText('Ver como tabla'))
+    expect(screen.getByRole('table')).toBeInTheDocument()
+  })
+
   it('shows an empty state, not an error, when there are no providers yet', async () => {
     renderPage(GERENTE_ACCOUNT, [])
 
-    expect(await screen.findByText('No hay proveedores registrados.')).toBeInTheDocument()
+    expect(await screen.findByText('No hay proveedores registrados')).toBeInTheDocument()
     expect(screen.queryByText(/No se pudieron cargar/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Órdenes de compra' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver como tarjetas')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver como tabla')).not.toBeInTheDocument()
   })
 
   it('filters providers by name', async () => {
@@ -135,7 +173,7 @@ describe('SuppliersPage', () => {
     renderPage()
 
     await screen.findAllByText('Distribuidora Norte')
-    await user.click(screen.getByRole('button', { name: '+ Nuevo proveedor' }))
+    await user.click(screen.getByRole('button', { name: 'Nuevo proveedor' }))
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Papelera Central')
 
     await user.click(screen.getByRole('button', { name: '+ Crear categoría nueva…' }))
@@ -155,7 +193,7 @@ describe('SuppliersPage', () => {
     renderPage()
 
     await screen.findAllByText('Distribuidora Norte')
-    await user.click(screen.getByRole('button', { name: '+ Nuevo proveedor' }))
+    await user.click(screen.getByRole('button', { name: 'Nuevo proveedor' }))
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Papelera Central')
 
     fetchMock.mockResolvedValueOnce(
@@ -187,7 +225,7 @@ describe('SuppliersPage', () => {
     renderPage()
 
     await screen.findAllByText('Distribuidora Norte')
-    await user.click(screen.getByRole('button', { name: '+ Nuevo proveedor' }))
+    await user.click(screen.getByRole('button', { name: 'Nuevo proveedor' }))
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Papelera Central')
 
     const callsBeforeConfirm = fetchMock.mock.calls.length
@@ -220,6 +258,6 @@ describe('SuppliersPage', () => {
     renderPage(EMPLEADO_ACCOUNT)
 
     await screen.findAllByText('Distribuidora Norte')
-    expect(screen.queryByRole('button', { name: '+ Nuevo proveedor' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Nuevo proveedor' })).not.toBeInTheDocument()
   })
 })
