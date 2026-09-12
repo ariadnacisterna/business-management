@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.constants.limits import NAME_MAX_LENGTH, STATUS_MAX_LENGTH
@@ -13,16 +13,29 @@ if TYPE_CHECKING:
     from app.db.models.attribute_value import AttributeValue
     from app.db.models.product import Product
     from app.db.models.shortage import Shortage
+    from app.db.models.stock_movement import StockMovement
+
+VARIANT_QUANTITY_NON_NEGATIVE_CONSTRAINT_NAME = "quantity_non_negative"
+VARIANT_MINIMUM_QUANTITY_NON_NEGATIVE_CONSTRAINT_NAME = "minimum_quantity_non_negative"
 
 
 class Variant(Base, AuditedMixin):
     __tablename__ = "variant"
-    __table_args__ = (status_check_constraint(),)
+    __table_args__ = (
+        status_check_constraint(),
+        CheckConstraint("quantity >= 0", name=VARIANT_QUANTITY_NON_NEGATIVE_CONSTRAINT_NAME),
+        CheckConstraint(
+            "minimum_quantity IS NULL OR minimum_quantity >= 0",
+            name=VARIANT_MINIMUM_QUANTITY_NON_NEGATIVE_CONSTRAINT_NAME,
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("product.id"), nullable=False)
     label: Mapped[str | None] = mapped_column(String(NAME_MAX_LENGTH), nullable=True)
     is_implicit: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    minimum_quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(
         String(STATUS_MAX_LENGTH), nullable=False, default=EntityStatus.ACTIVE.value
     )
@@ -32,3 +45,4 @@ class Variant(Base, AuditedMixin):
         secondary="variant_attribute_value", back_populates="variants"
     )
     shortages: Mapped[list["Shortage"]] = relationship(back_populates="variant")
+    stock_movements: Mapped[list["StockMovement"]] = relationship(back_populates="variant")
