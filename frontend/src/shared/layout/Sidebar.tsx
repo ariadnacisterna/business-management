@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { fetchShortageCount } from '../../api/catalog'
+import { fetchLowStockCount } from '../../api/catalog'
 import type { Account } from '../../api/types'
 import { hasMinimumRole } from '../../features/access/roles'
 import { Brand } from '../Brand'
@@ -18,13 +18,13 @@ function SidebarContent({
   onNavigate,
   collapsed = false,
   onToggleCollapse,
-  shortageCount,
+  lowStockCount,
 }: {
   account: Account | null
   onNavigate: () => void
   collapsed?: boolean
   onToggleCollapse?: () => void
-  shortageCount: number
+  lowStockCount: number
 }) {
   const visibleNavItems = NAV_ITEMS.filter(
     (item) => item.minRole === undefined || hasMinimumRole(account, item.minRole),
@@ -87,7 +87,7 @@ function SidebarContent({
               onClick={onNavigate}
               title={collapsed ? item.label : undefined}
               className={({ isActive }) =>
-                `flex min-h-14 items-center gap-3 rounded-lg px-4 py-3 text-lg font-medium transition-colors ${
+                `relative flex min-h-14 items-center gap-3 rounded-lg px-4 py-3 text-lg font-medium transition-colors ${
                   collapsed ? 'justify-center' : ''
                 } ${
                   isActive
@@ -98,13 +98,13 @@ function SidebarContent({
             >
               <NavIconGlyph icon={item.icon} className="h-6 w-6 shrink-0" />
               {!collapsed && <span className="flex-1">{item.label}</span>}
-              {item.to === '/faltantes' && shortageCount > 0 && (
+              {item.to === '/inventario' && lowStockCount > 0 && (
                 <span
-                  className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-danger px-1.5 text-sm font-bold text-white ${
-                    collapsed ? 'absolute right-2 top-1' : ''
+                  className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-[#f1c9c9] px-1.5 text-sm font-bold text-danger ${
+                    collapsed ? 'absolute -right-1 -top-1' : ''
                   }`}
                 >
-                  {shortageCount}
+                  {lowStockCount}
                 </span>
               )}
             </NavLink>
@@ -117,13 +117,18 @@ function SidebarContent({
 
 export function Sidebar({ isOpen, onNavigate, account }: Props) {
   const [collapsed, setCollapsed] = useState(false)
-  const [shortageCount, setShortageCount] = useState(0)
+  const [lowStockCount, setLowStockCount] = useState(0)
 
   useEffect(() => {
     if (account === null) return
-    fetchShortageCount()
-      .then((result) => setShortageCount(result.count))
-      .catch(() => {})
+    function refresh() {
+      fetchLowStockCount()
+        .then((result) => setLowStockCount(result.count))
+        .catch(() => {})
+    }
+    refresh()
+    window.addEventListener('stock-updated', refresh)
+    return () => window.removeEventListener('stock-updated', refresh)
   }, [account])
 
   return (
@@ -134,13 +139,17 @@ export function Sidebar({ isOpen, onNavigate, account }: Props) {
           onNavigate={onNavigate}
           collapsed={collapsed}
           onToggleCollapse={() => setCollapsed((value) => !value)}
-          shortageCount={shortageCount}
+          lowStockCount={lowStockCount}
         />
       </div>
 
       {isOpen && (
         <div className="fixed inset-0 z-40 flex md:hidden" aria-label="Navegación principal">
-          <SidebarContent account={account} onNavigate={onNavigate} shortageCount={shortageCount} />
+          <SidebarContent
+            account={account}
+            onNavigate={onNavigate}
+            lowStockCount={lowStockCount}
+          />
           <div className="flex-1 bg-black/50" onClick={onNavigate} aria-hidden="true" />
         </div>
       )}

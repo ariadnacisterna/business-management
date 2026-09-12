@@ -8,7 +8,6 @@ export type NavIcon =
   | 'sales'
   | 'suppliers'
   | 'accounts'
-  | 'shortages'
   | 'customers'
 
 export interface NavItem {
@@ -24,10 +23,9 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Panel', icon: 'panel', end: true, minRole: 'Administrador' },
   { to: '/products', label: 'Productos', icon: 'products' },
   { to: '/precios', label: 'Precios', icon: 'prices' },
-  { to: '/inventario', label: 'Inventario', icon: 'inventory', disabled: true, minRole: 'Gerente' },
+  { to: '/inventario', label: 'Inventario', icon: 'inventory' },
   { to: '/ventas', label: 'Ventas', icon: 'sales', disabled: true },
   { to: '/proveedores', label: 'Proveedores', icon: 'suppliers', minRole: 'Gerente' },
-  { to: '/faltantes', label: 'Faltantes', icon: 'shortages' },
   { to: '/clientes', label: 'Clientes', icon: 'customers' },
   { to: '/cuentas', label: 'Cuentas', icon: 'accounts', minRole: 'Administrador' },
 ]

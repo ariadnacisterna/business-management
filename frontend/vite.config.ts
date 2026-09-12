@@ -6,7 +6,16 @@ import { defineConfig } from 'vite'
 
 const API_PROXY_TARGET = process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8000'
 
-const API_PATH_PREFIXES = ['/auth', '/accounts', '/search', '/variants', '/imports', '/health']
+const API_PATH_PREFIXES = [
+  '/auth',
+  '/accounts',
+  '/search',
+  '/variants',
+  '/imports',
+  '/health',
+  '/stock',
+  '/movement-reasons',
+]
 
 const SPA_ROUTE_PREFIXES = ['/products', '/categories', '/units', '/attributes']
 

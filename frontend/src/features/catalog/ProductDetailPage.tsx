@@ -533,7 +533,16 @@ export function ProductDetailPage() {
 
   return (
     <>
-    {!pickingVariantForPrice && !(priceModalVariant !== null && priceModalOpenedDirectly) && (
+    {!pickingVariantForPrice && !(priceModalVariant !== null && priceModalOpenedDirectly) && loadStatus === 'error' && (
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4">
+      <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
+      <div className="relative w-full max-w-md">
+        <CloseButton onClose={close} className="absolute right-0 top-8 z-10" />
+        <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={load} />
+      </div>
+    </div>
+    )}
+    {!pickingVariantForPrice && !(priceModalVariant !== null && priceModalOpenedDirectly) && loadStatus !== 'error' && (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
 
@@ -559,12 +568,6 @@ export function ProductDetailPage() {
           <p role="status" className="flex flex-1 items-center justify-center text-lg opacity-60">
             Cargando…
           </p>
-        )}
-
-        {loadStatus === 'error' && (
-          <div className="flex flex-1 items-center justify-center">
-            <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={load} />
-          </div>
         )}
 
         {loadStatus === 'success' && product !== null && (

@@ -57,11 +57,17 @@ describe('Sidebar', () => {
   it('renders unbuilt sections as disabled, non-navigable items', () => {
     renderSidebar('/products')
 
-    for (const label of ['Inventario', 'Ventas']) {
+    for (const label of ['Ventas']) {
       const item = screen.getByText(label).closest('[aria-disabled]')
       expect(item).toHaveAttribute('aria-disabled', 'true')
       expect(screen.queryByRole('link', { name: new RegExp(label) })).not.toBeInTheDocument()
     }
+  })
+
+  it('renders "Inventario" as a navigable link for every role', () => {
+    renderSidebar('/products')
+
+    expect(screen.getByRole('link', { name: 'Inventario' })).toBeInTheDocument()
   })
 
   it('renders "Precios" as a navigable link', () => {
@@ -107,11 +113,11 @@ describe('Sidebar', () => {
     expect(screen.getByText('Inventario')).toBeInTheDocument()
   })
 
-  it('hides "Panel", "Inventario" and "Proveedores" for an empleado', () => {
+  it('hides "Panel" and "Proveedores" for an empleado, but keeps "Inventario"', () => {
     renderSidebar('/products', false, vi.fn(), { ...ADMINISTRADOR_ACCOUNT, role: 'Empleado' })
 
     expect(screen.queryByText('Panel')).not.toBeInTheDocument()
-    expect(screen.queryByText('Inventario')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Inventario' })).toBeInTheDocument()
     expect(screen.queryByText('Proveedores')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Productos' })).toBeInTheDocument()
     expect(screen.getByText('Ventas')).toBeInTheDocument()
@@ -128,5 +134,26 @@ describe('Sidebar', () => {
 
     renderSidebar('/products', false, vi.fn(), { ...ADMINISTRADOR_ACCOUNT, role: 'Empleado' })
     expect(screen.queryAllByText('Cuentas')).toHaveLength(0)
+  })
+
+  it('shows the low-stock badge using the sin-stock danger color and refreshes it when stock changes', async () => {
+    let count = 3
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ count }), { status: 200 })),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderSidebar('/products')
+
+    const badge = await screen.findByText('3')
+    expect(badge).toHaveClass('bg-[#f1c9c9]')
+    expect(badge).toHaveClass('text-danger')
+
+    count = 9
+    window.dispatchEvent(new Event('stock-updated'))
+
+    expect(await screen.findByText('9')).toBeInTheDocument()
+
+    vi.unstubAllGlobals()
   })
 })

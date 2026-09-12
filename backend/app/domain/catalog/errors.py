@@ -108,3 +108,19 @@ class InvalidCreditType(CatalogError):
 
 class InvalidCreditAmount(CatalogError):
     pass
+
+
+class MovementReasonNotFound(CatalogError):
+    pass
+
+
+class DuplicateMovementReasonName(CatalogError):
+    pass
+
+
+class InactiveMovementReason(CatalogError):
+    pass
+
+
+class InvalidStockQuantity(CatalogError):
+    pass

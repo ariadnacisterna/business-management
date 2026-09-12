@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { fetchShortageCount } from '../../api/catalog'
+import { fetchStockSummary, type StockSummary } from '../inventory/stockRows'
+
+const EMPTY_SUMMARY: StockSummary = { total: 0, stockBajo: 0, sinStock: 0 }
 
 export function DashboardPage() {
-  const [shortageCount, setShortageCount] = useState<number | null>(null)
+  const [summary, setSummary] = useState<StockSummary>(EMPTY_SUMMARY)
 
   useEffect(() => {
-    fetchShortageCount()
-      .then((result) => setShortageCount(result.count))
-      .catch(() => setShortageCount(null))
+    fetchStockSummary()
+      .then(setSummary)
+      .catch(() => {})
   }, [])
 
   return (
@@ -18,17 +19,20 @@ export function DashboardPage() {
         <p className="mt-1 whitespace-nowrap text-base opacity-60 lg:text-lg">Resumen general del negocio</p>
       </div>
 
-      {shortageCount !== null && (
-        <Link
-          to="/faltantes"
-          className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 transition-colors hover:bg-surface-brand"
-        >
-          <div>
-            <p className="m-0 text-sm font-bold uppercase tracking-wide opacity-60">Faltantes pendientes</p>
-            <p className="m-0 text-3xl font-bold text-brand">{shortageCount}</p>
-          </div>
-        </Link>
-      )}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-line bg-surface p-5">
+          <p className="text-sm font-bold uppercase tracking-wide opacity-50">Variantes</p>
+          <p className="mt-1 text-3xl font-bold">{summary.total}</p>
+        </div>
+        <div className="rounded-xl border border-line bg-surface p-5">
+          <p className="text-sm font-bold uppercase tracking-wide opacity-50">Con stock bajo</p>
+          <p className="mt-1 text-3xl font-bold text-warning">{summary.stockBajo}</p>
+        </div>
+        <div className="rounded-xl border border-line bg-surface p-5">
+          <p className="text-sm font-bold uppercase tracking-wide opacity-50">Sin stock</p>
+          <p className="mt-1 text-3xl font-bold text-danger">{summary.sinStock}</p>
+        </div>
+      </div>
 
       <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-16 text-center">
         <svg

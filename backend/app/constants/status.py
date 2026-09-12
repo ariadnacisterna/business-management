@@ -18,3 +18,9 @@ SHORTAGE_OPEN_STATUSES = (ShortageStatus.FALTANTE.value, ShortageStatus.PEDIDO.v
 class CreditType(enum.StrEnum):
     CARGO = "cargo"
     PAGO = "pago"
+
+
+class StockStatus(enum.StrEnum):
+    SIN_STOCK = "sin_stock"
+    STOCK_BAJO = "stock_bajo"
+    NORMAL = "normal"

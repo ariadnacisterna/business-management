@@ -208,12 +208,20 @@ Cliente: persona a la que se le puede fiar (vender a crédito). Pertenece al neg
 
 Fiado: movimiento de la cuenta corriente de un cliente. Es un **cargo** (se llevó algo, aumenta lo que debe) o un **pago** (entregó dinero, disminuye lo que debe), con un importe y una fecha; no desglosa qué productos se llevó, solo el monto (a diferencia de una venta real, que es una extensión de etapas futuras). El saldo de un cliente es la suma de sus cargos menos sus pagos.
 
+### Stock, motivo de movimiento y movimiento de stock
+
+Stock: cantidad actual de una variante (no del producto, mismo criterio que el faltante, D-052). Cada variante tiene además un stock mínimo, propio o el valor por defecto del sistema si no se definió uno; a partir de la cantidad y el mínimo se deriva su estado: **Sin stock** (cantidad 0), **Stock bajo** (mayor que 0 y hasta el mínimo) o **Normal**.
+
+Motivo de movimiento: catálogo editable por el negocio (crear, editar, desactivar, igual que categoría o unidad) que clasifica por qué cambió un stock — ejemplos de partida: Entrada, Salida, Corrección, Rotura.
+
+Movimiento de stock: registro de un ajuste de cantidad sobre una variante. Quien ajusta indica la cantidad nueva (no una diferencia) y un motivo; el sistema calcula y guarda la cantidad anterior, la nueva, la cuenta que lo hizo, el momento, y una observación opcional. Reservado a Gerente y superiores (D-052), a diferencia del faltante.
+
 ## Extensiones futuras previstas (etapas posteriores a la 2)
 
 - Código de identificación de la variante, incluido el código de barras (Etapa 5).
 - Cantidad solicitada de un faltante (más allá del MVP de reposición de la Etapa 2).
 - Estado de reposición y sus transiciones (más allá de Faltante/Pedido/Recibido).
-- Existencia por variante y negocio.
+- Ventas cargadas manualmente que descuenten el stock automáticamente, compras y permisos para información financiera (resto de la Etapa 3, D-052).
 - Movimiento de inventario.
 - Venta, detalle de venta y cobro.
 - Compra, detalle de compra y pago.
