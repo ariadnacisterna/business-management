@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   createCredit,
   createCustomer,
@@ -11,8 +11,10 @@ import { ApiError } from '../../api/client'
 import type { Credit, Customer } from '../../api/types'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { Pagination } from '../../shared/Pagination'
 import { PriceInput } from '../../shared/PriceInput'
 import { RowMenu } from '../../shared/RowMenu'
+import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useToast } from '../../shared/Toast'
 
@@ -32,9 +34,10 @@ const secondaryButtonClasses =
 interface CustomerFormValues {
   name: string
   phone: string
+  address: string
 }
 
-const EMPTY_FORM: CustomerFormValues = { name: '', phone: '' }
+const EMPTY_FORM: CustomerFormValues = { name: '', phone: '', address: '' }
 
 function formatAmount(amount: string): string {
   const value = Number(amount)
@@ -117,6 +120,16 @@ function CustomerFormModal({
           <input
             value={values.phone}
             onChange={(event) => setValues((prev) => ({ ...prev, phone: event.target.value }))}
+            disabled={saving}
+            className={inputClasses}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-base font-semibold">Dirección</span>
+          <input
+            value={values.address}
+            onChange={(event) => setValues((prev) => ({ ...prev, address: event.target.value }))}
             disabled={saving}
             className={inputClasses}
           />
@@ -229,6 +242,7 @@ function CustomerDetailModal({
           <div>
             <h2 className="m-0 text-2xl font-bold">{customer.name}</h2>
             <p className="mt-1 text-base opacity-60">{customer.phone ?? 'Sin teléfono'}</p>
+            <p className="mt-1 text-base opacity-60">{customer.address ?? 'Sin dirección'}</p>
           </div>
           <button
             type="button"
@@ -325,6 +339,10 @@ export function CustomersPage() {
   const [status, setStatus] = useState<Status>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
 
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPageState] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+
   const [creating, setCreating] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [detailCustomer, setDetailCustomer] = useState<Customer | null>(null)
@@ -359,7 +377,11 @@ export function CustomersPage() {
   }
 
   async function handleCreate(values: CustomerFormValues) {
-    const created = await createCustomer({ name: values.name.trim(), phone: values.phone.trim() || undefined })
+    const created = await createCustomer({
+      name: values.name.trim(),
+      phone: values.phone.trim() || undefined,
+      address: values.address.trim() || undefined,
+    })
     setCustomers((current) => [...current, created])
     setCreating(false)
   }
@@ -369,6 +391,7 @@ export function CustomersPage() {
     const updated = await updateCustomer(editingCustomer.id, {
       name: values.name.trim(),
       phone: values.phone.trim(),
+      address: values.address.trim(),
     })
     applyCustomerUpdate(updated)
     setEditingCustomer(null)
@@ -389,6 +412,23 @@ export function CustomersPage() {
     ]
   }
 
+  const filteredCustomers = useMemo(() => {
+    const query = searchInput.trim().toLowerCase()
+    if (query === '') return customers
+    return customers.filter((customer) => customer.name.toLowerCase().includes(query))
+  }, [customers, searchInput])
+
+  const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const paginatedCustomers = useMemo(
+    () => filteredCustomers.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredCustomers, currentPage, pageSize],
+  )
+
+  useEffect(() => {
+    setPageState(1)
+  }, [searchInput, pageSize])
+
   return (
     <section className="-m-4 flex flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex items-start justify-between gap-3">
@@ -401,6 +441,31 @@ export function CustomersPage() {
         </button>
       </div>
 
+      {status === 'success' && customers.length > 0 && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <SearchInput
+            value={searchInput}
+            onChange={setSearchInput}
+            placeholder="Buscar por nombre…"
+            ariaLabel="Buscar clientes"
+            className="sm:min-w-64 sm:flex-1"
+          />
+          {filteredCustomers.length > 10 && (
+            <SelectMenu
+              value={String(pageSize)}
+              onChange={(value) => setPageSize(Number(value))}
+              ariaLabel="Cantidad por página"
+              className="w-full sm:w-56"
+              options={[
+                { value: '10', label: '10 por página' },
+                { value: '25', label: '25 por página' },
+                { value: '50', label: '50 por página' },
+              ]}
+            />
+          )}
+        </div>
+      )}
+
       {status === 'loading' && <p role="status">Cargando…</p>}
 
       {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
@@ -411,7 +476,13 @@ export function CustomersPage() {
         </div>
       )}
 
-      {status === 'success' && customers.length > 0 && (
+      {status === 'success' && customers.length > 0 && filteredCustomers.length === 0 && (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
+          <p className="text-xl font-semibold">No hay clientes que coincidan.</p>
+        </div>
+      )}
+
+      {status === 'success' && filteredCustomers.length > 0 && (
         <>
           <div className="hidden overflow-hidden rounded-xl border border-line bg-surface sm:block">
             <table className="w-full">
@@ -424,16 +495,20 @@ export function CustomersPage() {
                     Teléfono
                   </th>
                   <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
+                    Dirección
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
                     Saldo
                   </th>
                   <th className="px-4 py-2.5" />
                 </tr>
               </thead>
               <tbody>
-                {customers.map((customer) => (
+                {paginatedCustomers.map((customer) => (
                   <tr key={customer.id} className="border-t border-line">
                     <td className="px-4 py-3 text-base font-medium">{customer.name}</td>
                     <td className="px-4 py-3 text-base opacity-70">{customer.phone ?? '—'}</td>
+                    <td className="px-4 py-3 text-base opacity-70">{customer.address ?? '—'}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`text-base font-semibold ${Number(balanceFor(customer.id)) > 0 ? 'text-danger' : 'opacity-60'}`}
@@ -451,13 +526,14 @@ export function CustomersPage() {
           </div>
 
           <div className="flex flex-col gap-3 sm:hidden">
-            {customers.map((customer) => (
+            {paginatedCustomers.map((customer) => (
               <div key={customer.id} className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4">
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-xl font-bold">{customer.name}</span>
                   <RowMenu title={customer.name} items={customerRowMenuItems(customer)} />
                 </div>
                 <p className="m-0 text-base opacity-70">{customer.phone ?? 'Sin teléfono'}</p>
+                <p className="m-0 text-base opacity-70">{customer.address ?? 'Sin dirección'}</p>
                 <p
                   className={`m-0 text-lg font-semibold ${Number(balanceFor(customer.id)) > 0 ? 'text-danger' : 'opacity-60'}`}
                 >
@@ -466,6 +542,10 @@ export function CustomersPage() {
               </div>
             ))}
           </div>
+
+          {filteredCustomers.length > pageSize && (
+            <Pagination page={currentPage} totalPages={totalPages} onPageChange={setPageState} />
+          )}
         </>
       )}
 
@@ -476,7 +556,11 @@ export function CustomersPage() {
       {editingCustomer !== null && (
         <CustomerFormModal
           title="Editar cliente"
-          initialValues={{ name: editingCustomer.name, phone: editingCustomer.phone ?? '' }}
+          initialValues={{
+            name: editingCustomer.name,
+            phone: editingCustomer.phone ?? '',
+            address: editingCustomer.address ?? '',
+          }}
           onSubmit={handleEdit}
           onCancel={() => setEditingCustomer(null)}
         />

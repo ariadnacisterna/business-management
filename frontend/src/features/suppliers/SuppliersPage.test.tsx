@@ -87,6 +87,68 @@ describe('SuppliersPage', () => {
     expect(screen.getAllByText(/Inactivo/).length).toBeGreaterThan(0)
   })
 
+  it('shows an empty state, not an error, when there are no providers yet', async () => {
+    renderPage(GERENTE_ACCOUNT, [])
+
+    expect(await screen.findByText('No hay proveedores registrados.')).toBeInTheDocument()
+    expect(screen.queryByText(/No se pudieron cargar/)).not.toBeInTheDocument()
+  })
+
+  it('filters providers by name', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findAllByText('Distribuidora Norte')
+    await user.type(screen.getByRole('textbox', { name: 'Buscar proveedores' }), 'Textiles')
+
+    expect(screen.getAllByText('Textiles del Sur').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Distribuidora Norte')).not.toBeInTheDocument()
+  })
+
+  it('shows the page-size selector once there are more than 10 providers', async () => {
+    const manyProviders = Array.from({ length: 11 }, (_, index) => ({
+      id: index + 1,
+      name: `Proveedor ${String(index + 1).padStart(2, '0')}`,
+      contact_name: null,
+      email: null,
+      phone: null,
+      last_purchase_at: null,
+      status: 'active',
+      category_ids: [],
+    }))
+    renderPage(GERENTE_ACCOUNT, manyProviders)
+
+    await screen.findAllByText('Proveedor 01')
+    expect(screen.getByRole('button', { name: 'Cantidad por página' })).toBeInTheDocument()
+  })
+
+  it('hides the page-size selector when there are 10 or fewer providers', async () => {
+    renderPage()
+
+    await screen.findAllByText('Distribuidora Norte')
+    expect(screen.queryByRole('button', { name: 'Cantidad por página' })).not.toBeInTheDocument()
+  })
+
+  it('creates a new category inline from the provider form', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage()
+
+    await screen.findAllByText('Distribuidora Norte')
+    await user.click(screen.getByRole('button', { name: '+ Nuevo proveedor' }))
+    await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Papelera Central')
+
+    await user.click(screen.getByRole('button', { name: '+ Crear categoría nueva…' }))
+    await user.type(screen.getByLabelText('Nombre de la categoría nueva'), 'Librería')
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 2, name: 'Librería', status: 'active' }, 201))
+    await user.click(screen.getByRole('button', { name: 'Crear' }))
+
+    expect(await screen.findByRole('button', { name: 'Librería' })).toBeInTheDocument()
+    const lastCall = fetchMock.mock.calls.at(-1)
+    expect(lastCall?.[0]).toBe('/categories')
+  })
+
   it('creates a new provider after confirmation', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>

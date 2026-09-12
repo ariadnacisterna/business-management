@@ -1,10 +1,34 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { fetchShortageCount } from '../../api/catalog'
+
 export function DashboardPage() {
+  const [shortageCount, setShortageCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    fetchShortageCount()
+      .then((result) => setShortageCount(result.count))
+      .catch(() => setShortageCount(null))
+  }, [])
+
   return (
     <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div>
         <h1 className="text-3xl font-bold">Panel</h1>
         <p className="mt-1 whitespace-nowrap text-base opacity-60 lg:text-lg">Resumen general del negocio</p>
       </div>
+
+      {shortageCount !== null && (
+        <Link
+          to="/faltantes"
+          className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 transition-colors hover:bg-surface-brand"
+        >
+          <div>
+            <p className="m-0 text-sm font-bold uppercase tracking-wide opacity-60">Faltantes pendientes</p>
+            <p className="m-0 text-3xl font-bold text-brand">{shortageCount}</p>
+          </div>
+        </Link>
+      )}
 
       <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-16 text-center">
         <svg

@@ -292,11 +292,18 @@ export function fetchCustomersWithPendingBalance(): Promise<CustomerWithBalance[
   return apiFetch<CustomerWithBalance[]>('/customers/pending-balance')
 }
 
-export function createCustomer(input: { name: string; phone?: string }): Promise<Customer> {
+export function createCustomer(input: {
+  name: string
+  phone?: string
+  address?: string
+}): Promise<Customer> {
   return apiFetch<Customer>('/customers', { method: 'POST', body: JSON.stringify(input) })
 }
 
-export function updateCustomer(id: number, input: { name?: string; phone?: string }): Promise<Customer> {
+export function updateCustomer(
+  id: number,
+  input: { name?: string; phone?: string; address?: string },
+): Promise<Customer> {
   return apiFetch<Customer>(`/customers/${id}`, { method: 'PATCH', body: JSON.stringify(input) })
 }
 

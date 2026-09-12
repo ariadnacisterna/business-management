@@ -100,4 +100,11 @@ describe('ShortagesPage', () => {
     expect(screen.getByRole('button', { name: 'Marcar como recibido' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Volver a faltante' })).toBeInTheDocument()
   })
+
+  it('shows an empty state, not an error, when there are no shortages yet', async () => {
+    renderPage([])
+
+    expect(await screen.findByText('No hay faltantes que coincidan.')).toBeInTheDocument()
+    expect(screen.queryByText(/No se pudieron cargar/)).not.toBeInTheDocument()
+  })
 })

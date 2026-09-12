@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
+  createCategory,
   createProvider,
   deactivateProvider,
   fetchCategories,
@@ -12,7 +13,10 @@ import { ApiError } from '../../api/client'
 import type { Category, Provider } from '../../api/types'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { Pagination } from '../../shared/Pagination'
 import { RowMenu } from '../../shared/RowMenu'
+import { SearchInput } from '../../shared/SearchInput'
+import { SelectMenu } from '../../shared/SelectMenu'
 import { useToast } from '../../shared/Toast'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
@@ -22,6 +26,7 @@ type Tab = 'providers' | 'purchase-orders'
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los proveedores.'
 const SAVE_ERROR_MESSAGE = 'No se pudo guardar el proveedor. Intentá de nuevo.'
+const CREATE_CATEGORY_ERROR_MESSAGE = 'No se pudo crear la categoría. Intentá de nuevo.'
 
 const inputClasses =
   'h-12 rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
@@ -52,12 +57,14 @@ function ProviderFormModal({
   title,
   initialValues,
   categories,
+  onCategoryCreated,
   onSubmit,
   onCancel,
 }: {
   title: string
   initialValues: ProviderFormValues
   categories: Category[]
+  onCategoryCreated: (category: Category) => void
   onSubmit: (values: ProviderFormValues) => Promise<void>
   onCancel: () => void
 }) {
@@ -67,8 +74,32 @@ function ProviderFormModal({
   const [confirming, setConfirming] = useState(false)
   const [attemptedSubmit, setAttemptedSubmit] = useState(false)
 
+  const [creatingCategory, setCreatingCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [savingNewCategory, setSavingNewCategory] = useState(false)
+  const [newCategoryError, setNewCategoryError] = useState<string | null>(null)
+
   const nameError = values.name.trim() === '' ? 'El nombre es obligatorio.' : null
   const canSubmit = nameError === null
+
+  async function handleCreateCategory() {
+    const trimmed = newCategoryName.trim()
+    if (trimmed === '') return
+
+    setSavingNewCategory(true)
+    setNewCategoryError(null)
+    try {
+      const created = await createCategory(trimmed)
+      onCategoryCreated(created)
+      toggleCategory(created.id)
+      setCreatingCategory(false)
+      setNewCategoryName('')
+    } catch (error) {
+      setNewCategoryError(error instanceof ApiError ? error.message : CREATE_CATEGORY_ERROR_MESSAGE)
+    } finally {
+      setSavingNewCategory(false)
+    }
+  }
 
   function toggleCategory(categoryId: number) {
     setValues((prev) => ({
@@ -188,7 +219,54 @@ function ProviderFormModal({
                 {category.name}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setCreatingCategory(true)}
+              disabled={saving}
+              className="rounded-full border border-dashed border-line px-3 py-1.5 text-sm font-semibold text-ink/60 transition-colors hover:bg-surface-brand"
+            >
+              + Crear categoría nueva…
+            </button>
           </div>
+
+          {creatingCategory && (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3">
+              <input
+                type="text"
+                aria-label="Nombre de la categoría nueva"
+                placeholder="Nombre de la categoría"
+                value={newCategoryName}
+                onChange={(event) => setNewCategoryName(event.target.value)}
+                disabled={savingNewCategory}
+                className={inputClasses}
+              />
+              <button
+                type="button"
+                onClick={handleCreateCategory}
+                disabled={savingNewCategory || newCategoryName.trim() === ''}
+                className={secondaryButtonClasses}
+              >
+                Crear
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCreatingCategory(false)
+                  setNewCategoryName('')
+                  setNewCategoryError(null)
+                }}
+                disabled={savingNewCategory}
+                className={secondaryButtonClasses}
+              >
+                Cancelar
+              </button>
+              {newCategoryError !== null && (
+                <p role="alert" className="m-0 w-full text-base text-danger">
+                  {newCategoryError}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2">
@@ -249,6 +327,10 @@ export function SuppliersPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [status, setStatus] = useState<Status>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
+
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
 
   const [creating, setCreating] = useState(false)
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null)
@@ -325,6 +407,23 @@ export function SuppliersPage() {
       })
   }
 
+  const filteredProviders = useMemo(() => {
+    const query = searchInput.trim().toLowerCase()
+    if (query === '') return providers
+    return providers.filter((provider) => provider.name.toLowerCase().includes(query))
+  }, [providers, searchInput])
+
+  const totalPages = Math.max(1, Math.ceil(filteredProviders.length / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const paginatedProviders = useMemo(
+    () => filteredProviders.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredProviders, currentPage, pageSize],
+  )
+
+  useEffect(() => {
+    setPage(1)
+  }, [searchInput, pageSize])
+
   function providerRowMenuItems(provider: Provider) {
     if (!canManage) return []
     return [
@@ -381,6 +480,31 @@ export function SuppliersPage() {
 
       {tab === 'providers' && (
         <>
+          {status === 'success' && providers.length > 0 && (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <SearchInput
+                value={searchInput}
+                onChange={setSearchInput}
+                placeholder="Buscar por nombre…"
+                ariaLabel="Buscar proveedores"
+                className="sm:min-w-64 sm:flex-1"
+              />
+              {filteredProviders.length > 10 && (
+                <SelectMenu
+                  value={String(pageSize)}
+                  onChange={(value) => setPageSize(Number(value))}
+                  ariaLabel="Cantidad por página"
+                  className="w-full sm:w-56"
+                  options={[
+                    { value: '10', label: '10 por página' },
+                    { value: '25', label: '25 por página' },
+                    { value: '50', label: '50 por página' },
+                  ]}
+                />
+              )}
+            </div>
+          )}
+
           {status === 'loading' && <p role="status">Cargando…</p>}
 
           {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
@@ -391,7 +515,13 @@ export function SuppliersPage() {
             </div>
           )}
 
-          {status === 'success' && providers.length > 0 && (
+          {status === 'success' && providers.length > 0 && filteredProviders.length === 0 && (
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
+              <p className="text-xl font-semibold">No hay proveedores que coincidan.</p>
+            </div>
+          )}
+
+          {status === 'success' && filteredProviders.length > 0 && (
             <>
               <div className="hidden overflow-hidden rounded-xl border border-line bg-surface sm:block">
                 <table className="w-full">
@@ -416,7 +546,7 @@ export function SuppliersPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {providers.map((provider) => (
+                    {paginatedProviders.map((provider) => (
                       <tr key={provider.id} className="border-t border-line">
                         <td className="px-4 py-3 text-base font-medium">{provider.name}</td>
                         <td className="px-4 py-3 text-base opacity-70">
@@ -445,7 +575,7 @@ export function SuppliersPage() {
               </div>
 
               <div className="flex flex-col gap-3 sm:hidden">
-                {providers.map((provider) => (
+                {paginatedProviders.map((provider) => (
                   <div key={provider.id} className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4">
                     <div className="flex items-start justify-between gap-3">
                       <span className="text-xl font-bold">{provider.name}</span>
@@ -464,6 +594,10 @@ export function SuppliersPage() {
                   </div>
                 ))}
               </div>
+
+              {filteredProviders.length > pageSize && (
+                <Pagination page={currentPage} totalPages={totalPages} onPageChange={setPage} />
+              )}
             </>
           )}
         </>
@@ -474,6 +608,7 @@ export function SuppliersPage() {
           title="Nuevo proveedor"
           initialValues={EMPTY_FORM}
           categories={categories}
+          onCategoryCreated={(category) => setCategories((prev) => [...prev, category])}
           onSubmit={handleCreate}
           onCancel={() => setCreating(false)}
         />
@@ -491,6 +626,7 @@ export function SuppliersPage() {
             category_ids: editingProvider.category_ids,
           }}
           categories={categories}
+          onCategoryCreated={(category) => setCategories((prev) => [...prev, category])}
           onSubmit={handleEdit}
           onCancel={() => setEditingProvider(null)}
         />

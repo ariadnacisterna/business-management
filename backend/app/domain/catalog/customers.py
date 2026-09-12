@@ -45,6 +45,7 @@ def create_customer(
     name: str,
     actor_account_id: int,
     phone: str | None = None,
+    address: str | None = None,
 ) -> Customer:
     name = _validate_name(name)
     _check_duplicate_name(db, business_id, name)
@@ -54,6 +55,7 @@ def create_customer(
         business_id=business_id,
         name=name,
         phone=_normalize_optional(phone),
+        address=_normalize_optional(address),
         status=EntityStatus.ACTIVE.value,
         created_by_account_id=actor_account_id,
         created_at=now,
@@ -73,6 +75,7 @@ def update_customer(
     actor_account_id: int,
     name: str | None = None,
     phone: str | None = None,
+    address: str | None = None,
 ) -> Customer:
     customer = get_customer(db, business_id, customer_id)
 
@@ -83,6 +86,9 @@ def update_customer(
 
     if phone is not None:
         customer.phone = _normalize_optional(phone)
+
+    if address is not None:
+        customer.address = _normalize_optional(address)
 
     customer.updated_by_account_id = actor_account_id
     customer.updated_at = datetime.now(UTC)

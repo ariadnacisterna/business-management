@@ -25,6 +25,7 @@ class Customer(Base, AuditedMixin):
     business_id: Mapped[int] = mapped_column(ForeignKey("business.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(NAME_MAX_LENGTH), nullable=False)
     phone: Mapped[str | None] = mapped_column(String(NAME_MAX_LENGTH), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(NAME_MAX_LENGTH), nullable=True)
     status: Mapped[str] = mapped_column(
         String(STATUS_MAX_LENGTH), nullable=False, default=EntityStatus.ACTIVE.value
     )

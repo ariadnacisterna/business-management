@@ -39,10 +39,10 @@ def _empleado_cookies(client, admin_cookies, user_name="empleado-clientes"):
     return _login(client, user_name, "Clave-segura-1")
 
 
-def _create_customer(client, cookies, name="Maria Gomez", phone=None):
+def _create_customer(client, cookies, name="Maria Gomez", phone=None, address=None):
     response = client.post(
         "/customers",
-        json={"name": name, "phone": phone},
+        json={"name": name, "phone": phone, "address": address},
         cookies=cookies,
         headers=_auth_headers(cookies),
     )
@@ -76,6 +76,37 @@ def test_customer_phone_is_optional(client):
     customer = _create_customer(client, admin_cookies, "Juan Diaz")
 
     assert customer["phone"] is None
+
+
+def test_customer_address_is_optional(client):
+    admin_cookies = _admin_cookies(client)
+
+    customer = _create_customer(client, admin_cookies, "Lucia Perez")
+
+    assert customer["address"] is None
+
+
+def test_customer_can_be_created_with_address(client):
+    admin_cookies = _admin_cookies(client)
+
+    customer = _create_customer(client, admin_cookies, "Pedro Ruiz", address="Calle Falsa 123")
+
+    assert customer["address"] == "Calle Falsa 123"
+
+
+def test_update_customer_sets_address(client):
+    admin_cookies = _admin_cookies(client)
+    customer = _create_customer(client, admin_cookies)
+
+    response = client.patch(
+        f"/customers/{customer['id']}",
+        json={"address": "Av. Siempreviva 742"},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["address"] == "Av. Siempreviva 742"
 
 
 def test_unauthenticated_request_cannot_create_customer(client):

@@ -262,17 +262,20 @@ class CustomerResponse(BaseModel):
     id: int
     name: str
     phone: str | None
+    address: str | None
     status: str
 
 
 class CreateCustomerRequest(BaseModel):
     name: str
     phone: str | None = None
+    address: str | None = None
 
 
 class UpdateCustomerRequest(BaseModel):
     name: str | None = None
     phone: str | None = None
+    address: str | None = None
 
 
 class CustomerBalanceResponse(BaseModel):
@@ -386,7 +389,11 @@ def _shortage_response(shortage: Shortage) -> ShortageResponse:
 
 def _customer_response(customer: Customer) -> CustomerResponse:
     return CustomerResponse(
-        id=customer.id, name=customer.name, phone=customer.phone, status=customer.status
+        id=customer.id,
+        name=customer.name,
+        phone=customer.phone,
+        address=customer.address,
+        status=customer.status,
     )
 
 
@@ -1344,7 +1351,7 @@ def create_customer(
 ) -> CustomerResponse:
     try:
         customer = customers.create_customer(
-            db, business.id, payload.name, _actor.id, phone=payload.phone
+            db, business.id, payload.name, _actor.id, phone=payload.phone, address=payload.address
         )
     except DuplicateCustomerName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "El cliente ya existe") from exc
@@ -1404,7 +1411,13 @@ def update_customer(
 ) -> CustomerResponse:
     try:
         customer = customers.update_customer(
-            db, business.id, customer_id, _actor.id, name=payload.name, phone=payload.phone
+            db,
+            business.id,
+            customer_id,
+            _actor.id,
+            name=payload.name,
+            phone=payload.phone,
+            address=payload.address,
         )
     except CustomerNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado") from exc

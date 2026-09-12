@@ -23,8 +23,8 @@ const ACCOUNT = {
 }
 
 const CUSTOMERS = [
-  { id: 1, name: 'Ana Gómez', phone: '111-2222', status: 'active' },
-  { id: 2, name: 'Beto Ruiz', phone: null, status: 'active' },
+  { id: 1, name: 'Ana Gómez', phone: '111-2222', address: 'Calle Falsa 123', status: 'active' },
+  { id: 2, name: 'Beto Ruiz', phone: null, address: null, status: 'active' },
 ]
 
 const PENDING_BALANCE = [{ customer: CUSTOMERS[0], balance: '150.00' }]
@@ -62,13 +62,53 @@ describe('CustomersPage', () => {
     vi.stubGlobal('fetch', vi.fn())
   })
 
-  it('lists customers with phone and pending balance', async () => {
+  it('lists customers with phone, address and pending balance', async () => {
     renderPage()
 
     expect((await screen.findAllByText('Ana Gómez')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Beto Ruiz').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Calle Falsa 123').length).toBeGreaterThan(0)
     expect(screen.getAllByText('$150,00').length).toBeGreaterThan(0)
     expect(screen.getAllByText('$0,00').length).toBeGreaterThan(0)
+  })
+
+  it('shows an empty state, not an error, when there are no customers yet', async () => {
+    renderPage([], [])
+
+    expect(await screen.findByText('No hay clientes registrados.')).toBeInTheDocument()
+    expect(screen.queryByText(/No se pudieron cargar/)).not.toBeInTheDocument()
+  })
+
+  it('filters customers by name', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findAllByText('Ana Gómez')
+    await user.type(screen.getByRole('textbox', { name: 'Buscar clientes' }), 'Beto')
+
+    expect(screen.getAllByText('Beto Ruiz').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Ana Gómez')).not.toBeInTheDocument()
+  })
+
+  it('shows the page-size selector once there are more than 10 customers', async () => {
+    const manyCustomers = Array.from({ length: 11 }, (_, index) => ({
+      id: index + 1,
+      name: `Cliente ${String(index + 1).padStart(2, '0')}`,
+      phone: null,
+      address: null,
+      status: 'active',
+    }))
+    renderPage(manyCustomers, [])
+
+    await screen.findAllByText('Cliente 01')
+    expect(screen.getByRole('button', { name: 'Cantidad por página' })).toBeInTheDocument()
+  })
+
+  it('hides the page-size selector when there are 10 or fewer customers', async () => {
+    renderPage()
+
+    await screen.findAllByText('Ana Gómez')
+    expect(screen.queryByRole('button', { name: 'Cantidad por página' })).not.toBeInTheDocument()
   })
 
   it('creates a new customer after confirmation', async () => {
@@ -80,7 +120,9 @@ describe('CustomersPage', () => {
     await user.click(screen.getByRole('button', { name: '+ Nuevo cliente' }))
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Carla Díaz')
 
-    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 3, name: 'Carla Díaz', phone: null, status: 'active' }, 201))
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ id: 3, name: 'Carla Díaz', phone: null, address: null, status: 'active' }, 201),
+    )
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
     await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Guardar' }))
 
@@ -122,7 +164,15 @@ describe('CustomersPage', () => {
     await user.clear(nameInput)
     await user.type(nameInput, 'Ana Gómez López')
 
-    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 1, name: 'Ana Gómez López', phone: '111-2222', status: 'active' }))
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        id: 1,
+        name: 'Ana Gómez López',
+        phone: '111-2222',
+        address: 'Calle Falsa 123',
+        status: 'active',
+      }),
+    )
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
     await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Guardar' }))
 
