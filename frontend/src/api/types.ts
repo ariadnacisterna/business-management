@@ -150,6 +150,59 @@ export interface CustomerWithBalance {
   balance: string
 }
 
+export interface MovementReason {
+  id: number
+  name: string
+  status: string
+}
+
+export interface Stock {
+  variant_id: number
+  quantity: number
+  minimum_quantity: number | null
+  effective_minimum_quantity: number
+  status: string
+}
+
+export interface StockRow {
+  product_id: number
+  product_name: string
+  category_id: number
+  unit_id: number
+  variant_id: number
+  variant_label: string | null
+  quantity: number
+  minimum_quantity: number | null
+  effective_minimum_quantity: number
+  status: string
+  last_movement_at: string | null
+  last_movement_by_account_name: string | null
+}
+
+export interface StockPage {
+  items: StockRow[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export interface StockCounts {
+  total: number
+  stock_bajo: number
+  sin_stock: number
+}
+
+export interface StockMovement {
+  id: number
+  variant_id: number
+  reason_id: number
+  quantity_before: number
+  quantity_after: number
+  observation: string | null
+  created_at: string
+  created_by_account_id: number
+}
+
 export interface ManagedAccount {
   id: number
   name: string

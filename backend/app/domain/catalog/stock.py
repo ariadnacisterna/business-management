@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.constants.limits import DEFAULT_MINIMUM_STOCK
 from app.constants.status import EntityStatus, StockStatus
@@ -94,6 +94,71 @@ def list_stock_movements(db: Session, business_id: int, variant_id: int) -> list
     )
 
 
+def list_stock(
+    db: Session,
+    business_id: int,
+    page: int | None = None,
+    page_size: int | None = None,
+    category_id: int | None = None,
+    search: str | None = None,
+    quick_filter: str | None = None,
+) -> tuple[list[tuple[Product, Variant]], int]:
+    query = (
+        select(Product, Variant)
+        .join(Variant, Variant.product_id == Product.id)
+        .where(
+            Product.business_id == business_id,
+            Product.status == EntityStatus.ACTIVE.value,
+            Variant.status == EntityStatus.ACTIVE.value,
+        )
+    )
+    if category_id is not None:
+        query = query.where(Product.category_id == category_id)
+    if search:
+        query = query.where(Product.name.ilike(f"%{search.strip()}%"))
+    if quick_filter == StockStatus.SIN_STOCK.value:
+        query = query.where(Variant.quantity == 0)
+    elif quick_filter == StockStatus.STOCK_BAJO.value:
+        query = query.where(
+            Variant.quantity > 0,
+            Variant.quantity <= func.coalesce(Variant.minimum_quantity, DEFAULT_MINIMUM_STOCK),
+        )
+    elif quick_filter == StockStatus.NORMAL.value:
+        query = query.where(
+            Variant.quantity > func.coalesce(Variant.minimum_quantity, DEFAULT_MINIMUM_STOCK),
+        )
+
+    query = query.order_by(Product.name, Variant.id)
+
+    if page_size is None:
+        rows = list(db.execute(query).all())
+        return rows, len(rows)
+
+    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+    page_query = query.offset(((page or 1) - 1) * page_size).limit(page_size)
+    rows = list(db.execute(page_query).all())
+    return rows, total
+
+
+def get_last_movements(db: Session, variant_ids: list[int]) -> dict[int, StockMovement]:
+    if not variant_ids:
+        return {}
+
+    ranked = (
+        select(
+            StockMovement,
+            func.row_number()
+            .over(partition_by=StockMovement.variant_id, order_by=StockMovement.created_at.desc())
+            .label("rn"),
+        )
+        .where(StockMovement.variant_id.in_(variant_ids))
+        .subquery()
+    )
+    last_movement = aliased(StockMovement, ranked)
+    rows = db.scalars(select(last_movement).where(ranked.c.rn == 1)).all()
+    return {movement.variant_id: movement for movement in rows}
+
+
 def count_low_stock(db: Session, business_id: int) -> int:
     query = (
         select(func.count())
@@ -107,3 +172,28 @@ def count_low_stock(db: Session, business_id: int) -> int:
         )
     )
     return db.scalar(query) or 0
+
+
+def stock_counts(db: Session, business_id: int) -> dict[str, int]:
+    base = (
+        select(Variant)
+        .join(Product, Variant.product_id == Product.id)
+        .where(
+            Product.business_id == business_id,
+            Product.status == EntityStatus.ACTIVE.value,
+            Variant.status == EntityStatus.ACTIVE.value,
+        )
+    )
+    total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
+    sin_stock = db.scalar(
+        select(func.count()).select_from(base.where(Variant.quantity == 0).subquery())
+    ) or 0
+    stock_bajo = db.scalar(
+        select(func.count()).select_from(
+            base.where(
+                Variant.quantity > 0,
+                Variant.quantity <= func.coalesce(Variant.minimum_quantity, DEFAULT_MINIMUM_STOCK),
+            ).subquery()
+        )
+    ) or 0
+    return {"total": total, "stock_bajo": stock_bajo, "sin_stock": sin_stock}

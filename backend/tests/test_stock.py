@@ -250,6 +250,171 @@ def test_low_stock_count_reflects_bajo_and_sin_stock_variants(client):
     assert sin_stock_variant is not None
 
 
+def test_list_stock_returns_all_active_variants_in_one_call(client):
+    admin_cookies = _admin_cookies(client)
+    reason = _create_movement_reason(client, admin_cookies, "Movimiento listado")
+    variant_id = _setup_variant(client, admin_cookies, "Producto listado")
+    _adjust_stock(client, admin_cookies, variant_id, 100, reason["id"])
+
+    response = client.get("/stock", cookies=admin_cookies)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    rows = body["items"]
+    assert body["total"] == len(rows)
+    matching = [row for row in rows if row["variant_id"] == variant_id]
+    assert len(matching) == 1
+    row = matching[0]
+    assert row["product_name"] == "Producto listado"
+    assert row["quantity"] == 100
+    assert row["status"] == "normal"
+
+
+def test_list_stock_includes_last_movement_with_account_name(client):
+    admin_cookies = _admin_cookies(client)
+    reason = _create_movement_reason(client, admin_cookies, "Movimiento con ultimo cambio")
+    variant_id = _setup_variant(client, admin_cookies, "Producto con ultimo cambio")
+    _adjust_stock(client, admin_cookies, variant_id, 50, reason["id"])
+
+    response = client.get("/stock", cookies=admin_cookies)
+
+    assert response.status_code == 200, response.text
+    rows = response.json()["items"]
+    row = next(row for row in rows if row["variant_id"] == variant_id)
+    assert row["last_movement_at"] is not None
+    assert row["last_movement_by_account_name"] not in (None, "")
+
+
+def test_list_stock_last_movement_is_null_without_adjustments(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(client, admin_cookies, "Producto sin movimientos")
+
+    response = client.get("/stock", cookies=admin_cookies)
+
+    assert response.status_code == 200, response.text
+    rows = response.json()["items"]
+    row = next(row for row in rows if row["variant_id"] == variant_id)
+    assert row["last_movement_at"] is None
+    assert row["last_movement_by_account_name"] is None
+
+
+def test_list_stock_excludes_inactive_products_and_variants(client):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Categoria inactiva")
+    unit = _create_unit(client, admin_cookies, "Unidad inactiva", "u2")
+    product = _create_product(client, admin_cookies, "Producto a desactivar", category["id"], unit["id"])
+
+    client.post(
+        f"/products/{product['id']}/deactivate",
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    response = client.get("/stock", cookies=admin_cookies)
+
+    assert response.status_code == 200, response.text
+    variant_ids = {row["variant_id"] for row in response.json()["items"]}
+    assert product["variants"][0]["id"] not in variant_ids
+
+
+def test_list_stock_paginates_results(client):
+    admin_cookies = _admin_cookies(client)
+    for index in range(3):
+        _setup_variant(client, admin_cookies, f"Producto paginado {index}")
+
+    first_page = client.get("/stock", params={"page": 1, "page_size": 10}, cookies=admin_cookies)
+    assert first_page.status_code == 200, first_page.text
+    body = first_page.json()
+    assert body["page"] == 1
+    assert body["page_size"] == 10
+    assert body["total"] >= 3
+    assert len(body["items"]) <= 10
+
+
+def test_list_stock_rejects_invalid_page_size(client):
+    admin_cookies = _admin_cookies(client)
+
+    response = client.get("/stock", params={"page": 1, "page_size": 7}, cookies=admin_cookies)
+
+    assert response.status_code == 422
+
+
+def test_list_stock_filters_by_category_and_search(client):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies, "Categoria filtro stock")
+    unit = _create_unit(client, admin_cookies, "Unidad filtro stock", "fu")
+    product = _create_product(client, admin_cookies, "Producto filtrable stock", category["id"], unit["id"])
+    variant_id = product["variants"][0]["id"]
+
+    response = client.get(
+        "/stock", params={"category_id": category["id"], "search": "filtrable"}, cookies=admin_cookies
+    )
+
+    assert response.status_code == 200, response.text
+    variant_ids = {row["variant_id"] for row in response.json()["items"]}
+    assert variant_id in variant_ids
+
+    other_category = client.get(
+        "/stock", params={"category_id": category["id"] + 1000}, cookies=admin_cookies
+    )
+    assert variant_id not in {row["variant_id"] for row in other_category.json()["items"]}
+
+
+def test_list_stock_quick_filter_critical_returns_only_sin_stock(client):
+    admin_cookies = _admin_cookies(client)
+    reason = _create_movement_reason(client, admin_cookies, "Movimiento filtro critico")
+    sin_stock_variant = _setup_variant(client, admin_cookies, "Producto criterio sin stock")
+    normal_variant = _setup_variant(client, admin_cookies, "Producto criterio normal")
+    _adjust_stock(client, admin_cookies, normal_variant, 100, reason["id"])
+
+    response = client.get("/stock", params={"quick_filter": "sin_stock"}, cookies=admin_cookies)
+
+    assert response.status_code == 200, response.text
+    variant_ids = {row["variant_id"] for row in response.json()["items"]}
+    assert sin_stock_variant in variant_ids
+    assert normal_variant not in variant_ids
+
+
+def test_list_stock_quick_filter_normal_returns_only_normal_stock(client):
+    admin_cookies = _admin_cookies(client)
+    reason = _create_movement_reason(client, admin_cookies, "Movimiento filtro normal")
+    sin_stock_variant = _setup_variant(client, admin_cookies, "Producto criterio sin stock normal")
+    normal_variant = _setup_variant(client, admin_cookies, "Producto criterio normal filtro")
+    _adjust_stock(client, admin_cookies, normal_variant, 100, reason["id"])
+
+    response = client.get("/stock", params={"quick_filter": "normal"}, cookies=admin_cookies)
+
+    assert response.status_code == 200, response.text
+    variant_ids = {row["variant_id"] for row in response.json()["items"]}
+    assert normal_variant in variant_ids
+    assert sin_stock_variant not in variant_ids
+
+
+def test_list_stock_rejects_invalid_quick_filter(client):
+    admin_cookies = _admin_cookies(client)
+
+    response = client.get("/stock", params={"quick_filter": "invalido"}, cookies=admin_cookies)
+
+    assert response.status_code == 422
+
+
+def test_stock_counts_reflect_all_variants_regardless_of_pagination(client):
+    admin_cookies = _admin_cookies(client)
+    reason = _create_movement_reason(client, admin_cookies, "Movimiento conteo total")
+
+    before = client.get("/stock/counts", cookies=admin_cookies)
+    assert before.status_code == 200
+    before_body = before.json()
+
+    _setup_variant(client, admin_cookies, "Producto conteo sin stock")
+    normal_variant = _setup_variant(client, admin_cookies, "Producto conteo normal")
+    _adjust_stock(client, admin_cookies, normal_variant, 100, reason["id"])
+
+    after = client.get("/stock/counts", cookies=admin_cookies).json()
+    assert after["total"] == before_body["total"] + 2
+    assert after["sin_stock"] == before_body["sin_stock"] + 1
+
+
 def test_create_and_deactivate_movement_reason(client):
     admin_cookies = _admin_cookies(client)
 

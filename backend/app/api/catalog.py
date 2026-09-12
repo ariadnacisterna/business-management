@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.constants.roles import GERENTE
-from app.constants.status import EntityStatus, ShortageStatus
+from app.constants.status import EntityStatus, ShortageStatus, StockStatus
 from app.core.storage import StorageNotConfigured, StorageRequestFailed
 from app.db.models import (
     Account,
@@ -77,7 +77,7 @@ from app.domain.catalog.errors import (
 )
 from app.domain.catalog.product_images import remove_product_image, set_product_image
 from app.domain.catalog.products import VariantInput
-from app.domain.pricing.prices import get_current_prices_for_variants
+from app.domain.pricing.prices import get_account_names, get_current_prices_for_variants
 
 router = APIRouter()
 
@@ -352,6 +352,34 @@ class StockMovementResponse(BaseModel):
 
 class LowStockCountResponse(BaseModel):
     count: int
+
+
+class StockRowResponse(BaseModel):
+    product_id: int
+    product_name: str
+    category_id: int
+    unit_id: int
+    variant_id: int
+    variant_label: str | None
+    quantity: int
+    minimum_quantity: int | None
+    effective_minimum_quantity: int
+    status: str
+    last_movement_at: str | None
+    last_movement_by_account_name: str | None
+
+
+class StockPageResponse(BaseModel):
+    items: list[StockRowResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class StockCountsResponse(BaseModel):
+    total: int
+    stock_bajo: int
+    sin_stock: int
 
 
 def _category_response(category) -> CategoryResponse:
@@ -1793,6 +1821,86 @@ def list_stock_movements(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
 
     return [_stock_movement_response(movement) for movement in movement_list]
+
+
+@router.get("/stock", response_model=StockPageResponse)
+def list_stock(
+    page: int | None = Query(default=None, ge=1),
+    page_size: int | None = Query(default=None),
+    category_id: int | None = None,
+    quick_filter: str | None = None,
+    search: str | None = None,
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> StockPageResponse:
+    paginate = page is not None or page_size is not None
+    if paginate:
+        page = page or 1
+        page_size = page_size or 25
+        if page_size not in ALLOWED_PAGE_SIZES:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "page_size invalido")
+    if quick_filter is not None and quick_filter not in (
+        StockStatus.STOCK_BAJO.value,
+        StockStatus.SIN_STOCK.value,
+        StockStatus.NORMAL.value,
+    ):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "quick_filter invalido")
+
+    rows, total = stock.list_stock(
+        db,
+        business.id,
+        page,
+        page_size,
+        category_id=category_id,
+        search=search,
+        quick_filter=quick_filter,
+    )
+
+    last_movements = stock.get_last_movements(db, [variant.id for _, variant in rows])
+    account_names = get_account_names(
+        db, [movement.created_by_account_id for movement in last_movements.values()]
+    )
+
+    return StockPageResponse(
+        items=[
+            StockRowResponse(
+                product_id=product.id,
+                product_name=product.name,
+                category_id=product.category_id,
+                unit_id=product.unit_id,
+                variant_id=variant.id,
+                variant_label=variant.label,
+                quantity=variant.quantity,
+                minimum_quantity=variant.minimum_quantity,
+                effective_minimum_quantity=stock.effective_minimum_quantity(variant),
+                status=stock.stock_status(variant),
+                last_movement_at=(
+                    last_movements[variant.id].created_at.isoformat()
+                    if variant.id in last_movements
+                    else None
+                ),
+                last_movement_by_account_name=(
+                    account_names[last_movements[variant.id].created_by_account_id]
+                    if variant.id in last_movements
+                    else None
+                ),
+            )
+            for product, variant in rows
+        ],
+        total=total,
+        page=page or 1,
+        page_size=page_size or total,
+    )
+
+
+@router.get("/stock/counts", response_model=StockCountsResponse)
+def get_stock_counts(
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> StockCountsResponse:
+    return StockCountsResponse(**stock.stock_counts(db, business.id))
 
 
 @router.get("/stock/low-count", response_model=LowStockCountResponse)

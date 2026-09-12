@@ -8,12 +8,18 @@ import type {
   Customer,
   CustomerBalance,
   CustomerWithBalance,
+  MovementReason,
   Price,
   Product,
   ProductCreationResult,
   ProductPage,
   Provider,
   Shortage,
+  Stock,
+  StockCounts,
+  StockMovement,
+  StockPage,
+  StockRow,
   Unit,
   Variant,
   VariantCreationResult,
@@ -313,4 +319,79 @@ export function createCredit(customerId: number, type: string, amount: string): 
     method: 'POST',
     body: JSON.stringify({ type, amount }),
   })
+}
+
+export function fetchMovementReasons(): Promise<MovementReason[]> {
+  return apiFetch<MovementReason[]>('/movement-reasons')
+}
+
+export function createMovementReason(name: string): Promise<MovementReason> {
+  return apiFetch<MovementReason>('/movement-reasons', { method: 'POST', body: JSON.stringify({ name }) })
+}
+
+export function updateMovementReason(id: number, name: string): Promise<MovementReason> {
+  return apiFetch<MovementReason>(`/movement-reasons/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) })
+}
+
+export function deactivateMovementReason(id: number): Promise<MovementReason> {
+  return apiFetch<MovementReason>(`/movement-reasons/${id}/deactivate`, { method: 'POST' })
+}
+
+export function reactivateMovementReason(id: number): Promise<MovementReason> {
+  return apiFetch<MovementReason>(`/movement-reasons/${id}/reactivate`, { method: 'POST' })
+}
+
+export function fetchStock(variantId: number): Promise<Stock> {
+  return apiFetch<Stock>(`/variants/${variantId}/stock`)
+}
+
+export function adjustStock(
+  variantId: number,
+  input: { quantity: number; reason_id: number; observation?: string },
+): Promise<StockMovement> {
+  return apiFetch<StockMovement>(`/variants/${variantId}/stock/adjustments`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function fetchStockMovements(variantId: number): Promise<StockMovement[]> {
+  return apiFetch<StockMovement[]>(`/variants/${variantId}/stock/movements`)
+}
+
+export function setMinimumStock(variantId: number, minimumQuantity: number | null): Promise<Stock> {
+  return apiFetch<Stock>(`/variants/${variantId}/stock/minimum`, {
+    method: 'PATCH',
+    body: JSON.stringify({ minimum_quantity: minimumQuantity }),
+  })
+}
+
+export function fetchLowStockCount(): Promise<{ count: number }> {
+  return apiFetch<{ count: number }>('/stock/low-count')
+}
+
+export function fetchAllStock(): Promise<StockRow[]> {
+  return apiFetch<StockPage>('/stock').then((result) => result.items)
+}
+
+export interface StockPageParams {
+  page: number
+  pageSize: number
+  categoryId?: number
+  search?: string
+  quickFilter?: 'normal' | 'stock_bajo' | 'sin_stock'
+}
+
+export function fetchStockPage(params: StockPageParams): Promise<StockPage> {
+  const query = new URLSearchParams()
+  query.set('page', String(params.page))
+  query.set('page_size', String(params.pageSize))
+  if (params.categoryId !== undefined) query.set('category_id', String(params.categoryId))
+  if (params.search !== undefined && params.search !== '') query.set('search', params.search)
+  if (params.quickFilter !== undefined) query.set('quick_filter', params.quickFilter)
+  return apiFetch<StockPage>(`/stock?${query.toString()}`)
+}
+
+export function fetchStockCounts(): Promise<StockCounts> {
+  return apiFetch<StockCounts>('/stock/counts')
 }

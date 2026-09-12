@@ -1,9 +1,37 @@
+import { useEffect, useState } from 'react'
+import { fetchStockSummary, type StockSummary } from '../inventory/stockRows'
+
+const EMPTY_SUMMARY: StockSummary = { total: 0, stockBajo: 0, sinStock: 0 }
+
 export function DashboardPage() {
+  const [summary, setSummary] = useState<StockSummary>(EMPTY_SUMMARY)
+
+  useEffect(() => {
+    fetchStockSummary()
+      .then(setSummary)
+      .catch(() => {})
+  }, [])
+
   return (
     <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div>
         <h1 className="text-3xl font-bold">Panel</h1>
         <p className="mt-1 whitespace-nowrap text-base opacity-60 lg:text-lg">Resumen general del negocio</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-line bg-surface p-5">
+          <p className="text-sm font-bold uppercase tracking-wide opacity-50">Variantes</p>
+          <p className="mt-1 text-3xl font-bold">{summary.total}</p>
+        </div>
+        <div className="rounded-xl border border-line bg-surface p-5">
+          <p className="text-sm font-bold uppercase tracking-wide opacity-50">Con stock bajo</p>
+          <p className="mt-1 text-3xl font-bold text-warning">{summary.stockBajo}</p>
+        </div>
+        <div className="rounded-xl border border-line bg-surface p-5">
+          <p className="text-sm font-bold uppercase tracking-wide opacity-50">Sin stock</p>
+          <p className="mt-1 text-3xl font-bold text-danger">{summary.sinStock}</p>
+        </div>
       </div>
 
       <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-16 text-center">
