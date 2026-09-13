@@ -101,6 +101,20 @@ def test_admin_can_create_provider(client):
     assert provider["category_ids"] == []
 
 
+def test_admin_can_create_provider_with_last_purchase_at(client):
+    admin_cookies = _admin_cookies(client)
+
+    response = client.post(
+        "/providers",
+        json={"name": "Distribuidora Norte", "last_purchase_at": "2023-01-07"},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["last_purchase_at"] == "2023-01-07"
+
+
 def test_gerente_cannot_create_provider(client):
     admin_cookies = _admin_cookies(client)
     gerente_cookies = _gerente_cookies(client, admin_cookies)

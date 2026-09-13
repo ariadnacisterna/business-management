@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CloseButton } from './CloseButton'
+import { CLOSE_FLOATING_MENUS_EVENT } from './floatingMenuEvents'
 import { CheckIcon, CrossIcon } from './icons'
 
 type ToastType = 'success' | 'error'
@@ -101,6 +102,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       const id = nextToastId++
       setToasts((prev) => [{ id, type, message }, ...prev])
       schedule(id)
+      window.dispatchEvent(new Event(CLOSE_FLOATING_MENUS_EVENT))
     },
     [schedule],
   )

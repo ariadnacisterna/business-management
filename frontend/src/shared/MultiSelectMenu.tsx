@@ -2,18 +2,19 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CLOSE_FLOATING_MENUS_EVENT } from './floatingMenuEvents'
 
-const SELECT_MENU_OPEN_EVENT = 'select-menu-open'
+const MULTI_SELECT_MENU_OPEN_EVENT = 'multi-select-menu-open'
 
-export interface SelectOption<T extends string> {
+export interface MultiSelectOption<T extends string> {
   value: T
   label: string
 }
 
 interface Props<T extends string> {
-  value: T
-  options: SelectOption<T>[]
-  onChange: (value: T) => void
+  value: T[]
+  options: MultiSelectOption<T>[]
+  onChange: (value: T[]) => void
   ariaLabel: string
+  placeholder: string
   className?: string
   disabled?: boolean
   hasError?: boolean
@@ -22,11 +23,12 @@ interface Props<T extends string> {
 
 const VIEWPORT_MARGIN = 8
 
-export function SelectMenu<T extends string>({
+export function MultiSelectMenu<T extends string>({
   value,
   options,
   onChange,
   ariaLabel,
+  placeholder,
   className = '',
   disabled = false,
   hasError = false,
@@ -40,15 +42,15 @@ export function SelectMenu<T extends string>({
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([])
   const instanceId = useId()
 
-  const selected = options.find((option) => option.value === value)
+  const selectedLabels = options.filter((option) => value.includes(option.value)).map((option) => option.label)
 
   useEffect(() => {
     function handleOtherOpen(event: Event) {
       const detail = (event as CustomEvent<string>).detail
       if (detail !== instanceId) setOpen(false)
     }
-    window.addEventListener(SELECT_MENU_OPEN_EVENT, handleOtherOpen)
-    return () => window.removeEventListener(SELECT_MENU_OPEN_EVENT, handleOtherOpen)
+    window.addEventListener(MULTI_SELECT_MENU_OPEN_EVENT, handleOtherOpen)
+    return () => window.removeEventListener(MULTI_SELECT_MENU_OPEN_EVENT, handleOtherOpen)
   }, [instanceId])
 
   useEffect(() => {
@@ -60,17 +62,19 @@ export function SelectMenu<T extends string>({
   }, [])
 
   function openMenu() {
-    window.dispatchEvent(new CustomEvent(SELECT_MENU_OPEN_EVENT, { detail: instanceId }))
+    window.dispatchEvent(new CustomEvent(MULTI_SELECT_MENU_OPEN_EVENT, { detail: instanceId }))
     setPositioned(false)
     setOpen(true)
   }
 
+  function closeMenu() {
+    setOpen(false)
+    onBlur?.()
+  }
+
   useEffect(() => {
     if (!open) return
-    const selectedIndex = options.findIndex((option) => option.value === value)
-    const target = optionRefs.current[selectedIndex >= 0 ? selectedIndex : 0]
-    target?.focus()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    optionRefs.current[0]?.focus()
   }, [open])
 
   useLayoutEffect(() => {
@@ -92,10 +96,14 @@ export function SelectMenu<T extends string>({
 
   function toggle() {
     if (open) {
-      setOpen(false)
+      closeMenu()
       return
     }
     openMenu()
+  }
+
+  function toggleOption(optionValue: T) {
+    onChange(value.includes(optionValue) ? value.filter((item) => item !== optionValue) : [...value, optionValue])
   }
 
   function focusOption(index: number) {
@@ -130,11 +138,11 @@ export function SelectMenu<T extends string>({
         break
       case 'Escape':
         event.preventDefault()
-        setOpen(false)
+        closeMenu()
         triggerRef.current?.focus()
         break
       case 'Tab':
-        setOpen(false)
+        closeMenu()
         break
     }
   }
@@ -146,7 +154,6 @@ export function SelectMenu<T extends string>({
         type="button"
         onClick={toggle}
         onKeyDown={handleTriggerKeyDown}
-        onBlur={onBlur}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -157,7 +164,9 @@ export function SelectMenu<T extends string>({
             : 'border-line focus:border-brand focus:ring-brand/10'
         }`}
       >
-        <span className="truncate">{selected?.label ?? ''}</span>
+        <span className={`truncate ${selectedLabels.length === 0 ? 'opacity-50' : ''}`}>
+          {selectedLabels.length > 0 ? selectedLabels.join(', ') : placeholder}
+        </span>
         <svg
           aria-hidden="true"
           viewBox="0 0 24 24"
@@ -178,7 +187,7 @@ export function SelectMenu<T extends string>({
             <div
               className="fixed inset-0 z-40"
               onClick={() => {
-                setOpen(false)
+                closeMenu()
                 triggerRef.current?.focus()
               }}
               aria-hidden="true"
@@ -186,6 +195,7 @@ export function SelectMenu<T extends string>({
             <ul
               ref={listRef}
               role="listbox"
+              aria-multiselectable="true"
               aria-label={ariaLabel}
               style={{
                 top: position.top,
@@ -195,29 +205,40 @@ export function SelectMenu<T extends string>({
               }}
               className="scrollbar-clean fixed z-50 max-h-64 overflow-y-auto rounded-xl border border-line bg-surface py-1 shadow-xl"
             >
-              {options.map((option, index) => (
-                <li key={option.value}>
-                  <button
-                    ref={(element) => {
-                      optionRefs.current[index] = element
-                    }}
-                    type="button"
-                    role="option"
-                    aria-selected={option.value === value}
-                    onClick={() => {
-                      onChange(option.value)
-                      setOpen(false)
-                      triggerRef.current?.focus()
-                    }}
-                    onKeyDown={(event) => handleOptionKeyDown(event, index)}
-                    className={`w-full px-4 py-2.5 text-left text-lg transition-colors hover:bg-surface-brand focus:bg-surface-brand focus:outline-none ${
-                      option.value === value ? 'bg-surface-brand font-semibold text-brand' : ''
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                </li>
-              ))}
+              {options.map((option, index) => {
+                const checked = value.includes(option.value)
+                return (
+                  <li key={option.value}>
+                    <button
+                      ref={(element) => {
+                        optionRefs.current[index] = element
+                      }}
+                      type="button"
+                      role="option"
+                      aria-selected={checked}
+                      onClick={() => toggleOption(option.value)}
+                      onKeyDown={(event) => handleOptionKeyDown(event, index)}
+                      className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-lg transition-colors hover:bg-surface-brand focus:bg-surface-brand focus:outline-none ${
+                        checked ? 'font-semibold text-brand' : ''
+                      }`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 ${
+                          checked ? 'border-brand bg-brand text-brand-contrast' : 'border-line'
+                        }`}
+                      >
+                        {checked && (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </span>
+                      {option.label}
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           </>,
           document.body,

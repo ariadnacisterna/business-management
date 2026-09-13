@@ -3,21 +3,12 @@ import type { Account, Business } from '../../api/types'
 import { isDueno } from '../../features/access/roles'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { useToast } from '../Toast'
-import { firstName } from '../formatName'
+import { firstName, initials } from '../formatName'
 
 interface Props {
   account: Account
   onLogout: () => Promise<void>
   onSwitchBusiness: (businessId: number) => Promise<void>
-}
-
-function initials(name: string): string {
-  return name
-    .split(' ')
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
 }
 
 export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {

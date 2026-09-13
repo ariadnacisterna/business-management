@@ -177,13 +177,14 @@ describe('SuppliersPage', () => {
     await user.click(screen.getByRole('button', { name: 'Nuevo proveedor' }))
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Papelera Central')
 
-    await user.click(screen.getByRole('button', { name: '+ Crear categoría nueva…' }))
-    await user.type(screen.getByLabelText('Nombre de la categoría nueva'), 'Librería')
+    await user.click(screen.getByRole('button', { name: '+ Nueva' }))
+    const categoryDialog = await screen.findByRole('dialog', { name: 'Nueva categoría' })
+    await user.type(within(categoryDialog).getByLabelText(/^Nombre \*?$/), 'Librería')
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ id: 2, name: 'Librería', status: 'active' }, 201))
-    await user.click(screen.getByRole('button', { name: 'Crear' }))
+    await user.click(within(categoryDialog).getByRole('button', { name: 'Crear' }))
 
-    expect(await screen.findByRole('button', { name: 'Librería' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Categorías' })).toHaveTextContent('Librería')
     const lastCall = fetchMock.mock.calls.at(-1)
     expect(lastCall?.[0]).toBe('/categories')
   })
@@ -218,6 +219,93 @@ describe('SuppliersPage', () => {
     expect((await screen.findAllByText('Papelera Central')).length).toBeGreaterThan(0)
     const lastCall = fetchMock.mock.calls.at(-1)
     expect(lastCall?.[0]).toBe('/providers')
+  })
+
+  it('picks a purchase date from the DatePicker calendar and submits it', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage()
+
+    await screen.findAllByText('Distribuidora Norte')
+    await user.click(screen.getByRole('button', { name: 'Nuevo proveedor' }))
+    await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Papelera Central')
+
+    const today = new Date()
+    const target = new Date(today.getFullYear(), today.getMonth(), 7)
+    const targetLabel = target.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+    await user.click(screen.getByRole('button', { name: 'Última compra' }))
+    await user.click(screen.getByRole('button', { name: targetLabel }))
+    await user.click(screen.getByRole('button', { name: 'Listo' }))
+
+    const expectedIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-07`
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          id: 3,
+          name: 'Papelera Central',
+          contact_name: null,
+          email: null,
+          phone: null,
+          last_purchase_at: expectedIso,
+          status: 'active',
+          category_ids: [],
+        },
+        201,
+      ),
+    )
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Guardar' }))
+
+    await screen.findAllByText('Papelera Central')
+    const lastCall = fetchMock.mock.calls.at(-1)
+    const body = JSON.parse((lastCall?.[1] as RequestInit).body as string)
+    expect(body.last_purchase_at).toBe(expectedIso)
+  })
+
+  it('checks and unchecks a category from the checklist', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage()
+
+    await screen.findAllByText('Distribuidora Norte')
+    await user.click(screen.getByRole('button', { name: 'Nuevo proveedor' }))
+    await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Papelera Central')
+
+    await user.click(screen.getByRole('button', { name: 'Categorías' }))
+    await user.click(screen.getByRole('option', { name: 'Mercería' }))
+    expect(screen.getByRole('option', { name: 'Mercería' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('button', { name: 'Categorías' })).toHaveTextContent('Mercería')
+
+    await user.click(screen.getByRole('option', { name: 'Mercería' }))
+    expect(screen.getByRole('option', { name: 'Mercería' })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('button', { name: 'Categorías' })).toHaveTextContent('Sin categorías')
+
+    await user.click(screen.getByRole('option', { name: 'Mercería' }))
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          id: 3,
+          name: 'Papelera Central',
+          contact_name: null,
+          email: null,
+          phone: null,
+          last_purchase_at: null,
+          status: 'active',
+          category_ids: [1],
+        },
+        201,
+      ),
+    )
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Guardar' }))
+
+    await screen.findAllByText('Papelera Central')
+    const lastCall = fetchMock.mock.calls.at(-1)
+    const body = JSON.parse((lastCall?.[1] as RequestInit).body as string)
+    expect(body.category_ids).toEqual([1])
   })
 
   it('does not create the provider when the confirmation is cancelled', async () => {

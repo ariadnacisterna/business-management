@@ -58,6 +58,7 @@ def create_provider(
     contact_name: str | None = None,
     email: str | None = None,
     phone: str | None = None,
+    last_purchase_at: date | None = None,
     category_ids: list[int] | None = None,
 ) -> Provider:
     name = _validate_name(name)
@@ -71,6 +72,7 @@ def create_provider(
         contact_name=_normalize_optional(contact_name),
         email=_normalize_optional(email),
         phone=_normalize_optional(phone),
+        last_purchase_at=last_purchase_at,
         categories=categories,
         status=EntityStatus.ACTIVE.value,
         created_by_account_id=actor_account_id,

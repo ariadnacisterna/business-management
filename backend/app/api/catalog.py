@@ -224,6 +224,7 @@ class CreateProviderRequest(BaseModel):
     contact_name: str | None = None
     email: str | None = None
     phone: str | None = None
+    last_purchase_at: date | None = None
     category_ids: list[int] = []
 
 
@@ -1209,6 +1210,7 @@ def create_provider(
             contact_name=payload.contact_name,
             email=payload.email,
             phone=payload.phone,
+            last_purchase_at=payload.last_purchase_at,
             category_ids=payload.category_ids,
         )
     except DuplicateProviderName as exc:

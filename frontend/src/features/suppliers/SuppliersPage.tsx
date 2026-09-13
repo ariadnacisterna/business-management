@@ -13,8 +13,13 @@ import { ApiError } from '../../api/client'
 import type { Category, Provider } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { DatePicker, formatISODateDisplay } from '../../shared/DatePicker'
+import { FieldRow } from '../../shared/FieldRow'
+import { initials } from '../../shared/formatName'
+import { PencilIcon } from '../../shared/icons'
 import { HEADER_ACTION_BUTTON_CLASSES } from '../../shared/headerActionButton'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { MultiSelectMenu } from '../../shared/MultiSelectMenu'
 import { Pagination } from '../../shared/Pagination'
 import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
@@ -85,7 +90,11 @@ function ProviderFormModal({
   const [newCategoryError, setNewCategoryError] = useState<string | null>(null)
 
   const nameError = values.name.trim() === '' ? 'El nombre es obligatorio.' : null
-  const canSubmit = nameError === null
+  const emailError =
+    values.email.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())
+      ? 'Ingresá un email válido.'
+      : null
+  const canSubmit = nameError === null && emailError === null
 
   async function handleCreateCategory() {
     const trimmed = newCategoryName.trim()
@@ -104,6 +113,12 @@ function ProviderFormModal({
     } finally {
       setSavingNewCategory(false)
     }
+  }
+
+  function cancelCreateCategory() {
+    setCreatingCategory(false)
+    setNewCategoryName('')
+    setNewCategoryError(null)
   }
 
   function toggleCategory(categoryId: number) {
@@ -177,16 +192,24 @@ function ProviderFormModal({
           />
         </label>
 
-        <label className="flex flex-col gap-1.5">
-          <span className="text-base font-semibold">Email</span>
-          <input
-            type="email"
-            value={values.email}
-            onChange={(event) => setValues((prev) => ({ ...prev, email: event.target.value }))}
-            disabled={saving}
-            className={inputClasses}
-          />
-        </label>
+        <div className="flex flex-col gap-1.5">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-base font-semibold">Email</span>
+            <input
+              type="text"
+              inputMode="email"
+              value={values.email}
+              onChange={(event) => setValues((prev) => ({ ...prev, email: event.target.value }))}
+              disabled={saving}
+              className={inputClasses}
+            />
+          </label>
+          {attemptedSubmit && emailError !== null && (
+            <span role="alert" className="text-sm text-danger">
+              {emailError}
+            </span>
+          )}
+        </div>
 
         <label className="flex flex-col gap-1.5">
           <span className="text-base font-semibold">Teléfono</span>
@@ -198,81 +221,102 @@ function ProviderFormModal({
           />
         </label>
 
-        <label className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5">
           <span className="text-base font-semibold">Última compra</span>
-          <input
-            type="date"
+          <DatePicker
             value={values.last_purchase_at}
-            onChange={(event) => setValues((prev) => ({ ...prev, last_purchase_at: event.target.value }))}
+            onChange={(value) => setValues((prev) => ({ ...prev, last_purchase_at: value }))}
+            ariaLabel="Última compra"
             disabled={saving}
-            className={inputClasses}
+            disableFuture
           />
-        </label>
+        </div>
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-base font-semibold">Categorías</span>
-          <div className="flex flex-wrap gap-2">
-            {categories.map((category) => (
-              <button
-                key={category.id}
-                type="button"
-                onClick={() => toggleCategory(category.id)}
-                disabled={saving}
-                className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
-                  values.category_ids.includes(category.id)
-                    ? 'border-brand bg-surface-brand text-brand'
-                    : 'border-line text-ink/60 hover:bg-surface-brand'
-                }`}
-              >
-                {category.name}
-              </button>
-            ))}
+          <div className="flex items-center justify-between">
+            <span className="text-base font-semibold">Categorías</span>
             <button
               type="button"
               onClick={() => setCreatingCategory(true)}
               disabled={saving}
-              className="rounded-full border border-dashed border-line px-3 py-1.5 text-sm font-semibold text-ink/60 transition-colors hover:bg-surface-brand"
+              className="text-base font-semibold text-danger hover:underline"
             >
-              + Crear categoría nueva…
+              + Nueva
             </button>
           </div>
 
+          <MultiSelectMenu
+            value={values.category_ids.map(String)}
+            options={categories.map((category) => ({ value: String(category.id), label: category.name }))}
+            onChange={(selected) => setValues((prev) => ({ ...prev, category_ids: selected.map(Number) }))}
+            ariaLabel="Categorías"
+            placeholder="Sin categorías"
+            disabled={saving}
+          />
+
           {creatingCategory && (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3">
-              <input
-                type="text"
-                aria-label="Nombre de la categoría nueva"
-                placeholder="Nombre de la categoría"
-                value={newCategoryName}
-                onChange={(event) => setNewCategoryName(event.target.value)}
-                disabled={savingNewCategory}
-                className={inputClasses}
-              />
-              <button
-                type="button"
-                onClick={handleCreateCategory}
-                disabled={savingNewCategory || newCategoryName.trim() === ''}
-                className={secondaryButtonClasses}
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-ink/20" onClick={cancelCreateCategory} aria-hidden="true" />
+              <div
+                role="dialog"
+                aria-label="Nueva categoría"
+                className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
               >
-                Crear
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCreatingCategory(false)
-                  setNewCategoryName('')
-                  setNewCategoryError(null)
-                }}
-                disabled={savingNewCategory}
-                className={secondaryButtonClasses}
-              >
-                Cancelar
-              </button>
-              {newCategoryError !== null && (
-                <p role="alert" className="m-0 w-full text-base text-danger">
-                  {newCategoryError}
-                </p>
-              )}
+                <div className="flex items-start justify-between">
+                  <h2 className="m-0 text-2xl font-bold">Nueva categoría</h2>
+                  <CloseButton onClose={cancelCreateCategory} />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="new-category-name" className="text-base font-bold uppercase tracking-wide opacity-60">
+                    Nombre <span className="text-danger">*</span>
+                  </label>
+                  <input
+                    id="new-category-name"
+                    type="text"
+                    placeholder="Ej: Ropa interior"
+                    value={newCategoryName}
+                    onChange={(event) => setNewCategoryName(event.target.value)}
+                    disabled={savingNewCategory}
+                    autoFocus
+                    className={inputClasses}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-base font-bold uppercase tracking-wide opacity-60">
+                    Descripción <span className="font-normal normal-case opacity-70">(opcional)</span>
+                  </span>
+                  <p className="m-0 flex min-h-16 items-start rounded-lg border border-line bg-line/10 px-3.5 py-2.5 text-lg italic opacity-40">
+                    Próximamente
+                  </p>
+                </div>
+
+                {newCategoryError !== null && (
+                  <p role="alert" className="m-0 text-base text-danger">
+                    {newCategoryError}
+                  </p>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCreateCategory}
+                    disabled={savingNewCategory || newCategoryName.trim() === ''}
+                    className={`${primaryButtonClasses} flex-1`}
+                  >
+                    Crear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelCreateCategory}
+                    disabled={savingNewCategory}
+                    className={`${secondaryButtonClasses} flex-1`}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -362,14 +406,6 @@ export function SuppliersPage() {
 
   useEffect(load, [account?.active_business_id])
 
-  function categoryNames(categoryIds: number[]): string {
-    if (categoryIds.length === 0) return '—'
-    return categoryIds
-      .map((id) => categories.find((category) => category.id === id)?.name)
-      .filter((name): name is string => name !== undefined)
-      .join(', ')
-  }
-
   function applyProviderUpdate(updated: Provider) {
     setProviders((current) => current.map((item) => (item.id === updated.id ? updated : item)))
   }
@@ -380,6 +416,7 @@ export function SuppliersPage() {
       contact_name: values.contact_name.trim() || undefined,
       email: values.email.trim() || undefined,
       phone: values.phone.trim() || undefined,
+      last_purchase_at: values.last_purchase_at === '' ? undefined : values.last_purchase_at,
       category_ids: values.category_ids,
     })
     setProviders((current) => [...current, created])
@@ -438,6 +475,7 @@ export function SuppliersPage() {
     return [
       {
         label: 'Editar proveedor',
+        icon: <PencilIcon />,
         onClick: () => setEditingProvider(provider),
       },
       {
@@ -595,11 +633,33 @@ export function SuppliersPage() {
                           {provider.email !== null && <div className="text-sm opacity-60">{provider.email}</div>}
                           {provider.phone !== null && <div className="text-sm opacity-60">{provider.phone}</div>}
                         </td>
-                        <td className="px-4 py-3 text-base opacity-70">{categoryNames(provider.category_ids)}</td>
-                        <td className="px-4 py-3 text-base opacity-70">{provider.last_purchase_at ?? '—'}</td>
+                        <td className="px-4 py-3">
+                          {provider.category_ids.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5">
+                              {provider.category_ids.map((id) => {
+                                const categoryName = categories.find((category) => category.id === id)?.name
+                                return (
+                                  <span
+                                    key={id}
+                                    className="rounded-full border border-brand bg-surface-brand px-2.5 py-0.5 text-sm font-semibold text-brand"
+                                  >
+                                    {categoryName ?? `#${id}`}
+                                  </span>
+                                )
+                              })}
+                            </div>
+                          ) : (
+                            <span className="text-sm opacity-40">Sin categorías</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-base opacity-70">
+                          {provider.last_purchase_at !== null ? formatISODateDisplay(provider.last_purchase_at) : '—'}
+                        </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`text-sm font-semibold ${provider.status === 'active' ? 'text-success' : 'opacity-50'}`}
+                            className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
+                              provider.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
+                            }`}
                           >
                             ● {provider.status === 'active' ? 'Activo' : 'Inactivo'}
                           </span>
@@ -619,21 +679,53 @@ export function SuppliersPage() {
               {viewMode === 'cards' && (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {paginatedProviders.map((provider) => (
-                  <div key={provider.id} className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="text-xl font-bold">{provider.name}</span>
+                  <div key={provider.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
+                    <div className="flex items-center gap-3 border-b border-line pb-3">
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand text-lg font-bold text-brand-contrast">
+                        {initials(provider.name)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xl font-bold leading-tight">{provider.name}</p>
+                        <p className="m-0 truncate text-lg opacity-60">{provider.contact_name ?? '—'}</p>
+                      </div>
                       <div className="flex items-center gap-2">
                         <span
-                          className={`text-sm font-semibold ${provider.status === 'active' ? 'text-success' : 'opacity-50'}`}
+                          className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
+                            provider.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
+                          }`}
                         >
                           ● {provider.status === 'active' ? 'Activo' : 'Inactivo'}
                         </span>
                         {canManage && <RowMenu title={provider.name} items={providerRowMenuItems(provider)} />}
                       </div>
                     </div>
-                    <p className="m-0 text-base opacity-70">{provider.contact_name ?? '—'}</p>
-                    <p className="m-0 text-base opacity-70">Categorías: {categoryNames(provider.category_ids)}</p>
-                    <p className="m-0 text-base opacity-70">Última compra: {provider.last_purchase_at ?? '—'}</p>
+
+                    {provider.category_ids.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {provider.category_ids.map((id) => {
+                          const categoryName = categories.find((category) => category.id === id)?.name
+                          return (
+                            <span
+                              key={id}
+                              className="rounded-full border border-brand bg-surface-brand px-3 py-1 text-base font-semibold text-brand"
+                            >
+                              {categoryName ?? `#${id}`}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <p className="m-0 text-lg opacity-40">Sin categorías</p>
+                    )}
+
+                    <div className="flex flex-col gap-1.5">
+                      <FieldRow label="Teléfono" value={provider.phone ?? '—'} />
+                      <FieldRow label="Email" value={provider.email ?? '—'} />
+                      <FieldRow
+                        label="Última compra"
+                        value={provider.last_purchase_at !== null ? formatISODateDisplay(provider.last_purchase_at) : '—'}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>

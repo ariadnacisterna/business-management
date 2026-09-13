@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { CloseButton } from './CloseButton'
+import { CLOSE_FLOATING_MENUS_EVENT } from './floatingMenuEvents'
 
 interface Props {
   title: string
@@ -10,6 +12,10 @@ interface Props {
 }
 
 export function ConfirmDialog({ title, description, confirmLabel, danger = false, onConfirm, onCancel }: Props) {
+  useEffect(() => {
+    window.dispatchEvent(new Event(CLOSE_FLOATING_MENUS_EVENT))
+  }, [])
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={onCancel} aria-hidden="true" />

@@ -223,6 +223,7 @@ export function createProvider(input: {
   contact_name?: string
   email?: string
   phone?: string
+  last_purchase_at?: string
   category_ids?: number[]
 }): Promise<Provider> {
   return apiFetch<Provider>('/providers', { method: 'POST', body: JSON.stringify(input) })

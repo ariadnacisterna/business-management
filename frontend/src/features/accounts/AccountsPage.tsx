@@ -14,6 +14,7 @@ import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { FieldRow } from '../../shared/FieldRow'
 import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
+import { initials } from '../../shared/formatName'
 import { HEADER_ACTION_BUTTON_CLASSES } from '../../shared/headerActionButton'
 import { HighlightedText } from '../../shared/HighlightedText'
 import { LockIcon, PencilIcon } from '../../shared/icons'
@@ -83,15 +84,6 @@ const primaryButtonClasses =
   'h-12 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40'
 const secondaryButtonClasses =
   'h-12 rounded-lg border border-line px-5 text-base font-semibold transition-colors hover:bg-surface-brand'
-
-function initials(name: string): string {
-  return name
-    .split(' ')
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-}
 
 const ROLE_BADGE_CLASSES: Record<Role, string> = {
   Empleado: 'bg-role-empleado-soft text-role-empleado',
