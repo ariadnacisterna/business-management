@@ -142,10 +142,11 @@ describe('Sidebar', () => {
   })
 
   it('shows the low-stock badge using the sin-stock danger color and refreshes it when stock changes', async () => {
-    let count = 3
-    const fetchMock = vi.fn(() =>
-      Promise.resolve(new Response(JSON.stringify({ count }), { status: 200 })),
-    )
+    let lowStockCount = 3
+    const fetchMock = vi.fn((url: string) => {
+      const count = url.includes('/shortages/count') ? 0 : lowStockCount
+      return Promise.resolve(new Response(JSON.stringify({ count }), { status: 200 }))
+    })
     vi.stubGlobal('fetch', fetchMock)
 
     renderSidebar('/products')
@@ -154,10 +155,32 @@ describe('Sidebar', () => {
     expect(badge).toHaveClass('bg-[#f1c9c9]')
     expect(badge).toHaveClass('text-danger')
 
-    count = 9
+    lowStockCount = 9
     window.dispatchEvent(new Event('stock-updated'))
 
     expect(await screen.findByText('9')).toBeInTheDocument()
+
+    vi.unstubAllGlobals()
+  })
+
+  it('shows the shortage badge and refreshes it when shortages change', async () => {
+    let shortageCount = 2
+    const fetchMock = vi.fn((url: string) => {
+      const count = url.includes('/shortages/count') ? shortageCount : 0
+      return Promise.resolve(new Response(JSON.stringify({ count }), { status: 200 }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderSidebar('/products')
+
+    const badge = await screen.findByText('2')
+    expect(badge).toHaveClass('bg-warning/20')
+    expect(badge).toHaveClass('text-warning')
+
+    shortageCount = 5
+    window.dispatchEvent(new Event('shortages-updated'))
+
+    expect(await screen.findByText('5')).toBeInTheDocument()
 
     vi.unstubAllGlobals()
   })

@@ -250,7 +250,9 @@ class ShortageResponse(BaseModel):
     product_id: int
     product_name: str
     category_id: int
+    category_name: str
     provider_id: int | None
+    provider_name: str | None
     status: str
     created_at: str
     created_by_account_id: int
@@ -503,7 +505,9 @@ def _shortage_response(shortage: Shortage) -> ShortageResponse:
         product_id=product.id,
         product_name=product.name,
         category_id=product.category_id,
+        category_name=product.category.name,
         provider_id=product.provider_id,
+        provider_name=product.provider.name if product.provider is not None else None,
         status=shortage.status,
         created_at=shortage.created_at.isoformat(),
         created_by_account_id=shortage.created_by_account_id,

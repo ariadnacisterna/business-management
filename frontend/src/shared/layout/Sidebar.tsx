@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { fetchLowStockCount } from '../../api/catalog'
+import { fetchLowStockCount, fetchShortageCount } from '../../api/catalog'
 import type { Account } from '../../api/types'
 import { hasMinimumRole } from '../../features/access/roles'
 import { Brand } from '../Brand'
@@ -19,12 +19,14 @@ function SidebarContent({
   collapsed = false,
   onToggleCollapse,
   lowStockCount,
+  shortageCount,
 }: {
   account: Account | null
   onNavigate: () => void
   collapsed?: boolean
   onToggleCollapse?: () => void
   lowStockCount: number
+  shortageCount: number
 }) {
   const visibleNavItems = NAV_ITEMS.filter(
     (item) => item.minRole === undefined || hasMinimumRole(account, item.minRole),
@@ -107,6 +109,15 @@ function SidebarContent({
                   {lowStockCount}
                 </span>
               )}
+              {item.to === '/inventario' && shortageCount > 0 && (
+                <span
+                  className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-warning/20 px-1.5 text-sm font-bold text-warning ${
+                    collapsed ? 'absolute -right-1 -bottom-1' : ''
+                  }`}
+                >
+                  {shortageCount}
+                </span>
+              )}
             </NavLink>
           ),
         )}
@@ -118,6 +129,7 @@ function SidebarContent({
 export function Sidebar({ isOpen, onNavigate, account }: Props) {
   const [collapsed, setCollapsed] = useState(false)
   const [lowStockCount, setLowStockCount] = useState(0)
+  const [shortageCount, setShortageCount] = useState(0)
 
   useEffect(() => {
     if (account === null) return
@@ -131,6 +143,18 @@ export function Sidebar({ isOpen, onNavigate, account }: Props) {
     return () => window.removeEventListener('stock-updated', refresh)
   }, [account])
 
+  useEffect(() => {
+    if (account === null) return
+    function refresh() {
+      fetchShortageCount()
+        .then((result) => setShortageCount(result.count))
+        .catch(() => {})
+    }
+    refresh()
+    window.addEventListener('shortages-updated', refresh)
+    return () => window.removeEventListener('shortages-updated', refresh)
+  }, [account])
+
   return (
     <>
       <div className="sticky top-0 hidden h-svh md:flex" aria-label="Navegación principal">
@@ -140,6 +164,7 @@ export function Sidebar({ isOpen, onNavigate, account }: Props) {
           collapsed={collapsed}
           onToggleCollapse={() => setCollapsed((value) => !value)}
           lowStockCount={lowStockCount}
+          shortageCount={shortageCount}
         />
       </div>
 
@@ -149,6 +174,7 @@ export function Sidebar({ isOpen, onNavigate, account }: Props) {
             account={account}
             onNavigate={onNavigate}
             lowStockCount={lowStockCount}
+            shortageCount={shortageCount}
           />
           <div className="flex-1 bg-black/50" onClick={onNavigate} aria-hidden="true" />
         </div>

@@ -79,7 +79,9 @@ export interface Shortage {
   product_id: number
   product_name: string
   category_id: number
+  category_name: string
   provider_id: number | null
+  provider_name: string | null
   status: string
   created_at: string
   created_by_account_id: number

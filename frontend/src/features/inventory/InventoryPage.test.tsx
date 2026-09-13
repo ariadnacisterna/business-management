@@ -461,4 +461,171 @@ describe('InventoryPage', () => {
     const lastCall = fetchMock.mock.calls.at(-1)
     expect(String(lastCall?.[0])).toContain('/variants/10/stock/minimum')
   })
+
+  describe('Faltantes tab', () => {
+    const SHORTAGE = {
+      id: 1,
+      variant_id: 10,
+      product_id: 1,
+      product_name: 'Hilo blanco',
+      category_id: 1,
+      category_name: 'Hilados',
+      provider_id: 5,
+      provider_name: 'Distribuidora Norte',
+      status: 'faltante',
+      created_at: '2026-01-01T00:00:00Z',
+      created_by_account_id: 1,
+    }
+
+    it('switches to the Faltantes tab and lists pending shortages', async () => {
+      const user = userEvent.setup()
+      const fetchMock = fetch as ReturnType<typeof vi.fn>
+      renderPage()
+
+      await screen.findAllByText('Hilo blanco')
+      fetchMock.mockResolvedValueOnce(jsonResponse([SHORTAGE]))
+      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
+
+      expect(await screen.findByText('Distribuidora Norte')).toBeInTheDocument()
+      expect(screen.getByText('● Faltante')).toBeInTheDocument()
+    })
+
+    it('does not call fetchProviders when loading the Faltantes tab', async () => {
+      const user = userEvent.setup()
+      const fetchMock = fetch as ReturnType<typeof vi.fn>
+      renderPage(EMPLEADO_ACCOUNT)
+
+      await screen.findAllByText('Hilo blanco')
+      fetchMock.mockResolvedValueOnce(jsonResponse([SHORTAGE]))
+      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
+
+      await screen.findByText('Distribuidora Norte')
+      const calledProviders = fetchMock.mock.calls.some((call) => String(call[0]).includes('/providers'))
+      expect(calledProviders).toBe(false)
+    })
+
+    it('filters shortages by product name using the search box', async () => {
+      const user = userEvent.setup()
+      const fetchMock = fetch as ReturnType<typeof vi.fn>
+      renderPage()
+
+      await screen.findAllByText('Hilo blanco')
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse([SHORTAGE, { ...SHORTAGE, id: 2, product_name: 'Botón dorado' }]),
+      )
+      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
+      await screen.findByText('Hilo blanco')
+      expect(screen.getByText('Botón dorado')).toBeInTheDocument()
+
+      await user.type(screen.getByLabelText('Buscar producto'), 'botón')
+
+      expect(screen.queryByText('Hilo blanco')).not.toBeInTheDocument()
+      expect(screen.getByText('Botón dorado')).toBeInTheDocument()
+    })
+
+    it('opens the filters sheet and filters from inside it', async () => {
+      const user = userEvent.setup()
+      const fetchMock = fetch as ReturnType<typeof vi.fn>
+      renderPage()
+
+      await screen.findAllByText('Hilo blanco')
+      fetchMock.mockResolvedValueOnce(jsonResponse([SHORTAGE]))
+      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
+      await screen.findByText('Distribuidora Norte')
+
+      await user.click(screen.getByRole('button', { name: 'Filtros' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Filtros' })
+
+      fetchMock.mockResolvedValueOnce(jsonResponse([]))
+      await user.click(within(dialog).getByRole('button', { name: 'Filtrar por estado del faltante' }))
+      await user.click(await screen.findByRole('option', { name: 'Recibido' }))
+
+      expect(await screen.findByText('No hay faltantes que coincidan.')).toBeInTheDocument()
+    })
+
+    it('shows an empty state when there are no pending shortages', async () => {
+      const user = userEvent.setup()
+      const fetchMock = fetch as ReturnType<typeof vi.fn>
+      renderPage()
+
+      await screen.findAllByText('Hilo blanco')
+      fetchMock.mockResolvedValueOnce(jsonResponse([]))
+      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
+
+      expect(await screen.findByText('No hay faltantes que coincidan.')).toBeInTheDocument()
+    })
+
+    it('groups shortages by provider when selected', async () => {
+      const user = userEvent.setup()
+      const fetchMock = fetch as ReturnType<typeof vi.fn>
+      renderPage()
+
+      await screen.findAllByText('Hilo blanco')
+      fetchMock.mockResolvedValueOnce(jsonResponse([SHORTAGE, { ...SHORTAGE, id: 2, product_name: 'Hilo negro', provider_id: null, provider_name: null }]))
+      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
+      await screen.findByText('Hilo blanco')
+
+      await user.click(screen.getByRole('button', { name: 'Agrupar faltantes' }))
+      await user.click(await screen.findByRole('option', { name: 'Agrupar por proveedor' }))
+
+      expect(await screen.findByRole('heading', { name: 'Distribuidora Norte' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Sin proveedor' })).toBeInTheDocument()
+    })
+
+    it('advances a shortage from Faltante to Pedido', async () => {
+      const user = userEvent.setup()
+      const fetchMock = fetch as ReturnType<typeof vi.fn>
+      renderPage()
+
+      await screen.findAllByText('Hilo blanco')
+      fetchMock.mockResolvedValueOnce(jsonResponse([SHORTAGE]))
+      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
+      await screen.findByText('Distribuidora Norte')
+
+      await user.click(screen.getByRole('button', { name: 'Marcar como Pedido' }))
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+
+      fetchMock.mockResolvedValueOnce(jsonResponse({ ...SHORTAGE, status: 'pedido' }))
+      fetchMock.mockResolvedValueOnce(jsonResponse([{ ...SHORTAGE, status: 'pedido' }]))
+      await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Confirmar' }))
+
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+      expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
+      const patchCall = fetchMock.mock.calls.find((call) => String(call[0]).includes('/shortages/1'))
+      expect(patchCall?.[1]?.method).toBe('PATCH')
+    })
+
+    it('cancels a Pedido shortage back to Faltante', async () => {
+      const user = userEvent.setup()
+      const fetchMock = fetch as ReturnType<typeof vi.fn>
+      renderPage()
+
+      await screen.findAllByText('Hilo blanco')
+      fetchMock.mockResolvedValueOnce(jsonResponse([{ ...SHORTAGE, status: 'pedido' }]))
+      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
+      await screen.findByText('Distribuidora Norte')
+
+      await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+      fetchMock.mockResolvedValueOnce(jsonResponse({ ...SHORTAGE, status: 'faltante' }))
+      fetchMock.mockResolvedValueOnce(jsonResponse([{ ...SHORTAGE, status: 'faltante' }]))
+      await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Confirmar' }))
+
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+      expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
+    })
+
+    it('does not show advance or cancel actions for a received shortage', async () => {
+      const user = userEvent.setup()
+      const fetchMock = fetch as ReturnType<typeof vi.fn>
+      renderPage()
+
+      await screen.findAllByText('Hilo blanco')
+      fetchMock.mockResolvedValueOnce(jsonResponse([{ ...SHORTAGE, status: 'recibido' }]))
+      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
+      await screen.findByText('Distribuidora Norte')
+
+      expect(screen.queryByRole('button', { name: /Marcar como/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Cancelar' })).not.toBeInTheDocument()
+    })
+  })
 })

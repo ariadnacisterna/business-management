@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   adjustStock,
+  changeShortageStatus,
   createMovementReason,
   fetchCategories,
   fetchMovementReasons,
+  fetchShortages,
   fetchStock,
   fetchStockMovements,
   fetchStockPage,
@@ -11,7 +13,7 @@ import {
   setMinimumStock,
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
-import type { Category, MovementReason, Stock, StockMovement, Unit } from '../../api/types'
+import type { Category, MovementReason, Shortage, Stock, StockMovement, Unit } from '../../api/types'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { CloseButton } from '../../shared/CloseButton'
 import { FieldRow } from '../../shared/FieldRow'
@@ -980,6 +982,359 @@ function StockTab({
   )
 }
 
+type InventoryTab = 'stock' | 'faltantes'
+type ShortageStatusFilter = 'pending' | 'faltante' | 'pedido' | 'recibido'
+type ShortageGroupBy = 'none' | 'category' | 'provider'
+
+const SHORTAGES_LOAD_ERROR_MESSAGE = 'No se pudo cargar la lista de faltantes.'
+const SHORTAGE_STATUS_ERROR_MESSAGE = 'No se pudo actualizar el faltante. Intentá de nuevo.'
+const NO_PROVIDER_GROUP_KEY = 'sin-proveedor'
+
+const SHORTAGE_STATUS_LABELS: Record<string, string> = {
+  faltante: 'Faltante',
+  pedido: 'Pedido',
+  recibido: 'Recibido',
+}
+
+function shortageStatusClasses(status: string): string {
+  if (status === 'recibido') return 'bg-success-soft text-success'
+  if (status === 'pedido') return 'bg-warning/10 text-warning'
+  return 'bg-danger/10 text-danger'
+}
+
+function nextShortageStatus(status: string): string | null {
+  if (status === 'faltante') return 'pedido'
+  if (status === 'pedido') return 'recibido'
+  return null
+}
+
+interface ShortageActionState {
+  shortage: Shortage
+  nextStatus: string
+  title: string
+  description: string
+}
+
+function ShortagesTab({ categories }: { categories: Category[] }) {
+  const { showSuccess, showError } = useToast()
+  const [items, setItems] = useState<Shortage[]>([])
+  const [status, setStatus] = useState<LoadStatus>('loading')
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [searchInput, setSearchInput] = useState('')
+  const [statusFilter, setStatusFilter] = useState<ShortageStatusFilter>('pending')
+  const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all')
+  const [providerFilter, setProviderFilter] = useState<string>('all')
+  const [groupBy, setGroupBy] = useState<ShortageGroupBy>('none')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [actionState, setActionState] = useState<ShortageActionState | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  function load() {
+    setStatus('loading')
+    setLoadError(null)
+    fetchShortages(statusFilter === 'pending' ? {} : { status: statusFilter })
+      .then((result) => {
+        setItems(result)
+        setStatus('success')
+      })
+      .catch(() => {
+        setLoadError(SHORTAGES_LOAD_ERROR_MESSAGE)
+        setStatus('error')
+      })
+  }
+
+  useEffect(load, [statusFilter])
+
+  function categoryName(categoryId: number): string {
+    return categories.find((category) => category.id === categoryId)?.name ?? '—'
+  }
+
+  const providerOptions = Array.from(
+    new Map(
+      items.map((item) => [
+        item.provider_id === null ? NO_PROVIDER_GROUP_KEY : String(item.provider_id),
+        item.provider_id === null ? 'Sin proveedor' : (item.provider_name ?? '—'),
+      ]),
+    ).entries(),
+  )
+
+  const normalizedSearch = searchInput.trim().toLowerCase()
+
+  const filteredItems = items.filter((item) => {
+    if (normalizedSearch !== '' && !item.product_name.toLowerCase().includes(normalizedSearch)) return false
+    if (categoryFilter !== 'all' && item.category_id !== categoryFilter) return false
+    if (providerFilter !== 'all') {
+      const key = item.provider_id === null ? NO_PROVIDER_GROUP_KEY : String(item.provider_id)
+      if (key !== providerFilter) return false
+    }
+    return true
+  })
+
+  interface Group {
+    key: string
+    label: string
+    items: Shortage[]
+  }
+
+  let groups: Group[]
+  if (groupBy === 'none') {
+    groups = [{ key: 'all', label: '', items: filteredItems }]
+  } else if (groupBy === 'category') {
+    const byCategory = new Map<number, Shortage[]>()
+    for (const item of filteredItems) {
+      const list = byCategory.get(item.category_id) ?? []
+      list.push(item)
+      byCategory.set(item.category_id, list)
+    }
+    groups = Array.from(byCategory.entries()).map(([categoryId, groupItems]) => ({
+      key: String(categoryId),
+      label: categoryName(categoryId),
+      items: groupItems,
+    }))
+  } else {
+    const byProvider = new Map<string, Shortage[]>()
+    for (const item of filteredItems) {
+      const key = item.provider_id === null ? NO_PROVIDER_GROUP_KEY : String(item.provider_id)
+      const list = byProvider.get(key) ?? []
+      list.push(item)
+      byProvider.set(key, list)
+    }
+    groups = Array.from(byProvider.entries()).map(([key, groupItems]) => ({
+      key,
+      label: key === NO_PROVIDER_GROUP_KEY ? 'Sin proveedor' : (groupItems[0]?.provider_name ?? '—'),
+      items: groupItems,
+    }))
+  }
+
+  function requestAdvance(shortage: Shortage) {
+    const next = nextShortageStatus(shortage.status)
+    if (next === null) return
+    setActionState({
+      shortage,
+      nextStatus: next,
+      title: 'Avanzar faltante',
+      description: `"${shortage.product_name}" va a pasar de ${SHORTAGE_STATUS_LABELS[shortage.status] ?? shortage.status} a ${SHORTAGE_STATUS_LABELS[next] ?? next}.`,
+    })
+  }
+
+  function requestCancel(shortage: Shortage) {
+    setActionState({
+      shortage,
+      nextStatus: 'faltante',
+      title: 'Cancelar pedido',
+      description: `"${shortage.product_name}" vuelve a figurar como faltante.`,
+    })
+  }
+
+  async function confirmAction() {
+    if (actionState === null) return
+    setSaving(true)
+    try {
+      await changeShortageStatus(actionState.shortage.id, actionState.nextStatus)
+      setActionState(null)
+      showSuccess('Faltante actualizado.')
+      load()
+      window.dispatchEvent(new Event('shortages-updated'))
+    } catch (error) {
+      showError(error instanceof ApiError ? error.message : SHORTAGE_STATUS_ERROR_MESSAGE)
+      setActionState(null)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const hasActiveFilters =
+    searchInput !== '' || categoryFilter !== 'all' || providerFilter !== 'all' || statusFilter !== 'pending'
+
+  function clearFilters() {
+    setSearchInput('')
+    setCategoryFilter('all')
+    setProviderFilter('all')
+    setStatusFilter('pending')
+  }
+
+  const filterControls = (
+    <>
+      <SelectMenu
+        value={statusFilter}
+        onChange={(value) => setStatusFilter(value as ShortageStatusFilter)}
+        ariaLabel="Filtrar por estado del faltante"
+        className="w-full lg:w-56"
+        options={[
+          { value: 'pending', label: 'Pendientes' },
+          { value: 'faltante', label: 'Faltante' },
+          { value: 'pedido', label: 'Pedido' },
+          { value: 'recibido', label: 'Recibido' },
+        ]}
+      />
+      <SelectMenu
+        value={categoryFilter === 'all' ? 'all' : String(categoryFilter)}
+        onChange={(value) => setCategoryFilter(value === 'all' ? 'all' : Number(value))}
+        ariaLabel="Filtrar por categoría"
+        className="w-full lg:w-56"
+        options={[
+          { value: 'all', label: 'Todas las categorías' },
+          ...categories.map((category) => ({ value: String(category.id), label: category.name })),
+        ]}
+      />
+      <SelectMenu
+        value={providerFilter}
+        onChange={setProviderFilter}
+        ariaLabel="Filtrar por proveedor"
+        className="w-full lg:w-56"
+        options={[
+          { value: 'all', label: 'Todos los proveedores' },
+          ...providerOptions.map(([value, label]) => ({ value, label })),
+        ]}
+      />
+      <SelectMenu
+        value={groupBy}
+        onChange={(value) => setGroupBy(value as ShortageGroupBy)}
+        ariaLabel="Agrupar faltantes"
+        className="w-full lg:w-56"
+        options={[
+          { value: 'none', label: 'Sin agrupar' },
+          { value: 'category', label: 'Agrupar por categoría' },
+          { value: 'provider', label: 'Agrupar por proveedor' },
+        ]}
+      />
+      <button
+        type="button"
+        disabled={!hasActiveFilters}
+        onClick={clearFilters}
+        className="h-12 w-full rounded-lg border-2 border-brand bg-surface text-lg font-semibold text-brand transition-colors hover:bg-brand hover:text-brand-contrast disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:font-normal disabled:text-ink/40 disabled:hover:bg-surface disabled:hover:text-ink/40 lg:w-56"
+      >
+        Limpiar búsqueda
+      </button>
+    </>
+  )
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+        {filterControls}
+      </FiltersSheet>
+      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+        <SearchInput
+          value={searchInput}
+          onChange={setSearchInput}
+          placeholder="Buscar producto…"
+          ariaLabel="Buscar producto"
+          className="lg:min-w-40 lg:flex-1"
+        />
+        <div className="lg:hidden">
+          <FiltersButton onClick={() => setFiltersOpen(true)} hasActiveFilters={hasActiveFilters} widthClassName="w-full" />
+        </div>
+        <div className="hidden flex-wrap items-center gap-3 lg:flex">{filterControls}</div>
+      </div>
+
+      {status === 'loading' && (
+        <div className="flex flex-col items-center gap-3 py-12 text-center" role="status">
+          <span className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-brand" />
+          <p className="text-xl font-semibold">Cargando…</p>
+        </div>
+      )}
+
+      {status === 'error' && <LoadErrorCard message={loadError ?? SHORTAGES_LOAD_ERROR_MESSAGE} onRetry={load} />}
+
+      {status === 'success' && filteredItems.length === 0 && (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
+          <p className="text-xl font-semibold">No hay faltantes que coincidan.</p>
+          <p className="text-lg opacity-60">Probá cambiar los filtros.</p>
+        </div>
+      )}
+
+      {status === 'success' && filteredItems.length > 0 && (
+        <div className="flex flex-1 flex-col gap-6 overflow-auto">
+          {groups.map((group) => (
+            <div key={group.key} className="flex flex-col gap-3">
+              {group.label !== '' && <h2 className="m-0 text-xl font-bold">{group.label}</h2>}
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
+                {group.items.map((item) => {
+                  const next = nextShortageStatus(item.status)
+                  return (
+                    <div key={item.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="m-0 text-xl font-bold leading-tight">{item.product_name}</p>
+                        <span
+                          className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-base font-semibold ${shortageStatusClasses(item.status)}`}
+                        >
+                          ● {SHORTAGE_STATUS_LABELS[item.status] ?? item.status}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <FieldRow label="Categoría" value={categoryName(item.category_id)} />
+                        <FieldRow label="Proveedor" value={item.provider_name ?? 'Sin proveedor'} />
+                      </div>
+                      {(next !== null || item.status === 'pedido') && (
+                        <div className="flex gap-2">
+                          {next !== null && (
+                            <button
+                              type="button"
+                              onClick={() => requestAdvance(item)}
+                              className="h-12 flex-1 rounded-lg bg-brand px-3 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90"
+                            >
+                              Marcar como {SHORTAGE_STATUS_LABELS[next] ?? next}
+                            </button>
+                          )}
+                          {item.status === 'pedido' && (
+                            <button
+                              type="button"
+                              onClick={() => requestCancel(item)}
+                              className="h-12 flex-1 rounded-lg border border-line text-base font-semibold transition-colors hover:bg-surface-brand"
+                            >
+                              Cancelar
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {actionState !== null && (
+        <ConfirmDialog
+          title={actionState.title}
+          description={actionState.description}
+          confirmLabel={saving ? 'Guardando…' : 'Confirmar'}
+          onConfirm={confirmAction}
+          onCancel={() => setActionState(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+function InventoryTabs({ tab, onChange }: { tab: InventoryTab; onChange: (tab: InventoryTab) => void }) {
+  return (
+    <div className="flex gap-2 border-b border-line">
+      <button
+        type="button"
+        onClick={() => onChange('stock')}
+        className={`min-h-12 px-4 text-lg font-semibold transition-colors ${
+          tab === 'stock' ? 'border-b-2 border-brand text-brand' : 'text-ink/50 hover:text-ink'
+        }`}
+      >
+        Stock
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange('faltantes')}
+        className={`min-h-12 px-4 text-lg font-semibold transition-colors ${
+          tab === 'faltantes' ? 'border-b-2 border-brand text-brand' : 'text-ink/50 hover:text-ink'
+        }`}
+      >
+        Faltantes
+      </button>
+    </div>
+  )
+}
+
 export function InventoryPage() {
   const { account } = useAuth()
   const canManage = canManageCatalog(account)
@@ -994,6 +1349,7 @@ export function InventoryPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
   const [criticalSignal, setCriticalSignal] = useState(0)
   const [bannerDismissed, setBannerDismissed] = useState(false)
+  const [tab, setTab] = useState<InventoryTab>('stock')
 
   useEffect(() => {
     setBannerDismissed(false)
@@ -1038,10 +1394,14 @@ export function InventoryPage() {
             </div>
           )}
         </div>
-        {status === 'success' && summary.total > 0 && <ViewToggle mode={viewMode} onChange={setViewMode} />}
+        {status === 'success' && tab === 'stock' && summary.total > 0 && <ViewToggle mode={viewMode} onChange={setViewMode} />}
       </div>
 
-      {canManage && status === 'success' && summary.total > 0 && summary.sinStock > 0 && !bannerDismissed && (
+      <div>
+        <InventoryTabs tab={tab} onChange={setTab} />
+      </div>
+
+      {tab === 'stock' && canManage && status === 'success' && summary.total > 0 && summary.sinStock > 0 && !bannerDismissed && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger/10 py-3 pl-4 pr-1">
           <p className="m-0 whitespace-nowrap text-lg font-semibold text-danger">
             Hay {summary.sinStock} {summary.sinStock === 1 ? 'variante sin stock' : 'variantes sin stock'}.
@@ -1087,7 +1447,7 @@ export function InventoryPage() {
 
       {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
 
-      {status === 'success' && summary.total === 0 && (
+      {tab === 'stock' && status === 'success' && summary.total === 0 && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-16 text-center">
           <svg
             aria-hidden="true"
@@ -1108,7 +1468,7 @@ export function InventoryPage() {
         </div>
       )}
 
-      {status === 'success' && summary.total > 0 && (
+      {tab === 'stock' && status === 'success' && summary.total > 0 && (
         <StockTab
           canManage={canManage}
           categories={categories}
@@ -1120,6 +1480,8 @@ export function InventoryPage() {
           onAdjusted={refreshSummary}
         />
       )}
+
+      {tab === 'faltantes' && status === 'success' && <ShortagesTab categories={categories} />}
     </section>
   )
 }

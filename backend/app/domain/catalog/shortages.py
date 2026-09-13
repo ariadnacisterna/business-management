@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.constants.status import SHORTAGE_OPEN_STATUSES, ShortageStatus
 from app.db.models import Product, Shortage, Variant
@@ -86,6 +86,10 @@ def list_shortages(
         select(Shortage)
         .join(Variant, Shortage.variant_id == Variant.id)
         .join(Product, Variant.product_id == Product.id)
+        .options(
+            joinedload(Shortage.variant).joinedload(Variant.product).joinedload(Product.category),
+            joinedload(Shortage.variant).joinedload(Variant.product).joinedload(Product.provider),
+        )
         .where(Product.business_id == business_id)
     )
 

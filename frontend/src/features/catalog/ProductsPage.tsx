@@ -215,6 +215,7 @@ export function ProductsPage() {
     createShortage(variant.id)
       .then(() => {
         showSuccess('La variante ahora figura como faltante.')
+        window.dispatchEvent(new Event('shortages-updated'))
       })
       .catch((error) => {
         showError(error instanceof ApiError ? error.message : 'No se pudo marcar como faltante.')

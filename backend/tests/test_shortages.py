@@ -291,6 +291,37 @@ def test_list_shortages_defaults_to_open_ones(client):
     assert closed["id"] not in ids
 
 
+def test_shortage_response_includes_resolved_category_and_provider_names(client):
+    admin_cookies = _admin_cookies(client)
+    product, variant_id, category = _setup_product_with_variant(
+        client, admin_cookies, "Producto con proveedor resuelto"
+    )
+    provider = _create_provider(client, admin_cookies, category_ids=[category["id"]])
+    _set_product_provider(client, admin_cookies, product["id"], provider["id"])
+
+    created = _create_shortage(client, admin_cookies, variant_id).json()
+
+    assert created["category_name"] == category["name"]
+    assert created["provider_name"] == provider["name"]
+
+    listed = client.get("/shortages", cookies=admin_cookies).json()
+    listed_shortage = next(item for item in listed if item["id"] == created["id"])
+    assert listed_shortage["category_name"] == category["name"]
+    assert listed_shortage["provider_name"] == provider["name"]
+
+
+def test_shortage_response_has_null_provider_name_without_provider(client):
+    admin_cookies = _admin_cookies(client)
+    _, variant_id, category = _setup_product_with_variant(
+        client, admin_cookies, "Producto sin proveedor resuelto"
+    )
+
+    created = _create_shortage(client, admin_cookies, variant_id).json()
+
+    assert created["category_name"] == category["name"]
+    assert created["provider_name"] is None
+
+
 def test_list_shortages_filters_by_provider_and_category(client):
     admin_cookies = _admin_cookies(client)
     product, variant_id, category = _setup_product_with_variant(
