@@ -91,15 +91,28 @@ def _create_provider(client, cookies, name="Distribuidora Norte", category_ids=N
     return response.json()
 
 
-def test_gerente_can_create_provider(client):
+def test_admin_can_create_provider(client):
     admin_cookies = _admin_cookies(client)
-    gerente_cookies = _gerente_cookies(client, admin_cookies)
 
-    provider = _create_provider(client, gerente_cookies)
+    provider = _create_provider(client, admin_cookies)
 
     assert provider["name"] == "Distribuidora Norte"
     assert provider["status"] == "active"
     assert provider["category_ids"] == []
+
+
+def test_gerente_cannot_create_provider(client):
+    admin_cookies = _admin_cookies(client)
+    gerente_cookies = _gerente_cookies(client, admin_cookies)
+
+    response = client.post(
+        "/providers",
+        json={"name": "Distribuidora Sur"},
+        cookies=gerente_cookies,
+        headers=_auth_headers(gerente_cookies),
+    )
+
+    assert response.status_code == 403
 
 
 def test_empleado_cannot_create_provider(client):
@@ -116,12 +129,31 @@ def test_empleado_cannot_create_provider(client):
     assert response.status_code == 403
 
 
-def test_empleado_can_list_providers(client):
+def test_empleado_cannot_list_providers(client):
     admin_cookies = _admin_cookies(client)
     _create_provider(client, admin_cookies)
     empleado_cookies = _empleado_cookies(client, admin_cookies)
 
     response = client.get("/providers", cookies=empleado_cookies)
+
+    assert response.status_code == 403
+
+
+def test_gerente_cannot_list_providers(client):
+    admin_cookies = _admin_cookies(client)
+    _create_provider(client, admin_cookies)
+    gerente_cookies = _gerente_cookies(client, admin_cookies)
+
+    response = client.get("/providers", cookies=gerente_cookies)
+
+    assert response.status_code == 403
+
+
+def test_admin_can_list_providers(client):
+    admin_cookies = _admin_cookies(client)
+    _create_provider(client, admin_cookies)
+
+    response = client.get("/providers", cookies=admin_cookies)
 
     assert response.status_code == 200
     assert any(provider["name"] == "Distribuidora Norte" for provider in response.json())
@@ -177,6 +209,21 @@ def test_empleado_cannot_update_provider(client):
     assert response.status_code == 403
 
 
+def test_gerente_cannot_update_provider(client):
+    admin_cookies = _admin_cookies(client)
+    provider = _create_provider(client, admin_cookies)
+    gerente_cookies = _gerente_cookies(client, admin_cookies)
+
+    response = client.patch(
+        f"/providers/{provider['id']}",
+        json={"name": "Otro nombre"},
+        cookies=gerente_cookies,
+        headers=_auth_headers(gerente_cookies),
+    )
+
+    assert response.status_code == 403
+
+
 def test_provider_categories_must_belong_to_business(client):
     admin_cookies = _admin_cookies(client)
     category = _create_category(client, admin_cookies)
@@ -217,6 +264,35 @@ def test_empleado_cannot_set_provider_categories(client):
         json={"category_ids": []},
         cookies=empleado_cookies,
         headers=_auth_headers(empleado_cookies),
+    )
+
+    assert response.status_code == 403
+
+
+def test_gerente_cannot_set_provider_categories(client):
+    admin_cookies = _admin_cookies(client)
+    provider = _create_provider(client, admin_cookies)
+    gerente_cookies = _gerente_cookies(client, admin_cookies)
+
+    response = client.put(
+        f"/providers/{provider['id']}/categories",
+        json={"category_ids": []},
+        cookies=gerente_cookies,
+        headers=_auth_headers(gerente_cookies),
+    )
+
+    assert response.status_code == 403
+
+
+def test_gerente_cannot_deactivate_provider(client):
+    admin_cookies = _admin_cookies(client)
+    provider = _create_provider(client, admin_cookies)
+    gerente_cookies = _gerente_cookies(client, admin_cookies)
+
+    response = client.post(
+        f"/providers/{provider['id']}/deactivate",
+        cookies=gerente_cookies,
+        headers=_auth_headers(gerente_cookies),
     )
 
     assert response.status_code == 403

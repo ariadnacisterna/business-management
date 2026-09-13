@@ -114,10 +114,16 @@ enfocado). Foco: `border-color: var(--accent)`.
 ### Modales
 
 Fondo superpuesto semitransparente, tarjeta centrada con `border-radius:
-8px` y `padding: 24px`, botón de cierre visible, acción primaria +
-cancelar. Usar un modal para una confirmación puntual (ej. cambiar un
-precio); una pantalla completa para un flujo con varios pasos (ej.
-importación).
+8px` y `padding: 24px`, acción primaria + cancelar. Usar un modal para
+una confirmación puntual (ej. cambiar un precio); una pantalla completa
+para un flujo con varios pasos (ej. importación).
+
+**Regla obligatoria (D-054):** todo modal —formulario, confirmación o
+detalle— tiene que mostrar un botón de cierre "X", siempre el mismo
+componente y el mismo lugar (esquina superior derecha), nunca una
+implementación distinta por pantalla. `shared/ConfirmDialog.tsx` ya lo
+incluye por defecto para cualquier confirmación; un modal de formulario
+propio (ej. alta/edición) reutiliza `shared/CloseButton.tsx`.
 
 ### Notificaciones (popup/toast) y tarjeta de error de carga
 

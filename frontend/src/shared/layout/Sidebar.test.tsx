@@ -57,7 +57,7 @@ describe('Sidebar', () => {
   it('renders unbuilt sections as disabled, non-navigable items', () => {
     renderSidebar('/products')
 
-    for (const label of ['Ventas']) {
+    for (const label of ['Ventas', 'Configuraciones']) {
       const item = screen.getByText(label).closest('[aria-disabled]')
       expect(item).toHaveAttribute('aria-disabled', 'true')
       expect(screen.queryByRole('link', { name: new RegExp(label) })).not.toBeInTheDocument()
@@ -106,11 +106,11 @@ describe('Sidebar', () => {
     expect(screen.queryByRole('link', { name: 'Panel' })).not.toBeInTheDocument()
   })
 
-  it('shows "Proveedores" and "Inventario" for a gerente', () => {
+  it('shows "Inventario" but hides "Proveedores" for a gerente', () => {
     renderSidebar('/products', false, vi.fn(), { ...ADMINISTRADOR_ACCOUNT, role: 'Gerente' })
 
-    expect(screen.getByRole('link', { name: 'Proveedores' })).toBeInTheDocument()
     expect(screen.getByText('Inventario')).toBeInTheDocument()
+    expect(screen.queryByText('Proveedores')).not.toBeInTheDocument()
   })
 
   it('hides "Panel" and "Proveedores" for an empleado, but keeps "Inventario"', () => {
@@ -126,6 +126,11 @@ describe('Sidebar', () => {
   it('shows "Cuentas" only for administrador and above', () => {
     renderSidebar('/products')
     expect(screen.getByRole('link', { name: 'Cuentas' })).toBeInTheDocument()
+  })
+
+  it('shows "Proveedores" only for administrador and above', () => {
+    renderSidebar('/products')
+    expect(screen.getByRole('link', { name: 'Proveedores' })).toBeInTheDocument()
   })
 
   it('hides "Cuentas" for gerente and empleado', () => {

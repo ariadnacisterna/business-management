@@ -12,17 +12,18 @@ function ReadyGate({ children }: { children: ReactNode }) {
   return status === 'ready' ? <>{children}</> : null
 }
 
-const GERENTE_ACCOUNT = {
+const ADMIN_ACCOUNT = {
   id: 1,
-  name: 'Gerente de prueba',
-  user_name: 'gerente',
+  name: 'Administradora de prueba',
+  user_name: 'admin',
   status: 'activo',
-  role: 'Gerente',
+  role: 'Administrador',
   active_business_id: 1,
   businesses: [{ id: 1, name: 'Mercería', industry: 'Mercería' }],
 }
 
-const EMPLEADO_ACCOUNT = { ...GERENTE_ACCOUNT, role: 'Empleado' }
+const GERENTE_ACCOUNT = { ...ADMIN_ACCOUNT, role: 'Gerente' }
+const EMPLEADO_ACCOUNT = { ...ADMIN_ACCOUNT, role: 'Empleado' }
 
 const PROVIDERS = [
   {
@@ -53,7 +54,7 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 }
 
-function renderPage(account: unknown = GERENTE_ACCOUNT, providers = PROVIDERS) {
+function renderPage(account: unknown = ADMIN_ACCOUNT, providers = PROVIDERS) {
   const fetchMock = fetch as ReturnType<typeof vi.fn>
   fetchMock
     .mockResolvedValueOnce(jsonResponse(account))
@@ -80,7 +81,7 @@ describe('SuppliersPage', () => {
 
   it('shows only the loading spinner, not tabs/search/view toggle, while loading', async () => {
     const fetchMock = fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValueOnce(jsonResponse(GERENTE_ACCOUNT)).mockImplementationOnce(() => new Promise(() => {}))
+    fetchMock.mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT)).mockImplementationOnce(() => new Promise(() => {}))
 
     render(
       <MemoryRouter>
@@ -123,7 +124,7 @@ describe('SuppliersPage', () => {
   })
 
   it('shows an empty state, not an error, when there are no providers yet', async () => {
-    renderPage(GERENTE_ACCOUNT, [])
+    renderPage(ADMIN_ACCOUNT, [])
 
     expect(await screen.findByText('No hay proveedores registrados')).toBeInTheDocument()
     expect(screen.queryByText(/No se pudieron cargar/)).not.toBeInTheDocument()
@@ -154,7 +155,7 @@ describe('SuppliersPage', () => {
       status: 'active',
       category_ids: [],
     }))
-    renderPage(GERENTE_ACCOUNT, manyProviders)
+    renderPage(ADMIN_ACCOUNT, manyProviders)
 
     await screen.findAllByText('Proveedor 01')
     expect(screen.getByRole('button', { name: 'Cantidad por página' })).toBeInTheDocument()
@@ -256,6 +257,13 @@ describe('SuppliersPage', () => {
 
   it('hides provider management actions for an employee', async () => {
     renderPage(EMPLEADO_ACCOUNT)
+
+    await screen.findAllByText('Distribuidora Norte')
+    expect(screen.queryByRole('button', { name: 'Nuevo proveedor' })).not.toBeInTheDocument()
+  })
+
+  it('hides provider management actions for a gerente (D-055: administrador and above only)', async () => {
+    renderPage(GERENTE_ACCOUNT)
 
     await screen.findAllByText('Distribuidora Norte')
     expect(screen.queryByRole('button', { name: 'Nuevo proveedor' })).not.toBeInTheDocument()

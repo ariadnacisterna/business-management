@@ -17,6 +17,7 @@ function describeVariantLabel(variant: Variant): string {
 
 interface Props {
   product: Product
+  categoryName: string
   variant: Variant
   currentPrice: Price | null
   activeVariantPrices: Map<number, Price | null>
@@ -27,6 +28,7 @@ interface Props {
 
 export function ChangePriceModal({
   product,
+  categoryName,
   variant,
   currentPrice,
   activeVariantPrices,
@@ -90,6 +92,10 @@ export function ChangePriceModal({
           <div className="flex justify-between">
             <span className="opacity-60">Producto</span>
             <span className="font-semibold">{product.name}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="opacity-60">Categoría</span>
+            <span className="font-semibold">{categoryName}</span>
           </div>
           <div className="flex justify-between">
             <span className="opacity-60">Variante</span>

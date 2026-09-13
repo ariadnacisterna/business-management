@@ -11,6 +11,7 @@ import {
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Category, Provider } from '../../api/types'
+import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { HEADER_ACTION_BUTTON_CLASSES } from '../../shared/headerActionButton'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
@@ -23,7 +24,7 @@ import { NavIconGlyph } from '../../shared/layout/NavIcon'
 import type { ViewMode } from '../../shared/ViewToggle'
 import { ViewToggle } from '../../shared/ViewToggle'
 import { useAuth } from '../access/AuthContext'
-import { canManageCatalog } from '../access/roles'
+import { canManageSuppliers } from '../access/roles'
 
 type Status = 'loading' | 'success' | 'error'
 type Tab = 'providers' | 'purchase-orders'
@@ -142,7 +143,10 @@ function ProviderFormModal({
         aria-label={title}
         className="relative flex max-h-[90vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
       >
-        <h2 className="m-0 text-2xl font-bold">{title}</h2>
+        <div className="flex items-start justify-between">
+          <h2 className="m-0 text-2xl font-bold">{title}</h2>
+          <CloseButton onClose={onCancel} />
+        </div>
 
         <div className="flex flex-col gap-1.5">
           <label className="flex flex-col gap-1.5">
@@ -323,7 +327,7 @@ function PurchaseOrdersTab() {
 
 export function SuppliersPage() {
   const { account } = useAuth()
-  const canManage = canManageCatalog(account)
+  const canManage = canManageSuppliers(account)
   const { showSuccess, showError } = useToast()
 
   const [tab, setTab] = useState<Tab>('providers')

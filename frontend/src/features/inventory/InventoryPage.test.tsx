@@ -30,6 +30,7 @@ const REASONS = [{ id: 1, name: 'Conteo físico', status: 'active' }]
 const STOCK_ROW = {
   product_id: 1,
   product_name: 'Hilo blanco',
+  image_url: null as string | null,
   category_id: 1,
   unit_id: 1,
   variant_id: 10,
@@ -176,6 +177,7 @@ describe('InventoryPage', () => {
         observation: null,
         created_at: '2026-01-01T00:00:00Z',
         created_by_account_id: 1,
+        created_by_account_name: 'Ada Lovelace',
       }),
     )
     fetchMock.mockResolvedValueOnce(jsonResponse({ ...STOCK, quantity: 8, status: 'normal' }))
@@ -195,6 +197,18 @@ describe('InventoryPage', () => {
     await screen.findAllByText('Hilo blanco')
     expect(screen.queryByLabelText(/Cantidad nueva para Hilo blanco/)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/Ver historial de stock/)).not.toBeInTheDocument()
+  })
+
+  it('hides quantity, status, minimum stock and the sin-stock counters/banner for an employee', async () => {
+    renderPage(EMPLEADO_ACCOUNT)
+
+    await screen.findAllByText('Hilo blanco')
+    expect(screen.queryByText('Estado')).not.toBeInTheDocument()
+    expect(screen.queryByText(/con stock bajo/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/sin stock/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Stock mín.')).not.toBeInTheDocument()
+    expect(screen.getByText('Categoría')).toBeInTheDocument()
+    expect(screen.getByText('Variante')).toBeInTheDocument()
   })
 
   it('switches between card and table view while keeping the data visible', async () => {
@@ -371,6 +385,7 @@ describe('InventoryPage', () => {
           observation: 'Conteo de fin de mes',
           created_at: '2026-01-01T00:00:00Z',
           created_by_account_id: 1,
+          created_by_account_name: 'Ada Lovelace',
         },
       ]),
     )
@@ -382,6 +397,7 @@ describe('InventoryPage', () => {
     expect(within(dialog).getByText('-3')).toBeInTheDocument()
     expect(within(dialog).getByText('Motivo: Conteo físico')).toBeInTheDocument()
     expect(within(dialog).getByText('Conteo de fin de mes')).toBeInTheDocument()
+    expect(within(dialog).getByText('Cambiado por: Ada')).toBeInTheDocument()
   })
 
   it('shows an empty history message when the variant has no movements', async () => {

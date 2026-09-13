@@ -168,6 +168,7 @@ export interface Stock {
 export interface StockRow {
   product_id: number
   product_name: string
+  image_url: string | null
   category_id: number
   unit_id: number
   variant_id: number
@@ -202,6 +203,7 @@ export interface StockMovement {
   observation: string | null
   created_at: string
   created_by_account_id: number
+  created_by_account_name: string
 }
 
 export interface ManagedAccount {

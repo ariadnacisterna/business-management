@@ -9,6 +9,7 @@ export type NavIcon =
   | 'suppliers'
   | 'accounts'
   | 'customers'
+  | 'settings'
 
 export interface NavItem {
   to: string
@@ -25,7 +26,8 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/precios', label: 'Precios', icon: 'prices' },
   { to: '/inventario', label: 'Inventario', icon: 'inventory' },
   { to: '/ventas', label: 'Ventas', icon: 'sales', disabled: true },
-  { to: '/proveedores', label: 'Proveedores', icon: 'suppliers', minRole: 'Gerente' },
+  { to: '/proveedores', label: 'Proveedores', icon: 'suppliers', minRole: 'Administrador' },
   { to: '/clientes', label: 'Clientes', icon: 'customers' },
   { to: '/cuentas', label: 'Cuentas', icon: 'accounts', minRole: 'Administrador' },
+  { to: '/configuraciones', label: 'Configuraciones', icon: 'settings', disabled: true },
 ]

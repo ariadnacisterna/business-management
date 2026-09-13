@@ -9,6 +9,7 @@ import {
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Credit, Customer } from '../../api/types'
+import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { HEADER_ACTION_BUTTON_CLASSES } from '../../shared/headerActionButton'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
@@ -98,7 +99,10 @@ function CustomerFormModal({
         aria-label={title}
         className="relative flex max-h-[90vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
       >
-        <h2 className="m-0 text-2xl font-bold">{title}</h2>
+        <div className="flex items-start justify-between">
+          <h2 className="m-0 text-2xl font-bold">{title}</h2>
+          <CloseButton onClose={onCancel} />
+        </div>
 
         <div className="flex flex-col gap-1.5">
           <label className="flex flex-col gap-1.5">
@@ -248,14 +252,7 @@ function CustomerDetailModal({
             <p className="mt-1 text-base opacity-60">{customer.phone ?? 'Sin teléfono'}</p>
             <p className="mt-1 text-base opacity-60">{customer.address ?? 'Sin dirección'}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-line text-lg hover:bg-surface-brand"
-          >
-            ✕
-          </button>
+          <CloseButton onClose={onClose} />
         </div>
 
         <div className="rounded-xl border border-line bg-surface-brand/40 px-4 py-3">

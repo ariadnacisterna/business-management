@@ -90,6 +90,8 @@ Ejemplo esperado para RF-002 a RF-005: la consulta `cinta bebe 2 roja` debe pode
 | RF-055 | Un Usuario autorizado podrá crear, editar y desactivar motivos de movimiento de stock, igual que categorías o unidades. | Media |
 | RF-056 | Un Usuario autorizado podrá definir el stock mínimo de cada variante; el sistema aplicará un valor por defecto si no se define uno. | Media |
 | RF-057 | El sistema mostrará, en algún lugar visible de la navegación, un contador de variantes con stock bajo o sin stock. | Media |
+| RF-058 | Una pantalla de Configuraciones mostrará el nombre y el rol de la cuenta activa. | Media |
+| RF-059 | Una cuenta podrá ajustar el tamaño de letra de la interfaz (50 %, 75 %, 100 %, 125 % o 150 %), independientemente del tamaño grande que el sistema usa por defecto. | Media |
 
 ## Requisitos no funcionales
 

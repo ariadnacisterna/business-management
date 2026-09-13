@@ -1,42 +1,66 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import {
+  addVariant,
+  adjustStock,
   changeVariantPrice,
   createCategory,
+  createMovementReason,
   createUnit,
   deactivateProduct,
   deactivateVariant,
+  fetchAllStock,
   fetchAttributes,
   fetchAttributeValues,
   fetchCategories,
+  fetchMovementReasons,
   fetchProduct,
   fetchProductsPage,
   fetchProviders,
+  fetchStockMovements,
   fetchUnits,
   fetchVariantCurrentPrice,
   fetchVariantPriceHistory,
   reactivateProduct,
   reactivateVariant,
   removeProductImage,
+  setMinimumStock,
   setProductProvider,
   updateProduct,
   updateVariant,
   uploadProductImage,
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
-import type { Attribute, Category, Price, Product, Provider, Unit, Variant } from '../../api/types'
+import type {
+  Attribute,
+  Category,
+  MovementReason,
+  Price,
+  Product,
+  Provider,
+  StockMovement,
+  StockRow,
+  Unit,
+  Variant,
+} from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { formatDateTime } from '../../shared/formatDateTime'
+import { firstName } from '../../shared/formatName'
 import { formatPrice } from '../../shared/formatPrice'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
+import { PencilIcon } from '../../shared/icons'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { normalizeForComparison } from '../../shared/normalizeForComparison'
 import { PriceInput } from '../../shared/PriceInput'
+import { RowMenu } from '../../shared/RowMenu'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { STOCK_STATUS_LABELS, stockStatusTextColor } from '../../shared/stockStatus'
 import { useToast } from '../../shared/Toast'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
+import { AdjustStockModal } from './AdjustStockModal'
 import { ChangePriceModal } from './ChangePriceModal'
 import { DuplicateWarning } from './DuplicateWarning'
 import { StagedProductImageField } from './ProductImageField'
@@ -61,6 +85,10 @@ function fieldClasses(hasError: boolean): string {
 const primaryButtonClasses =
   'min-h-11 rounded-lg bg-brand px-4 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40'
 const secondaryButtonClasses = 'h-11 rounded-lg border border-line px-3 text-base transition-colors hover:bg-surface-brand'
+const compactPrimaryButtonClasses =
+  'min-h-11 flex-1 whitespace-nowrap rounded-lg bg-brand px-2 text-sm font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40 sm:text-base'
+const compactSecondaryButtonClasses =
+  'h-11 flex-1 whitespace-nowrap rounded-lg border border-line px-2 text-sm text-ink transition-colors hover:border-brand/30 hover:bg-surface-brand hover:text-brand sm:text-base'
 
 interface ValueInfo {
   attribute_name: string
@@ -93,6 +121,13 @@ function describeVariant(variant: Variant, valuesById: Map<number, ValueInfo>): 
   return parts.length > 0 ? parts.join(' · ') : 'Sin diferenciar'
 }
 
+function sameIdSet(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) return false
+  const sortedA = [...a].sort((x, y) => x - y)
+  const sortedB = [...b].sort((x, y) => x - y)
+  return sortedA.every((value, index) => value === sortedB[index])
+}
+
 export function ProductDetailPage() {
   const { productId } = useParams()
   const id = Number(productId)
@@ -113,10 +148,7 @@ export function ProductDetailPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [providers, setProviders] = useState<Provider[]>([])
-  const [editingProvider, setEditingProvider] = useState(false)
   const [providerDraft, setProviderDraft] = useState<number | null>(null)
-  const [savingProvider, setSavingProvider] = useState(false)
-  const [confirmingProviderChange, setConfirmingProviderChange] = useState(false)
   const [attributes, setAttributes] = useState<Attribute[]>([])
   const [valuesById, setValuesById] = useState<Map<number, ValueInfo>>(new Map())
   const [loadStatus, setLoadStatus] = useState<'loading' | 'success' | 'error'>('loading')
@@ -136,6 +168,101 @@ export function ProductDetailPage() {
   const [priceDraft, setPriceDraft] = useState('')
   const [variantDraftRows, setVariantDraftRows] = useState<{ id: number; label: string; price: string }[]>([])
 
+  const [addingVariant, setAddingVariant] = useState(false)
+  const [newVariantLabel, setNewVariantLabel] = useState('')
+  const [newVariantValues, setNewVariantValues] = useState<SelectedAttributeValue[]>([])
+  const [newVariantPrice, setNewVariantPrice] = useState('')
+  const [newVariantStock, setNewVariantStock] = useState('')
+  const [newVariantMinimum, setNewVariantMinimum] = useState('')
+  const [creatingVariant, setCreatingVariant] = useState(false)
+  const [newVariantError, setNewVariantError] = useState<string | null>(null)
+
+  function resetNewVariantDraft() {
+    setNewVariantLabel('')
+    setNewVariantValues([])
+    setNewVariantPrice('')
+    setNewVariantStock('')
+    setNewVariantMinimum('')
+    setNewVariantError(null)
+  }
+
+  async function resolveInitialStockReasonId(): Promise<number> {
+    const existing = reasons.find(
+      (reason) => reason.status === 'active' && reason.name.trim().toLowerCase() === 'carga inicial',
+    )
+    if (existing !== undefined) return existing.id
+    const created = await createMovementReason('Carga inicial')
+    setReasons((prev) => [...prev, created])
+    return created.id
+  }
+
+  function findDuplicateVariant(
+    label: string,
+    attributeValueIds: number[],
+    excludeVariantId: number | null,
+  ): boolean {
+    if (product === null) return false
+    const normalizedLabel = normalizeForComparison(label.trim())
+    return product.variants.some((variant) => {
+      if (variant.id === excludeVariantId) return false
+      const variantLabel = normalizeForComparison((variant.label ?? '').trim())
+      return variantLabel === normalizedLabel && sameIdSet(variant.attribute_value_ids, attributeValueIds)
+    })
+  }
+
+  async function handleCreateVariant() {
+    if (product === null) return
+    if (findDuplicateVariant(newVariantLabel, newVariantValues.map((value) => value.id), null)) {
+      setNewVariantError('Ya existe una variante con ese nombre.')
+      return
+    }
+    setCreatingVariant(true)
+    setNewVariantError(null)
+    try {
+      const trimmedLabel = newVariantLabel.trim()
+      const result = await addVariant(product.id, {
+        label: trimmedLabel === '' ? null : trimmedLabel,
+        attribute_value_ids: newVariantValues.map((value) => value.id),
+      })
+      const createdVariant = result.variant
+      setProduct((prev) => (prev === null ? prev : { ...prev, variants: [...prev.variants, createdVariant] }))
+
+      const trimmedPrice = newVariantPrice.trim()
+      if (trimmedPrice !== '') {
+        const price = await changeVariantPrice(createdVariant.id, trimmedPrice, null)
+        setPricesByVariant((prev) => new Map(prev).set(createdVariant.id, price))
+      }
+
+      const trimmedStock = newVariantStock.trim()
+      const trimmedMinimum = newVariantMinimum.trim()
+      if (trimmedStock !== '' || trimmedMinimum !== '') {
+        let stockResult
+        if (trimmedStock !== '') {
+          const reasonId = await resolveInitialStockReasonId()
+          stockResult = await adjustStock(createdVariant.id, { quantity: Number(trimmedStock), reason_id: reasonId })
+        }
+        if (trimmedMinimum !== '') {
+          stockResult = await setMinimumStock(createdVariant.id, Number(trimmedMinimum))
+        }
+        if (stockResult !== undefined) {
+          const [refreshedStock] = await fetchAllStock().then((rows) =>
+            rows.filter((row) => row.variant_id === createdVariant.id),
+          )
+          if (refreshedStock !== undefined) {
+            setStockByVariant((prev) => new Map(prev).set(createdVariant.id, refreshedStock))
+          }
+        }
+      }
+
+      showSuccess('Variante creada.')
+      resetNewVariantDraft()
+    } catch (error) {
+      setNewVariantError(error instanceof ApiError ? error.message : 'No se pudo crear la variante. Intentá de nuevo.')
+    } finally {
+      setCreatingVariant(false)
+    }
+  }
+
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [savingNewCategory, setSavingNewCategory] = useState(false)
@@ -147,6 +274,7 @@ export function ProductDetailPage() {
   const [editingVariantId, setEditingVariantId] = useState<number | null>(null)
   const [variantLabel, setVariantLabel] = useState('')
   const [variantValues, setVariantValues] = useState<SelectedAttributeValue[]>([])
+  const [variantNameError, setVariantNameError] = useState<string | null>(null)
   const [savingVariant, setSavingVariant] = useState(false)
   const [confirmingVariantEdit, setConfirmingVariantEdit] = useState(false)
 
@@ -156,6 +284,12 @@ export function ProductDetailPage() {
   const [variantStatusError, setVariantStatusError] = useState<string | null>(null)
 
   const [pricesByVariant, setPricesByVariant] = useState<Map<number, Price | null>>(new Map())
+  const [stockByVariant, setStockByVariant] = useState<Map<number, StockRow>>(new Map())
+  const [reasons, setReasons] = useState<MovementReason[]>([])
+  const [adjustingVariant, setAdjustingVariant] = useState<Variant | null>(null)
+  const [stockHistoryState, setStockHistoryState] = useState<
+    { variant: Variant; status: 'loading' | 'success' | 'error'; movements: StockMovement[] } | null
+  >(null)
   const [priceModalVariant, setPriceModalVariant] = useState<Variant | null>(null)
   const [priceModalOpenedDirectly, setPriceModalOpenedDirectly] = useState(false)
   const [pickingVariantForPrice, setPickingVariantForPrice] = useState(false)
@@ -207,6 +341,13 @@ export function ProductDetailPage() {
         )
         if (requestId !== requestIdRef.current) return
         setPricesByVariant(new Map(priceResults.map((result) => [result.variant_id, result.price])))
+
+        if (canManage) {
+          const [stockRows, reasonList] = await Promise.all([fetchAllStock(), fetchMovementReasons()])
+          if (requestId !== requestIdRef.current) return
+          setStockByVariant(new Map(stockRows.map((row) => [row.variant_id, row])))
+          setReasons(reasonList)
+        }
 
         if (searchParams.get('edit') === '1' && canManage) {
           setProductDraft({
@@ -369,6 +510,10 @@ export function ProductDetailPage() {
         updated = { ...updated, image_url: (await uploadProductImage(product.id, pendingImageFile)).image_url }
       }
 
+      if (providerDraft !== product.provider_id) {
+        updated = await setProductProvider(product.id, providerDraft)
+      }
+
       const nextPricesByVariant = new Map(pricesByVariant)
       let nextVariants = product.variants
 
@@ -431,30 +576,10 @@ export function ProductDetailPage() {
     }
   }
 
-  function handleSaveProvider() {
-    setConfirmingProviderChange(true)
-  }
-
-  async function confirmSaveProvider() {
-    if (product === null) return
-    setConfirmingProviderChange(false)
-    setSavingProvider(true)
-    try {
-      const updated = await setProductProvider(product.id, providerDraft)
-      setProduct(updated)
-      outletContext?.onProductUpdated(updated)
-      setEditingProvider(false)
-      showSuccess('Proveedor preferido actualizado.')
-    } catch (error) {
-      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
-    } finally {
-      setSavingProvider(false)
-    }
-  }
-
   function startEditVariant(variant: Variant) {
     setEditingVariantId(variant.id)
     setVariantLabel(variant.label ?? '')
+    setVariantNameError(null)
     setVariantValues(
       variant.attribute_value_ids.map((valueId) => {
         const info = valuesById.get(valueId)
@@ -466,11 +591,17 @@ export function ProductDetailPage() {
   function cancelEditVariant() {
     setEditingVariantId(null)
     setVariantValues([])
+    setVariantNameError(null)
   }
 
   function handleSaveVariant(event: React.FormEvent) {
     event.preventDefault()
     if (editingVariantId === null) return
+    if (findDuplicateVariant(variantLabel, variantValues.map((value) => value.id), editingVariantId)) {
+      setVariantNameError('Ya existe una variante con ese nombre.')
+      return
+    }
+    setVariantNameError(null)
     setConfirmingVariantEdit(true)
   }
 
@@ -531,6 +662,19 @@ export function ProductDetailPage() {
       .catch(() => setHistoryState({ variant, status: 'error', prices: [] }))
   }
 
+  function openStockHistory(variant: Variant) {
+    setStockHistoryState({ variant, status: 'loading', movements: [] })
+    fetchStockMovements(variant.id)
+      .then((movements) => setStockHistoryState({ variant, status: 'success', movements }))
+      .catch(() => setStockHistoryState({ variant, status: 'error', movements: [] }))
+  }
+
+  function refreshStock() {
+    fetchAllStock()
+      .then((rows) => setStockByVariant(new Map(rows.map((row) => [row.variant_id, row]))))
+      .catch(() => {})
+  }
+
   return (
     <>
     {!pickingVariantForPrice && !(priceModalVariant !== null && priceModalOpenedDirectly) && loadStatus === 'error' && (
@@ -546,7 +690,7 @@ export function ProductDetailPage() {
     <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
 
-      <div className="relative flex max-h-[90vh] min-h-[16rem] w-full max-w-full flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl sm:max-w-2xl">
+      <div className="relative flex max-h-[90vh] min-h-[16rem] w-full max-w-full flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl sm:max-w-3xl">
         <div ref={modalScrollRef} onScroll={updateModalScrollbar} className="scrollbar-hidden min-h-0 flex-1 overflow-auto px-4 py-4 sm:px-6 sm:py-6">
 
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -582,7 +726,7 @@ export function ProductDetailPage() {
             <DuplicateWarning duplicates={duplicates} />
 
             {editingProduct ? (
-              <form onSubmit={handleSaveProduct} className="flex flex-col gap-4">
+              <form id="edit-product-form" onSubmit={handleSaveProduct} className="flex flex-col gap-4">
                 <div className="flex flex-col gap-3">
                   <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
                     Información general
@@ -902,6 +1046,22 @@ export function ProductDetailPage() {
                     </div>
                   )}
 
+                  <span className="text-base font-bold uppercase tracking-wide opacity-60">
+                    Proveedor <span className="font-normal normal-case opacity-70">(opcional)</span>
+                  </span>
+                  <SelectMenu
+                    ariaLabel="Proveedor"
+                    disabled={savingProduct}
+                    value={providerDraft === null ? 'none' : String(providerDraft)}
+                    onChange={(value) => setProviderDraft(value === 'none' ? null : Number(value))}
+                    options={[
+                      { value: 'none', label: 'Sin proveedor asignado' },
+                      ...providers
+                        .filter((provider) => provider.status === 'active' || provider.id === providerDraft)
+                        .map((provider) => ({ value: String(provider.id), label: provider.name })),
+                    ]}
+                  />
+
                   <span className="-mb-2 text-base font-bold uppercase tracking-wide opacity-60">
                     Descripción <span className="font-normal normal-case opacity-70">(opcional)</span>
                   </span>
@@ -912,7 +1072,7 @@ export function ProductDetailPage() {
 
                 <div className="flex flex-col gap-3">
                   <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
-                    Precios y variantes
+                    Tipo
                   </h2>
 
                   <div className="flex gap-2">
@@ -923,7 +1083,7 @@ export function ProductDetailPage() {
                           : 'border-line text-ink/30'
                       }`}
                     >
-                      Precio único
+                      Producto único
                     </div>
                     <div
                       className={`flex min-h-11 flex-1 items-center justify-center rounded-lg border text-base font-semibold ${
@@ -932,117 +1092,9 @@ export function ProductDetailPage() {
                           : 'border-line text-ink/30'
                       }`}
                     >
-                      Con variantes
+                      Producto con variantes
                     </div>
                   </div>
-
-                  {product.variants.length === 1 && product.variants[0].is_implicit ? (
-                    <div className="flex flex-col gap-2">
-                      <span className="text-base font-bold uppercase tracking-wide opacity-60">
-                        Precio <span className="font-normal normal-case opacity-70">(opcional)</span>
-                      </span>
-                      <PriceInput
-                        ariaLabel="Precio"
-                        value={priceDraft}
-                        onChange={setPriceDraft}
-                        disabled={savingProduct}
-                        className={`${inputClasses} w-full pl-8`}
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      <div className="grid grid-cols-[1fr_9rem_2.75rem] gap-2 text-base font-bold uppercase tracking-wide opacity-60">
-                        <span>Nombre de variante</span>
-                        <span>
-                          Precio <span className="font-normal normal-case opacity-70">(opcional)</span>
-                        </span>
-                        <span />
-                      </div>
-                      {variantDraftRows.map((row, index) => (
-                        <div key={row.id} className="grid grid-cols-[1fr_9rem_2.75rem] items-center gap-2">
-                          <input
-                            type="text"
-                            aria-label={`Nombre de la variante ${index + 1}`}
-                            value={row.label}
-                            onChange={(event) =>
-                              setVariantDraftRows((prev) =>
-                                prev.map((candidate) =>
-                                  candidate.id === row.id ? { ...candidate, label: event.target.value } : candidate,
-                                ),
-                              )
-                            }
-                            disabled={savingProduct}
-                            className={inputClasses}
-                          />
-                          <PriceInput
-                            ariaLabel={`Precio de la variante ${index + 1}`}
-                            value={row.price}
-                            onChange={(value) =>
-                              setVariantDraftRows((prev) =>
-                                prev.map((candidate) =>
-                                  candidate.id === row.id ? { ...candidate, price: value } : candidate,
-                                ),
-                              )
-                            }
-                            disabled={savingProduct}
-                            className={`${inputClasses} w-full pl-6`}
-                          />
-                          <button
-                            type="button"
-                            disabled
-                            title="Próximamente"
-                            aria-label="Eliminar variante (Próximamente)"
-                            className="flex h-11 w-11 items-center justify-center text-ink/20"
-                          >
-                            <svg
-                              aria-hidden="true"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="3"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="h-5 w-5"
-                            >
-                              <line x1="18" y1="6" x2="6" y2="18" />
-                              <line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        disabled
-                        title="Próximamente"
-                        className={`${secondaryButtonClasses} border-dashed opacity-50`}
-                      >
-                        + Agregar variante (Próximamente)
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={savingProduct || productNameError !== null || checkingProductName}
-                    className={`${primaryButtonClasses} flex-1`}
-                  >
-                    {checkingProductName ? 'Verificando…' : 'Guardar cambios'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingProduct(false)
-                      setPendingImageFile(null)
-                      setImageRemoved(false)
-                      close()
-                    }}
-                    disabled={savingProduct}
-                    className={`${secondaryButtonClasses} flex-1`}
-                  >
-                    Cancelar
-                  </button>
                 </div>
               </form>
             ) : (
@@ -1102,59 +1154,11 @@ export function ProductDetailPage() {
                     </div>
                   </div>
                   <div className="border-t border-line pt-4">
-                    <p className="m-0 text-base uppercase tracking-wide opacity-60">Proveedor preferido</p>
-                    {editingProvider ? (
-                      <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <SelectMenu
-                          ariaLabel="Proveedor preferido"
-                          disabled={savingProvider}
-                          value={providerDraft === null ? 'none' : String(providerDraft)}
-                          onChange={(value) => setProviderDraft(value === 'none' ? null : Number(value))}
-                          className="w-56"
-                          options={[
-                            { value: 'none', label: 'Sin proveedor asignado' },
-                            ...providers
-                              .filter((provider) => provider.status === 'active' || provider.id === providerDraft)
-                              .map((provider) => ({ value: String(provider.id), label: provider.name })),
-                          ]}
-                        />
-                        <button
-                          type="button"
-                          onClick={handleSaveProvider}
-                          disabled={savingProvider}
-                          className={primaryButtonClasses}
-                        >
-                          Guardar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingProvider(false)
-                            setProviderDraft(product.provider_id)
-                          }}
-                          disabled={savingProvider}
-                          className={secondaryButtonClasses}
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <p className="m-0 font-bold">
-                          {providers.find((provider) => provider.id === product.provider_id)?.name ??
-                            'Sin proveedor asignado'}
-                        </p>
-                        {canManage && (
-                          <button
-                            type="button"
-                            onClick={() => setEditingProvider(true)}
-                            className="text-base font-semibold text-brand hover:underline"
-                          >
-                            Cambiar
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    <p className="m-0 text-base uppercase tracking-wide opacity-60">Proveedor</p>
+                    <p className="m-0 mt-1 font-bold">
+                      {providers.find((provider) => provider.id === product.provider_id)?.name ??
+                        'Sin proveedor asignado'}
+                    </p>
                   </div>
                   <div className="border-t border-line pt-4">
                     <p className="m-0 text-base uppercase tracking-wide opacity-60">Descripción</p>
@@ -1164,72 +1168,126 @@ export function ProductDetailPage() {
               </div>
             )}
 
-            {!editingProduct && product.variants.length === 1 && product.variants[0].is_implicit && (
-              <div className="flex flex-col gap-3">
-                <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
-                  Precio
-                </h2>
-                <div className="flex flex-col gap-3 rounded-xl border border-line p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="m-0 text-base opacity-60">Precio</p>
-                    <p className="m-0 text-xl font-bold text-brand">
-                      {pricesByVariant.get(product.variants[0].id)?.amount !== undefined
-                        ? formatPrice(pricesByVariant.get(product.variants[0].id)!.amount)
-                        : 'Sin precio'}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-0.5 text-base opacity-60">
-                    <p className="m-0">
-                      <span>Stock: </span>
-                      <span>Próximamente</span>
-                    </p>
-                    {canManage && (
-                      <p className="m-0">
-                        <span>Último cambio: </span>
-                        <span>
-                          {(() => {
-                            const price = pricesByVariant.get(product.variants[0].id)
-                            if (price === null || price === undefined) return '—'
-                            return `${formatRelativeTime(price.effective_from)} por ${price.created_by_account_name}`
-                          })()}
-                        </span>
+            {product.variants.length === 1 && product.variants[0].is_implicit && (
+              <div className={`grid grid-cols-1 gap-3 ${canManage ? 'sm:grid-cols-2' : ''}`}>
+                <div className="flex flex-col gap-3">
+                  <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
+                    Precio
+                  </h2>
+                  <div className="flex flex-1 flex-col gap-3 rounded-xl border border-line p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="m-0 text-base opacity-60">Precio</p>
+                      <p className="m-0 text-xl font-bold text-brand">
+                        {pricesByVariant.get(product.variants[0].id)?.amount !== undefined
+                          ? formatPrice(pricesByVariant.get(product.variants[0].id)!.amount)
+                          : 'Sin precio'}
                       </p>
-                    )}
-                  </div>
+                    </div>
 
-                  <div className="flex flex-wrap gap-2">
                     {canManage && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPriceModalOpenedDirectly(false)
-                          setPriceModalApplyToAll(false)
-                          setPriceModalVariant(product.variants[0])
-                        }}
-                        className={primaryButtonClasses}
-                      >
-                        Cambiar precio
-                      </button>
+                      <div className="flex flex-col gap-0.5 text-base opacity-60">
+                        <p className="m-0">
+                          <span>Último cambio: </span>
+                          <span>
+                            {(() => {
+                              const price = pricesByVariant.get(product.variants[0].id)
+                              if (price === null || price === undefined) return '—'
+                              return `${formatRelativeTime(price.effective_from)} por ${price.created_by_account_name}`
+                            })()}
+                          </span>
+                        </p>
+                      </div>
                     )}
-                    {canManage && (
-                      <button
-                        type="button"
-                        onClick={() => openHistory(product.variants[0])}
-                        className={secondaryButtonClasses}
-                      >
-                        Ver historial
-                      </button>
-                    )}
+
+                    <div className="flex flex-nowrap gap-2">
+                      {editingProduct && canManage && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPriceModalOpenedDirectly(false)
+                            setPriceModalApplyToAll(false)
+                            setPriceModalVariant(product.variants[0])
+                          }}
+                          className={compactPrimaryButtonClasses}
+                        >
+                          Cambiar precio
+                        </button>
+                      )}
+                      {canManage && (
+                        <button
+                          type="button"
+                          onClick={() => openHistory(product.variants[0])}
+                          className={compactSecondaryButtonClasses}
+                        >
+                          Ver historial
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
+
+                {canManage && (
+                  <div className="flex flex-col gap-3">
+                    <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
+                      Stock
+                    </h2>
+                    <div className="flex flex-1 flex-col gap-3 rounded-xl border border-line p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="m-0 text-base opacity-60">Stock</p>
+                        {(() => {
+                          const stock = stockByVariant.get(product.variants[0].id)
+                          if (stock === undefined) return <p className="m-0 text-xl font-bold">—</p>
+                          return (
+                            <p className={`m-0 text-xl font-bold ${stockStatusTextColor(stock.status)}`}>
+                              {stock.quantity} <span className="text-base font-normal opacity-70">({STOCK_STATUS_LABELS[stock.status] ?? stock.status})</span>
+                            </p>
+                          )
+                        })()}
+                      </div>
+
+                      <div className="flex flex-col gap-0.5 text-base opacity-60">
+                        <p className="m-0">
+                          <span>Último cambio: </span>
+                          <span>
+                            {(() => {
+                              const stock = stockByVariant.get(product.variants[0].id)
+                              if (stock === undefined || stock.last_movement_at === null || stock.last_movement_by_account_name === null) {
+                                return '—'
+                              }
+                              return `${formatRelativeTime(stock.last_movement_at)} por ${firstName(stock.last_movement_by_account_name)}`
+                            })()}
+                          </span>
+                        </p>
+                      </div>
+
+                      <div className="mt-auto flex flex-nowrap gap-2">
+                        {editingProduct && (
+                          <button
+                            type="button"
+                            onClick={() => setAdjustingVariant(product.variants[0])}
+                            className={compactPrimaryButtonClasses}
+                          >
+                            Actualizar stock
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => openStockHistory(product.variants[0])}
+                          className={compactSecondaryButtonClasses}
+                        >
+                          Ver historial
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {!editingProduct && !(product.variants.length === 1 && product.variants[0].is_implicit) && (
+            {!(product.variants.length === 1 && product.variants[0].is_implicit) && (
               <div className="flex flex-col gap-3">
                 <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
-                  Precios y variantes
+                  Variantes
                 </h2>
                 <ul className="m-0 flex list-none flex-col gap-2 p-0">
                   {product.variants.map((variant) => (
@@ -1258,15 +1316,20 @@ export function ProductDetailPage() {
                             onAttributeCreated={(attribute) => setAttributes((prev) => [...prev, attribute])}
                             disabled={savingVariant}
                           />
+                          {variantNameError !== null && (
+                            <p role="alert" className="m-0 text-base text-danger">
+                              {variantNameError}
+                            </p>
+                          )}
                           <div className="flex gap-2">
-                            <button type="submit" disabled={savingVariant} className={primaryButtonClasses}>
+                            <button type="submit" disabled={savingVariant} className={`${primaryButtonClasses} flex-1`}>
                               Guardar
                             </button>
                             <button
                               type="button"
                               onClick={cancelEditVariant}
                               disabled={savingVariant}
-                              className={secondaryButtonClasses}
+                              className={`${secondaryButtonClasses} flex-1`}
                             >
                               Cancelar
                             </button>
@@ -1274,7 +1337,7 @@ export function ProductDetailPage() {
                         </form>
                       ) : (
                         <div className="flex w-full flex-col gap-3">
-                          <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <span
                                 className={`text-lg font-bold ${variant.status !== 'active' ? 'opacity-50 line-through' : ''}`}
@@ -1287,83 +1350,298 @@ export function ProductDetailPage() {
                                 </span>
                               )}
                             </div>
-                            <span className="text-xl font-bold text-brand">
-                              {pricesByVariant.get(variant.id)?.amount !== undefined
-                                ? formatPrice(pricesByVariant.get(variant.id)!.amount)
-                                : 'Sin precio'}
-                            </span>
+                            {editingProduct && canManage && (
+                              <RowMenu
+                                title={describeVariant(variant, valuesById)}
+                                items={[
+                                  ...(variant.status === 'active'
+                                    ? [
+                                        {
+                                          label: 'Editar',
+                                          icon: <PencilIcon />,
+                                          onClick: () => startEditVariant(variant),
+                                        },
+                                      ]
+                                    : []),
+                                  {
+                                    label: variant.status === 'active' ? 'Desactivar' : 'Activar',
+                                    icon: '⊘',
+                                    danger: variant.status === 'active',
+                                    success: variant.status !== 'active',
+                                    onClick: () => {
+                                      setVariantStatusError(null)
+                                      setConfirmingVariantStatusChange(variant)
+                                    },
+                                  },
+                                ]}
+                              />
+                            )}
                           </div>
 
-                          <div className="flex flex-col gap-0.5 text-base opacity-60">
-                            <p className="m-0">
-                              <span>Stock: </span>
-                              <span>Próximamente</span>
-                            </p>
+                          <div className={`grid grid-cols-1 gap-3 ${canManage ? 'sm:grid-cols-2' : ''}`}>
+                            <div className="flex flex-col gap-3">
+                              <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
+                                Precio
+                              </h2>
+                              <div className="flex flex-1 flex-col gap-3 rounded-xl border border-line p-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="m-0 text-base opacity-60">Precio</p>
+                                <p className="m-0 text-xl font-bold text-brand">
+                                  {pricesByVariant.get(variant.id)?.amount !== undefined
+                                    ? formatPrice(pricesByVariant.get(variant.id)!.amount)
+                                    : 'Sin precio'}
+                                </p>
+                              </div>
+
+                              {canManage && (
+                                <p className="m-0 text-base opacity-60">
+                                  <span>Último cambio: </span>
+                                  <span>
+                                    {(() => {
+                                      const price = pricesByVariant.get(variant.id)
+                                      if (price === null || price === undefined) return '—'
+                                      return `${formatRelativeTime(price.effective_from)} por ${price.created_by_account_name}`
+                                    })()}
+                                  </span>
+                                </p>
+                              )}
+
+                              {canManage && (
+                                <div className="flex flex-nowrap gap-2">
+                                  {editingProduct && variant.status === 'active' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setPriceModalOpenedDirectly(false)
+                                        setPriceModalApplyToAll(false)
+                                        setPriceModalVariant(variant)
+                                      }}
+                                      className={compactPrimaryButtonClasses}
+                                    >
+                                      Cambiar precio
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => openHistory(variant)}
+                                    className={compactSecondaryButtonClasses}
+                                  >
+                                    Ver historial
+                                  </button>
+                                </div>
+                              )}
+                              </div>
+                            </div>
+
                             {canManage && (
-                              <p className="m-0">
-                                <span>Último cambio: </span>
-                                <span>
+                              <div className="flex flex-col gap-3">
+                                <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
+                                  Stock
+                                </h2>
+                                <div className="flex flex-1 flex-col gap-3 rounded-xl border border-line p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                  <p className="m-0 text-base opacity-60">Stock</p>
                                   {(() => {
-                                    const price = pricesByVariant.get(variant.id)
-                                    if (price === null || price === undefined) return '—'
-                                    return `${formatRelativeTime(price.effective_from)} por ${price.created_by_account_name}`
+                                    const stock = stockByVariant.get(variant.id)
+                                    if (stock === undefined) return <p className="m-0 text-xl font-bold">—</p>
+                                    return (
+                                      <p className={`m-0 text-xl font-bold ${stockStatusTextColor(stock.status)}`}>
+                                        {stock.quantity}{' '}
+                                        <span className="text-base font-normal opacity-70">
+                                          ({STOCK_STATUS_LABELS[stock.status] ?? stock.status})
+                                        </span>
+                                      </p>
+                                    )
                                   })()}
-                                </span>
-                              </p>
+                                </div>
+
+                                <p className="m-0 text-base opacity-60">
+                                  <span>Último cambio: </span>
+                                  <span>
+                                    {(() => {
+                                      const stock = stockByVariant.get(variant.id)
+                                      if (
+                                        stock === undefined ||
+                                        stock.last_movement_at === null ||
+                                        stock.last_movement_by_account_name === null
+                                      ) {
+                                        return '—'
+                                      }
+                                      return `${formatRelativeTime(stock.last_movement_at)} por ${firstName(stock.last_movement_by_account_name)}`
+                                    })()}
+                                  </span>
+                                </p>
+
+                                <div className="mt-auto flex flex-nowrap gap-2">
+                                  {editingProduct && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setAdjustingVariant(variant)}
+                                      className={compactPrimaryButtonClasses}
+                                    >
+                                      Actualizar stock
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => openStockHistory(variant)}
+                                    className={compactSecondaryButtonClasses}
+                                  >
+                                    Ver historial
+                                  </button>
+                                </div>
+                                </div>
+                              </div>
                             )}
                           </div>
 
-                          <div className="flex flex-wrap gap-2">
-                            {canManage && variant.status === 'active' && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setPriceModalOpenedDirectly(false)
-                                  setPriceModalApplyToAll(false)
-                                  setPriceModalVariant(variant)
-                                }}
-                                className={primaryButtonClasses}
-                              >
-                                Cambiar precio
-                              </button>
-                            )}
-                            {canManage && (
-                              <button
-                                type="button"
-                                onClick={() => openHistory(variant)}
-                                className={secondaryButtonClasses}
-                              >
-                                Ver historial
-                              </button>
-                            )}
-                            {canManage && variant.status === 'active' && (
-                              <button
-                                type="button"
-                                onClick={() => startEditVariant(variant)}
-                                className={secondaryButtonClasses}
-                              >
-                                Editar
-                              </button>
-                            )}
-                            {canManage && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setVariantStatusError(null)
-                                  setConfirmingVariantStatusChange(variant)
-                                }}
-                                className={secondaryButtonClasses}
-                              >
-                                {variant.status === 'active' ? 'Desactivar' : 'Activar'}
-                              </button>
-                            )}
-                          </div>
                         </div>
                       )}
                     </li>
                   ))}
                 </ul>
 
+              </div>
+            )}
+
+            {editingProduct && canManage && !(product.variants.length === 1 && product.variants[0].is_implicit) && (
+              <div className="flex flex-col gap-3">
+                {!addingVariant ? (
+                  <button
+                    type="button"
+                    onClick={() => setAddingVariant(true)}
+                    className={`${secondaryButtonClasses} w-full border-dashed`}
+                  >
+                    + Agregar variante
+                  </button>
+                ) : (
+                  <div className="flex flex-col gap-3 rounded-2xl border border-line p-4">
+                    <p className="m-0 text-sm font-bold uppercase tracking-wide text-brand">Nueva variante</p>
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor="new-variant-label" className="text-sm font-bold">
+                        Nombre <span className="font-normal normal-case opacity-70">(opcional)</span>
+                      </label>
+                      <input
+                        id="new-variant-label"
+                        type="text"
+                        placeholder="Ej. Rojo, Talle M"
+                        value={newVariantLabel}
+                        onChange={(event) => setNewVariantLabel(event.target.value)}
+                        disabled={creatingVariant}
+                        className={`${inputClasses} w-full`}
+                      />
+                    </div>
+                    <VariantAttributesEditor
+                      attributes={activeAttributes}
+                      selectedValues={newVariantValues}
+                      onAdd={(value) => setNewVariantValues((prev) => [...prev, value])}
+                      onRemove={(valueId) =>
+                        setNewVariantValues((prev) => prev.filter((value) => value.id !== valueId))
+                      }
+                      onAttributeCreated={(attribute) => setAttributes((prev) => [...prev, attribute])}
+                      disabled={creatingVariant}
+                    />
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div className="flex flex-col gap-1">
+                        <span className="whitespace-nowrap text-sm font-bold">
+                          Precio <span className="font-normal opacity-70">(opcional)</span>
+                        </span>
+                        <PriceInput
+                          value={newVariantPrice}
+                          placeholder="0.00"
+                          onChange={setNewVariantPrice}
+                          ariaLabel="Precio de la nueva variante"
+                          disabled={creatingVariant}
+                          className={`${inputClasses} w-full pl-6`}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="whitespace-nowrap text-sm font-bold">
+                          Stock actual <span className="font-normal opacity-70">(opcional)</span>
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={newVariantStock}
+                          onChange={(event) => setNewVariantStock(event.target.value)}
+                          aria-label="Stock actual de la nueva variante"
+                          disabled={creatingVariant}
+                          className={inputClasses}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="whitespace-nowrap text-sm font-bold">
+                          Stock min. <span className="font-normal opacity-70">(opcional)</span>
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={newVariantMinimum}
+                          onChange={(event) => setNewVariantMinimum(event.target.value)}
+                          aria-label="Stock mínimo de la nueva variante"
+                          disabled={creatingVariant}
+                          className={inputClasses}
+                        />
+                      </div>
+                    </div>
+
+                    {newVariantError !== null && (
+                      <p role="alert" className="m-0 text-base text-danger">
+                        {newVariantError}
+                      </p>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleCreateVariant}
+                        disabled={creatingVariant}
+                        className={`${primaryButtonClasses} flex-1`}
+                      >
+                        {creatingVariant ? 'Creando…' : 'Crear'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetNewVariantDraft()
+                          setAddingVariant(false)
+                        }}
+                        disabled={creatingVariant}
+                        className={`${secondaryButtonClasses} flex-1`}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {editingProduct && (
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  form="edit-product-form"
+                  disabled={savingProduct || productNameError !== null || checkingProductName}
+                  className={`${primaryButtonClasses} flex-1`}
+                >
+                  {checkingProductName ? 'Verificando…' : 'Guardar cambios'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingProduct(false)
+                    setPendingImageFile(null)
+                    setImageRemoved(false)
+                    close()
+                  }}
+                  disabled={savingProduct}
+                  className={`${secondaryButtonClasses} flex-1`}
+                >
+                  Cancelar
+                </button>
               </div>
             )}
           </div>
@@ -1449,6 +1727,7 @@ export function ProductDetailPage() {
       {priceModalVariant !== null && product !== null && (
         <ChangePriceModal
           product={product}
+          categoryName={categories.find((category) => category.id === product.category_id)?.name ?? '—'}
           variant={priceModalVariant}
           currentPrice={pricesByVariant.get(priceModalVariant.id) ?? null}
           activeVariantPrices={
@@ -1481,6 +1760,82 @@ export function ProductDetailPage() {
             setPriceModalVariant(null)
           }}
         />
+      )}
+
+      {adjustingVariant !== null && product !== null && (
+        <AdjustStockModal
+          product={product}
+          categoryName={categories.find((category) => category.id === product.category_id)?.name ?? '—'}
+          variant={adjustingVariant}
+          currentStock={stockByVariant.get(adjustingVariant.id)}
+          reasons={reasons}
+          onReasonCreated={(reason) => setReasons((prev) => [...prev, reason])}
+          onClose={() => setAdjustingVariant(null)}
+          onSuccess={() => {
+            refreshStock()
+            setAdjustingVariant(null)
+          }}
+        />
+      )}
+
+      {stockHistoryState !== null && product !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-ink/20 backdrop-blur-sm"
+            onClick={() => setStockHistoryState(null)}
+            aria-hidden="true"
+          />
+          <div
+            role="dialog"
+            aria-label={`Historial de stock de ${product.name}`}
+            className="relative flex max-h-[80vh] w-full max-w-lg flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="m-0 text-2xl font-bold">Historial de stock</h2>
+                <p className="m-0 text-lg opacity-60">
+                  {product.name} — {describeVariant(stockHistoryState.variant, valuesById)}
+                </p>
+              </div>
+              <CloseButton onClose={() => setStockHistoryState(null)} />
+            </div>
+
+            {stockHistoryState.status === 'loading' && <p role="status">Cargando…</p>}
+            {stockHistoryState.status === 'error' && (
+              <p role="alert" className="text-lg text-danger">
+                No se pudo cargar el historial.
+              </p>
+            )}
+            {stockHistoryState.status === 'success' && stockHistoryState.movements.length === 0 && (
+              <p className="text-lg opacity-60">Todavía no hay movimientos de stock registrados.</p>
+            )}
+            {stockHistoryState.status === 'success' && stockHistoryState.movements.length > 0 && (
+              <ul className="m-0 flex list-none flex-col gap-3 overflow-auto p-0">
+                {[...stockHistoryState.movements]
+                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                  .map((movement) => {
+                    const diff = movement.quantity_after - movement.quantity_before
+                    return (
+                      <li key={movement.id} className="flex flex-col gap-1 rounded-lg border border-line px-4 py-3">
+                        <div className="flex items-center justify-between text-lg">
+                          <span className={`font-bold ${diff < 0 ? 'text-danger' : diff > 0 ? 'text-success' : ''}`}>
+                            {diff > 0 ? `+${diff}` : diff}
+                          </span>
+                          <span className="opacity-60">{formatDateTime(movement.created_at)}</span>
+                        </div>
+                        <p className="m-0 text-base opacity-70">
+                          {movement.quantity_before} → {movement.quantity_after}
+                        </p>
+                        <p className="m-0 text-base opacity-70">
+                          Cambiado por: {firstName(movement.created_by_account_name)}
+                        </p>
+                      </li>
+                    )
+                  })}
+              </ul>
+            )}
+          </div>
+        </div>
       )}
 
       {historyState !== null && (
@@ -1599,18 +1954,6 @@ export function ProductDetailPage() {
           confirmLabel="Guardar"
           onConfirm={confirmProductEditAndSave}
           onCancel={() => setConfirmingProductEdit(false)}
-        />
-      )}
-
-      {confirmingProviderChange && product !== null && (
-        <ConfirmDialog
-          title="Cambiar proveedor preferido"
-          description={`"${product.name}" va a quedar asociado a ${
-            providerDraft === null ? '"Sin proveedor asignado"' : `"${providers.find((provider) => provider.id === providerDraft)?.name ?? ''}"`
-          }.`}
-          confirmLabel="Guardar"
-          onConfirm={confirmSaveProvider}
-          onCancel={() => setConfirmingProviderChange(false)}
         />
       )}
 

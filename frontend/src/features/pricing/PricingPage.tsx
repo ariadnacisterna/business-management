@@ -2,27 +2,31 @@ import { Fragment, useEffect, useState } from 'react'
 import {
   changeProductPrice,
   changeVariantPrice,
+  fetchCategories,
   fetchProductsPage,
   fetchVariantCurrentPrice,
   fetchVariantPriceHistory,
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
-import type { Price, Product, Variant } from '../../api/types'
+import type { Category, Price, Product, Variant } from '../../api/types'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { CloseButton } from '../../shared/CloseButton'
 import { FieldRow } from '../../shared/FieldRow'
+import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
 import { HighlightedText } from '../../shared/HighlightedText'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { NavIconGlyph } from '../../shared/layout/NavIcon'
 import { Pagination } from '../../shared/Pagination'
+import { ProductThumbnail } from '../../shared/ProductThumbnail'
 import { PriceInput } from '../../shared/PriceInput'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useToast } from '../../shared/Toast'
 import { firstName } from '../../shared/formatName'
 import { formatPrice } from '../../shared/formatPrice'
+import { formatDateTime } from '../../shared/formatDateTime'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
@@ -78,6 +82,7 @@ export function PricingPage() {
 
   const [products, setProducts] = useState<Product[]>([])
   const [total, setTotal] = useState(0)
+  const [categories, setCategories] = useState<Category[]>([])
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
   const [status, setStatus] = useState<Status>('loading')
@@ -85,6 +90,7 @@ export function PricingPage() {
 
   const [searchInput, setSearchInput] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
+  const [categoryId, setCategoryId] = useState<number | 'all'>('all')
 
   const [pricesByVariant, setPricesByVariant] = useState<Map<number, Price | null>>(new Map())
   const [drafts, setDrafts] = useState<Map<number, string>>(new Map())
@@ -94,6 +100,7 @@ export function PricingPage() {
   const [confirming, setConfirming] = useState(false)
   const [historyState, setHistoryState] = useState<HistoryState | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const { tableScrollRef, theadRef, scrollbar, updateScrollbar, handleThumbPointerDown } = useTableScrollbar([
     products,
@@ -113,6 +120,10 @@ export function PricingPage() {
   } = useScrollbar([historyState])
 
   useEffect(() => {
+    fetchCategories().then(setCategories).catch(() => {})
+  }, [account?.active_business_id])
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       setAppliedSearch(searchInput)
       setPage(1)
@@ -126,6 +137,7 @@ export function PricingPage() {
     fetchProductsPage({
       page,
       pageSize,
+      categoryId: categoryId === 'all' ? undefined : categoryId,
       search: appliedSearch.trim() === '' ? undefined : appliedSearch.trim(),
     })
       .then(async (result) => {
@@ -149,9 +161,13 @@ export function PricingPage() {
       })
   }
 
-  useEffect(load, [page, pageSize, appliedSearch, account?.active_business_id])
+  useEffect(load, [page, pageSize, categoryId, appliedSearch, account?.active_business_id])
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  function categoryName(categoryId: number): string {
+    return categories.find((category) => category.id === categoryId)?.name ?? '—'
+  }
 
   function draftFor(variantId: number): string {
     return drafts.get(variantId) ?? ''
@@ -302,6 +318,8 @@ export function PricingPage() {
     return confirmState.conflictMessage !== null ? `${confirmState.conflictMessage} ${base}` : base
   })()
 
+  const hasActiveFilters = appliedSearch !== '' || categoryId !== 'all'
+
   return (
     <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
       <div className="flex items-start justify-between gap-3">
@@ -309,44 +327,77 @@ export function PricingPage() {
           <h1 className="text-3xl font-bold">Precios</h1>
           <p className="mt-1 whitespace-nowrap text-base opacity-60 lg:text-lg">{total} productos encontrados</p>
         </div>
-        {status === 'success' && (total > 0 || appliedSearch !== '') && (
+        {status === 'success' && (total > 0 || hasActiveFilters) && (
           <ViewToggle mode={viewMode} onChange={setViewMode} />
         )}
       </div>
 
-      {status === 'success' && (total > 0 || appliedSearch !== '') && (
-        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
-          <SearchInput
-            value={searchInput}
-            onChange={setSearchInput}
-            placeholder="Buscar por nombre…"
-            ariaLabel="Buscar productos"
-            className="lg:min-w-40 lg:flex-1"
-          />
-          <SelectMenu
-            value={String(pageSize)}
-            onChange={(value) => {
-              setPageSize(Number(value))
-              setPage(1)
-            }}
-            ariaLabel="Cantidad por página"
-            className="w-full lg:w-56"
-            options={[
-              { value: '10', label: '10 por página' },
-              { value: '25', label: '25 por página' },
-              { value: '50', label: '50 por página' },
-            ]}
-          />
-          <button
-            type="button"
-            disabled={searchInput === ''}
-            onClick={() => setSearchInput('')}
-            className="hidden h-12 w-full rounded-lg border-2 border-brand bg-surface text-lg font-semibold text-brand transition-colors hover:bg-brand hover:text-brand-contrast disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:font-normal disabled:text-ink/40 disabled:hover:bg-surface disabled:hover:text-ink/40 lg:block lg:w-56"
-          >
-            Limpiar búsqueda
-          </button>
-        </div>
-      )}
+      {status === 'success' && (total > 0 || hasActiveFilters) && (() => {
+        const filterControls = (
+          <>
+            <SelectMenu
+              value={categoryId === 'all' ? 'all' : String(categoryId)}
+              onChange={(value) => {
+                setCategoryId(value === 'all' ? 'all' : Number(value))
+                setPage(1)
+              }}
+              ariaLabel="Filtrar por categoría"
+              className="w-full lg:w-56"
+              options={[
+                { value: 'all', label: 'Todas las categorías' },
+                ...categories.map((category) => ({ value: String(category.id), label: category.name })),
+              ]}
+            />
+            <SelectMenu
+              value={String(pageSize)}
+              onChange={(value) => {
+                setPageSize(Number(value))
+                setPage(1)
+              }}
+              ariaLabel="Cantidad por página"
+              className="w-full lg:w-56"
+              options={[
+                { value: '10', label: '10 por página' },
+                { value: '25', label: '25 por página' },
+                { value: '50', label: '50 por página' },
+              ]}
+            />
+            <button
+              type="button"
+              disabled={!hasActiveFilters}
+              onClick={() => {
+                setSearchInput('')
+                setCategoryId('all')
+              }}
+              className="h-12 w-full rounded-lg border-2 border-brand bg-surface text-lg font-semibold text-brand transition-colors hover:bg-brand hover:text-brand-contrast disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:font-normal disabled:text-ink/40 disabled:hover:bg-surface disabled:hover:text-ink/40 lg:w-56"
+            >
+              Limpiar búsqueda
+            </button>
+          </>
+        )
+        return (
+          <>
+            <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+              {filterControls}
+            </FiltersSheet>
+            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+              <SearchInput
+                value={searchInput}
+                onChange={setSearchInput}
+                placeholder="Buscar por nombre…"
+                ariaLabel="Buscar productos"
+                className="lg:min-w-40 lg:flex-1"
+              />
+              <FiltersButton
+                onClick={() => setFiltersOpen(true)}
+                hasActiveFilters={categoryId !== 'all'}
+                widthClassName="w-full lg:hidden"
+              />
+              <div className="hidden flex-wrap items-center gap-3 lg:flex">{filterControls}</div>
+            </div>
+          </>
+        )
+      })()}
 
       {status === 'loading' && (
         <div className="flex flex-col items-center gap-3 py-12 text-center" role="status">
@@ -357,7 +408,7 @@ export function PricingPage() {
 
       {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
 
-      {status === 'success' && total === 0 && appliedSearch !== '' && (
+      {status === 'success' && total === 0 && hasActiveFilters && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
           <svg
             aria-hidden="true"
@@ -377,7 +428,7 @@ export function PricingPage() {
         </div>
       )}
 
-      {status === 'success' && total === 0 && appliedSearch === '' && (
+      {status === 'success' && total === 0 && !hasActiveFilters && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-16 text-center">
           <NavIconGlyph icon="prices" className="h-10 w-10 opacity-40" />
           <p className="text-xl font-semibold opacity-70">No hay precios cargados</p>
@@ -432,17 +483,21 @@ export function PricingPage() {
                       return (
                         <div key={variant.id} data-testid="price-row" className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
                           <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
-                            <div className="min-h-20">
-                              <p className="line-clamp-2 text-xl font-bold leading-tight">
+                            <div className="flex min-h-12 items-center gap-3">
+                              <ProductThumbnail imageUrl={product.image_url} name={product.name} sizeClassName="h-12 w-12" />
+                              <p className="text-xl font-bold leading-tight">
                                 <HighlightedText text={product.name} query={appliedSearch} />
                               </p>
-                              <p className="mt-0.5 text-lg opacity-60">{variantLabel(variant)}</p>
                             </div>
                             {currentPrice !== null ? (
                               <span className="text-2xl font-bold text-brand">{formatPrice(currentPrice.amount)}</span>
                             ) : (
                               <span className="text-lg italic opacity-40">Sin precio</span>
                             )}
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <FieldRow label="Categoría" value={categoryName(product.category_id)} />
+                            <FieldRow label="Variante" value={variantLabel(variant)} />
                           </div>
                           {canManage && (
                             <div className="grid grid-cols-2 gap-2">
@@ -526,7 +581,9 @@ export function PricingPage() {
               <table className="w-full min-w-[1000px]">
                 <thead ref={theadRef} className="sticky top-0 z-10">
                   <tr className="table-header border-b border-line">
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Imagen</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Producto</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Categoría</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Variante</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Precio actual</th>
                     {canManage && (
@@ -547,7 +604,7 @@ export function PricingPage() {
                       <Fragment key={product.id}>
                         {showApplyAll && (
                           <tr key={`${product.id}-apply-all`} className="border-t border-line bg-surface-brand/40">
-                            <td colSpan={2} className="px-4 py-3 text-lg font-semibold">
+                            <td colSpan={4} className="px-4 py-3 text-lg font-semibold">
                               <HighlightedText text={product.name} query={appliedSearch} />
                               <span className="ml-2 text-base font-normal opacity-60">
                                 aplicar a las {activeVariants.length} variantes
@@ -583,9 +640,13 @@ export function PricingPage() {
                           const edited = draft.trim() !== '' && draft.trim() !== (currentPrice?.amount ?? '')
                           return (
                             <tr key={variant.id} data-testid="price-row" className="border-t border-line transition-colors hover:bg-surface-brand/60">
+                              <td className="px-4 py-3.5">
+                                <ProductThumbnail imageUrl={product.image_url} name={product.name} sizeClassName="h-12 w-12" />
+                              </td>
                               <td className="max-w-xs px-4 py-3.5 text-lg font-semibold">
                                 <HighlightedText text={product.name} query={appliedSearch} />
                               </td>
+                              <td className="px-4 py-3.5 text-lg opacity-70">{categoryName(product.category_id)}</td>
                               <td className="px-4 py-3.5 text-lg opacity-70">{variantLabel(variant)}</td>
                               <td className="whitespace-nowrap px-4 py-3.5 text-lg">
                                 {currentPrice !== null ? (
@@ -694,7 +755,7 @@ export function PricingPage() {
           <div
             role="dialog"
             aria-label={`Historial de precios de ${historyState.product.name}`}
-            className="relative flex max-h-[80vh] w-full max-w-lg flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
+            className="relative grid max-h-[80vh] w-full max-w-lg grid-rows-[auto_1fr] gap-4 overflow-hidden rounded-2xl bg-surface p-6 shadow-2xl"
           >
             <div className="flex items-start justify-between">
               <div>
@@ -716,29 +777,38 @@ export function PricingPage() {
               <p className="text-lg opacity-60">Todavía no hay cambios de precio registrados.</p>
             )}
             {historyState.status === 'success' && historyState.prices.length > 0 && (
-              <div className="relative min-h-0 flex-1">
+              <div className="relative min-h-0">
                 <div
                   ref={historyScrollRef}
                   onScroll={updateHistoryScrollbar}
-                  className="scrollbar-hidden h-full overflow-auto pr-5"
+                  className={`scrollbar-hidden h-full overflow-auto ${historyScrollbar.visible ? 'pr-5' : ''}`}
                 >
                   <ul className="flex flex-col gap-3">
-                    {[...historyState.prices]
-                      .sort((a, b) => new Date(b.effective_from).getTime() - new Date(a.effective_from).getTime())
-                      .map((price) => (
-                        <li key={price.id} className="flex flex-col gap-1 rounded-lg border border-line px-4 py-3">
-                          <div className="flex items-center justify-between text-lg">
-                            <span className="font-bold text-brand">{formatPrice(price.amount)}</span>
-                            <span className="opacity-60">{firstName(price.created_by_account_name)}</span>
-                          </div>
-                          <p className="m-0 text-base opacity-60">
-                            Vigente desde {formatRelativeTime(price.effective_from)}
-                            {price.effective_to !== null
-                              ? ` hasta ${formatRelativeTime(price.effective_to)}`
-                              : ' (actual)'}
-                          </p>
-                        </li>
-                      ))}
+                    {(() => {
+                      const sorted = [...historyState.prices].sort(
+                        (a, b) => new Date(b.effective_from).getTime() - new Date(a.effective_from).getTime(),
+                      )
+                      return sorted.map((price, index) => {
+                        const previousAmount = sorted[index + 1]?.amount ?? null
+                        const diff = previousAmount !== null ? Number(price.amount) - Number(previousAmount) : 0
+                        return (
+                          <li key={price.id} className="flex flex-col gap-1 rounded-lg border border-line px-4 py-3">
+                            <div className="flex items-center justify-between text-lg">
+                              <span
+                                className={`font-bold ${diff < 0 ? 'text-danger' : diff > 0 ? 'text-success' : 'text-brand'}`}
+                              >
+                                {formatPrice(price.amount)}
+                              </span>
+                              <span className="opacity-60">{formatDateTime(price.effective_from)}</span>
+                            </div>
+                            <p className="m-0 text-base opacity-70">
+                              {previousAmount !== null ? `${formatPrice(previousAmount)} → ${formatPrice(price.amount)}` : formatPrice(price.amount)}
+                            </p>
+                            <p className="m-0 text-base opacity-70">Cambiado por: {firstName(price.created_by_account_name)}</p>
+                          </li>
+                        )
+                      })
+                    })()}
                   </ul>
                 </div>
 

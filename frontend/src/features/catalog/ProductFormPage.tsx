@@ -1,20 +1,25 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import {
+  adjustStock,
   createCategory,
+  createMovementReason,
   createProduct,
   createUnit,
   fetchAttributes,
   fetchCategories,
+  fetchMovementReasons,
   fetchProductsPage,
+  fetchProviders,
   fetchUnits,
   setInitialVariantPrice,
+  setMinimumStock,
+  setProductProvider,
   uploadProductImage,
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
-import type { Attribute, Category, Product, Unit, Variant } from '../../api/types'
+import type { Attribute, Category, MovementReason, Provider, Unit, Variant } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
-import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { normalizeForComparison } from '../../shared/normalizeForComparison'
 import { PriceInput } from '../../shared/PriceInput'
@@ -31,10 +36,10 @@ import type { SelectedAttributeValue } from './VariantAttributesEditor'
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los datos necesarios para el formulario.'
 const CREATE_ERROR_MESSAGE = 'No se pudo crear el producto. Intentá de nuevo.'
 const CREATE_SUCCESS_MESSAGE = 'Producto creado correctamente.'
-const PRICE_ERROR_MESSAGE = 'No se pudo guardar el precio. Intentá de nuevo.'
 const CREATE_CATEGORY_ERROR_MESSAGE = 'No se pudo crear la categoría. Intentá de nuevo.'
 const CREATE_UNIT_ERROR_MESSAGE = 'No se pudo crear la unidad. Intentá de nuevo.'
 const IMAGE_UPLOAD_ERROR_MESSAGE = 'El producto se creó, pero no se pudo subir la imagen.'
+const INITIAL_STOCK_REASON_NAME = 'Carga inicial'
 
 const CREATE_NEW_OPTION = '__create__'
 
@@ -60,6 +65,44 @@ interface VariantDraft {
 
 let nextDraftKey = 1
 
+function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
+  const labels = ['Información\ngeneral', 'Precio y stock', 'Confirmar']
+  return (
+    <div className="mb-2 flex items-center">
+      {labels.map((label, index) => {
+        const n = (index + 1) as 1 | 2 | 3
+        const active = n === step
+        const done = n < step
+        return (
+          <div key={label} className={`flex items-center ${index < labels.length - 1 ? 'flex-1' : ''}`}>
+            <div className="flex flex-col items-center gap-1">
+              <div
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold ${
+                  active
+                    ? 'border-brand bg-brand text-brand-contrast'
+                    : done
+                      ? 'border-brand text-brand'
+                      : 'border-line text-ink/40'
+                }`}
+              >
+                {n}
+              </div>
+              <span
+                className={`whitespace-pre-line text-center text-xs font-semibold ${active || done ? 'text-brand' : 'text-ink/40'}`}
+              >
+                {label}
+              </span>
+            </div>
+            {index < labels.length - 1 && (
+              <div className={`mx-2 mb-4 h-0.5 flex-1 ${done ? 'bg-brand' : 'bg-line'}`} />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function ProductFormPage() {
   const navigate = useNavigate()
   const { showSuccess, showError } = useToast()
@@ -75,13 +118,18 @@ export function ProductFormPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [attributes, setAttributes] = useState<Attribute[]>([])
+  const [providers, setProviders] = useState<Provider[]>([])
+  const [reasons, setReasons] = useState<MovementReason[]>([])
   const [loadStatus, setLoadStatus] = useState<'loading' | 'success' | 'error'>('loading')
+
+  const [step, setStep] = useState<1 | 2 | 3>(1)
 
   const [name, setName] = useState('')
   const [categoryId, setCategoryId] = useState<number | ''>('')
   const [unitId, setUnitId] = useState<number | ''>('')
+  const [providerId, setProviderId] = useState<number | ''>('')
   const [touched, setTouched] = useState({ name: false, category: false, unit: false })
-  const [attemptedSubmit, setAttemptedSubmit] = useState(false)
+  const [attemptedContinueStep1, setAttemptedContinueStep1] = useState(false)
   const [duplicateNameError, setDuplicateNameError] = useState<string | null>(null)
   const [checkingName, setCheckingName] = useState(false)
   const [addVariants, setAddVariants] = useState(false)
@@ -98,26 +146,40 @@ export function ProductFormPage() {
   const [savingNewUnit, setSavingNewUnit] = useState(false)
   const [newUnitError, setNewUnitError] = useState<string | null>(null)
 
-  const [creating, setCreating] = useState(false)
-  const [confirmingCreate, setConfirmingCreate] = useState(false)
+  const [singlePrice, setSinglePrice] = useState('')
+  const [singleStock, setSingleStock] = useState('')
+  const [singleMinimum, setSingleMinimum] = useState('')
+  const [variantPrices, setVariantPrices] = useState<Record<number, string>>({})
+  const [variantStocks, setVariantStocks] = useState<Record<number, string>>({})
+  const [variantMinimums, setVariantMinimums] = useState<Record<number, string>>({})
 
-  const [createdProduct, setCreatedProduct] = useState<Product | null>(null)
-  const [duplicates, setDuplicates] = useState<Variant[]>([])
-  const [prices, setPrices] = useState<Record<number, string>>({})
-  const [savingPrices, setSavingPrices] = useState(false)
-  const [priceError, setPriceError] = useState<string | null>(null)
-  const [savedVariantIds, setSavedVariantIds] = useState<Set<number>>(new Set())
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const [createdProductId, setCreatedProductId] = useState<number | null>(null)
+  const [duplicatesFound, setDuplicatesFound] = useState<Variant[] | null>(null)
 
   function loadFormData() {
     setLoadStatus('loading')
-    Promise.all([fetchCategories(), fetchUnits(), fetchAttributes()])
-      .then(([categoryList, unitList, attributeList]) => {
+    Promise.all([fetchCategories(), fetchUnits(), fetchAttributes(), fetchProviders(), fetchMovementReasons()])
+      .then(([categoryList, unitList, attributeList, providerList, reasonList]) => {
         setCategories(categoryList.filter((category) => category.status === 'active'))
         setUnits(unitList.filter((unit) => unit.status === 'active'))
         setAttributes(attributeList.filter((attribute) => attribute.status === 'active'))
+        setProviders(providerList.filter((provider) => provider.status === 'active'))
+        setReasons(reasonList)
         setLoadStatus('success')
       })
       .catch(() => setLoadStatus('error'))
+  }
+
+  async function resolveInitialStockReasonId(): Promise<number> {
+    const existing = reasons.find(
+      (reason) => reason.status === 'active' && reason.name.trim().toLowerCase() === INITIAL_STOCK_REASON_NAME.toLowerCase(),
+    )
+    if (existing !== undefined) return existing.id
+    const created = await createMovementReason(INITIAL_STOCK_REASON_NAME)
+    setReasons((prev) => [...prev, created])
+    return created.id
   }
 
   useEffect(loadFormData, [])
@@ -175,6 +237,21 @@ export function ProductFormPage() {
 
   function removeVariantDraft(key: number) {
     setVariantDrafts((prev) => prev.filter((draft) => draft.key !== key))
+    setVariantPrices((prev) => {
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+    setVariantStocks((prev) => {
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+    setVariantMinimums((prev) => {
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
   }
 
   function updateVariantLabel(key: number, label: string) {
@@ -195,6 +272,18 @@ export function ProductFormPage() {
     )
   }
 
+  function selectVariantMode(withVariants: boolean) {
+    setAddVariants(withVariants)
+    if (!withVariants) {
+      setVariantDrafts([])
+      setVariantPrices({})
+      setVariantStocks({})
+      setVariantMinimums({})
+    } else if (variantDrafts.length === 0) {
+      addVariantDraft()
+    }
+  }
+
   const hasUndistinguishedVariant =
     addVariants &&
     variantDrafts.length > 1 &&
@@ -204,18 +293,18 @@ export function ProductFormPage() {
   const categoryError = categoryId === '' ? 'Elegí una categoría.' : null
   const unitError = unitId === '' ? 'Elegí una unidad.' : null
 
-  const showNameError = (touched.name || attemptedSubmit) && nameError !== null
-  const showCategoryError = (touched.category || attemptedSubmit) && categoryError !== null
-  const showUnitError = (touched.unit || attemptedSubmit) && unitError !== null
+  const showNameError = (touched.name || attemptedContinueStep1) && nameError !== null
+  const showCategoryError = (touched.category || attemptedContinueStep1) && categoryError !== null
+  const showUnitError = (touched.unit || attemptedContinueStep1) && unitError !== null
 
   function markTouched(field: keyof typeof touched) {
     setTouched((prev) => ({ ...prev, [field]: true }))
   }
 
-  async function handleSubmit(event: React.FormEvent) {
+  async function handleContinueStep1(event: React.FormEvent) {
     event.preventDefault()
-    setAttemptedSubmit(true)
-    if (name.trim() === '' || categoryError !== null || unitError !== null || hasUndistinguishedVariant) return
+    setAttemptedContinueStep1(true)
+    if (name.trim() === '' || categoryError !== null || unitError !== null) return
 
     const trimmedName = name.trim()
     setCheckingName(true)
@@ -232,13 +321,21 @@ export function ProductFormPage() {
       return
     }
 
-    setConfirmingCreate(true)
+    setStep(2)
   }
 
-  async function createProductNow() {
+  const step2Valid = !hasUndistinguishedVariant
+
+  function handleContinueStep2(event: React.FormEvent) {
+    event.preventDefault()
+    if (!step2Valid) return
+    setStep(3)
+  }
+
+  async function handleConfirmCreate() {
     if (categoryId === '' || unitId === '') return
-    setConfirmingCreate(false)
     setCreating(true)
+    setCreateError(null)
     try {
       const result = await createProduct({
         name: name.trim(),
@@ -253,6 +350,7 @@ export function ProductFormPage() {
             : undefined,
       })
       let product = result.product
+
       if (imageFile !== null) {
         try {
           product = await uploadProductImage(product.id, imageFile)
@@ -260,42 +358,53 @@ export function ProductFormPage() {
           showError(IMAGE_UPLOAD_ERROR_MESSAGE)
         }
       }
-      setCreatedProduct(product)
-      setDuplicates(result.possible_duplicates)
-      setPrices(Object.fromEntries(result.product.variants.map((variant) => [variant.id, ''])))
+
+      if (providerId !== '') {
+        try {
+          product = await setProductProvider(product.id, providerId)
+        } catch {
+          showError('El producto se creó, pero no se pudo asignar el proveedor.')
+        }
+      }
+
+      const isSingle = product.variants.length === 1 && product.variants[0].is_implicit
+      let stockReasonId: number | null = null
+      for (let index = 0; index < product.variants.length; index += 1) {
+        const variant = product.variants[index]
+        const draftKey = variantDrafts[index]?.key
+        const price = (isSingle ? singlePrice : (draftKey !== undefined ? variantPrices[draftKey] : '') ?? '').trim()
+        const stock = (isSingle ? singleStock : (draftKey !== undefined ? variantStocks[draftKey] : '') ?? '').trim()
+        const minimum = (isSingle ? singleMinimum : (draftKey !== undefined ? variantMinimums[draftKey] : '') ?? '').trim()
+
+        if (price !== '') {
+          await setInitialVariantPrice(variant.id, price)
+        }
+        if (stock !== '') {
+          if (stockReasonId === null) stockReasonId = await resolveInitialStockReasonId()
+          await adjustStock(variant.id, { quantity: Number(stock), reason_id: stockReasonId })
+        }
+        if (minimum !== '') {
+          await setMinimumStock(variant.id, Number(minimum))
+        }
+      }
+
       showSuccess(CREATE_SUCCESS_MESSAGE)
+      if (result.possible_duplicates.length > 0) {
+        setCreatedProductId(product.id)
+        setDuplicatesFound(result.possible_duplicates)
+      } else {
+        navigate(`/products/${product.id}`)
+      }
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : CREATE_ERROR_MESSAGE)
+      setCreateError(error instanceof ApiError ? error.message : CREATE_ERROR_MESSAGE)
     } finally {
       setCreating(false)
     }
   }
 
-  async function handleSavePrices(event: React.FormEvent) {
-    event.preventDefault()
-    if (createdProduct === null) return
-
-    setSavingPrices(true)
-    setPriceError(null)
-    try {
-      for (const variant of createdProduct.variants) {
-        if (savedVariantIds.has(variant.id)) continue
-        const amount = prices[variant.id]?.trim() ?? ''
-        if (amount === '') continue
-        await setInitialVariantPrice(variant.id, amount)
-        setSavedVariantIds((prev) => new Set(prev).add(variant.id))
-      }
-      navigate(`/products/${createdProduct.id}`)
-    } catch (error) {
-      setPriceError(error instanceof ApiError ? error.message : PRICE_ERROR_MESSAGE)
-    } finally {
-      setSavingPrices(false)
-    }
-  }
-
-  const allPricesFilled =
-    createdProduct !== null &&
-    createdProduct.variants.every((variant) => (prices[variant.id]?.trim() ?? '') !== '')
+  const selectedCategory = categories.find((category) => category.id === categoryId)
+  const selectedUnit = units.find((unit) => unit.id === unitId)
+  const selectedProvider = providers.find((provider) => provider.id === providerId)
 
   if (!canManage) {
     return <Navigate to="/products" replace />
@@ -314,14 +423,7 @@ export function ProductFormPage() {
               <Link to="/products" className="hover:text-brand">
                 Catálogo
               </Link>{' '}
-              ›{' '}
-              {createdProduct !== null && (
-                <>
-                  {createdProduct.name}
-                  {' › '}
-                </>
-              )}
-              <span className="text-brand">{createdProduct !== null ? 'Precio inicial' : 'Nuevo producto'}</span>
+              › <span className="text-brand">Nuevo producto</span>
             </p>
           ) : (
             <span />
@@ -337,324 +439,501 @@ export function ProductFormPage() {
 
         {loadStatus === 'error' && <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={loadFormData} />}
 
-        {loadStatus === 'success' && createdProduct !== null && (
+        {loadStatus === 'success' && duplicatesFound !== null && (
           <div className="flex flex-col gap-4">
-            <div>
-              <h1 className="m-0 text-2xl font-bold">Precio inicial</h1>
-              <p className="mt-1 opacity-70">
-                {createdProduct.variants.length === 1 && createdProduct.variants[0].is_implicit
-                  ? 'Definí el precio del producto para que aparezca en las búsquedas.'
-                  : 'Definí el precio de cada variante para que aparezcan en las búsquedas.'}
-              </p>
-            </div>
-
-            <DuplicateWarning duplicates={duplicates} />
-
-            <form onSubmit={handleSavePrices} className="flex flex-col gap-3">
-              {createdProduct.variants.map((variant) => {
-                const label =
-                  createdProduct.variants.length === 1 && createdProduct.variants[0].is_implicit
-                    ? 'Precio'
-                    : (variant.label ?? `Variante #${variant.id}`)
-                return (
-                  <label key={variant.id} className="flex flex-col gap-1">
-                    <span className="text-lg font-semibold">{label}</span>
-                    <PriceInput
-                      value={prices[variant.id] ?? ''}
-                      placeholder="0.00"
-                      onChange={(value) => setPrices((prev) => ({ ...prev, [variant.id]: value }))}
-                      ariaLabel={label}
-                      disabled={savingPrices}
-                      required
-                      className={priceInputClasses}
-                    />
-                  </label>
-                )
-              })}
-
-              {priceError !== null && (
-                <p role="alert" className="m-0 text-base text-danger">
-                  {priceError}
-                </p>
-              )}
-
-              <button type="submit" disabled={savingPrices || !allPricesFilled} className={primaryButtonClasses}>
-                Guardar precio{createdProduct.variants.length > 1 ? 's' : ''}
-              </button>
-            </form>
+            <h1 className="m-0 text-2xl font-bold">Producto creado</h1>
+            <DuplicateWarning duplicates={duplicatesFound} />
+            <button
+              type="button"
+              onClick={() => navigate(`/products/${createdProductId}`)}
+              className={primaryButtonClasses}
+            >
+              Ir al producto
+            </button>
           </div>
         )}
 
-        {loadStatus === 'success' && createdProduct === null && (
+        {loadStatus === 'success' && duplicatesFound === null && (
           <div className="flex flex-col gap-4">
             <h1 className="m-0 text-2xl font-bold">Nuevo producto</h1>
+            <StepIndicator step={step} />
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-              <label htmlFor="product-name" className="text-lg font-semibold">
-                Nombre <span className="text-danger">*</span>
-              </label>
-              <input
-                id="product-name"
-                type="text"
-                value={name}
-                onChange={(event) => {
-                  setName(event.target.value)
-                  setDuplicateNameError(null)
-                }}
-                onBlur={() => markTouched('name')}
-                disabled={creating}
-                className={fieldClasses(showNameError)}
-              />
-              {showNameError && (
-                <span role="alert" className="-mt-2 text-sm text-danger">
-                  {nameError}
-                </span>
-              )}
-              {!showNameError && checkingName && (
-                <span className="-mt-2 text-sm opacity-60">Verificando nombre…</span>
-              )}
-
-              <span className="text-lg font-semibold">
-                Categoría <span className="text-danger">*</span>
-              </span>
-              <SelectMenu
-                ariaLabel="Categoría"
-                disabled={creating}
-                hasError={showCategoryError}
-                onBlur={() => markTouched('category')}
-                value={categoryId === '' ? '' : String(categoryId)}
-                onChange={(value) => {
-                  if (value === CREATE_NEW_OPTION) {
-                    setCreatingCategory(true)
-                    return
-                  }
-                  setCategoryId(value === '' ? '' : Number(value))
-                }}
-                options={[
-                  { value: '', label: 'Elegir categoría…' },
-                  ...categories.map((category) => ({ value: String(category.id), label: category.name })),
-                  { value: CREATE_NEW_OPTION, label: '+ Crear categoría nueva…' },
-                ]}
-              />
-              {showCategoryError && (
-                <span role="alert" className="-mt-2 text-sm text-danger">
-                  {categoryError}
-                </span>
-              )}
-
-              {creatingCategory && (
-                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3">
-                  <input
-                    type="text"
-                    aria-label="Nombre de la categoría nueva"
-                    placeholder="Nombre de la categoría"
-                    value={newCategoryName}
-                    onChange={(event) => setNewCategoryName(event.target.value)}
-                    disabled={savingNewCategory}
-                    className={inputClasses}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleCreateCategory}
-                    disabled={savingNewCategory || newCategoryName.trim() === ''}
-                    className={secondaryButtonClasses}
-                  >
-                    Crear
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCreatingCategory(false)
-                      setNewCategoryName('')
-                      setNewCategoryError(null)
-                    }}
-                    disabled={savingNewCategory}
-                    className={secondaryButtonClasses}
-                  >
-                    Cancelar
-                  </button>
-                  {newCategoryError !== null && (
-                    <p role="alert" className="m-0 w-full text-base text-danger">
-                      {newCategoryError}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <span className="text-lg font-semibold">
-                Unidad <span className="text-danger">*</span>
-              </span>
-              <SelectMenu
-                ariaLabel="Unidad"
-                disabled={creating}
-                hasError={showUnitError}
-                onBlur={() => markTouched('unit')}
-                value={unitId === '' ? '' : String(unitId)}
-                onChange={(value) => {
-                  if (value === CREATE_NEW_OPTION) {
-                    setCreatingUnit(true)
-                    return
-                  }
-                  setUnitId(value === '' ? '' : Number(value))
-                }}
-                options={[
-                  { value: '', label: 'Elegir unidad…' },
-                  ...units.map((unit) => ({ value: String(unit.id), label: `${unit.name} (${unit.abbreviation})` })),
-                  { value: CREATE_NEW_OPTION, label: '+ Crear unidad nueva…' },
-                ]}
-              />
-              {showUnitError && (
-                <span role="alert" className="-mt-2 text-sm text-danger">
-                  {unitError}
-                </span>
-              )}
-
-              {creatingUnit && (
-                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3">
-                  <input
-                    type="text"
-                    aria-label="Nombre de la unidad nueva"
-                    placeholder="Nombre (ej. Kilogramo)"
-                    value={newUnit.name}
-                    onChange={(event) => setNewUnit((prev) => ({ ...prev, name: event.target.value }))}
-                    disabled={savingNewUnit}
-                    className={inputClasses}
-                  />
-                  <input
-                    type="text"
-                    aria-label="Abreviatura de la unidad nueva"
-                    placeholder="Abreviatura (ej. kg)"
-                    value={newUnit.abbreviation}
-                    onChange={(event) => setNewUnit((prev) => ({ ...prev, abbreviation: event.target.value }))}
-                    disabled={savingNewUnit}
-                    className={`${inputClasses} w-40`}
-                  />
-                  <label className="flex items-center gap-2 text-base">
-                    <input
-                      type="checkbox"
-                      checked={newUnit.allows_fraction}
-                      onChange={(event) =>
-                        setNewUnit((prev) => ({ ...prev, allows_fraction: event.target.checked }))
-                      }
-                      disabled={savingNewUnit}
-                      className="accent-brand"
-                    />
-                    Admite fracciones
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleCreateUnit}
-                    disabled={savingNewUnit || newUnit.name.trim() === '' || newUnit.abbreviation.trim() === ''}
-                    className={secondaryButtonClasses}
-                  >
-                    Crear
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCreatingUnit(false)
-                      setNewUnit({ name: '', abbreviation: '', allows_fraction: false })
-                      setNewUnitError(null)
-                    }}
-                    disabled={savingNewUnit}
-                    className={secondaryButtonClasses}
-                  >
-                    Cancelar
-                  </button>
-                  {newUnitError !== null && (
-                    <p role="alert" className="m-0 w-full text-base text-danger">
-                      {newUnitError}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <NewProductImagePicker file={imageFile} disabled={creating} onChange={setImageFile} />
-
-              <label className="flex items-center gap-2 text-lg">
+            {step === 1 && (
+              <form onSubmit={handleContinueStep1} className="flex flex-col gap-3">
+                <label htmlFor="product-name" className="text-lg font-semibold">
+                  Nombre <span className="text-danger">*</span>
+                </label>
                 <input
-                  type="checkbox"
-                  checked={addVariants}
+                  id="product-name"
+                  type="text"
+                  value={name}
                   onChange={(event) => {
-                    setAddVariants(event.target.checked)
-                    if (!event.target.checked) setVariantDrafts([])
+                    setName(event.target.value)
+                    setDuplicateNameError(null)
                   }}
-                  disabled={creating}
-                  className="accent-brand"
+                  onBlur={() => markTouched('name')}
+                  disabled={checkingName}
+                  className={fieldClasses(showNameError)}
                 />
-                Este producto tiene distintas presentaciones (color, talle, etc.)
-              </label>
+                {showNameError && (
+                  <span role="alert" className="-mt-2 text-sm text-danger">
+                    {nameError}
+                  </span>
+                )}
+                {!showNameError && checkingName && (
+                  <span className="-mt-2 text-sm opacity-60">Verificando nombre…</span>
+                )}
 
-              {addVariants && (
-                <div className="flex flex-col gap-4 border-t border-line pt-4">
-                  {variantDrafts.map((draft, index) => (
-                    <div key={draft.key} className="flex flex-col gap-4 rounded-2xl border border-line p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <p className="m-0 text-sm font-bold uppercase tracking-wide text-brand">
-                          Variante {index + 1}
-                        </p>
-                        <CloseButton
-                          onClose={() => removeVariantDraft(draft.key)}
-                          className="-m-2"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label htmlFor={`variant-label-${draft.key}`} className="text-sm font-bold">
-                          Nombre <span className="font-normal normal-case opacity-70">(opcional)</span>
-                        </label>
-                        <input
-                          id={`variant-label-${draft.key}`}
-                          type="text"
-                          aria-label="Nombre de la variante"
-                          placeholder="Ej. Rojo, Talle M"
-                          value={draft.label}
-                          onChange={(event) => updateVariantLabel(draft.key, event.target.value)}
-                          disabled={creating}
-                          className={`${inputClasses} w-full`}
-                        />
-                      </div>
-                      <VariantAttributesEditor
-                        attributes={attributes}
-                        selectedValues={draft.values}
-                        onAdd={(value) => addVariantValue(draft.key, value)}
-                        onRemove={(valueId) => removeVariantValue(draft.key, valueId)}
-                        onAttributeCreated={(attribute) => setAttributes((prev) => [...prev, attribute])}
-                        disabled={creating}
+                <span className="text-lg font-semibold">
+                  Categoría <span className="text-danger">*</span>
+                </span>
+                <SelectMenu
+                  ariaLabel="Categoría"
+                  disabled={checkingName}
+                  hasError={showCategoryError}
+                  onBlur={() => markTouched('category')}
+                  value={categoryId === '' ? '' : String(categoryId)}
+                  onChange={(value) => {
+                    if (value === CREATE_NEW_OPTION) {
+                      setCreatingCategory(true)
+                      return
+                    }
+                    setCategoryId(value === '' ? '' : Number(value))
+                  }}
+                  options={[
+                    { value: '', label: 'Elegir categoría…' },
+                    ...categories.map((category) => ({ value: String(category.id), label: category.name })),
+                    { value: CREATE_NEW_OPTION, label: '+ Crear categoría nueva…' },
+                  ]}
+                />
+                {showCategoryError && (
+                  <span role="alert" className="-mt-2 text-sm text-danger">
+                    {categoryError}
+                  </span>
+                )}
+
+                {creatingCategory && (
+                  <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3">
+                    <input
+                      type="text"
+                      aria-label="Nombre de la categoría nueva"
+                      placeholder="Nombre de la categoría"
+                      value={newCategoryName}
+                      onChange={(event) => setNewCategoryName(event.target.value)}
+                      disabled={savingNewCategory}
+                      className={inputClasses}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCreateCategory}
+                      disabled={savingNewCategory || newCategoryName.trim() === ''}
+                      className={secondaryButtonClasses}
+                    >
+                      Crear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCreatingCategory(false)
+                        setNewCategoryName('')
+                        setNewCategoryError(null)
+                      }}
+                      disabled={savingNewCategory}
+                      className={secondaryButtonClasses}
+                    >
+                      Cancelar
+                    </button>
+                    {newCategoryError !== null && (
+                      <p role="alert" className="m-0 w-full text-base text-danger">
+                        {newCategoryError}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <span className="text-lg font-semibold">
+                  Unidad <span className="text-danger">*</span>
+                </span>
+                <SelectMenu
+                  ariaLabel="Unidad"
+                  disabled={checkingName}
+                  hasError={showUnitError}
+                  onBlur={() => markTouched('unit')}
+                  value={unitId === '' ? '' : String(unitId)}
+                  onChange={(value) => {
+                    if (value === CREATE_NEW_OPTION) {
+                      setCreatingUnit(true)
+                      return
+                    }
+                    setUnitId(value === '' ? '' : Number(value))
+                  }}
+                  options={[
+                    { value: '', label: 'Elegir unidad…' },
+                    ...units.map((unit) => ({ value: String(unit.id), label: `${unit.name} (${unit.abbreviation})` })),
+                    { value: CREATE_NEW_OPTION, label: '+ Crear unidad nueva…' },
+                  ]}
+                />
+                {showUnitError && (
+                  <span role="alert" className="-mt-2 text-sm text-danger">
+                    {unitError}
+                  </span>
+                )}
+
+                {creatingUnit && (
+                  <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3">
+                    <input
+                      type="text"
+                      aria-label="Nombre de la unidad nueva"
+                      placeholder="Nombre (ej. Kilogramo)"
+                      value={newUnit.name}
+                      onChange={(event) => setNewUnit((prev) => ({ ...prev, name: event.target.value }))}
+                      disabled={savingNewUnit}
+                      className={inputClasses}
+                    />
+                    <input
+                      type="text"
+                      aria-label="Abreviatura de la unidad nueva"
+                      placeholder="Abreviatura (ej. kg)"
+                      value={newUnit.abbreviation}
+                      onChange={(event) => setNewUnit((prev) => ({ ...prev, abbreviation: event.target.value }))}
+                      disabled={savingNewUnit}
+                      className={`${inputClasses} w-40`}
+                    />
+                    <label className="flex items-center gap-2 text-base">
+                      <input
+                        type="checkbox"
+                        checked={newUnit.allows_fraction}
+                        onChange={(event) =>
+                          setNewUnit((prev) => ({ ...prev, allows_fraction: event.target.checked }))
+                        }
+                        disabled={savingNewUnit}
+                        className="accent-brand"
                       />
-                    </div>
-                  ))}
+                      Admite fracciones
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleCreateUnit}
+                      disabled={savingNewUnit || newUnit.name.trim() === '' || newUnit.abbreviation.trim() === ''}
+                      className={secondaryButtonClasses}
+                    >
+                      Crear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCreatingUnit(false)
+                        setNewUnit({ name: '', abbreviation: '', allows_fraction: false })
+                        setNewUnitError(null)
+                      }}
+                      disabled={savingNewUnit}
+                      className={secondaryButtonClasses}
+                    >
+                      Cancelar
+                    </button>
+                    {newUnitError !== null && (
+                      <p role="alert" className="m-0 w-full text-base text-danger">
+                        {newUnitError}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <span className="text-lg font-semibold">
+                  Proveedor <span className="font-normal opacity-70">(opcional)</span>
+                </span>
+                <SelectMenu
+                  ariaLabel="Proveedor"
+                  disabled={checkingName}
+                  value={providerId === '' ? '' : String(providerId)}
+                  onChange={(value) => setProviderId(value === '' ? '' : Number(value))}
+                  options={[
+                    { value: '', label: 'Sin proveedor asignado' },
+                    ...providers.map((provider) => ({ value: String(provider.id), label: provider.name })),
+                  ]}
+                />
+
+                <NewProductImagePicker file={imageFile} disabled={checkingName} onChange={setImageFile} />
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={checkingName || nameError !== null || categoryError !== null || unitError !== null}
+                    className={`${primaryButtonClasses} w-1/2`}
+                  >
+                    {checkingName ? 'Verificando…' : 'Continuar'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {step === 2 && (
+              <form onSubmit={handleContinueStep2} className="flex flex-col gap-3">
+                <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={addVariantDraft}
-                    disabled={creating}
-                    className={`${secondaryButtonClasses} mt-1`}
+                    onClick={() => selectVariantMode(false)}
+                    className={`flex min-h-11 flex-1 items-center justify-center rounded-lg border text-base font-semibold transition-colors ${
+                      !addVariants ? 'border-brand bg-surface-brand text-brand' : 'border-line text-ink/50 hover:bg-surface-brand'
+                    }`}
                   >
-                    + Agregar variante
+                    Producto único
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => selectVariantMode(true)}
+                    className={`flex min-h-11 flex-1 items-center justify-center rounded-lg border text-base font-semibold transition-colors ${
+                      addVariants ? 'border-brand bg-surface-brand text-brand' : 'border-line text-ink/50 hover:bg-surface-brand'
+                    }`}
+                  >
+                    Producto con variantes
+                  </button>
+                </div>
 
-                  {hasUndistinguishedVariant && (
-                    <p role="alert" className="m-0 text-base text-danger">
-                      Cada variante necesita un nombre o un atributo que la diferencie de las demás.
-                    </p>
+                {!addVariants ? (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <label className="flex flex-col gap-1">
+                      <span className="whitespace-nowrap text-base font-semibold">
+                        Precio <span className="font-normal opacity-70">(opcional)</span>
+                      </span>
+                      <PriceInput
+                        value={singlePrice}
+                        placeholder="0.00"
+                        onChange={setSinglePrice}
+                        ariaLabel="Precio"
+                        className={priceInputClasses}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="whitespace-nowrap text-base font-semibold">
+                        Stock actual <span className="font-normal opacity-70">(opcional)</span>
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={singleStock}
+                        onChange={(event) => setSingleStock(event.target.value)}
+                        aria-label="Stock actual"
+                        className={inputClasses}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="whitespace-nowrap text-base font-semibold">
+                        Stock min. <span className="font-normal opacity-70">(opcional)</span>
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={singleMinimum}
+                        onChange={(event) => setSingleMinimum(event.target.value)}
+                        aria-label="Stock min."
+                        className={inputClasses}
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-4 border-t border-line pt-4">
+                    {variantDrafts.map((draft, index) => (
+                      <div key={draft.key} className="flex flex-col gap-4 rounded-2xl border border-line p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="m-0 text-sm font-bold uppercase tracking-wide text-brand">
+                            Variante {index + 1}
+                          </p>
+                          {variantDrafts.length > 1 && (
+                            <CloseButton onClose={() => removeVariantDraft(draft.key)} className="-m-2" />
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label htmlFor={`variant-label-${draft.key}`} className="text-sm font-bold">
+                            Nombre <span className="font-normal normal-case opacity-70">(opcional)</span>
+                          </label>
+                          <input
+                            id={`variant-label-${draft.key}`}
+                            type="text"
+                            aria-label="Nombre de la variante"
+                            placeholder="Ej. Rojo, Talle M"
+                            value={draft.label}
+                            onChange={(event) => updateVariantLabel(draft.key, event.target.value)}
+                            className={`${inputClasses} w-full`}
+                          />
+                        </div>
+                        <VariantAttributesEditor
+                          attributes={attributes}
+                          selectedValues={draft.values}
+                          onAdd={(value) => addVariantValue(draft.key, value)}
+                          onRemove={(valueId) => removeVariantValue(draft.key, valueId)}
+                          onAttributeCreated={(attribute) => setAttributes((prev) => [...prev, attribute])}
+                        />
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                          <label className="flex flex-col gap-1">
+                            <span className="whitespace-nowrap text-base font-semibold">
+                              Precio <span className="font-normal opacity-70">(opcional)</span>
+                            </span>
+                            <PriceInput
+                              value={variantPrices[draft.key] ?? ''}
+                              placeholder="0.00"
+                              onChange={(value) => setVariantPrices((prev) => ({ ...prev, [draft.key]: value }))}
+                              ariaLabel={`Precio de la variante ${index + 1}`}
+                              className={priceInputClasses}
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="whitespace-nowrap text-base font-semibold">
+                              Stock actual <span className="font-normal opacity-70">(opcional)</span>
+                            </span>
+                            <input
+                              type="number"
+                              min={0}
+                              step={1}
+                              value={variantStocks[draft.key] ?? ''}
+                              onChange={(event) =>
+                                setVariantStocks((prev) => ({ ...prev, [draft.key]: event.target.value }))
+                              }
+                              aria-label={`Stock actual de la variante ${index + 1}`}
+                              className={inputClasses}
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="whitespace-nowrap text-base font-semibold">
+                              Stock min. <span className="font-normal opacity-70">(opcional)</span>
+                            </span>
+                            <input
+                              type="number"
+                              min={0}
+                              step={1}
+                              value={variantMinimums[draft.key] ?? ''}
+                              onChange={(event) =>
+                                setVariantMinimums((prev) => ({ ...prev, [draft.key]: event.target.value }))
+                              }
+                              aria-label={`Stock min. de la variante ${index + 1}`}
+                              className={inputClasses}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    ))}
+                    <button type="button" onClick={addVariantDraft} className={`${secondaryButtonClasses} mt-1`}>
+                      + Agregar variante
+                    </button>
+
+                    {hasUndistinguishedVariant && (
+                      <p role="alert" className="m-0 text-base text-danger">
+                        Cada variante necesita un nombre o un atributo que la diferencie de las demás.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep(1)}
+                    className={`${secondaryButtonClasses} flex-1`}
+                  >
+                    Atrás
+                  </button>
+                  <button type="submit" className={`${primaryButtonClasses} flex-1`}>
+                    Continuar
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {step === 3 && (
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3 rounded-xl border border-line p-4">
+                  <h2 className="m-0 text-base font-bold uppercase tracking-wide opacity-70">Información general</h2>
+                  <div className="grid grid-cols-1 gap-2 text-lg sm:grid-cols-2">
+                    <div>
+                      <p className="m-0 text-sm uppercase tracking-wide opacity-60">Nombre</p>
+                      <p className="m-0 font-bold">{name.trim()}</p>
+                    </div>
+                    <div>
+                      <p className="m-0 text-sm uppercase tracking-wide opacity-60">Categoría</p>
+                      <p className="m-0 font-bold">{selectedCategory?.name ?? '—'}</p>
+                    </div>
+                    <div>
+                      <p className="m-0 text-sm uppercase tracking-wide opacity-60">Unidad</p>
+                      <p className="m-0 font-bold">
+                        {selectedUnit !== undefined ? `${selectedUnit.name} (${selectedUnit.abbreviation})` : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="m-0 text-sm uppercase tracking-wide opacity-60">Proveedor</p>
+                      <p className="m-0 font-bold">{selectedProvider?.name ?? 'Sin proveedor asignado'}</p>
+                    </div>
+                    <div>
+                      <p className="m-0 text-sm uppercase tracking-wide opacity-60">Imagen</p>
+                      <p className="m-0 font-bold">{imageFile?.name ?? 'Sin imagen'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 rounded-xl border border-line p-4">
+                  <h2 className="m-0 text-base font-bold uppercase tracking-wide opacity-70">
+                    {addVariants ? 'Variantes' : 'Precio y stock'}
+                  </h2>
+                  {!addVariants ? (
+                    <div className="grid grid-cols-1 gap-2 text-lg sm:grid-cols-3">
+                      <div>
+                        <p className="m-0 text-sm uppercase tracking-wide opacity-60">Precio</p>
+                        <p className="m-0 font-bold text-brand">${singlePrice || '0.00'}</p>
+                      </div>
+                      <div>
+                        <p className="m-0 text-sm uppercase tracking-wide opacity-60">Stock actual</p>
+                        <p className="m-0 font-bold">{singleStock.trim() !== '' ? singleStock : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="m-0 text-sm uppercase tracking-wide opacity-60">Stock min.</p>
+                        <p className="m-0 font-bold">{singleMinimum.trim() !== '' ? singleMinimum : '—'}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                      {variantDrafts.map((draft, index) => (
+                        <li key={draft.key} className="rounded-lg border border-line p-3">
+                          <p className="m-0 font-bold">{draft.label.trim() !== '' ? draft.label : `Variante ${index + 1}`}</p>
+                          <div className="mt-1 grid grid-cols-1 gap-2 text-base sm:grid-cols-3">
+                            <span>
+                              Precio: <span className="font-bold text-brand">${variantPrices[draft.key] || '0.00'}</span>
+                            </span>
+                            <span>Stock actual: {variantStocks[draft.key]?.trim() ? variantStocks[draft.key] : '—'}</span>
+                            <span>Stock min.: {variantMinimums[draft.key]?.trim() ? variantMinimums[draft.key] : '—'}</span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
-              )}
 
-              <button
-                type="submit"
-                disabled={
-                  creating ||
-                  nameError !== null ||
-                  categoryError !== null ||
-                  unitError !== null ||
-                  hasUndistinguishedVariant ||
-                  checkingName
-                }
-                className={primaryButtonClasses}
-              >
-                {checkingName ? 'Verificando…' : 'Guardar producto'}
-              </button>
-            </form>
+                {createError !== null && (
+                  <p role="alert" className="m-0 text-base text-danger">
+                    {createError}
+                  </p>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={close}
+                    disabled={creating}
+                    className={`${secondaryButtonClasses} flex-1`}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmCreate}
+                    disabled={creating}
+                    className={`${primaryButtonClasses} flex-1`}
+                  >
+                    {creating ? 'Creando…' : 'Confirmar'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
         </div>
@@ -673,16 +952,6 @@ export function ProductFormPage() {
           </div>
         )}
       </div>
-
-      {confirmingCreate && (
-        <ConfirmDialog
-          title="Crear producto"
-          description={`Se va a crear el producto "${name.trim()}".`}
-          confirmLabel="Crear"
-          onConfirm={createProductNow}
-          onCancel={() => setConfirmingCreate(false)}
-        />
-      )}
     </div>
   )
 }

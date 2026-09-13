@@ -10,6 +10,7 @@ import {
 import { ApiError } from '../../api/client'
 import type { ManagedAccount } from '../../api/types'
 import { ROLES, type Role } from '../access/roles'
+import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { FieldRow } from '../../shared/FieldRow'
 import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
@@ -199,7 +200,10 @@ function AccountFormModal({
         aria-label={title}
         className="relative flex w-full max-w-md flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
       >
-        <h2 className="m-0 text-2xl font-bold">{title}</h2>
+        <div className="flex items-start justify-between">
+          <h2 className="m-0 text-2xl font-bold">{title}</h2>
+          <CloseButton onClose={onCancel} />
+        </div>
 
         <div className="flex flex-col gap-1.5">
           <label className="flex flex-col gap-1.5">
@@ -365,7 +369,10 @@ function ResetPasswordModal({
         aria-label="Restablecer contraseña"
         className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
       >
-        <h2 className="m-0 text-2xl font-bold">Restablecer contraseña</h2>
+        <div className="flex items-start justify-between">
+          <h2 className="m-0 text-2xl font-bold">Restablecer contraseña</h2>
+          <CloseButton onClose={onCancel} />
+        </div>
         <p className="m-0 text-lg opacity-70">Nueva contraseña para "{accountName}".</p>
 
         <div className="flex flex-col gap-1.5">

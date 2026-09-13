@@ -95,7 +95,10 @@ function renderPage(account: unknown, initialPath = '/products') {
     .mockResolvedValueOnce(jsonResponse(account))
     .mockResolvedValueOnce(jsonResponse(CATEGORIES))
     .mockResolvedValueOnce(jsonResponse(UNITS))
-    .mockResolvedValueOnce(productPage(PRODUCTS))
+  if ((account as { role?: string }).role !== 'Empleado') {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 25 }))
+  }
+  fetchMock.mockResolvedValueOnce(productPage(PRODUCTS))
 
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
@@ -125,6 +128,7 @@ describe('ProductsPage', () => {
       .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 25 }))
       .mockImplementationOnce(() => new Promise(() => {}))
 
     render(
@@ -152,6 +156,7 @@ describe('ProductsPage', () => {
       .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 25 }))
       .mockResolvedValueOnce(productPage([], { total: 0 }))
 
     render(
@@ -185,9 +190,9 @@ describe('ProductsPage', () => {
 
     await userEvent.type(screen.getByPlaceholderText('Buscar nombre, código, categoría…'), 'inexistente')
 
-    expect(await screen.findByText('No hay productos que coincidan.')).toBeInTheDocument()
+    expect(await screen.findByText('No hay productos que coincidan.', {}, { timeout: 6000 })).toBeInTheDocument()
     expect(screen.getByText('Probá cambiar la búsqueda o los filtros.')).toBeInTheDocument()
-  })
+  }, 8000)
 
   it('lists products with their category and unit', async () => {
     renderPage(ADMIN_ACCOUNT)
@@ -231,6 +236,7 @@ describe('ProductsPage', () => {
       .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 25 }))
       .mockResolvedValueOnce(productPage(products, { total: products.length }))
 
     render(
@@ -265,13 +271,13 @@ describe('ProductsPage', () => {
     await user.type(screen.getByLabelText('Buscar productos'), 'lino')
 
     await waitFor(() => expect(screen.getByText('lino').closest('a')).toHaveTextContent('Tela de lino'), {
-      timeout: 2000,
+      timeout: 6000,
     })
     expect(screen.queryByText('Cinta bebé')).not.toBeInTheDocument()
 
     const lastCall = fetchMock.mock.calls.at(-1)?.[0] as string
     expect(lastCall).toContain('search=lino')
-  })
+  }, 8000)
 
   it('highlights the matching search text within the product name', async () => {
     const user = userEvent.setup()
@@ -283,10 +289,10 @@ describe('ProductsPage', () => {
 
     await user.type(screen.getByLabelText('Buscar productos'), 'lino')
 
-    const highlighted = await screen.findByText('lino')
+    const highlighted = await screen.findByText('lino', {}, { timeout: 6000 })
     expect(highlighted).toHaveClass('text-brand')
     expect(highlighted.closest('a')).toHaveTextContent('Tela de lino')
-  })
+  }, 8000)
 
   it('asks the server to filter by category', async () => {
     const user = userEvent.setup()
@@ -312,6 +318,7 @@ describe('ProductsPage', () => {
       .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 25 }))
       .mockResolvedValueOnce(productPage(PRODUCTS, { total: 500, page: 5, page_size: 25 }))
 
     render(
@@ -343,6 +350,7 @@ describe('ProductsPage', () => {
       .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 25 }))
       .mockResolvedValueOnce(productPage(PRODUCTS, { total: 60, page: 1, page_size: 25 }))
 
     render(
@@ -426,79 +434,14 @@ describe('ProductsPage', () => {
     expect(fetchMock.mock.calls.length).toBe(callsBeforeCancel)
   })
 
-  it('marks a product with a single active variant as a shortage after confirming', async () => {
+  it('disables "Marcar como faltante" as a not-yet-available action', async () => {
     const user = userEvent.setup()
-    const fetchMock = fetch as ReturnType<typeof vi.fn>
     renderPage(ADMIN_ACCOUNT)
 
     await screen.findByText('Cinta bebé')
     await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[0])
-    await user.click(screen.getByRole('button', { name: 'Marcar como faltante' }))
 
-    expect(screen.queryByText('Elegir variante')).not.toBeInTheDocument()
-    const dialog = await screen.findByRole('alertdialog', { name: 'Marcar como faltante' })
-    expect(dialog).toHaveTextContent('Cinta bebé')
-
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse({ id: 1, variant_id: 10, status: 'faltante', created_at: new Date().toISOString() }),
-    )
-    await user.click(within(dialog).getByRole('button', { name: 'Marcar como faltante' }))
-
-    expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
-    const lastCall = fetchMock.mock.calls.at(-1)!
-    expect(lastCall[0]).toContain('/shortages')
-    expect(JSON.parse((lastCall[1] as RequestInit).body as string)).toEqual({ variant_id: 10 })
-  })
-
-  it('shows a variant picker before confirming a shortage for a product with several active variants', async () => {
-    const user = userEvent.setup()
-    const fetchMock = fetch as ReturnType<typeof vi.fn>
-    const products: Product[] = [
-      {
-        ...PRODUCTS[1],
-        variants: [
-          { id: 11, product_id: 2, label: 'Natural', is_implicit: false, status: 'active', attribute_value_ids: [], price_amount: null },
-          { id: 12, product_id: 2, label: 'Crudo', is_implicit: false, status: 'active', attribute_value_ids: [], price_amount: null },
-        ],
-      },
-    ]
-    fetchMock
-      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
-      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
-      .mockResolvedValueOnce(jsonResponse(UNITS))
-      .mockResolvedValueOnce(productPage(products, { total: products.length }))
-
-    render(
-      <MemoryRouter initialEntries={['/products']}>
-        <ToastProvider>
-        <AuthProvider>
-          <ReadyGate>
-            <Routes>
-              <Route path="/products" element={<ProductsPage />} />
-            </Routes>
-          </ReadyGate>
-        </AuthProvider>
-        </ToastProvider>
-      </MemoryRouter>,
-    )
-
-    await screen.findByText('Tela de lino')
-    await user.click(screen.getByRole('button', { name: /Acciones para/ }))
-    await user.click(screen.getByRole('button', { name: 'Marcar como faltante' }))
-
-    expect(screen.getByText('Elegir variante')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Crudo' }))
-
-    const dialog = await screen.findByRole('alertdialog', { name: 'Marcar como faltante' })
-
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse({ id: 2, variant_id: 12, status: 'faltante', created_at: new Date().toISOString() }),
-    )
-    await user.click(within(dialog).getByRole('button', { name: 'Marcar como faltante' }))
-
-    expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
-    const lastCall = fetchMock.mock.calls.at(-1)!
-    expect(JSON.parse((lastCall[1] as RequestInit).body as string)).toEqual({ variant_id: 12 })
+    expect(screen.getByRole('button', { name: /^Marcar como faltante/ })).toBeDisabled()
   })
 
   it('reflects a product edited from the detail modal in the table, without a full reload', async () => {
@@ -508,6 +451,7 @@ describe('ProductsPage', () => {
       .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 25 }))
       .mockResolvedValueOnce(productPage(PRODUCTS))
       .mockResolvedValueOnce(jsonResponse(PRODUCTS[0]))
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
@@ -515,6 +459,31 @@ describe('ProductsPage', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 10, price: null }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              variant_id: 10,
+              product_id: PRODUCTS[0].id,
+              product_name: PRODUCTS[0].name,
+              category_id: PRODUCTS[0].category_id,
+              category_name: '',
+              unit_abbreviation: '',
+              image_url: null,
+              quantity: 0,
+              minimum_quantity: null,
+              effective_minimum_quantity: 10,
+              status: 'sin_stock',
+              last_movement_at: null,
+              last_movement_by_account_name: null,
+            },
+          ],
+          total: 1,
+          page: 1,
+          page_size: 50,
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse([]))
 
     render(
       <MemoryRouter initialEntries={['/products']}>

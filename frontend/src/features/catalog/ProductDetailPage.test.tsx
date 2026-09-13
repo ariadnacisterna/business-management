@@ -31,6 +31,7 @@ const PRODUCT = {
   category_id: 1,
   unit_id: 1,
   status: 'active',
+  provider_id: null,
   variants: [{ id: 10, product_id: 5, label: 'Estándar', is_implicit: false, status: 'active', attribute_value_ids: [] }],
 }
 
@@ -40,6 +41,58 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+function stockResponse(variantId: number, overrides: Partial<{ quantity: number; status: string }> = {}) {
+  return jsonResponse({
+    items: [
+      {
+        product_id: 5,
+        product_name: 'Producto',
+        image_url: null,
+        category_id: 1,
+        unit_id: 1,
+        variant_id: variantId,
+        variant_label: null,
+        quantity: overrides.quantity ?? 0,
+        minimum_quantity: null,
+        effective_minimum_quantity: 10,
+        status: overrides.status ?? 'sin_stock',
+        last_movement_at: null,
+        last_movement_by_account_name: null,
+      },
+    ],
+    total: 1,
+    page: 1,
+    page_size: 25,
+  })
+}
+
+function reasonsResponse() {
+  return jsonResponse([])
+}
+
+function multiStockResponse(variantIds: number[]) {
+  return jsonResponse({
+    items: variantIds.map((variantId) => ({
+      product_id: 5,
+      product_name: 'Producto',
+      image_url: null,
+      category_id: 1,
+      unit_id: 1,
+      variant_id: variantId,
+      variant_label: null,
+      quantity: 0,
+      minimum_quantity: null,
+      effective_minimum_quantity: 10,
+      status: 'sin_stock',
+      last_movement_at: null,
+      last_movement_by_account_name: null,
+    })),
+    total: variantIds.length,
+    page: 1,
+    page_size: 25,
   })
 }
 
@@ -53,6 +106,8 @@ function renderPage(initialPath: string) {
     .mockResolvedValueOnce(jsonResponse([]))
     .mockResolvedValueOnce(jsonResponse([]))
     .mockResolvedValueOnce(jsonResponse({ variant_id: 10, price: null }))
+    .mockResolvedValueOnce(stockResponse(10))
+    .mockResolvedValueOnce(reasonsResponse())
 
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
@@ -104,9 +159,9 @@ describe('ProductDetailPage', () => {
   it('changes a variant price through the modal', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
-    renderPage('/products/5')
+    renderPage('/products/5?edit=1')
 
-    expect(await screen.findByRole('heading', { name: 'Cinta bebé' })).toBeInTheDocument()
+    expect(await screen.findByLabelText(/^Nombre\s?\*?$/)).toHaveValue('Cinta bebé')
     expect(screen.getByText('Sin precio')).toBeInTheDocument()
 
     fetchMock.mockResolvedValueOnce(
@@ -124,8 +179,6 @@ describe('ProductDetailPage', () => {
     )
 
     await user.click(screen.getByRole('button', { name: 'Cambiar precio' }))
-
-    expect(screen.getByRole('heading', { name: 'Cinta bebé' })).toBeInTheDocument()
 
     await user.type(screen.getByLabelText('Nuevo precio (ARS)'), '45.50')
     await user.click(screen.getByRole('button', { name: 'Confirmar' }))
@@ -157,7 +210,7 @@ describe('ProductDetailPage', () => {
       ]),
     )
 
-    await user.click(screen.getByRole('button', { name: 'Ver historial' }))
+    await user.click(screen.getAllByRole('button', { name: 'Ver historial' })[0])
 
     expect(await screen.findByRole('dialog', { name: /Historial de precios/ })).toBeInTheDocument()
     expect(await screen.findByText(/45,50/)).toBeInTheDocument()
@@ -173,9 +226,11 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
+      .mockResolvedValueOnce(stockResponse(20))
+      .mockResolvedValueOnce(reasonsResponse())
 
     render(
-      <MemoryRouter initialEntries={['/products/6']}>
+      <MemoryRouter initialEntries={['/products/6?edit=1']}>
         <ToastProvider>
         <AuthProvider>
           <ReadyGate>
@@ -222,8 +277,132 @@ describe('ProductDetailPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Precio' })).toBeInTheDocument()
     expect(screen.queryByText(/Último cambio/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Stock:/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Ver historial' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Cambiar precio' })).not.toBeInTheDocument()
+  })
+
+  it('shows read-only stock quantity and status for a Gerente or above', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(SINGLE_VARIANT_PRODUCT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              product_id: 6,
+              product_name: 'Tijera',
+              image_url: null,
+              category_id: 1,
+              unit_id: 1,
+              variant_id: 20,
+              variant_label: null,
+              quantity: 7,
+              minimum_quantity: null,
+              effective_minimum_quantity: 10,
+              status: 'stock_bajo',
+              last_movement_at: '2026-01-01T00:00:00Z',
+              last_movement_by_account_name: 'Ada Lovelace',
+            },
+          ],
+          total: 1,
+          page: 1,
+          page_size: 25,
+        }),
+      )
+      .mockResolvedValueOnce(reasonsResponse())
+
+    render(
+      <MemoryRouter initialEntries={['/products/6?edit=1']}>
+        <ToastProvider>
+        <AuthProvider>
+          <ReadyGate>
+            <Routes>
+              <Route path="/products" element={<h1>Productos</h1>} />
+              <Route path="/products/:productId" element={<ProductDetailPage />} />
+            </Routes>
+          </ReadyGate>
+        </AuthProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Precio' })).toBeInTheDocument()
+    expect(
+      await screen.findByText((_, element) => element?.tagName === 'P' && element.textContent === '7 (Stock bajo)'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Actualizar stock' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Ver historial' }).length).toBe(2)
+    expect(screen.getByText(/hace.*por Ada/)).toBeInTheDocument()
+  })
+
+  it('adjusts stock through the "Actualizar stock" modal after confirming', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(SINGLE_VARIANT_PRODUCT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
+      .mockResolvedValueOnce(stockResponse(20, { quantity: 7, status: 'stock_bajo' }))
+      .mockResolvedValueOnce(jsonResponse([{ id: 1, name: 'Conteo físico', status: 'active' }]))
+
+    render(
+      <MemoryRouter initialEntries={['/products/6?edit=1']}>
+        <ToastProvider>
+        <AuthProvider>
+          <ReadyGate>
+            <Routes>
+              <Route path="/products" element={<h1>Productos</h1>} />
+              <Route path="/products/:productId" element={<ProductDetailPage />} />
+            </Routes>
+          </ReadyGate>
+        </AuthProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+
+    expect(
+      await screen.findByText((_, element) => element?.tagName === 'P' && element.textContent === '7 (Stock bajo)'),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Actualizar stock' }))
+
+    await user.type(screen.getByLabelText(/^Cantidad nueva/), '20')
+    await user.click(screen.getByRole('button', { name: 'Motivo del ajuste' }))
+    await user.click(screen.getByRole('option', { name: 'Conteo físico' }))
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        id: 1,
+        variant_id: 20,
+        reason_id: 1,
+        quantity_before: 7,
+        quantity_after: 20,
+        observation: null,
+        created_at: new Date().toISOString(),
+        created_by_account_id: 1,
+        created_by_account_name: 'Ada Lovelace',
+      }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+
+    fetchMock.mockResolvedValueOnce(stockResponse(20, { quantity: 20, status: 'normal' }))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Confirmar' }))
+
+    expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
+    expect(
+      await screen.findByText((_, element) => element?.tagName === 'P' && element.textContent === '20 (Normal)'),
+    ).toBeInTheDocument()
   })
 
   it('asks for confirmation before deactivating and saves after confirming', async () => {
@@ -274,9 +453,11 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 10, price: null }))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 11, price: null }))
+      .mockResolvedValueOnce(multiStockResponse([10, 11]))
+      .mockResolvedValueOnce(reasonsResponse())
 
     render(
-      <MemoryRouter initialEntries={['/products/5']}>
+      <MemoryRouter initialEntries={['/products/5?edit=1']}>
         <ToastProvider>
         <AuthProvider>
           <ReadyGate>
@@ -293,7 +474,8 @@ describe('ProductDetailPage', () => {
     expect(await screen.findByText('Chico')).toBeInTheDocument()
 
     const chicoItem = screen.getByText('Chico').closest('li') as HTMLElement
-    await user.click(within(chicoItem).getByRole('button', { name: 'Desactivar' }))
+    await user.click(within(chicoItem).getByRole('button', { name: 'Acciones para Chico' }))
+    await user.click(await screen.findByRole('button', { name: 'Desactivar' }))
 
     const dialog = await screen.findByRole('alertdialog', { name: 'Desactivar variante' })
     expect(dialog).toHaveTextContent('Chico')
@@ -305,8 +487,10 @@ describe('ProductDetailPage', () => {
 
     await screen.findByText('Inactiva')
     expect(screen.getByText('Chico')).toBeInTheDocument()
-    expect(within(chicoItem).getByRole('button', { name: 'Activar' })).toBeInTheDocument()
     expect(within(chicoItem).queryByRole('button', { name: 'Cambiar precio' })).not.toBeInTheDocument()
+
+    await user.click(within(chicoItem).getByRole('button', { name: 'Acciones para Chico' }))
+    expect(await screen.findByRole('button', { name: 'Activar' })).toBeInTheDocument()
   })
 
   it('cancels a variant status change without applying it', async () => {
@@ -328,9 +512,11 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 10, price: null }))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 11, price: null }))
+      .mockResolvedValueOnce(multiStockResponse([10, 11]))
+      .mockResolvedValueOnce(reasonsResponse())
 
     render(
-      <MemoryRouter initialEntries={['/products/5']}>
+      <MemoryRouter initialEntries={['/products/5?edit=1']}>
         <ToastProvider>
         <AuthProvider>
           <ReadyGate>
@@ -346,14 +532,17 @@ describe('ProductDetailPage', () => {
 
     expect(await screen.findByText('Chico')).toBeInTheDocument()
     const chicoItem = screen.getByText('Chico').closest('li') as HTMLElement
-    await user.click(within(chicoItem).getByRole('button', { name: 'Desactivar' }))
+    await user.click(within(chicoItem).getByRole('button', { name: 'Acciones para Chico' }))
+    await user.click(await screen.findByRole('button', { name: 'Desactivar' }))
 
     const dialog = await screen.findByRole('alertdialog', { name: 'Desactivar variante' })
     await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(screen.queryByText('Inactiva')).not.toBeInTheDocument()
-    expect(within(chicoItem).getByRole('button', { name: 'Desactivar' })).toBeInTheDocument()
+
+    await user.click(within(chicoItem).getByRole('button', { name: 'Acciones para Chico' }))
+    expect(await screen.findByRole('button', { name: 'Desactivar' })).toBeInTheDocument()
   })
 
   it('does not allow deactivating the only implicit variant of a product', async () => {
@@ -366,6 +555,8 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
+      .mockResolvedValueOnce(stockResponse(20))
+      .mockResolvedValueOnce(reasonsResponse())
 
     render(
       <MemoryRouter initialEntries={['/products/6']}>
@@ -435,9 +626,11 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse(providers))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 10, price: null }))
+      .mockResolvedValueOnce(stockResponse(10))
+      .mockResolvedValueOnce(reasonsResponse())
 
     render(
-      <MemoryRouter initialEntries={['/products/5']}>
+      <MemoryRouter initialEntries={['/products/5?edit=1']}>
         <ToastProvider>
         <AuthProvider>
           <ReadyGate>
@@ -451,22 +644,22 @@ describe('ProductDetailPage', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByRole('heading', { name: 'Cinta bebé' })).toBeInTheDocument()
-    expect(screen.getByText('Sin proveedor asignado')).toBeInTheDocument()
+    expect(await screen.findByLabelText(/^Nombre\s?\*?$/)).toHaveValue('Cinta bebé')
+    expect(screen.getByRole('button', { name: 'Proveedor' })).toHaveTextContent('Sin proveedor asignado')
 
-    await user.click(screen.getByRole('button', { name: 'Cambiar' }))
-    await user.click(screen.getByRole('button', { name: 'Proveedor preferido' }))
-    await user.click(screen.getByRole('option', { name: 'Mercería Central' }))
-    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    await user.click(screen.getByRole('button', { name: 'Proveedor' }))
+    await user.click(await screen.findByRole('option', { name: 'Mercería Central' }))
 
-    const dialog = await screen.findByRole('alertdialog', { name: 'Cambiar proveedor preferido' })
-    expect(dialog).toHaveTextContent('Mercería Central')
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(PRODUCT))
+      .mockResolvedValueOnce(jsonResponse({ ...PRODUCT, provider_id: 2 }))
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ...PRODUCT, provider_id: 2 }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Guardar cambios' })
     await user.click(within(dialog).getByRole('button', { name: 'Guardar' }))
 
-    expect(await screen.findByText('Mercería Central')).toBeInTheDocument()
     expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Productos' })).toBeInTheDocument()
     const lastCall = fetchMock.mock.calls.at(-1)!
     expect(lastCall[0]).toContain('/products/5/provider')
     expect(JSON.parse((lastCall[1] as RequestInit).body as string)).toEqual({ provider_id: 2 })

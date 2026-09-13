@@ -112,6 +112,36 @@ def test_new_variant_starts_with_zero_stock_and_sin_stock_status(client):
     assert body["status"] == "sin_stock"
 
 
+def test_empleado_cannot_view_variant_stock(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(client, admin_cookies)
+    empleado_cookies = _empleado_cookies(client, admin_cookies)
+
+    response = client.get(f"/variants/{variant_id}/stock", cookies=empleado_cookies)
+
+    assert response.status_code == 403
+
+
+def test_gerente_can_view_variant_stock(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(client, admin_cookies)
+    gerente_cookies = _gerente_cookies(client, admin_cookies)
+
+    response = client.get(f"/variants/{variant_id}/stock", cookies=gerente_cookies)
+
+    assert response.status_code == 200
+
+
+def test_empleado_cannot_view_stock_movements(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(client, admin_cookies)
+    empleado_cookies = _empleado_cookies(client, admin_cookies)
+
+    response = client.get(f"/variants/{variant_id}/stock/movements", cookies=empleado_cookies)
+
+    assert response.status_code == 403
+
+
 def test_default_movement_reasons_are_seeded(client):
     admin_cookies = _admin_cookies(client)
 
@@ -135,6 +165,7 @@ def test_gerente_can_adjust_stock(client):
     assert body["quantity_before"] == 0
     assert body["quantity_after"] == 25
     assert body["observation"] == "Compra"
+    assert body["created_by_account_name"] != ""
 
     stock_response = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies)
     assert stock_response.json()["quantity"] == 25
@@ -229,6 +260,7 @@ def test_list_stock_movements_orders_most_recent_first(client):
     assert movements[0]["quantity_after"] == 7
     assert movements[1]["quantity_before"] == 0
     assert movements[1]["quantity_after"] == 3
+    assert movements[0]["created_by_account_name"] != ""
 
 
 def test_low_stock_count_reflects_bajo_and_sin_stock_variants(client):

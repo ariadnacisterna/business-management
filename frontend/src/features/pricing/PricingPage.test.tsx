@@ -92,9 +92,17 @@ function currentPrice(variantId: number, amount: string | null, priceId = varian
   })
 }
 
+const CATEGORIES = [
+  { id: 1, name: 'Cintas', status: 'active' },
+  { id: 2, name: 'Botones', status: 'active' },
+]
+
 function renderPage(account: unknown, products: Product[] = PRODUCTS) {
   const fetchMock = fetch as ReturnType<typeof vi.fn>
-  fetchMock.mockResolvedValueOnce(jsonResponse(account)).mockResolvedValueOnce(productPage(products))
+  fetchMock
+    .mockResolvedValueOnce(jsonResponse(account))
+    .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+    .mockResolvedValueOnce(productPage(products))
 
   const activeVariants = products.flatMap((product) => product.variants.filter((variant) => variant.status === 'active'))
   for (const variant of activeVariants) {
@@ -123,7 +131,10 @@ describe('PricingPage', () => {
 
   it('shows only the loading spinner, not search/view toggle, while loading', async () => {
     const fetchMock = fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT)).mockImplementationOnce(() => new Promise(() => {}))
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockImplementationOnce(() => new Promise(() => {}))
 
     render(
       <MemoryRouter initialEntries={['/precios']}>
@@ -177,6 +188,18 @@ describe('PricingPage', () => {
     expect(screen.getByText('$ 10')).toBeInTheDocument()
     expect(screen.getByText('$ 20')).toBeInTheDocument()
     expect(screen.getAllByText(/por Ada$/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Cintas').length).toBeGreaterThan(0)
+  })
+
+  it('shows the category in the table view too', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    await user.click(screen.getByLabelText('Ver como tabla'))
+
+    expect(screen.getByRole('columnheader', { name: 'Categoría' })).toBeInTheDocument()
+    expect(screen.getAllByText('Cintas').length).toBeGreaterThan(0)
   })
 
   it('searches by product name, debouncing the request', async () => {
@@ -195,6 +218,25 @@ describe('PricingPage', () => {
 
     const productCalls = fetchMock.mock.calls.filter((call) => String(call[0]).includes('/products?'))
     expect(productCalls.at(-1)?.[0]).toContain('search=cinta')
+  })
+
+  it('asks the server to filter by category', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    fetchMock.mockResolvedValueOnce(productPage([PRODUCTS[0]], { total: 1 }))
+    fetchMock.mockResolvedValueOnce(currentPrice(10, '150.00'))
+
+    await user.click(screen.getByRole('button', { name: 'Filtrar por categoría' }))
+    await user.click(screen.getByRole('option', { name: 'Cintas' }))
+
+    await waitFor(() => expect(screen.queryByText('Botones surtidos')).not.toBeInTheDocument())
+    expect(screen.getByText('Cinta bebé')).toBeInTheDocument()
+
+    const productCalls = fetchMock.mock.calls.filter((call) => String(call[0]).includes('/products?'))
+    expect(productCalls.at(-1)?.[0]).toContain('category_id=1')
   })
 
   it('changes the page size and clears the search with the clear-filters button', async () => {
@@ -217,6 +259,9 @@ describe('PricingPage', () => {
       const productCalls = fetchMock.mock.calls.filter((call) => String(call[0]).includes('/products?'))
       expect(productCalls.at(-1)?.[0]).toContain('page_size=10')
     })
+
+    fetchMock.mockResolvedValueOnce(productPage([PRODUCTS[0]], { total: 1, page_size: 10 }))
+    fetchMock.mockResolvedValueOnce(currentPrice(10, '150.00'))
 
     await user.type(screen.getByLabelText('Buscar productos'), 'cinta')
     await waitFor(() => expect(screen.getByRole('button', { name: 'Limpiar búsqueda' })).toBeEnabled())
@@ -419,9 +464,11 @@ describe('PricingPage', () => {
     await user.click(screen.getByRole('button', { name: 'Ver historial de precios de Cinta bebé Estándar' }))
 
     const dialog = await screen.findByRole('dialog', { name: 'Historial de precios de Cinta bebé' })
-    expect(within(dialog).getByText('$ 100')).toBeInTheDocument()
-    expect(within(dialog).getByText('$ 150')).toBeInTheDocument()
-    expect(within(dialog).getAllByText('Ada')).toHaveLength(2)
+    const [newestEntry, oldestEntry] = within(dialog).getAllByRole('listitem')
+    expect(within(newestEntry).getByText('$ 150')).toBeInTheDocument()
+    expect(within(newestEntry).getByText('$ 100 → $ 150')).toBeInTheDocument()
+    expect(within(oldestEntry).getByText('$ 100', { selector: 'span' })).toBeInTheDocument()
+    expect(within(dialog).getAllByText('Cambiado por: Ada')).toHaveLength(2)
 
     const accountRequests = fetchMock.mock.calls.filter((call) => String(call[0]).includes('/accounts/'))
     expect(accountRequests).toHaveLength(0)

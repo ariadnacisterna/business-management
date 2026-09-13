@@ -3,13 +3,14 @@ import { Link, Outlet, useNavigate } from 'react-router-dom'
 import {
   createShortage,
   deactivateProduct,
+  fetchAllStock,
   fetchCategories,
   fetchProductsPage,
   fetchUnits,
   reactivateProduct,
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
-import type { Category, Product, Unit, Variant } from '../../api/types'
+import type { Category, Product, StockRow, Unit, Variant } from '../../api/types'
 import { useAuth } from '../access/AuthContext'
 import { canManageCatalog } from '../access/roles'
 import { CloseButton } from '../../shared/CloseButton'
@@ -26,6 +27,8 @@ import { SelectMenu } from '../../shared/SelectMenu'
 import { useToast } from '../../shared/Toast'
 import { formatPrice } from '../../shared/formatPrice'
 import { NavIconGlyph } from '../../shared/layout/NavIcon'
+import { ProductThumbnail } from '../../shared/ProductThumbnail'
+import { STOCK_STATUS_LABELS, stockStatusTextColor } from '../../shared/stockStatus'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
 import type { ViewMode } from '../../shared/ViewToggle'
@@ -35,7 +38,7 @@ type Status = 'loading' | 'success' | 'error'
 type StatusFilter = 'all' | 'active' | 'inactive'
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los productos.'
-const SEARCH_DEBOUNCE_MS = 300
+const SEARCH_DEBOUNCE_MS = 5000
 
 interface Filters {
   page: number
@@ -46,29 +49,25 @@ interface Filters {
 
 const DEFAULT_FILTERS: Filters = { page: 1, pageSize: 25, categoryId: 'all', status: 'all' }
 
-function ProductThumbnail({ product, sizeClassName }: { product: Product; sizeClassName: string }) {
-  if (product.image_url !== null) {
-    return (
-      <img
-        src={product.image_url}
-        alt={product.name}
-        className={`${sizeClassName} shrink-0 rounded-lg border border-line object-cover`}
-      />
-    )
-  }
 
-  return (
-    <div
-      aria-hidden="true"
-      className={`${sizeClassName} flex shrink-0 items-center justify-center rounded-lg border border-line bg-line/15 text-ink/30`}
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-1/2 w-1/2">
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <circle cx="8.5" cy="8.5" r="1.5" />
-        <path d="M21 15l-5-5L5 21" />
-      </svg>
-    </div>
+const STOCK_STATUS_RANK: Record<string, number> = { sin_stock: 0, stock_bajo: 1, normal: 2 }
+
+function productStockInfo(
+  product: Product,
+  stockByVariant: Map<number, StockRow>,
+): { quantity: number; status: string } | null {
+  const rows = product.variants
+    .filter((variant) => variant.status === 'active')
+    .map((variant) => stockByVariant.get(variant.id))
+    .filter((row): row is StockRow => row !== undefined)
+  if (rows.length === 0) return null
+
+  const quantity = rows.reduce((sum, row) => sum + row.quantity, 0)
+  const status = rows.reduce(
+    (worst, row) => (STOCK_STATUS_RANK[row.status] < STOCK_STATUS_RANK[worst] ? row.status : worst),
+    rows[0].status,
   )
+  return { quantity, status }
 }
 
 function productPriceInfo(product: Product): { amount: number; hasRange: boolean } | null {
@@ -91,6 +90,7 @@ export function ProductsPage() {
   const [total, setTotal] = useState(0)
   const [categories, setCategories] = useState<Category[]>([])
   const [units, setUnits] = useState<Unit[]>([])
+  const [stockByVariant, setStockByVariant] = useState<Map<number, StockRow>>(new Map())
   const [status, setStatus] = useState<Status>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [confirmingProduct, setConfirmingProduct] = useState<Product | null>(null)
@@ -119,7 +119,12 @@ export function ProductsPage() {
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {})
     fetchUnits().then(setUnits).catch(() => {})
-  }, [account?.active_business_id])
+    if (canManage) {
+      fetchAllStock()
+        .then((rows) => setStockByVariant(new Map(rows.map((row) => [row.variant_id, row]))))
+        .catch(() => {})
+    }
+  }, [account?.active_business_id, canManage])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -219,13 +224,19 @@ export function ProductsPage() {
   function productRowMenuItems(product: Product) {
     return [
       { label: 'Ver detalle', icon: <EyeIcon />, onClick: () => navigate(`/products/${product.id}`) },
-      { label: 'Marcar como faltante', icon: '⚠', onClick: () => openMarkAsShortage(product) },
+      { label: 'Marcar como faltante', icon: '⚠', onClick: () => openMarkAsShortage(product), disabled: true },
       ...(canManage
         ? [
             {
               label: 'Cambiar precio',
               icon: <span className="text-xl font-semibold">$</span>,
               onClick: () => navigate(`/products/${product.id}?changePrice=1`),
+            },
+            {
+              label: 'Actualizar stock',
+              icon: <span className="text-lg font-semibold">#</span>,
+              onClick: () => {},
+              disabled: true,
             },
             {
               label: 'Editar producto',
@@ -458,7 +469,7 @@ export function ProductsPage() {
                 return (
                   <div key={product.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
                     <div className="relative">
-                      <ProductThumbnail product={product} sizeClassName="aspect-video w-full" />
+                      <ProductThumbnail imageUrl={product.image_url} name={product.name} sizeClassName="aspect-video w-full" />
                       <span
                         className={`absolute right-3 top-3 inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
                           product.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
@@ -474,13 +485,13 @@ export function ProductsPage() {
                     <div className="min-h-20">
                       <Link
                         to={`/products/${product.id}`}
-                        className="line-clamp-2 text-xl font-bold leading-tight hover:text-brand"
+                        className="text-xl font-bold leading-tight hover:text-brand"
                       >
                         <HighlightedText text={product.name} query={appliedSearch} />
                       </Link>
                       <p className="mt-0.5 text-lg opacity-60">{categoryName(product.category_id)}</p>
                     </div>
-                    <div className="grid grid-cols-3 gap-3 border-t border-line pt-3">
+                    <div className={`grid gap-3 border-t border-line pt-3 ${canManage ? 'grid-cols-4' : 'grid-cols-3'}`}>
                       <div>
                         <p className="text-sm font-bold uppercase tracking-wide opacity-50">Precio</p>
                         <p className="mt-0.5 text-lg font-bold">
@@ -496,6 +507,18 @@ export function ProductsPage() {
                           )}
                         </p>
                       </div>
+                      {canManage && (
+                        <div>
+                          <p className="text-sm font-bold uppercase tracking-wide opacity-50">Stock</p>
+                          <p className="mt-0.5 text-lg font-bold">
+                            {(() => {
+                              const stockInfo = productStockInfo(product, stockByVariant)
+                              if (stockInfo === null) return <span className="opacity-40">—</span>
+                              return <span className={stockStatusTextColor(stockInfo.status)}>{stockInfo.quantity}</span>
+                            })()}
+                          </p>
+                        </div>
+                      )}
                       <div>
                         <p className="text-sm font-bold uppercase tracking-wide opacity-50">Unidad</p>
                         <p className="mt-0.5 text-lg font-bold">{unitName(product.unit_id)}</p>
@@ -547,9 +570,12 @@ export function ProductsPage() {
                       <span className="ml-1.5 text-lg leading-none">{sortDir === 'asc' ? '↑' : '↓'}</span>
                     </th>
                     <th className="whitespace-nowrap pl-8 pr-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Categoría</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Variantes</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Unidad</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Precio</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Variantes</th>
+                    {canManage && (
+                      <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Stock</th>
+                    )}
                     <th className="whitespace-nowrap py-3 pl-8 pr-4 text-left text-sm font-bold uppercase tracking-wide opacity-60">Estado</th>
                     <th className="px-4 py-3" />
                   </tr>
@@ -560,7 +586,7 @@ export function ProductsPage() {
                   return (
                     <tr key={product.id} className="border-t border-line transition-colors hover:bg-surface-brand/60">
                       <td className="px-4 py-3.5">
-                        <ProductThumbnail product={product} sizeClassName="h-12 w-12" />
+                        <ProductThumbnail imageUrl={product.image_url} name={product.name} sizeClassName="h-12 w-12" />
                       </td>
                       <td className="whitespace-nowrap px-4 py-3.5 text-lg italic opacity-40">Próximamente</td>
                       <td className="max-w-xs px-4 py-3.5">
@@ -569,6 +595,9 @@ export function ProductsPage() {
                         </Link>
                       </td>
                       <td className="py-3.5 pl-8 pr-4 text-lg opacity-70">{categoryName(product.category_id)}</td>
+                      <td className="px-4 py-3.5 text-lg opacity-70">
+                        {isUndifferentiated ? '—' : product.variants.length}
+                      </td>
                       <td className="px-4 py-3.5 text-lg opacity-70">{unitName(product.unit_id)}</td>
                       <td className="whitespace-nowrap px-4 py-3.5 text-lg">
                         {(() => {
@@ -586,9 +615,15 @@ export function ProductsPage() {
                           )
                         })()}
                       </td>
-                      <td className="px-4 py-3.5 text-lg opacity-70">
-                        {isUndifferentiated ? '—' : product.variants.length}
-                      </td>
+                      {canManage && (
+                        <td className="whitespace-nowrap px-4 py-3.5 text-lg font-bold">
+                          {(() => {
+                            const stockInfo = productStockInfo(product, stockByVariant)
+                            if (stockInfo === null) return <span className="italic opacity-40">—</span>
+                            return <span className={stockStatusTextColor(stockInfo.status)}>{stockInfo.quantity}</span>
+                          })()}
+                        </td>
+                      )}
                       <td className="py-3.5 pl-8 pr-4">
                         <span
                           className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
@@ -678,7 +713,7 @@ export function ProductsPage() {
         <ConfirmDialog
           title="Marcar como faltante"
           description={`"${confirmingShortage.product.name}" va a figurar como faltante hasta que se marque como recibido.`}
-          confirmLabel="Marcar como faltante"
+          confirmLabel="Aceptar"
           onConfirm={confirmMarkAsShortage}
           onCancel={() => setConfirmingShortage(null)}
         />

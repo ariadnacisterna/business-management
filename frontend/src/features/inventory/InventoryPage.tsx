@@ -15,13 +15,16 @@ import type { Category, MovementReason, Stock, StockMovement, Unit } from '../..
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { CloseButton } from '../../shared/CloseButton'
 import { FieldRow } from '../../shared/FieldRow'
+import { ProductThumbnail } from '../../shared/ProductThumbnail'
 import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { Pagination } from '../../shared/Pagination'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { STOCK_STATUS_LABELS, stockStatusClasses, stockStatusTextColor } from '../../shared/stockStatus'
 import { useToast } from '../../shared/Toast'
 import { firstName } from '../../shared/formatName'
+import { formatDateTime } from '../../shared/formatDateTime'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
@@ -50,23 +53,6 @@ const editedInputClasses =
 const secondaryButtonClasses =
   'h-12 rounded-lg border border-line px-5 text-base font-semibold transition-colors hover:bg-surface-brand'
 
-const STATUS_LABELS: Record<string, string> = {
-  normal: 'Normal',
-  stock_bajo: 'Stock bajo',
-  sin_stock: 'Sin stock',
-}
-
-function statusClasses(status: string): string {
-  if (status === 'sin_stock') return 'bg-danger/10 text-danger'
-  if (status === 'stock_bajo') return 'bg-warning/10 text-warning'
-  return 'bg-success-soft text-success'
-}
-
-function statusTextColor(status: string): string {
-  if (status === 'sin_stock') return 'text-danger'
-  if (status === 'stock_bajo') return 'text-warning'
-  return 'text-success'
-}
 
 function variantLabel(row: StockRow): string {
   return row.variant_label === null || row.variant_label === ''
@@ -645,11 +631,16 @@ function StockTab({
             <table className="w-full min-w-[1100px]">
               <thead ref={theadRef} className="sticky top-0 z-10">
                 <tr className="table-header border-b border-line">
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Imagen</th>
                   <th className="w-64 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Producto</th>
-                  <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Variante</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Categoría</th>
-                  <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Stock actual</th>
-                  <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Estado</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Variante</th>
+                  {canManage && (
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Stock actual</th>
+                  )}
+                  {canManage && (
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Estado</th>
+                  )}
                   {canManage && (
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Stock mín.</th>
                   )}
@@ -662,16 +653,19 @@ function StockTab({
               <tbody>
                 {items.map((row) => (
                   <tr key={row.variant_id} className="border-t border-line transition-colors hover:bg-surface-brand/60">
+                    <td className="px-4 py-3">
+                      <ProductThumbnail imageUrl={row.image_url} name={row.product_name} sizeClassName="h-12 w-12" />
+                    </td>
                     <td className="w-64 px-4 py-3 text-lg font-medium">{row.product_name}</td>
-                    <td className="px-4 py-3 text-lg opacity-70">{variantDisplayLabel(row)}</td>
                     <td className="px-4 py-3 text-lg opacity-70">{categoryName(row.category_id)}</td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <span className="inline-flex items-center gap-1">
-                        <span className="inline-flex min-w-[64px] items-baseline gap-1">
-                          <span className="text-xl font-bold text-brand">{row.quantity}</span>
-                          <span className="text-lg opacity-70">{unitAbbreviation(row.unit_id)}</span>
-                        </span>
-                        {canManage && (
+                    <td className="px-4 py-3 text-lg opacity-70">{variantDisplayLabel(row)}</td>
+                    {canManage && (
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <span className="inline-flex items-center gap-1">
+                          <span className="inline-flex min-w-[64px] items-baseline gap-1">
+                            <span className="text-xl font-bold text-brand">{row.quantity}</span>
+                            <span className="text-lg opacity-70">{unitAbbreviation(row.unit_id)}</span>
+                          </span>
                           <button
                             type="button"
                             onClick={() => setAdjustingRow(row)}
@@ -680,14 +674,16 @@ function StockTab({
                           >
                             <EditIcon />
                           </button>
-                        )}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-base font-semibold ${statusClasses(row.status)}`}>
-                        ● {STATUS_LABELS[row.status] ?? row.status}
-                      </span>
-                    </td>
+                        </span>
+                      </td>
+                    )}
+                    {canManage && (
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-base font-semibold ${stockStatusClasses(row.status)}`}>
+                          ● {STOCK_STATUS_LABELS[row.status] ?? row.status}
+                        </span>
+                      </td>
+                    )}
                     {canManage && (
                       <td className="whitespace-nowrap px-4 py-3">
                         <span className="inline-flex items-center gap-1">
@@ -754,34 +750,34 @@ function StockTab({
               {items.map((row) => (
                 <div key={row.variant_id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
                   <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
-                    <div className="min-h-20">
-                      <p className="line-clamp-2 text-xl font-bold leading-tight">{row.product_name}</p>
-                      <p className="mt-0.5 text-lg opacity-60">{variantDisplayLabel(row)}</p>
+                    <div className="flex min-h-12 items-center gap-3">
+                      <ProductThumbnail imageUrl={row.image_url} name={row.product_name} sizeClassName="h-12 w-12" />
+                      <p className="text-xl font-bold leading-tight">{row.product_name}</p>
                     </div>
-                    <span className={`whitespace-nowrap text-2xl font-bold ${statusTextColor(row.status)}`}>
-                      {row.quantity} <span className="text-base font-normal opacity-60">{unitAbbreviation(row.unit_id)}</span>
-                    </span>
+                    {canManage && (
+                      <span className={`whitespace-nowrap text-2xl font-bold ${stockStatusTextColor(row.status)}`}>
+                        {row.quantity} <span className="text-base font-normal opacity-60">{unitAbbreviation(row.unit_id)}</span>
+                      </span>
+                    )}
                   </div>
 
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-lg opacity-60">Estado</span>
-                    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-sm font-semibold ${statusClasses(row.status)}`}>
-                      ● {STATUS_LABELS[row.status] ?? row.status}
-                    </span>
-                  </div>
+                  {canManage && (
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-lg opacity-60">Estado</span>
+                      <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-sm font-semibold ${stockStatusClasses(row.status)}`}>
+                        ● {STOCK_STATUS_LABELS[row.status] ?? row.status}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex flex-col gap-1.5">
                     <FieldRow label="Categoría" value={categoryName(row.category_id)} />
-                    {canManage ? (
+                    <FieldRow label="Variante" value={variantDisplayLabel(row)} />
+                    {canManage && (
                       <MinimumStockDisplay
                         row={row}
                         onEdit={() => setEditingMinimumRow(row)}
                         unit={unitAbbreviation(row.unit_id)}
-                      />
-                    ) : (
-                      <FieldRow
-                        label="Stock mín."
-                        value={`${row.effective_minimum_quantity} ${unitAbbreviation(row.unit_id)}`}
                       />
                     )}
                   </div>
@@ -907,7 +903,7 @@ function StockTab({
           <div
             role="dialog"
             aria-label={`Historial de stock de ${variantLabel(historyState.row)}`}
-            className="relative flex max-h-[80vh] w-full max-w-lg flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
+            className="relative grid max-h-[80vh] w-full max-w-lg grid-rows-[auto_1fr] gap-4 overflow-hidden rounded-2xl bg-surface p-6 shadow-2xl"
           >
             <div className="flex items-start justify-between">
               <div>
@@ -927,11 +923,11 @@ function StockTab({
               <p className="text-lg opacity-60">Todavía no hay movimientos registrados.</p>
             )}
             {historyState.status === 'success' && historyState.movements.length > 0 && (
-              <div className="relative min-h-0 flex-1">
+              <div className="relative min-h-0">
                 <div
                   ref={historyScrollRef}
                   onScroll={updateHistoryScrollbar}
-                  className="scrollbar-hidden h-full overflow-auto pr-5"
+                  className={`scrollbar-hidden h-full overflow-auto ${historyScrollbar.visible ? 'pr-5' : ''}`}
                 >
                   <ul className="flex flex-col gap-3">
                     {[...historyState.movements]
@@ -944,13 +940,13 @@ function StockTab({
                               <span className={`font-bold ${diff < 0 ? 'text-danger' : diff > 0 ? 'text-success' : ''}`}>
                                 {diff > 0 ? `+${diff}` : diff}
                               </span>
-                              <span className="opacity-60">{new Date(movement.created_at).toLocaleString()}</span>
+                              <span className="opacity-60">{formatDateTime(movement.created_at)}</span>
                             </div>
                             <p className="m-0 text-base opacity-70">
                               {movement.quantity_before} → {movement.quantity_after}
                             </p>
                             <p className="m-0 text-base opacity-70">Motivo: {reasonName(movement.reason_id)}</p>
-                            <p className="m-0 text-base opacity-70">Cuenta #{movement.created_by_account_id}</p>
+                            <p className="m-0 text-base opacity-70">Cambiado por: {firstName(movement.created_by_account_name)}</p>
                             {movement.observation !== null && (
                               <p className="m-0 text-base opacity-70">{movement.observation}</p>
                             )}
@@ -1032,25 +1028,27 @@ export function InventoryPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Inventario</h1>
-          <div className="mt-1 flex flex-col text-base opacity-60 sm:flex-row sm:flex-wrap sm:items-center sm:gap-1.5 lg:text-lg">
-            <span className="whitespace-nowrap">{summary.stockBajo} con stock bajo</span>
-            <span className="hidden sm:inline">·</span>
-            <span className="whitespace-nowrap">{summary.sinStock} sin stock</span>
-          </div>
+          {canManage && (
+            <div className="mt-1 flex flex-col text-base opacity-60 sm:flex-row sm:flex-wrap sm:items-center sm:gap-1.5 lg:text-lg">
+              <span className="whitespace-nowrap">{summary.stockBajo} con stock bajo</span>
+              <span className="hidden sm:inline">·</span>
+              <span className="whitespace-nowrap">{summary.sinStock} sin stock</span>
+            </div>
+          )}
         </div>
         {status === 'success' && summary.total > 0 && <ViewToggle mode={viewMode} onChange={setViewMode} />}
       </div>
 
-      {status === 'success' && summary.total > 0 && summary.sinStock > 0 && !bannerDismissed && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3">
-          <p className="m-0 text-lg font-semibold text-danger">
+      {canManage && status === 'success' && summary.total > 0 && summary.sinStock > 0 && !bannerDismissed && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger/10 py-3 pl-4 pr-1">
+          <p className="m-0 whitespace-nowrap text-lg font-semibold text-danger">
             Hay {summary.sinStock} {summary.sinStock === 1 ? 'variante sin stock' : 'variantes sin stock'}.
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center">
             <button
               type="button"
               onClick={() => setCriticalSignal((value) => value + 1)}
-              className="min-h-11 rounded-lg border border-danger px-4 text-base font-bold text-danger transition-colors hover:bg-danger/10"
+              className="min-h-11 rounded-lg border border-danger px-2.5 text-base font-bold text-danger transition-colors hover:bg-danger/10"
             >
               Ver
             </button>

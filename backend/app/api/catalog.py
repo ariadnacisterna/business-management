@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.constants.roles import GERENTE
+from app.constants.roles import ADMINISTRADOR, GERENTE
 from app.constants.status import EntityStatus, ShortageStatus, StockStatus
 from app.core.storage import StorageNotConfigured, StorageRequestFailed
 from app.db.models import (
@@ -351,6 +351,7 @@ class StockMovementResponse(BaseModel):
     observation: str | None
     created_at: str
     created_by_account_id: int
+    created_by_account_name: str
 
 
 class LowStockCountResponse(BaseModel):
@@ -360,6 +361,7 @@ class LowStockCountResponse(BaseModel):
 class StockRowResponse(BaseModel):
     product_id: int
     product_name: str
+    image_url: str | None
     category_id: int
     unit_id: int
     variant_id: int
@@ -469,7 +471,7 @@ def _stock_response(variant: Variant) -> StockResponse:
     )
 
 
-def _stock_movement_response(movement: StockMovement) -> StockMovementResponse:
+def _stock_movement_response(movement: StockMovement, account_names: dict[int, str]) -> StockMovementResponse:
     return StockMovementResponse(
         id=movement.id,
         variant_id=movement.variant_id,
@@ -479,6 +481,7 @@ def _stock_movement_response(movement: StockMovement) -> StockMovementResponse:
         observation=movement.observation,
         created_at=movement.created_at.isoformat(),
         created_by_account_id=movement.created_by_account_id,
+        created_by_account_name=account_names[movement.created_by_account_id],
     )
 
 
@@ -1193,7 +1196,7 @@ def delete_product_image(
 def create_provider(
     payload: CreateProviderRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(GERENTE)),
+    _actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
 ) -> ProviderResponse:
     try:
@@ -1220,7 +1223,7 @@ def create_provider(
 @router.get("/providers", response_model=list[ProviderResponse])
 def list_providers(
     db: Session = Depends(get_db),
-    _actor: Account = Depends(get_current_user),
+    _actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
 ) -> list[ProviderResponse]:
     return [_provider_response(provider) for provider in providers.list_providers(db, business.id)]
@@ -1230,7 +1233,7 @@ def list_providers(
 def get_provider(
     provider_id: int,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(get_current_user),
+    _actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
 ) -> ProviderResponse:
     try:
@@ -1250,7 +1253,7 @@ def update_provider(
     provider_id: int,
     payload: UpdateProviderRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(GERENTE)),
+    _actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
 ) -> ProviderResponse:
     try:
@@ -1284,7 +1287,7 @@ def set_provider_categories(
     provider_id: int,
     payload: SetProviderCategoriesRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(GERENTE)),
+    _actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
 ) -> ProviderResponse:
     try:
@@ -1307,7 +1310,7 @@ def set_provider_categories(
 def deactivate_provider(
     provider_id: int,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(GERENTE)),
+    _actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
 ) -> ProviderResponse:
     try:
@@ -1326,7 +1329,7 @@ def deactivate_provider(
 def reactivate_provider(
     provider_id: int,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(GERENTE)),
+    _actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
 ) -> ProviderResponse:
     try:
@@ -1751,7 +1754,7 @@ def reactivate_movement_reason(
 def get_stock(
     variant_id: int,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(get_current_user),
+    _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
 ) -> StockResponse:
     try:
@@ -1818,14 +1821,15 @@ def adjust_stock(
     except InvalidStockQuantity as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 
-    return _stock_movement_response(movement)
+    account_names = get_account_names(db, [movement.created_by_account_id])
+    return _stock_movement_response(movement, account_names)
 
 
 @router.get("/variants/{variant_id}/stock/movements", response_model=list[StockMovementResponse])
 def list_stock_movements(
     variant_id: int,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(get_current_user),
+    _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
 ) -> list[StockMovementResponse]:
     try:
@@ -1833,7 +1837,8 @@ def list_stock_movements(
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
 
-    return [_stock_movement_response(movement) for movement in movement_list]
+    account_names = get_account_names(db, [movement.created_by_account_id for movement in movement_list])
+    return [_stock_movement_response(movement, account_names) for movement in movement_list]
 
 
 @router.get("/stock", response_model=StockPageResponse)
@@ -1880,6 +1885,7 @@ def list_stock(
             StockRowResponse(
                 product_id=product.id,
                 product_name=product.name,
+                image_url=product.image_url,
                 category_id=product.category_id,
                 unit_id=product.unit_id,
                 variant_id=variant.id,

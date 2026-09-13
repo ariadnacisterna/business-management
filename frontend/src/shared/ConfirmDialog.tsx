@@ -1,3 +1,5 @@
+import { CloseButton } from './CloseButton'
+
 interface Props {
   title: string
   description: string
@@ -17,7 +19,10 @@ export function ConfirmDialog({ title, description, confirmLabel, danger = false
         aria-label={title}
         className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
       >
-        <h2 className="m-0 text-2xl font-bold">{title}</h2>
+        <div className="flex items-start justify-between">
+          <h2 className="m-0 text-2xl font-bold">{title}</h2>
+          <CloseButton onClose={onCancel} />
+        </div>
         <p className="m-0 text-lg opacity-70">{description}</p>
 
         <div className="flex gap-2">
