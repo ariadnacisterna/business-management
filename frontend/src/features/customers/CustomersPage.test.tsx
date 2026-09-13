@@ -27,22 +27,38 @@ const CUSTOMERS = [
   { id: 2, name: 'Beto Ruiz', phone: null, address: null, status: 'active' },
 ]
 
-const PENDING_BALANCE = [{ customer: CUSTOMERS[0], balance: '150.00' }]
+const BALANCES = [
+  {
+    customer_id: 1,
+    balance: '150.00',
+    last_movement_at: '2026-01-01T10:00:00Z',
+    last_movement_by_account_name: 'Empleada de prueba',
+  },
+  { customer_id: 2, balance: '0.00', last_movement_at: null, last_movement_by_account_name: null },
+]
 
 const CREDITS = [
-  { id: 1, customer_id: 1, type: 'cargo', amount: '150.00', created_at: '2026-01-01T10:00:00Z', created_by_account_id: 1 },
+  {
+    id: 1,
+    customer_id: 1,
+    type: 'cargo',
+    amount: '150.00',
+    created_at: '2026-01-01T10:00:00Z',
+    created_by_account_id: 1,
+    created_by_account_name: 'Empleada de prueba',
+  },
 ]
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 }
 
-function renderPage(customers = CUSTOMERS, pendingBalance = PENDING_BALANCE) {
+function renderPage(customers = CUSTOMERS, balances = BALANCES) {
   const fetchMock = fetch as ReturnType<typeof vi.fn>
   fetchMock
     .mockResolvedValueOnce(jsonResponse(ACCOUNT))
     .mockResolvedValueOnce(jsonResponse(customers))
-    .mockResolvedValueOnce(jsonResponse(pendingBalance))
+    .mockResolvedValueOnce(jsonResponse(balances))
 
   return render(
     <MemoryRouter>
@@ -89,8 +105,8 @@ describe('CustomersPage', () => {
     expect((await screen.findAllByText('Ana Gómez')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Beto Ruiz').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Calle Falsa 123').length).toBeGreaterThan(0)
-    expect(screen.getAllByText((_, element) => element?.textContent === 'Saldo: $150,00').length).toBeGreaterThan(0)
-    expect(screen.getAllByText((_, element) => element?.textContent === 'Saldo: $0,00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$150,00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$0,00').length).toBeGreaterThan(0)
   })
 
   it('shows the card/table view toggle once there are customers, and switches views', async () => {
@@ -221,11 +237,9 @@ describe('CustomersPage', () => {
     renderPage()
 
     await screen.findAllByText('Ana Gómez')
-    const actionButtons = screen.getAllByRole('button', { name: /Acciones para Ana Gómez/ })
-    await user.click(actionButtons[0])
-
-    fetchMock.mockResolvedValueOnce(jsonResponse(CREDITS))
-    await user.click(screen.getByRole('button', { name: 'Ver movimientos' }))
+    await user.click(screen.getByLabelText('Ver como tabla'))
+    await user.click(screen.getByRole('button', { name: /Acciones para Ana Gómez/ }))
+    await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
 
     await screen.findByText('Registrar movimiento')
     await user.type(screen.getByLabelText('Importe'), '50')
@@ -250,11 +264,9 @@ describe('CustomersPage', () => {
     renderPage()
 
     await screen.findAllByText('Ana Gómez')
-    const actionButtons = screen.getAllByRole('button', { name: /Acciones para Ana Gómez/ })
-    await user.click(actionButtons[0])
-
-    fetchMock.mockResolvedValueOnce(jsonResponse(CREDITS))
-    await user.click(screen.getByRole('button', { name: 'Ver movimientos' }))
+    await user.click(screen.getByLabelText('Ver como tabla'))
+    await user.click(screen.getByRole('button', { name: /Acciones para Ana Gómez/ }))
+    await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
 
     await screen.findByText('Registrar movimiento')
     await user.click(screen.getByRole('button', { name: 'Tipo de movimiento' }))
@@ -273,7 +285,7 @@ describe('CustomersPage', () => {
     expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
   })
 
-  it('shows the customer balance and movement history in the detail view', async () => {
+  it('deactivates a customer after confirmation', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
     renderPage()
@@ -281,12 +293,92 @@ describe('CustomersPage', () => {
     await screen.findAllByText('Ana Gómez')
     const actionButtons = screen.getAllByRole('button', { name: /Acciones para Ana Gómez/ })
     await user.click(actionButtons[0])
+    await user.click(screen.getByRole('button', { name: /^Desactivar$/ }))
 
-    fetchMock.mockResolvedValueOnce(jsonResponse(CREDITS))
-    await user.click(screen.getByRole('button', { name: 'Ver movimientos' }))
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ id: 1, name: 'Ana Gómez', phone: '111-2222', address: 'Calle Falsa 123', status: 'inactive' }),
+    )
+    await user.click(await screen.findByRole('button', { name: /^Desactivar$/ }))
+
+    expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
+    expect((await screen.findAllByText(/Inactivo/)).length).toBeGreaterThan(0)
+  })
+
+  it('reactivates a customer after confirmation', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    const inactiveCustomer = { id: 1, name: 'Ana Gómez', phone: '111-2222', address: 'Calle Falsa 123', status: 'inactive' }
+    renderPage([inactiveCustomer, CUSTOMERS[1]], [])
+
+    await screen.findAllByText('Ana Gómez')
+    const actionButtons = screen.getAllByRole('button', { name: /Acciones para Ana Gómez/ })
+    await user.click(actionButtons[0])
+    await user.click(screen.getByRole('button', { name: /^Activar$/ }))
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ id: 1, name: 'Ana Gómez', phone: '111-2222', address: 'Calle Falsa 123', status: 'active' }),
+    )
+    await user.click(await screen.findByRole('button', { name: /^Activar$/ }))
+
+    expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
+    expect((await screen.findAllByText(/Activo/)).length).toBeGreaterThan(0)
+  })
+
+  it('shows the customer balance in the payment view', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findAllByText('Ana Gómez')
+    await user.click(screen.getByLabelText('Ver como tabla'))
+    await user.click(screen.getByRole('button', { name: /Acciones para Ana Gómez/ }))
+    await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
 
     expect(await screen.findByText('Saldo actual')).toBeInTheDocument()
     expect(screen.getAllByText('$150,00').length).toBeGreaterThan(0)
-    expect(screen.getByText('Cargo')).toBeInTheDocument()
+  })
+
+  it('shows the movement history in the history view', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage()
+
+    await screen.findAllByText('Ana Gómez')
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(CREDITS))
+    await user.click(screen.getAllByRole('button', { name: 'Ver historial' })[0])
+
+    expect(await screen.findByText('Tipo: Fiado')).toBeInTheDocument()
+    expect(screen.getByText('+$150,00')).toBeInTheDocument()
+    expect(screen.getByText('Cambiado por: Empleada')).toBeInTheDocument()
+  })
+
+  it('updates the balance directly from the card', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage([CUSTOMERS[0]], [BALANCES[0]])
+
+    await screen.findAllByText('Ana Gómez')
+    await user.type(screen.getByLabelText('Importe para Ana Gómez'), '50')
+    await user.click(screen.getByRole('button', { name: 'Actualizar' }))
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          id: 2,
+          customer_id: 1,
+          type: 'cargo',
+          amount: '50.00',
+          created_at: '2026-02-01T10:00:00Z',
+          created_by_account_id: 1,
+          created_by_account_name: 'Empleada de prueba',
+        },
+        201,
+      ),
+    )
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Actualizar' }))
+
+    expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
+    expect(screen.getAllByText('$200,00').length).toBeGreaterThan(0)
+    expect(screen.getByText(/por Empleada/)).toBeInTheDocument()
   })
 })

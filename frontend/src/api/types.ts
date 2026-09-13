@@ -144,11 +144,19 @@ export interface Credit {
   amount: string
   created_at: string
   created_by_account_id: number
+  created_by_account_name: string
 }
 
 export interface CustomerWithBalance {
   customer: Customer
   balance: string
+}
+
+export interface CustomerBalanceSummary {
+  customer_id: number
+  balance: string
+  last_movement_at: string | null
+  last_movement_by_account_name: string | null
 }
 
 export interface MovementReason {

@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import case, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.constants.status import CreditType
 from app.db.models import Credit, Customer
@@ -83,3 +83,36 @@ def list_customers_with_pending_balance(
         .order_by(Customer.name)
     ).all()
     return [(customer, Decimal(balance)) for customer, balance in rows]
+
+
+def list_all_customer_balances(
+    db: Session, business_id: int
+) -> list[tuple[Customer, Decimal]]:
+    balance_column = _balance_expression()
+    rows = db.execute(
+        select(Customer, balance_column)
+        .outerjoin(Credit, Credit.customer_id == Customer.id)
+        .where(Customer.business_id == business_id)
+        .group_by(Customer.id)
+        .order_by(Customer.name)
+    ).all()
+    return [(customer, Decimal(balance)) for customer, balance in rows]
+
+
+def get_last_credits(db: Session, customer_ids: list[int]) -> dict[int, Credit]:
+    if not customer_ids:
+        return {}
+
+    ranked = (
+        select(
+            Credit,
+            func.row_number()
+            .over(partition_by=Credit.customer_id, order_by=Credit.created_at.desc())
+            .label("rn"),
+        )
+        .where(Credit.customer_id.in_(customer_ids))
+        .subquery()
+    )
+    last_credit = aliased(Credit, ranked)
+    rows = db.scalars(select(last_credit).where(ranked.c.rn == 1)).all()
+    return {credit.customer_id: credit for credit in rows}

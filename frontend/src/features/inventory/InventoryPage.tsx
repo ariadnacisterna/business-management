@@ -751,7 +751,7 @@ function StockTab({
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
               {items.map((row) => (
                 <div key={row.variant_id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
-                  <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
+                  <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
                     <div className="flex min-h-12 items-center gap-3">
                       <ProductThumbnail imageUrl={row.image_url} name={row.product_name} sizeClassName="h-12 w-12" />
                       <p className="text-xl font-bold leading-tight">{row.product_name}</p>

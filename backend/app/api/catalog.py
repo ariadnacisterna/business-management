@@ -300,6 +300,7 @@ class CreditResponse(BaseModel):
     amount: Decimal
     created_at: str
     created_by_account_id: int
+    created_by_account_name: str
 
 
 class CreateCreditRequest(BaseModel):
@@ -310,6 +311,13 @@ class CreateCreditRequest(BaseModel):
 class CustomerWithBalanceResponse(BaseModel):
     customer: CustomerResponse
     balance: Decimal
+
+
+class CustomerBalanceSummaryResponse(BaseModel):
+    customer_id: int
+    balance: Decimal
+    last_movement_at: str | None
+    last_movement_by_account_name: str | None
 
 
 class MovementReasonResponse(BaseModel):
@@ -512,7 +520,7 @@ def _customer_response(customer: Customer) -> CustomerResponse:
     )
 
 
-def _credit_response(credit: Credit) -> CreditResponse:
+def _credit_response(credit: Credit, account_names: dict[int, str]) -> CreditResponse:
     return CreditResponse(
         id=credit.id,
         customer_id=credit.customer_id,
@@ -520,6 +528,7 @@ def _credit_response(credit: Credit) -> CreditResponse:
         amount=credit.amount,
         created_at=credit.created_at.isoformat(),
         created_by_account_id=credit.created_by_account_id,
+        created_by_account_name=account_names[credit.created_by_account_id],
     )
 
 
@@ -1498,6 +1507,36 @@ def list_customers_with_pending_balance(
     ]
 
 
+@router.get("/customers/balances", response_model=list[CustomerBalanceSummaryResponse])
+def list_customer_balances(
+    db: Session = Depends(get_db),
+    _actor: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> list[CustomerBalanceSummaryResponse]:
+    balances = credits.list_all_customer_balances(db, business.id)
+    last_credits = credits.get_last_credits(db, [customer.id for customer, _ in balances])
+    account_names = get_account_names(
+        db, [credit.created_by_account_id for credit in last_credits.values()]
+    )
+    return [
+        CustomerBalanceSummaryResponse(
+            customer_id=customer.id,
+            balance=balance,
+            last_movement_at=(
+                last_credits[customer.id].created_at.isoformat()
+                if customer.id in last_credits
+                else None
+            ),
+            last_movement_by_account_name=(
+                account_names[last_credits[customer.id].created_by_account_id]
+                if customer.id in last_credits
+                else None
+            ),
+        )
+        for customer, balance in balances
+    ]
+
+
 @router.get("/customers/{customer_id}", response_model=CustomerResponse)
 def get_customer(
     customer_id: int,
@@ -1610,7 +1649,8 @@ def list_credits(
     except CustomerNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado") from exc
 
-    return [_credit_response(credit) for credit in credit_list]
+    account_names = get_account_names(db, [credit.created_by_account_id for credit in credit_list])
+    return [_credit_response(credit, account_names) for credit in credit_list]
 
 
 @router.post(
@@ -1637,7 +1677,7 @@ def create_credit(
     except InvalidCreditAmount as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Importe invalido") from exc
 
-    return _credit_response(credit)
+    return _credit_response(credit, {_actor.id: _actor.name})
 
 
 @router.post(

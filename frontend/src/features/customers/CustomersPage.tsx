@@ -2,16 +2,23 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   createCredit,
   createCustomer,
+  deactivateCustomer,
+  fetchCustomerBalances,
   fetchCustomerCredits,
   fetchCustomers,
-  fetchCustomersWithPendingBalance,
+  reactivateCustomer,
   updateCustomer,
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Credit, Customer } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { FieldRow } from '../../shared/FieldRow'
+import { formatDateTime } from '../../shared/formatDateTime'
+import { firstName, initials } from '../../shared/formatName'
+import { formatRelativeTime } from '../../shared/formatRelativeTime'
 import { HEADER_ACTION_BUTTON_CLASSES } from '../../shared/headerActionButton'
+import { PencilIcon } from '../../shared/icons'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { Pagination } from '../../shared/Pagination'
 import { PriceInput } from '../../shared/PriceInput'
@@ -19,6 +26,7 @@ import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { useToast } from '../../shared/Toast'
+import { useScrollbar } from '../../shared/useScrollbar'
 import { NavIconGlyph } from '../../shared/layout/NavIcon'
 import type { ViewMode } from '../../shared/ViewToggle'
 import { ViewToggle } from '../../shared/ViewToggle'
@@ -31,6 +39,8 @@ const MOVEMENT_ERROR_MESSAGE = 'No se pudo registrar el movimiento. Intentá de 
 
 const inputClasses =
   'h-12 rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
+const editedInputClasses =
+  'h-12 rounded-lg border-2 border-brand bg-surface px-3 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-brand/10'
 const primaryButtonClasses =
   'h-12 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40'
 const secondaryButtonClasses =
@@ -48,6 +58,24 @@ function formatAmount(amount: string): string {
   const value = Number(amount)
   if (Number.isNaN(value)) return amount
   return value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function HistoryIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-5 w-5"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="12 7 12 12 15.5 14" />
+    </svg>
+  )
 }
 
 function CustomerFormModal({
@@ -170,9 +198,9 @@ function CustomerFormModal({
   )
 }
 
-const CREDIT_TYPE_LABELS: Record<string, string> = { cargo: 'Cargo', pago: 'Pago' }
+const CREDIT_TYPE_LABELS: Record<string, string> = { cargo: 'Fiado', pago: 'Pago' }
 
-function CustomerDetailModal({
+function CustomerPaymentModal({
   customer,
   balance,
   onClose,
@@ -184,30 +212,11 @@ function CustomerDetailModal({
   onMovementRegistered: (credit: Credit) => void
 }) {
   const { showSuccess, showError } = useToast()
-  const [status, setStatus] = useState<Status>('loading')
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [credits, setCredits] = useState<Credit[]>([])
   const [movementType, setMovementType] = useState<'cargo' | 'pago'>('cargo')
   const [amount, setAmount] = useState('')
   const [attemptedSubmit, setAttemptedSubmit] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [saving, setSaving] = useState(false)
-
-  function load() {
-    setStatus('loading')
-    setLoadError(null)
-    fetchCustomerCredits(customer.id)
-      .then((result) => {
-        setCredits(result)
-        setStatus('success')
-      })
-      .catch(() => {
-        setLoadError('No se pudieron cargar los movimientos.')
-        setStatus('error')
-      })
-  }
-
-  useEffect(load, [customer.id])
 
   const amountValue = Number(amount)
   const amountError =
@@ -226,11 +235,10 @@ function CustomerDetailModal({
     setSaving(true)
     try {
       const credit = await createCredit(customer.id, movementType, amount.trim())
-      setCredits((current) => [credit, ...current])
       onMovementRegistered(credit)
       setAmount('')
       setAttemptedSubmit(false)
-      showSuccess(movementType === 'cargo' ? 'Cargo registrado.' : 'Pago registrado.')
+      showSuccess(movementType === 'cargo' ? 'Fiado registrado.' : 'Pago registrado.')
     } catch (submitError) {
       showError(submitError instanceof ApiError ? submitError.message : MOVEMENT_ERROR_MESSAGE)
     } finally {
@@ -243,15 +251,11 @@ function CustomerDetailModal({
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
       <div
         role="dialog"
-        aria-label={`Movimientos de ${customer.name}`}
-        className="relative flex max-h-[90vh] w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
+        aria-label={`Registrar pago de ${customer.name}`}
+        className="relative flex max-h-[90vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
       >
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="m-0 text-2xl font-bold">{customer.name}</h2>
-            <p className="mt-1 text-base opacity-60">{customer.phone ?? 'Sin teléfono'}</p>
-            <p className="mt-1 text-base opacity-60">{customer.address ?? 'Sin dirección'}</p>
-          </div>
+          <h2 className="m-0 text-2xl font-bold">{customer.name}</h2>
           <CloseButton onClose={onClose} />
         </div>
 
@@ -264,16 +268,7 @@ function CustomerDetailModal({
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl border border-line p-4">
           <h3 className="m-0 text-lg font-bold">Registrar movimiento</h3>
-          <SelectMenu
-            value={movementType}
-            onChange={(value: 'cargo' | 'pago') => setMovementType(value)}
-            ariaLabel="Tipo de movimiento"
-            options={[
-              { value: 'cargo', label: 'Cargo (fiado)' },
-              { value: 'pago', label: 'Pago' },
-            ]}
-          />
-          <div className="flex flex-col gap-1.5">
+          <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1.5">
               <span className="text-base font-semibold">Importe</span>
               <PriceInput
@@ -284,49 +279,240 @@ function CustomerDetailModal({
                 className={`${inputClasses} pl-8`}
               />
             </label>
-            {attemptedSubmit && amountError !== null && (
-              <span role="alert" className="text-sm text-danger">
-                {amountError}
-              </span>
-            )}
+            <label className="flex flex-col gap-1.5">
+              <span className="text-base font-semibold">Motivo</span>
+              <SelectMenu
+                value={movementType}
+                onChange={(value: 'cargo' | 'pago') => setMovementType(value)}
+                ariaLabel="Tipo de movimiento"
+                options={[
+                  { value: 'cargo', label: 'Fiado' },
+                  { value: 'pago', label: 'Pago' },
+                ]}
+              />
+            </label>
           </div>
+          {attemptedSubmit && amountError !== null && (
+            <span role="alert" className="text-sm text-danger">
+              {amountError}
+            </span>
+          )}
           <button type="submit" disabled={!canSubmit || saving} className={primaryButtonClasses}>
             Registrar
           </button>
         </form>
-
-        <div className="flex flex-col gap-2">
-          <h3 className="m-0 text-lg font-bold">Movimientos</h3>
-          {status === 'loading' && <p role="status">Cargando…</p>}
-          {status === 'error' && <LoadErrorCard message={loadError ?? 'Error'} onRetry={load} />}
-          {status === 'success' && credits.length === 0 && <p className="opacity-60">No hay movimientos registrados.</p>}
-          {status === 'success' && credits.length > 0 && (
-            <ul className="flex flex-col gap-2">
-              {credits.map((credit) => (
-                <li
-                  key={credit.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2"
-                >
-                  <span
-                    className={`text-base font-semibold ${credit.type === 'cargo' ? 'text-danger' : 'text-success'}`}
-                  >
-                    {CREDIT_TYPE_LABELS[credit.type] ?? credit.type}
-                  </span>
-                  <span className="text-base font-medium">${formatAmount(credit.amount)}</span>
-                  <span className="text-sm opacity-60">{new Date(credit.created_at).toLocaleString('es-AR')}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
       </div>
 
       {confirming && (
         <ConfirmDialog
-          title={movementType === 'cargo' ? 'Registrar cargo' : 'Registrar pago'}
-          description={`Se va a registrar un ${movementType === 'cargo' ? 'cargo' : 'pago'} de $${amount.trim()} para "${customer.name}".`}
+          title={movementType === 'cargo' ? 'Registrar fiado' : 'Registrar pago'}
+          description={`Se va a registrar un ${movementType === 'cargo' ? 'fiado' : 'pago'} de $${amount.trim()} para "${customer.name}".`}
           confirmLabel="Registrar"
           onConfirm={confirmSubmit}
+          onCancel={() => setConfirming(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+function CustomerHistoryModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
+  const [status, setStatus] = useState<Status>('loading')
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [credits, setCredits] = useState<Credit[]>([])
+  const { scrollRef, scrollbar, updateScrollbar, handleThumbPointerDown } = useScrollbar([credits])
+
+  function load() {
+    setStatus('loading')
+    setLoadError(null)
+    fetchCustomerCredits(customer.id)
+      .then((result) => {
+        setCredits(result)
+        setStatus('success')
+      })
+      .catch(() => {
+        setLoadError('No se pudieron cargar los movimientos.')
+        setStatus('error')
+      })
+  }
+
+  useEffect(load, [customer.id])
+
+  let running = 0
+  const withBalance = credits.map((credit) => {
+    const before = running
+    running += credit.type === 'cargo' ? Number(credit.amount) : -Number(credit.amount)
+    return { credit, before, after: running }
+  })
+  const sorted = [...withBalance].reverse()
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+      <div
+        role="dialog"
+        aria-label={`Historial de ${customer.name}`}
+        className="relative grid max-h-[80vh] w-full max-w-lg grid-rows-[auto_1fr] gap-4 overflow-hidden rounded-2xl bg-surface p-6 shadow-2xl"
+      >
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="m-0 text-base opacity-60">
+              Clientes › {customer.name} › <span className="text-brand">Historial</span>
+            </p>
+            <h2 className="m-0 text-2xl font-bold">Historial</h2>
+          </div>
+          <CloseButton onClose={onClose} />
+        </div>
+
+        {status === 'loading' && <p role="status">Cargando…</p>}
+        {status === 'error' && <LoadErrorCard message={loadError ?? 'Error'} onRetry={load} />}
+        {status === 'success' && credits.length === 0 && (
+          <p className="text-lg opacity-60">No hay movimientos registrados.</p>
+        )}
+        {status === 'success' && credits.length > 0 && (
+          <div className="relative min-h-0">
+            <div
+              ref={scrollRef}
+              onScroll={updateScrollbar}
+              className={`scrollbar-hidden h-full overflow-auto ${scrollbar.visible ? 'pr-5' : ''}`}
+            >
+              <ul className="flex flex-col gap-3">
+                {sorted.map(({ credit, before, after }) => (
+                  <li key={credit.id} className="flex flex-col gap-1 rounded-lg border border-line px-4 py-3">
+                    <div className="flex items-center justify-between text-lg">
+                      <span className={`font-bold ${credit.type === 'cargo' ? 'text-danger' : 'text-success'}`}>
+                        {credit.type === 'cargo' ? '+' : '-'}${formatAmount(credit.amount)}
+                      </span>
+                      <span className="opacity-60">{formatDateTime(credit.created_at)}</span>
+                    </div>
+                    <p className="m-0 text-base opacity-70">
+                      ${formatAmount(String(before))} → ${formatAmount(String(after))}
+                    </p>
+                    <p className="m-0 text-base opacity-70">Tipo: {CREDIT_TYPE_LABELS[credit.type] ?? credit.type}</p>
+                    <p className="m-0 text-base opacity-70">Cambiado por: {firstName(credit.created_by_account_name)}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {scrollbar.visible && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute right-0 top-0 w-3 rounded-full bg-line/40"
+                style={{ bottom: 0 }}
+              >
+                <div
+                  onPointerDown={handleThumbPointerDown}
+                  className="pointer-events-auto absolute right-0 w-3 cursor-grab rounded-full bg-brand active:cursor-grabbing"
+                  style={{ top: scrollbar.thumbTop, height: scrollbar.thumbHeight }}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+interface LastMovement {
+  at: string
+  byAccountName: string
+}
+
+function CustomerBalanceEditor({
+  customer,
+  lastMovement,
+  onMovementRegistered,
+  onOpenHistory,
+}: {
+  customer: Customer
+  lastMovement: LastMovement | undefined
+  onMovementRegistered: (credit: Credit) => void
+  onOpenHistory: () => void
+}) {
+  const { showSuccess, showError } = useToast()
+  const [amount, setAmount] = useState('')
+  const [movementType, setMovementType] = useState<'cargo' | 'pago'>('cargo')
+  const [confirming, setConfirming] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const trimmedAmount = amount.trim()
+  const parsedAmount = Number(trimmedAmount)
+  const edited = trimmedAmount !== '' && !Number.isNaN(parsedAmount) && parsedAmount > 0
+
+  async function confirmUpdate() {
+    setConfirming(false)
+    setSaving(true)
+    try {
+      const credit = await createCredit(customer.id, movementType, trimmedAmount)
+      onMovementRegistered(credit)
+      setAmount('')
+      showSuccess(movementType === 'cargo' ? 'Fiado registrado.' : 'Pago registrado.')
+    } catch (error) {
+      showError(error instanceof ApiError ? error.message : MOVEMENT_ERROR_MESSAGE)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_110px]">
+        <PriceInput
+          value={amount}
+          onChange={setAmount}
+          ariaLabel={`Importe para ${customer.name}`}
+          disabled={saving}
+          className={`${edited ? editedInputClasses : inputClasses} pl-8 w-full`}
+        />
+        <SelectMenu
+          value={movementType}
+          onChange={(value: 'cargo' | 'pago') => setMovementType(value)}
+          ariaLabel={`Tipo de movimiento para ${customer.name}`}
+          className="w-full"
+          options={[
+            { value: 'cargo', label: 'Fiado' },
+            { value: 'pago', label: 'Pago' },
+          ]}
+        />
+        <button
+          type="button"
+          disabled={!edited || saving}
+          onClick={() => setConfirming(true)}
+          className={
+            edited
+              ? 'h-12 w-full rounded-lg bg-brand px-3 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90'
+              : 'h-12 w-full cursor-not-allowed rounded-lg bg-line px-3 text-base font-bold text-ink/40'
+          }
+        >
+          Actualizar
+        </button>
+      </div>
+
+      {lastMovement !== undefined && (
+        <div className="flex items-center justify-between gap-3 text-lg">
+          <span className="opacity-60">Último cambio</span>
+          <span className="font-semibold">
+            {formatRelativeTime(lastMovement.at)} por {firstName(lastMovement.byAccountName)}
+          </span>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onOpenHistory}
+        className="flex h-12 items-center justify-center gap-2 rounded-lg border border-line text-base font-semibold text-ink/70 transition-colors hover:bg-surface-brand hover:text-brand"
+      >
+        <HistoryIcon /> Ver historial
+      </button>
+
+      {confirming && (
+        <ConfirmDialog
+          title={movementType === 'cargo' ? 'Registrar fiado' : 'Registrar pago'}
+          description={`Se va a registrar un ${movementType === 'cargo' ? 'fiado' : 'pago'} de $${trimmedAmount} para "${customer.name}".`}
+          confirmLabel="Actualizar"
+          onConfirm={confirmUpdate}
           onCancel={() => setConfirming(false)}
         />
       )}
@@ -337,6 +523,7 @@ function CustomerDetailModal({
 export function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [balances, setBalances] = useState<Record<number, string>>({})
+  const [lastMovements, setLastMovements] = useState<Record<number, LastMovement>>({})
   const [status, setStatus] = useState<Status>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -347,19 +534,31 @@ export function CustomersPage() {
 
   const [creating, setCreating] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
-  const [detailCustomer, setDetailCustomer] = useState<Customer | null>(null)
+  const [payingCustomer, setPayingCustomer] = useState<Customer | null>(null)
+  const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null)
+  const [confirmingCustomer, setConfirmingCustomer] = useState<Customer | null>(null)
+
+  const { showSuccess, showError } = useToast()
 
   function load() {
     setStatus('loading')
     setLoadError(null)
-    Promise.all([fetchCustomers(), fetchCustomersWithPendingBalance()])
-      .then(([customerResult, pendingResult]) => {
+    Promise.all([fetchCustomers(), fetchCustomerBalances()])
+      .then(([customerResult, balanceResult]) => {
         setCustomers(customerResult)
         const balanceMap: Record<number, string> = {}
-        for (const entry of pendingResult) {
-          balanceMap[entry.customer.id] = entry.balance
+        const lastMovementMap: Record<number, LastMovement> = {}
+        for (const entry of balanceResult) {
+          balanceMap[entry.customer_id] = entry.balance
+          if (entry.last_movement_at !== null && entry.last_movement_by_account_name !== null) {
+            lastMovementMap[entry.customer_id] = {
+              at: entry.last_movement_at,
+              byAccountName: entry.last_movement_by_account_name,
+            }
+          }
         }
         setBalances(balanceMap)
+        setLastMovements(lastMovementMap)
         setStatus('success')
       })
       .catch(() => {
@@ -405,12 +604,44 @@ export function CustomersPage() {
       const delta = credit.type === 'cargo' ? Number(credit.amount) : -Number(credit.amount)
       return { ...current, [credit.customer_id]: String(previous + delta) }
     })
+    setLastMovements((current) => ({
+      ...current,
+      [credit.customer_id]: { at: credit.created_at, byAccountName: credit.created_by_account_name },
+    }))
   }
 
-  function customerRowMenuItems(customer: Customer) {
+  function confirmToggleActive() {
+    if (confirmingCustomer === null) return
+    const customer = confirmingCustomer
+    setConfirmingCustomer(null)
+    const activating = customer.status !== 'active'
+    const request = customer.status === 'active' ? deactivateCustomer(customer.id) : reactivateCustomer(customer.id)
+    request
+      .then((updated) => {
+        applyCustomerUpdate(updated)
+        showSuccess(activating ? 'Cliente activado.' : 'Cliente desactivado.')
+      })
+      .catch(() => {
+        showError(activating ? 'No se pudo activar el cliente.' : 'No se pudo desactivar el cliente.')
+      })
+  }
+
+  function customerRowMenuItems(customer: Customer, includeMovementActions: boolean) {
     return [
-      { label: 'Ver movimientos', onClick: () => setDetailCustomer(customer) },
-      { label: 'Editar cliente', onClick: () => setEditingCustomer(customer) },
+      ...(includeMovementActions
+        ? [
+            { label: 'Registrar pago', icon: '$', onClick: () => setPayingCustomer(customer) },
+            { label: 'Ver historial', icon: <HistoryIcon />, onClick: () => setHistoryCustomer(customer) },
+          ]
+        : []),
+      { label: 'Editar cliente', icon: <PencilIcon />, onClick: () => setEditingCustomer(customer) },
+      {
+        label: customer.status === 'active' ? 'Desactivar' : 'Activar',
+        icon: '⊘',
+        danger: customer.status === 'active',
+        success: customer.status !== 'active',
+        onClick: () => setConfirmingCustomer(customer),
+      },
     ]
   }
 
@@ -530,6 +761,9 @@ export function CustomersPage() {
                   <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
                     Saldo
                   </th>
+                  <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
+                    Estado
+                  </th>
                   <th className="px-4 py-2.5" />
                 </tr>
               </thead>
@@ -546,8 +780,17 @@ export function CustomersPage() {
                         ${formatAmount(balanceFor(customer.id))}
                       </span>
                     </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
+                          customer.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
+                        }`}
+                      >
+                        ● {customer.status === 'active' ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-right">
-                      <RowMenu title={customer.name} items={customerRowMenuItems(customer)} />
+                      <RowMenu title={customer.name} items={customerRowMenuItems(customer, true)} />
                     </td>
                   </tr>
                 ))}
@@ -559,18 +802,49 @@ export function CustomersPage() {
           {viewMode === 'cards' && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {paginatedCustomers.map((customer) => (
-              <div key={customer.id} className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <span className="text-xl font-bold">{customer.name}</span>
-                  <RowMenu title={customer.name} items={customerRowMenuItems(customer)} />
+              <div key={customer.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
+                <div className="flex items-center gap-3 border-b border-line pb-3">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand text-lg font-bold text-brand-contrast">
+                    {initials(customer.name)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xl font-bold leading-tight">{customer.name}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`whitespace-nowrap text-2xl font-bold ${Number(balanceFor(customer.id)) > 0 ? 'text-danger' : 'opacity-60'}`}
+                    >
+                      ${formatAmount(balanceFor(customer.id))}
+                    </span>
+                    <RowMenu title={customer.name} items={customerRowMenuItems(customer, false)} />
+                  </div>
                 </div>
-                <p className="m-0 text-base opacity-70">{customer.phone ?? 'Sin teléfono'}</p>
-                <p className="m-0 text-base opacity-70">{customer.address ?? 'Sin dirección'}</p>
-                <p
-                  className={`m-0 text-lg font-semibold ${Number(balanceFor(customer.id)) > 0 ? 'text-danger' : 'opacity-60'}`}
-                >
-                  Saldo: ${formatAmount(balanceFor(customer.id))}
-                </p>
+
+                <div className="flex flex-col gap-1.5">
+                  <FieldRow label="Teléfono" value={customer.phone ?? '—'} />
+                  <FieldRow label="Dirección" value={customer.address ?? '—'} />
+                  <FieldRow
+                    label="Estado"
+                    value={
+                      <span
+                        className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
+                          customer.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
+                        }`}
+                      >
+                        ● {customer.status === 'active' ? 'Activo' : 'Inactivo'}
+                      </span>
+                    }
+                  />
+                </div>
+
+                <div className="border-t border-line pt-3">
+                  <CustomerBalanceEditor
+                    customer={customer}
+                    lastMovement={lastMovements[customer.id]}
+                    onMovementRegistered={handleMovementRegistered}
+                    onOpenHistory={() => setHistoryCustomer(customer)}
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -599,12 +873,31 @@ export function CustomersPage() {
         />
       )}
 
-      {detailCustomer !== null && (
-        <CustomerDetailModal
-          customer={detailCustomer}
-          balance={balanceFor(detailCustomer.id)}
-          onClose={() => setDetailCustomer(null)}
+      {payingCustomer !== null && (
+        <CustomerPaymentModal
+          customer={payingCustomer}
+          balance={balanceFor(payingCustomer.id)}
+          onClose={() => setPayingCustomer(null)}
           onMovementRegistered={handleMovementRegistered}
+        />
+      )}
+
+      {historyCustomer !== null && (
+        <CustomerHistoryModal customer={historyCustomer} onClose={() => setHistoryCustomer(null)} />
+      )}
+
+      {confirmingCustomer !== null && (
+        <ConfirmDialog
+          title={confirmingCustomer.status === 'active' ? 'Desactivar cliente' : 'Activar cliente'}
+          description={
+            confirmingCustomer.status === 'active'
+              ? `"${confirmingCustomer.name}" va a dejar de estar disponible para registrar movimientos. Vas a poder reactivarlo cuando quieras.`
+              : `"${confirmingCustomer.name}" vuelve a estar disponible para registrar movimientos.`
+          }
+          confirmLabel={confirmingCustomer.status === 'active' ? 'Desactivar' : 'Activar'}
+          danger={confirmingCustomer.status === 'active'}
+          onConfirm={confirmToggleActive}
+          onCancel={() => setConfirmingCustomer(null)}
         />
       )}
     </section>

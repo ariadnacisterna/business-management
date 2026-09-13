@@ -7,6 +7,7 @@ import type {
   CurrentPrice,
   Customer,
   CustomerBalance,
+  CustomerBalanceSummary,
   CustomerWithBalance,
   MovementReason,
   Price,
@@ -299,6 +300,10 @@ export function fetchCustomersWithPendingBalance(): Promise<CustomerWithBalance[
   return apiFetch<CustomerWithBalance[]>('/customers/pending-balance')
 }
 
+export function fetchCustomerBalances(): Promise<CustomerBalanceSummary[]> {
+  return apiFetch<CustomerBalanceSummary[]>('/customers/balances')
+}
+
 export function createCustomer(input: {
   name: string
   phone?: string
@@ -312,6 +317,14 @@ export function updateCustomer(
   input: { name?: string; phone?: string; address?: string },
 ): Promise<Customer> {
   return apiFetch<Customer>(`/customers/${id}`, { method: 'PATCH', body: JSON.stringify(input) })
+}
+
+export function deactivateCustomer(id: number): Promise<Customer> {
+  return apiFetch<Customer>(`/customers/${id}/deactivate`, { method: 'POST' })
+}
+
+export function reactivateCustomer(id: number): Promise<Customer> {
+  return apiFetch<Customer>(`/customers/${id}/reactivate`, { method: 'POST' })
 }
 
 export function fetchCustomerBalance(id: number): Promise<CustomerBalance> {

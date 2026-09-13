@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from app.constants.access import CSRF_HEADER_NAME
 from app.constants.roles import EMPLEADO
 from app.core.config import get_settings
@@ -271,3 +273,22 @@ def test_customer_not_found_returns_404(client):
     response = client.get("/customers/999999", cookies=admin_cookies)
 
     assert response.status_code == 404
+
+
+def test_customer_balances_include_zero_balance_and_last_movement(client):
+    admin_cookies = _admin_cookies(client)
+    with_debt = _create_customer(client, admin_cookies, "Con deuda")
+    no_movements = _create_customer(client, admin_cookies, "Sin movimientos")
+    _create_credit(client, admin_cookies, with_debt["id"], "cargo", "100.00")
+    _create_credit(client, admin_cookies, with_debt["id"], "pago", "40.00")
+
+    response = client.get("/customers/balances", cookies=admin_cookies)
+
+    assert response.status_code == 200
+    by_id = {row["customer_id"]: row for row in response.json()}
+    assert Decimal(by_id[with_debt["id"]]["balance"]) == Decimal("60.00")
+    assert by_id[with_debt["id"]]["last_movement_at"] is not None
+    assert by_id[with_debt["id"]]["last_movement_by_account_name"] is not None
+    assert Decimal(by_id[no_movements["id"]]["balance"]) == Decimal("0")
+    assert by_id[no_movements["id"]]["last_movement_at"] is None
+    assert by_id[no_movements["id"]]["last_movement_by_account_name"] is None
