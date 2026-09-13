@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
@@ -307,6 +307,26 @@ describe('ProductFormPage', () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/auth/me', expect.anything()))
     expect(screen.queryByRole('heading', { name: 'Nuevo producto' })).not.toBeInTheDocument()
+  })
+
+  it('loads the form for a Gerente account even if /providers responds 403', async () => {
+    const GERENTE_ACCOUNT = { ...ADMIN_ACCOUNT, id: 3, name: 'Grace Manager', user_name: 'gracem', role: 'Gerente' }
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/providers')) return Promise.resolve(jsonResponse({ detail: 'Permiso denegado' }, 403))
+      if (url === '/auth/me') return Promise.resolve(jsonResponse(GERENTE_ACCOUNT))
+      if (url === '/categories') return Promise.resolve(jsonResponse(CATEGORIES))
+      if (url === '/units') return Promise.resolve(jsonResponse(UNITS))
+      if (url === '/attributes') return Promise.resolve(jsonResponse(ATTRIBUTES))
+      if (url === '/movement-reasons') return Promise.resolve(jsonResponse(REASONS))
+      return Promise.resolve(jsonResponse([]))
+    })
+
+    renderPage()
+
+    expect(await screen.findByRole('heading', { name: 'Nuevo producto' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Proveedor' })).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('/providers'))).toBe(false)
   })
 
   it('lets the user create a missing category and unit inline while creating a product', async () => {

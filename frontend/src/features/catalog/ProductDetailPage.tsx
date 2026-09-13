@@ -59,7 +59,7 @@ import { STOCK_STATUS_LABELS, stockStatusTextColor } from '../../shared/stockSta
 import { useToast } from '../../shared/Toast'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { useAuth } from '../access/AuthContext'
-import { canManageCatalog } from '../access/roles'
+import { canManageCatalog, canManageSuppliers } from '../access/roles'
 import { AdjustStockModal } from './AdjustStockModal'
 import { ChangePriceModal } from './ChangePriceModal'
 import { DuplicateWarning } from './DuplicateWarning'
@@ -135,6 +135,7 @@ export function ProductDetailPage() {
   const [searchParams] = useSearchParams()
   const { account } = useAuth()
   const canManage = canManageCatalog(account)
+  const canViewProviders = canManageSuppliers(account)
   const outletContext = useOutletContext<ProductsOutletContext>() as ProductsOutletContext | undefined
   const { showSuccess, showError } = useToast()
   const {
@@ -313,7 +314,13 @@ export function ProductDetailPage() {
   function load() {
     const requestId = ++requestIdRef.current
     setLoadStatus('loading')
-    Promise.all([fetchProduct(id), fetchCategories(), fetchUnits(), fetchAttributes(), fetchProviders()])
+    Promise.all([
+      fetchProduct(id),
+      fetchCategories(),
+      fetchUnits(),
+      fetchAttributes(),
+      canViewProviders ? fetchProviders() : Promise.resolve([]),
+    ])
       .then(async ([productResult, categoryList, unitList, attributeList, providerList]) => {
         if (requestId !== requestIdRef.current) return
         setProduct(productResult)
@@ -1046,21 +1053,25 @@ export function ProductDetailPage() {
                     </div>
                   )}
 
-                  <span className="text-base font-bold uppercase tracking-wide opacity-60">
-                    Proveedor <span className="font-normal normal-case opacity-70">(opcional)</span>
-                  </span>
-                  <SelectMenu
-                    ariaLabel="Proveedor"
-                    disabled={savingProduct}
-                    value={providerDraft === null ? 'none' : String(providerDraft)}
-                    onChange={(value) => setProviderDraft(value === 'none' ? null : Number(value))}
-                    options={[
-                      { value: 'none', label: 'Sin proveedor asignado' },
-                      ...providers
-                        .filter((provider) => provider.status === 'active' || provider.id === providerDraft)
-                        .map((provider) => ({ value: String(provider.id), label: provider.name })),
-                    ]}
-                  />
+                  {canViewProviders && (
+                    <>
+                      <span className="text-base font-bold uppercase tracking-wide opacity-60">
+                        Proveedor <span className="font-normal normal-case opacity-70">(opcional)</span>
+                      </span>
+                      <SelectMenu
+                        ariaLabel="Proveedor"
+                        disabled={savingProduct}
+                        value={providerDraft === null ? 'none' : String(providerDraft)}
+                        onChange={(value) => setProviderDraft(value === 'none' ? null : Number(value))}
+                        options={[
+                          { value: 'none', label: 'Sin proveedor asignado' },
+                          ...providers
+                            .filter((provider) => provider.status === 'active' || provider.id === providerDraft)
+                            .map((provider) => ({ value: String(provider.id), label: provider.name })),
+                        ]}
+                      />
+                    </>
+                  )}
 
                   <span className="-mb-2 text-base font-bold uppercase tracking-wide opacity-60">
                     Descripción <span className="font-normal normal-case opacity-70">(opcional)</span>
@@ -1153,13 +1164,15 @@ export function ProductDetailPage() {
                       <p className="m-0 font-bold">{product.variants.length}</p>
                     </div>
                   </div>
-                  <div className="border-t border-line pt-4">
-                    <p className="m-0 text-base uppercase tracking-wide opacity-60">Proveedor</p>
-                    <p className="m-0 mt-1 font-bold">
-                      {providers.find((provider) => provider.id === product.provider_id)?.name ??
-                        'Sin proveedor asignado'}
-                    </p>
-                  </div>
+                  {canViewProviders && (
+                    <div className="border-t border-line pt-4">
+                      <p className="m-0 text-base uppercase tracking-wide opacity-60">Proveedor</p>
+                      <p className="m-0 mt-1 font-bold">
+                        {providers.find((provider) => provider.id === product.provider_id)?.name ??
+                          'Sin proveedor asignado'}
+                      </p>
+                    </div>
+                  )}
                   <div className="border-t border-line pt-4">
                     <p className="m-0 text-base uppercase tracking-wide opacity-60">Descripción</p>
                     <p className="m-0 italic opacity-40">Próximamente</p>

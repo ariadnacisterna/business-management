@@ -209,6 +209,7 @@ describe('InventoryPage', () => {
     expect(screen.queryByText('Stock mín.')).not.toBeInTheDocument()
     expect(screen.getByText('Categoría')).toBeInTheDocument()
     expect(screen.getByText('Variante')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Filtrar por estado de stock' })).not.toBeInTheDocument()
   })
 
   it('switches between card and table view while keeping the data visible', async () => {

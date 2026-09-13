@@ -665,6 +665,43 @@ describe('ProductDetailPage', () => {
     expect(JSON.parse((lastCall[1] as RequestInit).body as string)).toEqual({ provider_id: 2 })
   })
 
+  it('loads the product for a Gerente account even if /providers responds 403', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    const GERENTE_ACCOUNT = { ...ADMIN_ACCOUNT, role: 'Gerente' }
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/providers')) return Promise.resolve(jsonResponse({ detail: 'Permiso denegado' }, 403))
+      if (url === '/auth/me') return Promise.resolve(jsonResponse(GERENTE_ACCOUNT))
+      if (url === '/products/5') return Promise.resolve(jsonResponse(PRODUCT))
+      if (url === '/categories') return Promise.resolve(jsonResponse(CATEGORIES))
+      if (url === '/units') return Promise.resolve(jsonResponse(UNITS))
+      if (url === '/attributes') return Promise.resolve(jsonResponse([]))
+      if (url === '/variants/10/price') return Promise.resolve(jsonResponse({ variant_id: 10, price: null }))
+      if (url === '/stock') return Promise.resolve(stockResponse(10))
+      if (url === '/movement-reasons') return Promise.resolve(reasonsResponse())
+      return Promise.resolve(jsonResponse([]))
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/products/5']}>
+        <ToastProvider>
+        <AuthProvider>
+          <ReadyGate>
+            <Routes>
+              <Route path="/products" element={<h1>Productos</h1>} />
+              <Route path="/products/:productId" element={<ProductDetailPage />} />
+            </Routes>
+          </ReadyGate>
+        </AuthProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Cinta bebé' })).toBeInTheDocument()
+    expect(screen.queryByText('Proveedor')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('/providers'))).toBe(false)
+  })
+
   it('blocks renaming to a duplicate product name before showing the confirmation', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>

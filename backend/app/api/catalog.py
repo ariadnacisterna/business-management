@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.constants.roles import ADMINISTRADOR, GERENTE
+from app.constants.roles import ADMINISTRADOR, GERENTE, ROLE_RANK
 from app.constants.status import EntityStatus, ShortageStatus, StockStatus
 from app.core.storage import StorageNotConfigured, StorageRequestFailed
 from app.db.models import (
@@ -23,6 +23,7 @@ from app.db.models import (
     Variant,
 )
 from app.db.session import get_db
+from app.domain.access.accounts import get_role_name
 from app.domain.access.permissions import (
     get_active_business,
     get_current_user,
@@ -366,10 +367,10 @@ class StockRowResponse(BaseModel):
     unit_id: int
     variant_id: int
     variant_label: str | None
-    quantity: int
+    quantity: int | None
     minimum_quantity: int | None
-    effective_minimum_quantity: int
-    status: str
+    effective_minimum_quantity: int | None
+    status: str | None
     last_movement_at: str | None
     last_movement_by_account_name: str | None
 
@@ -1865,6 +1866,11 @@ def list_stock(
     ):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "quick_filter invalido")
 
+    actor_role = get_role_name(db, _actor.id, business.id)
+    can_view_stock_values = ROLE_RANK.get(actor_role, -1) >= ROLE_RANK[GERENTE]
+    if not can_view_stock_values:
+        quick_filter = None
+
     rows, total = stock.list_stock(
         db,
         business.id,
@@ -1890,10 +1896,12 @@ def list_stock(
                 unit_id=product.unit_id,
                 variant_id=variant.id,
                 variant_label=variant.label,
-                quantity=variant.quantity,
-                minimum_quantity=variant.minimum_quantity,
-                effective_minimum_quantity=stock.effective_minimum_quantity(variant),
-                status=stock.stock_status(variant),
+                quantity=variant.quantity if can_view_stock_values else None,
+                minimum_quantity=variant.minimum_quantity if can_view_stock_values else None,
+                effective_minimum_quantity=(
+                    stock.effective_minimum_quantity(variant) if can_view_stock_values else None
+                ),
+                status=stock.stock_status(variant) if can_view_stock_values else None,
                 last_movement_at=(
                     last_movements[variant.id].created_at.isoformat()
                     if variant.id in last_movements

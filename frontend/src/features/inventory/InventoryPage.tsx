@@ -521,20 +521,22 @@ function StockTab({
 
   const filterControls = (
     <>
-      <SelectMenu
-        value={filters.quickFilter}
-        onChange={(value) =>
-          setFilters((current) => ({ ...current, quickFilter: value as QuickFilter, page: 1 }))
-        }
-        ariaLabel="Filtrar por estado de stock"
-        className="w-full lg:w-56"
-        options={[
-          { value: 'all', label: 'Todos los estados' },
-          { value: 'normal', label: 'Con stock' },
-          { value: 'stock_bajo', label: 'Bajo' },
-          { value: 'sin_stock', label: 'Crítico' },
-        ]}
-      />
+      {canManage && (
+        <SelectMenu
+          value={filters.quickFilter}
+          onChange={(value) =>
+            setFilters((current) => ({ ...current, quickFilter: value as QuickFilter, page: 1 }))
+          }
+          ariaLabel="Filtrar por estado de stock"
+          className="w-full lg:w-56"
+          options={[
+            { value: 'all', label: 'Todos los estados' },
+            { value: 'normal', label: 'Con stock' },
+            { value: 'stock_bajo', label: 'Bajo' },
+            { value: 'sin_stock', label: 'Crítico' },
+          ]}
+        />
+      )}
       <SelectMenu
         value={filters.categoryId === 'all' ? 'all' : String(filters.categoryId)}
         onChange={(value) =>

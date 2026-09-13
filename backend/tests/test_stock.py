@@ -430,6 +430,41 @@ def test_list_stock_rejects_invalid_quick_filter(client):
     assert response.status_code == 422
 
 
+def test_empleado_list_stock_hides_quantity_and_status(client):
+    admin_cookies = _admin_cookies(client)
+    reason = _create_movement_reason(client, admin_cookies, "Movimiento oculto para empleado")
+    variant_id = _setup_variant(client, admin_cookies, "Producto oculto para empleado")
+    _adjust_stock(client, admin_cookies, variant_id, 100, reason["id"])
+    empleado_cookies = _empleado_cookies(client, admin_cookies)
+
+    response = client.get("/stock", cookies=empleado_cookies)
+
+    assert response.status_code == 200, response.text
+    rows = response.json()["items"]
+    row = next(row for row in rows if row["variant_id"] == variant_id)
+    assert row["product_name"] == "Producto oculto para empleado"
+    assert row["quantity"] is None
+    assert row["minimum_quantity"] is None
+    assert row["effective_minimum_quantity"] is None
+    assert row["status"] is None
+
+
+def test_empleado_list_stock_ignores_quick_filter(client):
+    admin_cookies = _admin_cookies(client)
+    reason = _create_movement_reason(client, admin_cookies, "Movimiento filtro empleado")
+    sin_stock_variant = _setup_variant(client, admin_cookies, "Producto sin stock para empleado")
+    normal_variant = _setup_variant(client, admin_cookies, "Producto normal para empleado")
+    _adjust_stock(client, admin_cookies, normal_variant, 100, reason["id"])
+    empleado_cookies = _empleado_cookies(client, admin_cookies)
+
+    response = client.get("/stock", params={"quick_filter": "sin_stock"}, cookies=empleado_cookies)
+
+    assert response.status_code == 200, response.text
+    variant_ids = {row["variant_id"] for row in response.json()["items"]}
+    assert sin_stock_variant in variant_ids
+    assert normal_variant in variant_ids
+
+
 def test_stock_counts_reflect_all_variants_regardless_of_pagination(client):
     admin_cookies = _admin_cookies(client)
     reason = _create_movement_reason(client, admin_cookies, "Movimiento conteo total")

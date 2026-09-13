@@ -27,7 +27,7 @@ import { SelectMenu } from '../../shared/SelectMenu'
 import { useToast } from '../../shared/Toast'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { useAuth } from '../access/AuthContext'
-import { canManageCatalog } from '../access/roles'
+import { canManageCatalog, canManageSuppliers } from '../access/roles'
 import { DuplicateWarning } from './DuplicateWarning'
 import { NewProductImagePicker } from './ProductImageField'
 import { VariantAttributesEditor } from './VariantAttributesEditor'
@@ -108,6 +108,7 @@ export function ProductFormPage() {
   const { showSuccess, showError } = useToast()
   const { account } = useAuth()
   const canManage = canManageCatalog(account)
+  const canViewProviders = canManageSuppliers(account)
   const {
     scrollRef: modalScrollRef,
     scrollbar: modalScrollbar,
@@ -160,7 +161,13 @@ export function ProductFormPage() {
 
   function loadFormData() {
     setLoadStatus('loading')
-    Promise.all([fetchCategories(), fetchUnits(), fetchAttributes(), fetchProviders(), fetchMovementReasons()])
+    Promise.all([
+      fetchCategories(),
+      fetchUnits(),
+      fetchAttributes(),
+      canViewProviders ? fetchProviders() : Promise.resolve([]),
+      fetchMovementReasons(),
+    ])
       .then(([categoryList, unitList, attributeList, providerList, reasonList]) => {
         setCategories(categoryList.filter((category) => category.status === 'active'))
         setUnits(unitList.filter((unit) => unit.status === 'active'))
@@ -639,19 +646,23 @@ export function ProductFormPage() {
                   </div>
                 )}
 
-                <span className="text-lg font-semibold">
-                  Proveedor <span className="font-normal opacity-70">(opcional)</span>
-                </span>
-                <SelectMenu
-                  ariaLabel="Proveedor"
-                  disabled={checkingName}
-                  value={providerId === '' ? '' : String(providerId)}
-                  onChange={(value) => setProviderId(value === '' ? '' : Number(value))}
-                  options={[
-                    { value: '', label: 'Sin proveedor asignado' },
-                    ...providers.map((provider) => ({ value: String(provider.id), label: provider.name })),
-                  ]}
-                />
+                {canViewProviders && (
+                  <>
+                    <span className="text-lg font-semibold">
+                      Proveedor <span className="font-normal opacity-70">(opcional)</span>
+                    </span>
+                    <SelectMenu
+                      ariaLabel="Proveedor"
+                      disabled={checkingName}
+                      value={providerId === '' ? '' : String(providerId)}
+                      onChange={(value) => setProviderId(value === '' ? '' : Number(value))}
+                      options={[
+                        { value: '', label: 'Sin proveedor asignado' },
+                        ...providers.map((provider) => ({ value: String(provider.id), label: provider.name })),
+                      ]}
+                    />
+                  </>
+                )}
 
                 <NewProductImagePicker file={imageFile} disabled={checkingName} onChange={setImageFile} />
 
@@ -860,10 +871,12 @@ export function ProductFormPage() {
                         {selectedUnit !== undefined ? `${selectedUnit.name} (${selectedUnit.abbreviation})` : '—'}
                       </p>
                     </div>
-                    <div>
-                      <p className="m-0 text-sm uppercase tracking-wide opacity-60">Proveedor</p>
-                      <p className="m-0 font-bold">{selectedProvider?.name ?? 'Sin proveedor asignado'}</p>
-                    </div>
+                    {canViewProviders && (
+                      <div>
+                        <p className="m-0 text-sm uppercase tracking-wide opacity-60">Proveedor</p>
+                        <p className="m-0 font-bold">{selectedProvider?.name ?? 'Sin proveedor asignado'}</p>
+                      </div>
+                    )}
                     <div>
                       <p className="m-0 text-sm uppercase tracking-wide opacity-60">Imagen</p>
                       <p className="m-0 font-bold">{imageFile?.name ?? 'Sin imagen'}</p>
