@@ -42,6 +42,8 @@ const EMPTY_SUMMARY: StockSummary = { total: 0, stockBajo: 0, sinStock: 0 }
 
 const LOAD_ERROR_MESSAGE = 'No se pudo cargar el inventario.'
 const SAVE_ERROR_MESSAGE = 'No se pudo guardar el ajuste. Intentá de nuevo.'
+const REFRESH_AFTER_ADJUST_WARNING_MESSAGE =
+  'El ajuste se guardó, pero la fila puede no reflejarlo hasta el próximo refresco.'
 const CREATE_REASON_ERROR_MESSAGE = 'No se pudo crear el motivo. Intentá de nuevo.'
 const HISTORY_LOAD_ERROR_MESSAGE = 'No se pudo cargar el historial.'
 const MINIMUM_SAVE_ERROR_MESSAGE = 'No se pudo guardar el stock mínimo. Intentá de nuevo.'
@@ -484,22 +486,29 @@ function StockTab({
   async function confirmAdjust() {
     if (confirmState === null) return
     setConfirming(true)
+    const { row, quantity, reasonId } = confirmState
     try {
-      await adjustStock(confirmState.row.variant_id, {
-        quantity: confirmState.quantity,
-        reason_id: confirmState.reasonId,
-      })
-      const stock = await fetchStock(confirmState.row.variant_id)
-      applyRowUpdate(confirmState.row.variant_id, stock)
-      setConfirmState(null)
-      showSuccess('Stock ajustado.')
-      onAdjusted()
+      await adjustStock(row.variant_id, { quantity, reason_id: reasonId })
     } catch (error) {
       showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
       setConfirmState(null)
+      setConfirming(false)
+      return
+    }
+
+    setConfirmState(null)
+    showSuccess('Stock ajustado.')
+
+    try {
+      const stock = await fetchStock(row.variant_id)
+      applyRowUpdate(row.variant_id, stock)
+    } catch {
+      showError(REFRESH_AFTER_ADJUST_WARNING_MESSAGE)
     } finally {
       setConfirming(false)
     }
+
+    onAdjusted()
   }
 
   function openHistory(row: StockRow) {

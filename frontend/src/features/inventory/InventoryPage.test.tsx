@@ -191,6 +191,51 @@ describe('InventoryPage', () => {
     expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
   })
 
+  it('treats the adjustment as successful even when the refetch afterward fails', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    const onAdjustedSpy = vi.fn()
+    window.addEventListener('stock-updated', onAdjustedSpy)
+    renderPage()
+
+    await screen.findAllByText('Hilo blanco')
+
+    const quantityInput = screen.getAllByLabelText(/Cantidad nueva para Hilo blanco/)[0]
+    const row = quantityInput.closest('div')?.parentElement as HTMLElement
+    const updateButton = within(row).getByRole('button', { name: 'Actualizar' })
+
+    await user.clear(quantityInput)
+    await user.type(quantityInput, '8')
+    await user.click(within(row).getByRole('button', { name: /Motivo del ajuste/ }))
+    await user.click(await screen.findByRole('option', { name: 'Conteo físico' }))
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        id: 99,
+        variant_id: 10,
+        reason_id: 1,
+        quantity_before: 2,
+        quantity_after: 8,
+        observation: null,
+        created_at: '2026-01-01T00:00:00Z',
+        created_by_account_id: 1,
+        created_by_account_name: 'Ada Lovelace',
+      }),
+    )
+    fetchMock.mockRejectedValueOnce(new Error('network error'))
+    fetchMock.mockResolvedValueOnce(jsonResponse(summaryFor([{ status: 'normal' }])))
+
+    await user.click(updateButton)
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Ajustar' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
+    expect(screen.queryByText(/No se pudo guardar el ajuste/)).not.toBeInTheDocument()
+    await waitFor(() => expect(onAdjustedSpy).toHaveBeenCalled())
+
+    window.removeEventListener('stock-updated', onAdjustedSpy)
+  })
+
   it('hides the inline stock editor for an employee', async () => {
     renderPage(EMPLEADO_ACCOUNT)
 
