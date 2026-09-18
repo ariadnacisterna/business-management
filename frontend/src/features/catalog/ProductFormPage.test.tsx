@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../shared/Toast'
 import { AuthProvider, useAuth } from '../access/AuthContext'
@@ -75,6 +75,23 @@ function renderPage() {
         <AuthProvider>
           <ReadyGate>
             <ProductFormPage />
+          </ReadyGate>
+        </AuthProvider>
+      </ToastProvider>
+    </MemoryRouter>,
+  )
+}
+
+function renderPageWithProductRoute() {
+  return render(
+    <MemoryRouter initialEntries={['/products/new']}>
+      <ToastProvider>
+        <AuthProvider>
+          <ReadyGate>
+            <Routes>
+              <Route path="/products/new" element={<ProductFormPage />} />
+              <Route path="/products/:productId" element={<p>Ficha del producto</p>} />
+            </Routes>
           </ReadyGate>
         </AuthProvider>
       </ToastProvider>
@@ -160,6 +177,45 @@ describe('ProductFormPage', () => {
 
     expect(screen.getByText('El nombre es obligatorio.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Continuar' })).toBeDisabled()
+  })
+
+  it('sends the user to the created product with a pending warning when the initial price fails to save', async () => {
+    const user = userEvent.setup()
+    mockInitialLoad(fetchMock, ADMIN_ACCOUNT)
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(EMPTY_PRODUCT_PAGE))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            product: {
+              id: 5,
+              name: 'Hilo blanco',
+              category_id: 1,
+              unit_id: 1,
+              status: 'active',
+              variants: [
+                { id: 10, product_id: 5, label: null, is_implicit: true, status: 'active', attribute_value_ids: [] },
+              ],
+            },
+            possible_duplicates: [],
+          },
+          201,
+        ),
+      )
+      .mockResolvedValueOnce(jsonResponse({ detail: 'Error interno.' }, 500))
+
+    renderPageWithProductRoute()
+
+    await fillStep1AndContinue(user, 'Hilo blanco')
+    await user.type(screen.getByLabelText('Precio'), '150')
+    await user.click(screen.getByRole('button', { name: 'Continuar' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'El producto se creó, pero no se pudo guardar el precio inicial.',
+    )
+    expect(screen.queryByText('No se pudo crear el producto. Intentá de nuevo.')).not.toBeInTheDocument()
+    expect(await screen.findByText('Ficha del producto')).toBeInTheDocument()
   })
 
   it('shows an error for categoría and unidad once they lose focus while empty', async () => {

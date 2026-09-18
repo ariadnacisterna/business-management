@@ -39,6 +39,9 @@ const CREATE_SUCCESS_MESSAGE = 'Producto creado correctamente.'
 const CREATE_CATEGORY_ERROR_MESSAGE = 'No se pudo crear la categoría. Intentá de nuevo.'
 const CREATE_UNIT_ERROR_MESSAGE = 'No se pudo crear la unidad. Intentá de nuevo.'
 const IMAGE_UPLOAD_ERROR_MESSAGE = 'El producto se creó, pero no se pudo subir la imagen.'
+const PRICE_SAVE_ERROR_MESSAGE = 'El producto se creó, pero no se pudo guardar el precio inicial.'
+const STOCK_ADJUST_ERROR_MESSAGE = 'El producto se creó, pero no se pudo cargar el stock inicial.'
+const MINIMUM_STOCK_ERROR_MESSAGE = 'El producto se creó, pero no se pudo definir el stock mínimo.'
 const INITIAL_STOCK_REASON_NAME = 'Carga inicial'
 
 const CREATE_NEW_OPTION = '__create__'
@@ -376,6 +379,9 @@ export function ProductFormPage() {
 
       const isSingle = product.variants.length === 1 && product.variants[0].is_implicit
       let stockReasonId: number | null = null
+      let priceFailed = false
+      let stockFailed = false
+      let minimumFailed = false
       for (let index = 0; index < product.variants.length; index += 1) {
         const variant = product.variants[index]
         const draftKey = variantDrafts[index]?.key
@@ -384,16 +390,32 @@ export function ProductFormPage() {
         const minimum = (isSingle ? singleMinimum : (draftKey !== undefined ? variantMinimums[draftKey] : '') ?? '').trim()
 
         if (price !== '') {
-          await setInitialVariantPrice(variant.id, price)
+          try {
+            await setInitialVariantPrice(variant.id, price)
+          } catch {
+            priceFailed = true
+          }
         }
         if (stock !== '') {
-          if (stockReasonId === null) stockReasonId = await resolveInitialStockReasonId()
-          await adjustStock(variant.id, { quantity: Number(stock), reason_id: stockReasonId })
+          try {
+            if (stockReasonId === null) stockReasonId = await resolveInitialStockReasonId()
+            await adjustStock(variant.id, { quantity: Number(stock), reason_id: stockReasonId })
+          } catch {
+            stockFailed = true
+          }
         }
         if (minimum !== '') {
-          await setMinimumStock(variant.id, Number(minimum))
+          try {
+            await setMinimumStock(variant.id, Number(minimum))
+          } catch {
+            minimumFailed = true
+          }
         }
       }
+
+      if (priceFailed) showError(PRICE_SAVE_ERROR_MESSAGE)
+      if (stockFailed) showError(STOCK_ADJUST_ERROR_MESSAGE)
+      if (minimumFailed) showError(MINIMUM_STOCK_ERROR_MESSAGE)
 
       showSuccess(CREATE_SUCCESS_MESSAGE)
       if (result.possible_duplicates.length > 0) {
