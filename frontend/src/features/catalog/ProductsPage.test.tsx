@@ -190,9 +190,9 @@ describe('ProductsPage', () => {
 
     await userEvent.type(screen.getByPlaceholderText('Buscar nombre, código, categoría…'), 'inexistente')
 
-    expect(await screen.findByText('No hay productos que coincidan.', {}, { timeout: 6000 })).toBeInTheDocument()
+    expect(await screen.findByText('No hay productos que coincidan.', {}, { timeout: 2000 })).toBeInTheDocument()
     expect(screen.getByText('Probá cambiar la búsqueda o los filtros.')).toBeInTheDocument()
-  }, 8000)
+  })
 
   it('lists products with their category and unit', async () => {
     renderPage(ADMIN_ACCOUNT)
@@ -271,13 +271,13 @@ describe('ProductsPage', () => {
     await user.type(screen.getByLabelText('Buscar productos'), 'lino')
 
     await waitFor(() => expect(screen.getByText('lino').closest('a')).toHaveTextContent('Tela de lino'), {
-      timeout: 6000,
+      timeout: 2000,
     })
     expect(screen.queryByText('Cinta bebé')).not.toBeInTheDocument()
 
     const lastCall = fetchMock.mock.calls.at(-1)?.[0] as string
     expect(lastCall).toContain('search=lino')
-  }, 8000)
+  })
 
   it('highlights the matching search text within the product name', async () => {
     const user = userEvent.setup()
@@ -289,10 +289,10 @@ describe('ProductsPage', () => {
 
     await user.type(screen.getByLabelText('Buscar productos'), 'lino')
 
-    const highlighted = await screen.findByText('lino', {}, { timeout: 6000 })
+    const highlighted = await screen.findByText('lino', {}, { timeout: 2000 })
     expect(highlighted).toHaveClass('text-brand')
     expect(highlighted.closest('a')).toHaveTextContent('Tela de lino')
-  }, 8000)
+  })
 
   it('asks the server to filter by category', async () => {
     const user = userEvent.setup()
