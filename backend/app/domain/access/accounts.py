@@ -4,17 +4,19 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.constants.limits import PASSWORD_MIN_LENGTH, USERNAME_MIN_LENGTH
-from app.constants.roles import INITIAL_ROLES
+from app.constants.roles import INITIAL_ROLES, ROLE_RANK
 from app.constants.status import EntityStatus
 from app.core.security import hash_password
 from app.db.models import Account, Business, BusinessAccess, Role
 from app.domain.access.errors import (
     AccountNotFound,
     DuplicateUsername,
+    InsufficientRoleRank,
     InvalidAccountName,
     InvalidPassword,
     InvalidRole,
     InvalidUsername,
+    SelfActionForbidden,
 )
 from app.domain.access.sessions import delete_sessions_for_account
 
@@ -71,6 +73,13 @@ def _get_business_access(db: Session, account_id: int, business_id: int) -> Busi
     ).first()
 
 
+def _check_role_rank(role_name: str, actor_role_name: str) -> None:
+    if ROLE_RANK[role_name] > ROLE_RANK[actor_role_name]:
+        raise InsufficientRoleRank(
+            f"No se puede asignar el rol {role_name}: supera el rango del actor"
+        )
+
+
 def create_account(
     db: Session,
     business: Business,
@@ -78,11 +87,13 @@ def create_account(
     user_name: str,
     initial_password: str,
     role_name: str,
+    actor_role_name: str,
 ) -> Account:
     name = _validate_name(name)
     _validate_user_name(user_name)
     _validate_password(initial_password)
     role = _get_role(db, role_name)
+    _check_role_rank(role_name, actor_role_name)
 
     existing_user = db.scalars(select(Account).where(Account.user_name == user_name)).first()
     if existing_user is not None:
@@ -114,11 +125,16 @@ def update_account(
     db: Session,
     business: Business,
     account_id: int,
+    actor_id: int,
+    actor_role_name: str,
     name: str | None = None,
     user_name: str | None = None,
     role_name: str | None = None,
 ) -> Account:
     account = _get_account(db, business.id, account_id)
+
+    if role_name is not None and account_id == actor_id:
+        raise SelfActionForbidden("No se puede cambiar el propio rol")
 
     if name is not None:
         account.name = _validate_name(name)
@@ -134,6 +150,7 @@ def update_account(
 
     if role_name is not None:
         role = _get_role(db, role_name)
+        _check_role_rank(role_name, actor_role_name)
         access = _get_business_access(db, account.id, business.id)
         access.role_id = role.id
 
@@ -142,7 +159,9 @@ def update_account(
     return account
 
 
-def deactivate_account(db: Session, business_id: int, account_id: int) -> Account:
+def deactivate_account(db: Session, business_id: int, account_id: int, actor_id: int) -> Account:
+    if account_id == actor_id:
+        raise SelfActionForbidden("No se puede desactivar la propia cuenta")
     account = _get_account(db, business_id, account_id)
     account.status = EntityStatus.INACTIVE.value
     delete_sessions_for_account(db, account.id)

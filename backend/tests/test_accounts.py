@@ -393,6 +393,113 @@ def test_administrador_can_still_manage_an_account_from_their_own_business(clien
     assert patch_response.json()["role"] == GERENTE
 
 
+def test_administrador_cannot_create_an_account_with_dueno_role(client):
+    admin_cookies = _admin_cookies(client)
+    _create_account(client, admin_cookies, "administrador-b", "Clave-segura-1", ADMINISTRADOR)
+    administrador_cookies = _login(client, "administrador-b", "Clave-segura-1")
+
+    response = _create_account(
+        client, administrador_cookies, "aspirante-a-dueno", "Clave-segura-1", DUENO
+    )
+
+    assert response.status_code == 403
+
+
+def test_administrador_can_create_and_promote_accounts_up_to_administrador(client):
+    admin_cookies = _admin_cookies(client)
+    _create_account(client, admin_cookies, "administrador-c", "Clave-segura-1", ADMINISTRADOR)
+    administrador_cookies = _login(client, "administrador-c", "Clave-segura-1")
+
+    created = _create_account(
+        client, administrador_cookies, "empleada-promovida", "Clave-segura-1", EMPLEADO
+    )
+    assert created.status_code == 201
+
+    promote_response = client.patch(
+        f"/accounts/{created.json()['id']}",
+        json={"role": ADMINISTRADOR},
+        cookies=administrador_cookies,
+        headers=_auth_headers(administrador_cookies),
+    )
+    assert promote_response.status_code == 200
+    assert promote_response.json()["role"] == ADMINISTRADOR
+
+
+def test_administrador_cannot_promote_an_account_to_dueno(client):
+    admin_cookies = _admin_cookies(client)
+    _create_account(client, admin_cookies, "administrador-d", "Clave-segura-1", ADMINISTRADOR)
+    administrador_cookies = _login(client, "administrador-d", "Clave-segura-1")
+    created = _create_account(
+        client, administrador_cookies, "empleada-para-ascender", "Clave-segura-1", EMPLEADO
+    ).json()
+
+    response = client.patch(
+        f"/accounts/{created['id']}",
+        json={"role": DUENO},
+        cookies=administrador_cookies,
+        headers=_auth_headers(administrador_cookies),
+    )
+
+    assert response.status_code == 403
+
+
+def test_no_account_can_deactivate_itself(client):
+    admin_cookies = _admin_cookies(client)
+    me = client.get("/auth/me", cookies=admin_cookies).json()
+
+    response = client.post(
+        f"/accounts/{me['id']}/deactivate",
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 403
+
+
+def test_no_account_can_change_its_own_role_even_as_dueno(client):
+    admin_cookies = _admin_cookies(client)
+    me = client.get("/auth/me", cookies=admin_cookies).json()
+
+    response = client.patch(
+        f"/accounts/{me['id']}",
+        json={"role": DUENO},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 403
+
+
+def test_an_account_can_still_edit_its_own_name_and_username(client):
+    admin_cookies = _admin_cookies(client)
+    me = client.get("/auth/me", cookies=admin_cookies).json()
+
+    response = client.patch(
+        f"/accounts/{me['id']}",
+        json={"name": "Nuevo Nombre", "user_name": "nuevo-user-name"},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "Nuevo Nombre"
+    assert response.json()["user_name"] == "nuevo-user-name"
+
+
+def test_an_account_can_still_reset_its_own_password(client):
+    admin_cookies = _admin_cookies(client)
+    me = client.get("/auth/me", cookies=admin_cookies).json()
+
+    response = client.post(
+        f"/accounts/{me['id']}/reset-password",
+        json={"new_password": "Clave-nueva-1"},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 200
+
+
 def test_an_account_created_before_the_complexity_rule_still_logs_in(client):
     admin_cookies = _admin_cookies(client)
 

@@ -23,12 +23,14 @@ from app.domain.access.errors import (
     BusinessNotAccessible,
     DuplicateUsername,
     InactiveAccount,
+    InsufficientRoleRank,
     InvalidAccountName,
     InvalidCredentials,
     InvalidPassword,
     InvalidRole,
     InvalidUsername,
     NoBusinessAccess,
+    SelfActionForbidden,
 )
 from app.domain.access.permissions import (
     get_active_business,
@@ -219,12 +221,19 @@ def change_active_business(
 def create_account(
     payload: CreateAccountRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR)),
+    actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
 ) -> AccountResponse:
+    actor_role_name = accounts.get_role_name(db, actor.id, business.id)
     try:
         account = accounts.create_account(
-            db, business, payload.name, payload.user_name, payload.initial_password, payload.role
+            db,
+            business,
+            payload.name,
+            payload.user_name,
+            payload.initial_password,
+            payload.role,
+            actor_role_name,
         )
     except DuplicateUsername as exc:
         raise HTTPException(
@@ -232,6 +241,8 @@ def create_account(
         ) from exc
     except (InvalidRole, InvalidUsername, InvalidPassword, InvalidAccountName) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    except InsufficientRoleRank as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
 
     return _account_response(db, account, business)
 
@@ -274,14 +285,17 @@ def update_account(
     account_id: int,
     payload: UpdateAccountRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR)),
+    actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
 ) -> AccountResponse:
+    actor_role_name = accounts.get_role_name(db, actor.id, business.id)
     try:
         account = accounts.update_account(
             db,
             business,
             account_id,
+            actor.id,
+            actor_role_name,
             name=payload.name,
             user_name=payload.user_name,
             role_name=payload.role,
@@ -294,6 +308,8 @@ def update_account(
         ) from exc
     except (InvalidRole, InvalidUsername, InvalidAccountName) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    except (InsufficientRoleRank, SelfActionForbidden) as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
 
     return _account_response(db, account, business)
 
@@ -306,13 +322,15 @@ def update_account(
 def deactivate_account(
     account_id: int,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR)),
+    actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
-        account = accounts.deactivate_account(db, business.id, account_id)
+        account = accounts.deactivate_account(db, business.id, account_id, actor.id)
     except AccountNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cuenta no encontrada") from exc
+    except SelfActionForbidden as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
 
     return _account_response(db, account, business)
 

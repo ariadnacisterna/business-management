@@ -34,6 +34,14 @@ class InvalidRole(AccessError):
     pass
 
 
+class InsufficientRoleRank(AccessError):
+    pass
+
+
+class SelfActionForbidden(AccessError):
+    pass
+
+
 class NoBusinessAccess(AccessError):
     pass
 

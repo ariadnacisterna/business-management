@@ -39,7 +39,9 @@ def main() -> None:
                 print(f"Saltando {user_name}: no existe el negocio '{business_key}'")
                 continue
             try:
-                accounts.create_account(db, business, name, user_name, TEST_PASSWORD, role_name)
+                accounts.create_account(
+                    db, business, name, user_name, TEST_PASSWORD, role_name, DUENO
+                )
                 print(f"Creada cuenta {user_name} ({role_name}) en {business.name}")
             except DuplicateUsername:
                 print(f"Ya existe la cuenta {user_name}, se omite")
@@ -48,7 +50,7 @@ def main() -> None:
         if due_business is not None:
             try:
                 due_account = accounts.create_account(
-                    db, due_business, "Duena", "due", TEST_PASSWORD, DUENO
+                    db, due_business, "Duena", "due", TEST_PASSWORD, DUENO, DUENO
                 )
                 print(f"Creada cuenta due (Dueño) en {due_business.name}")
             except DuplicateUsername:
