@@ -38,7 +38,7 @@ type Status = 'loading' | 'success' | 'error'
 type StatusFilter = 'all' | 'active' | 'inactive'
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los productos.'
-const SEARCH_DEBOUNCE_MS = 5000
+const SEARCH_DEBOUNCE_MS = 300
 
 interface Filters {
   page: number
