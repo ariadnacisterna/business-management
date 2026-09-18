@@ -43,4 +43,24 @@ describe('PriceInput', () => {
     expect(input).toHaveValue('105')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
+
+  it('interprets a comma as the decimal separator without showing an error', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+
+    await user.type(screen.getByLabelText('Precio'), '150,50')
+
+    expect(screen.getByLabelText('Precio')).toHaveValue('150.50')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('keeps only the first separator when both a comma and a point are typed', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+
+    await user.type(screen.getByLabelText('Precio'), '1,50.25')
+
+    expect(screen.getByLabelText('Precio')).toHaveValue('1.5025')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
 })

@@ -13,9 +13,14 @@ interface Props {
 }
 
 function sanitizeAmount(raw: string): string {
-  const digitsAndDots = raw.replace(/[^\d.]/g, '')
+  const normalized = raw.replace(/,/g, '.')
+  const digitsAndDots = normalized.replace(/[^\d.]/g, '')
   const [wholePart, ...rest] = digitsAndDots.split('.')
   return rest.length > 0 ? `${wholePart}.${rest.join('')}` : digitsAndDots
+}
+
+function hasInvalidChars(raw: string): boolean {
+  return /[^\d.,]/.test(raw)
 }
 
 export function PriceInput({
@@ -34,7 +39,7 @@ export function PriceInput({
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const raw = event.target.value
     const sanitized = sanitizeAmount(raw)
-    setShowInvalidCharError(raw !== sanitized)
+    setShowInvalidCharError(hasInvalidChars(raw))
     onChange(sanitized)
   }
 
