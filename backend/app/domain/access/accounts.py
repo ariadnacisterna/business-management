@@ -53,9 +53,11 @@ def _get_role(db: Session, role_name: str) -> Role:
     return role
 
 
-def _get_account(db: Session, account_id: int) -> Account:
+def _get_account(db: Session, business_id: int, account_id: int) -> Account:
     account = db.get(Account, account_id)
     if account is None:
+        raise AccountNotFound
+    if _get_business_access(db, account_id, business_id) is None:
         raise AccountNotFound
     return account
 
@@ -116,7 +118,7 @@ def update_account(
     user_name: str | None = None,
     role_name: str | None = None,
 ) -> Account:
-    account = _get_account(db, account_id)
+    account = _get_account(db, business.id, account_id)
 
     if name is not None:
         account.name = _validate_name(name)
@@ -133,17 +135,6 @@ def update_account(
     if role_name is not None:
         role = _get_role(db, role_name)
         access = _get_business_access(db, account.id, business.id)
-        if access is None:
-            access = db.scalars(
-                select(BusinessAccess)
-                .where(
-                    BusinessAccess.account_id == account.id,
-                    BusinessAccess.status == EntityStatus.ACTIVE.value,
-                )
-                .order_by(BusinessAccess.business_id)
-            ).first()
-        if access is None:
-            raise AccountNotFound
         access.role_id = role.id
 
     db.commit()
@@ -151,8 +142,8 @@ def update_account(
     return account
 
 
-def deactivate_account(db: Session, account_id: int) -> Account:
-    account = _get_account(db, account_id)
+def deactivate_account(db: Session, business_id: int, account_id: int) -> Account:
+    account = _get_account(db, business_id, account_id)
     account.status = EntityStatus.INACTIVE.value
     delete_sessions_for_account(db, account.id)
     db.commit()
@@ -160,16 +151,16 @@ def deactivate_account(db: Session, account_id: int) -> Account:
     return account
 
 
-def activate_account(db: Session, account_id: int) -> Account:
-    account = _get_account(db, account_id)
+def activate_account(db: Session, business_id: int, account_id: int) -> Account:
+    account = _get_account(db, business_id, account_id)
     account.status = EntityStatus.ACTIVE.value
     db.commit()
     db.refresh(account)
     return account
 
 
-def reset_password(db: Session, account_id: int, new_password: str) -> Account:
-    account = _get_account(db, account_id)
+def reset_password(db: Session, business_id: int, account_id: int, new_password: str) -> Account:
+    account = _get_account(db, business_id, account_id)
     _validate_password(new_password)
     account.password_hash = hash_password(new_password)
     delete_sessions_for_account(db, account.id)
@@ -207,8 +198,8 @@ def list_accounts_for_businesses(db: Session, business_ids: list[int]) -> list[A
     )
 
 
-def get_account(db: Session, account_id: int) -> Account:
-    return _get_account(db, account_id)
+def get_account(db: Session, business_id: int, account_id: int) -> Account:
+    return _get_account(db, business_id, account_id)
 
 
 def get_role_name(db: Session, account_id: int, business_id: int) -> str | None:

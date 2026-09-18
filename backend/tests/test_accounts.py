@@ -1,6 +1,10 @@
+import sqlalchemy as sa
+
 from app.constants.access import CSRF_HEADER_NAME
 from app.constants.roles import ADMINISTRADOR, DUENO, EMPLEADO, GERENTE
+from app.constants.status import EntityStatus
 from app.core.config import get_settings
+from app.db.models import Account, Business, BusinessAccess, Role
 
 
 def _login(client, user_name, password):
@@ -246,6 +250,147 @@ def test_reset_password_rejects_a_password_without_the_required_complexity(clien
     )
 
     assert response.status_code == 422
+
+
+def _create_second_business(db_session, name="Despensa", industry="Despensa"):
+    organization_id = db_session.scalars(sa.select(Business.organization_id)).first()
+    business = Business(
+        organization_id=organization_id,
+        name=name,
+        industry=industry,
+        status=EntityStatus.ACTIVE.value,
+    )
+    db_session.add(business)
+    db_session.commit()
+    db_session.refresh(business)
+    return business
+
+
+def _grant_access(db_session, account_id, business_id, role_name):
+    role = db_session.scalars(sa.select(Role).where(Role.name == role_name)).first()
+    access = BusinessAccess(
+        account_id=account_id,
+        business_id=business_id,
+        role_id=role.id,
+        status=EntityStatus.ACTIVE.value,
+    )
+    db_session.add(access)
+    db_session.commit()
+    return access
+
+
+def _admin_account_id(db_session):
+    settings = get_settings()
+    account = db_session.scalars(
+        sa.select(Account).where(Account.user_name == settings.initial_admin_username)
+    ).first()
+    return account.id
+
+
+def _set_up_cross_business_accounts(client, db_session):
+    owner_cookies = _admin_cookies(client)
+    owner_account_id = _admin_account_id(db_session)
+    second_business = _create_second_business(db_session)
+    _grant_access(db_session, owner_account_id, second_business.id, DUENO)
+
+    administrador_a = _create_account(
+        client, owner_cookies, "administrador-a", "Clave-segura-1", ADMINISTRADOR
+    )
+    assert administrador_a.status_code == 201, administrador_a.text
+    administrador_a_cookies = _login(client, "administrador-a", "Clave-segura-1")
+
+    switch = client.post(
+        "/auth/active-business",
+        json={"business_id": second_business.id},
+        cookies=owner_cookies,
+        headers=_auth_headers(owner_cookies),
+    )
+    assert switch.status_code == 200, switch.text
+
+    account_in_b = _create_account(
+        client, owner_cookies, "empleada-en-b", "Clave-segura-1", EMPLEADO
+    ).json()
+
+    return administrador_a_cookies, account_in_b["id"]
+
+
+def test_administrador_cannot_read_an_account_from_another_business(client, db_session):
+    administrador_a_cookies, account_in_b_id = _set_up_cross_business_accounts(client, db_session)
+
+    response = client.get(f"/accounts/{account_in_b_id}", cookies=administrador_a_cookies)
+
+    assert response.status_code == 404
+
+
+def test_administrador_cannot_update_an_account_from_another_business(client, db_session):
+    administrador_a_cookies, account_in_b_id = _set_up_cross_business_accounts(client, db_session)
+
+    response = client.patch(
+        f"/accounts/{account_in_b_id}",
+        json={"role": ADMINISTRADOR},
+        cookies=administrador_a_cookies,
+        headers=_auth_headers(administrador_a_cookies),
+    )
+
+    assert response.status_code == 404
+
+
+def test_administrador_cannot_deactivate_an_account_from_another_business(client, db_session):
+    administrador_a_cookies, account_in_b_id = _set_up_cross_business_accounts(client, db_session)
+
+    response = client.post(
+        f"/accounts/{account_in_b_id}/deactivate",
+        cookies=administrador_a_cookies,
+        headers=_auth_headers(administrador_a_cookies),
+    )
+
+    assert response.status_code == 404
+
+
+def test_administrador_cannot_activate_an_account_from_another_business(client, db_session):
+    administrador_a_cookies, account_in_b_id = _set_up_cross_business_accounts(client, db_session)
+
+    response = client.post(
+        f"/accounts/{account_in_b_id}/activate",
+        cookies=administrador_a_cookies,
+        headers=_auth_headers(administrador_a_cookies),
+    )
+
+    assert response.status_code == 404
+
+
+def test_administrador_cannot_reset_the_password_of_an_account_from_another_business(
+    client, db_session
+):
+    administrador_a_cookies, account_in_b_id = _set_up_cross_business_accounts(client, db_session)
+
+    response = client.post(
+        f"/accounts/{account_in_b_id}/reset-password",
+        json={"new_password": "Clave-nueva-1"},
+        cookies=administrador_a_cookies,
+        headers=_auth_headers(administrador_a_cookies),
+    )
+
+    assert response.status_code == 404
+
+
+def test_administrador_can_still_manage_an_account_from_their_own_business(client, db_session):
+    administrador_a_cookies, _account_in_b_id = _set_up_cross_business_accounts(client, db_session)
+    own_account = _create_account(
+        client, administrador_a_cookies, "empleada-en-a", "Clave-segura-1", EMPLEADO
+    ).json()
+
+    get_response = client.get(f"/accounts/{own_account['id']}", cookies=administrador_a_cookies)
+    assert get_response.status_code == 200
+
+    patch_response = client.patch(
+        f"/accounts/{own_account['id']}",
+        json={"role": GERENTE},
+        cookies=administrador_a_cookies,
+        headers=_auth_headers(administrador_a_cookies),
+    )
+    assert patch_response.status_code == 200
+    assert patch_response.json()["role"] == GERENTE
 
 
 def test_an_account_created_before_the_complexity_rule_still_logs_in(client):

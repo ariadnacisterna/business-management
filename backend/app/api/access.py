@@ -260,7 +260,7 @@ def get_account(
     business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
-        account = accounts.get_account(db, account_id)
+        account = accounts.get_account(db, business.id, account_id)
     except AccountNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cuenta no encontrada") from exc
 
@@ -310,7 +310,7 @@ def deactivate_account(
     business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
-        account = accounts.deactivate_account(db, account_id)
+        account = accounts.deactivate_account(db, business.id, account_id)
     except AccountNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cuenta no encontrada") from exc
 
@@ -329,7 +329,7 @@ def activate_account(
     business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
-        account = accounts.activate_account(db, account_id)
+        account = accounts.activate_account(db, business.id, account_id)
     except AccountNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cuenta no encontrada") from exc
 
@@ -349,7 +349,7 @@ def reset_password(
     business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
-        account = accounts.reset_password(db, account_id, payload.new_password)
+        account = accounts.reset_password(db, business.id, account_id, payload.new_password)
     except AccountNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cuenta no encontrada") from exc
     except InvalidPassword as exc:
