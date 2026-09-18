@@ -1475,7 +1475,7 @@ def change_shortage_status(
 def create_customer(
     payload: CreateCustomerRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(get_current_user),
+    _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
 ) -> CustomerResponse:
     try:
@@ -1565,7 +1565,7 @@ def update_customer(
     customer_id: int,
     payload: UpdateCustomerRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(get_current_user),
+    _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
 ) -> CustomerResponse:
     try:
@@ -1596,7 +1596,7 @@ def update_customer(
 def deactivate_customer(
     customer_id: int,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(get_current_user),
+    _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
 ) -> CustomerResponse:
     try:
@@ -1615,7 +1615,7 @@ def deactivate_customer(
 def reactivate_customer(
     customer_id: int,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(get_current_user),
+    _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
 ) -> CustomerResponse:
     try:

@@ -36,3 +36,7 @@ export function canManageAccounts(account: Account | null): boolean {
 export function canManageSuppliers(account: Account | null): boolean {
   return hasMinimumRole(account, 'Administrador')
 }
+
+export function canManageCustomers(account: Account | null): boolean {
+  return hasMinimumRole(account, 'Gerente')
+}

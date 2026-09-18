@@ -30,6 +30,8 @@ import { useScrollbar } from '../../shared/useScrollbar'
 import { NavIconGlyph } from '../../shared/layout/NavIcon'
 import type { ViewMode } from '../../shared/ViewToggle'
 import { ViewToggle } from '../../shared/ViewToggle'
+import { useAuth } from '../access/AuthContext'
+import { canManageCustomers } from '../access/roles'
 
 type Status = 'loading' | 'success' | 'error'
 
@@ -539,6 +541,8 @@ export function CustomersPage() {
   const [confirmingCustomer, setConfirmingCustomer] = useState<Customer | null>(null)
 
   const { showSuccess, showError } = useToast()
+  const { account } = useAuth()
+  const canManage = canManageCustomers(account)
 
   function load() {
     setStatus('loading')
@@ -634,14 +638,18 @@ export function CustomersPage() {
             { label: 'Ver historial', icon: <HistoryIcon />, onClick: () => setHistoryCustomer(customer) },
           ]
         : []),
-      { label: 'Editar cliente', icon: <PencilIcon />, onClick: () => setEditingCustomer(customer) },
-      {
-        label: customer.status === 'active' ? 'Desactivar' : 'Activar',
-        icon: '⊘',
-        danger: customer.status === 'active',
-        success: customer.status !== 'active',
-        onClick: () => setConfirmingCustomer(customer),
-      },
+      ...(canManage
+        ? [
+            { label: 'Editar cliente', icon: <PencilIcon />, onClick: () => setEditingCustomer(customer) },
+            {
+              label: customer.status === 'active' ? 'Desactivar' : 'Activar',
+              icon: '⊘',
+              danger: customer.status === 'active',
+              success: customer.status !== 'active',
+              onClick: () => setConfirmingCustomer(customer),
+            },
+          ]
+        : []),
     ]
   }
 
@@ -671,26 +679,28 @@ export function CustomersPage() {
         </div>
         <div className="flex items-center gap-3">
           {status === 'success' && customers.length > 0 && <ViewToggle mode={viewMode} onChange={setViewMode} />}
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className={`${HEADER_ACTION_BUTTON_CLASSES} bg-brand text-brand-contrast hover:bg-brand/90`}
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5"
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className={`${HEADER_ACTION_BUTTON_CLASSES} bg-brand text-brand-contrast hover:bg-brand/90`}
             >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Nuevo cliente
-          </button>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Nuevo cliente
+            </button>
+          )}
         </div>
       </div>
 
@@ -816,7 +826,7 @@ export function CustomersPage() {
                     >
                       ${formatAmount(balanceFor(customer.id))}
                     </span>
-                    <RowMenu title={customer.name} items={customerRowMenuItems(customer, false)} />
+                    {canManage && <RowMenu title={customer.name} items={customerRowMenuItems(customer, false)} />}
                   </div>
                 </div>
 

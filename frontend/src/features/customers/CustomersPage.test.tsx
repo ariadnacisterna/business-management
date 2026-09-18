@@ -22,6 +22,8 @@ const ACCOUNT = {
   businesses: [{ id: 1, name: 'Mercería', industry: 'Mercería' }],
 }
 
+const GERENTE_ACCOUNT = { ...ACCOUNT, id: 2, name: 'Gerenta de prueba', user_name: 'gerenta', role: 'Gerente' }
+
 const CUSTOMERS = [
   { id: 1, name: 'Ana Gómez', phone: '111-2222', address: 'Calle Falsa 123', status: 'active' },
   { id: 2, name: 'Beto Ruiz', phone: null, address: null, status: 'active' },
@@ -53,10 +55,10 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 }
 
-function renderPage(customers = CUSTOMERS, balances = BALANCES) {
+function renderPage(customers = CUSTOMERS, balances = BALANCES, account = ACCOUNT) {
   const fetchMock = fetch as ReturnType<typeof vi.fn>
   fetchMock
-    .mockResolvedValueOnce(jsonResponse(ACCOUNT))
+    .mockResolvedValueOnce(jsonResponse(account))
     .mockResolvedValueOnce(jsonResponse(customers))
     .mockResolvedValueOnce(jsonResponse(balances))
 
@@ -166,7 +168,7 @@ describe('CustomersPage', () => {
   it('creates a new customer after confirmation', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
-    renderPage()
+    renderPage(CUSTOMERS, BALANCES, GERENTE_ACCOUNT)
 
     await screen.findAllByText('Ana Gómez')
     await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }))
@@ -186,7 +188,7 @@ describe('CustomersPage', () => {
   it('does not create the customer when the confirmation is cancelled', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
-    renderPage()
+    renderPage(CUSTOMERS, BALANCES, GERENTE_ACCOUNT)
 
     await screen.findAllByText('Ana Gómez')
     await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }))
@@ -205,7 +207,7 @@ describe('CustomersPage', () => {
   it('edits an existing customer after confirmation', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
-    renderPage()
+    renderPage(CUSTOMERS, BALANCES, GERENTE_ACCOUNT)
 
     await screen.findAllByText('Ana Gómez')
     const actionButtons = screen.getAllByRole('button', { name: /Acciones para Ana Gómez/ })
@@ -288,7 +290,7 @@ describe('CustomersPage', () => {
   it('deactivates a customer after confirmation', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
-    renderPage()
+    renderPage(CUSTOMERS, BALANCES, GERENTE_ACCOUNT)
 
     await screen.findAllByText('Ana Gómez')
     const actionButtons = screen.getAllByRole('button', { name: /Acciones para Ana Gómez/ })
@@ -308,7 +310,7 @@ describe('CustomersPage', () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
     const inactiveCustomer = { id: 1, name: 'Ana Gómez', phone: '111-2222', address: 'Calle Falsa 123', status: 'inactive' }
-    renderPage([inactiveCustomer, CUSTOMERS[1]], [])
+    renderPage([inactiveCustomer, CUSTOMERS[1]], [], GERENTE_ACCOUNT)
 
     await screen.findAllByText('Ana Gómez')
     const actionButtons = screen.getAllByRole('button', { name: /Acciones para Ana Gómez/ })
@@ -350,6 +352,25 @@ describe('CustomersPage', () => {
     expect(await screen.findByText('Tipo: Fiado')).toBeInTheDocument()
     expect(screen.getByText('+$150,00')).toBeInTheDocument()
     expect(screen.getByText('Cambiado por: Empleada')).toBeInTheDocument()
+  })
+
+  it('hides create/edit/deactivate controls for Empleado but keeps payment and history', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findAllByText('Ana Gómez')
+
+    expect(screen.queryByRole('button', { name: 'Nuevo cliente' })).not.toBeInTheDocument()
+    expect(screen.queryAllByRole('button', { name: /Acciones para Ana Gómez/ })).toHaveLength(0)
+
+    await user.click(screen.getByLabelText('Ver como tabla'))
+    const actionsButton = screen.getByRole('button', { name: /Acciones para Ana Gómez/ })
+    await user.click(actionsButton)
+
+    expect(screen.getByRole('button', { name: 'Registrar pago' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ver historial' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Editar cliente' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Desactivar$/ })).not.toBeInTheDocument()
   })
 
   it('updates the balance directly from the card', async () => {

@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from app.constants.access import CSRF_HEADER_NAME
-from app.constants.roles import EMPLEADO
+from app.constants.roles import EMPLEADO, GERENTE
 from app.core.config import get_settings
 
 
@@ -41,6 +41,11 @@ def _empleado_cookies(client, admin_cookies, user_name="empleado-clientes"):
     return _login(client, user_name, "Clave-segura-1")
 
 
+def _gerente_cookies(client, admin_cookies, user_name="gerente-clientes"):
+    _create_account(client, admin_cookies, user_name, GERENTE)
+    return _login(client, user_name, "Clave-segura-1")
+
+
 def _create_customer(client, cookies, name="Maria Gomez", phone=None, address=None):
     response = client.post(
         "/customers",
@@ -61,15 +66,130 @@ def _create_credit(client, cookies, customer_id, credit_type, amount):
     )
 
 
-def test_empleado_can_create_customer(client):
+def test_gerente_can_create_customer(client):
     admin_cookies = _admin_cookies(client)
-    empleado_cookies = _empleado_cookies(client, admin_cookies)
+    gerente_cookies = _gerente_cookies(client, admin_cookies)
 
-    customer = _create_customer(client, empleado_cookies, "Maria Gomez", "1122334455")
+    customer = _create_customer(client, gerente_cookies, "Maria Gomez", "1122334455")
 
     assert customer["name"] == "Maria Gomez"
     assert customer["phone"] == "1122334455"
     assert customer["status"] == "active"
+
+
+def test_empleado_cannot_create_customer(client):
+    admin_cookies = _admin_cookies(client)
+    empleado_cookies = _empleado_cookies(client, admin_cookies)
+
+    response = client.post(
+        "/customers",
+        json={"name": "Maria Gomez"},
+        cookies=empleado_cookies,
+        headers=_auth_headers(empleado_cookies),
+    )
+
+    assert response.status_code == 403
+
+
+def test_empleado_cannot_update_customer(client):
+    admin_cookies = _admin_cookies(client)
+    customer = _create_customer(client, admin_cookies)
+    empleado_cookies = _empleado_cookies(client, admin_cookies)
+
+    response = client.patch(
+        f"/customers/{customer['id']}",
+        json={"name": "Otro nombre"},
+        cookies=empleado_cookies,
+        headers=_auth_headers(empleado_cookies),
+    )
+
+    assert response.status_code == 403
+
+
+def test_gerente_can_update_customer(client):
+    admin_cookies = _admin_cookies(client)
+    customer = _create_customer(client, admin_cookies)
+    gerente_cookies = _gerente_cookies(client, admin_cookies)
+
+    response = client.patch(
+        f"/customers/{customer['id']}",
+        json={"name": "Otro nombre"},
+        cookies=gerente_cookies,
+        headers=_auth_headers(gerente_cookies),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "Otro nombre"
+
+
+def test_empleado_cannot_deactivate_customer(client):
+    admin_cookies = _admin_cookies(client)
+    customer = _create_customer(client, admin_cookies)
+    empleado_cookies = _empleado_cookies(client, admin_cookies)
+
+    response = client.post(
+        f"/customers/{customer['id']}/deactivate",
+        cookies=empleado_cookies,
+        headers=_auth_headers(empleado_cookies),
+    )
+
+    assert response.status_code == 403
+
+
+def test_empleado_cannot_reactivate_customer(client):
+    admin_cookies = _admin_cookies(client)
+    customer = _create_customer(client, admin_cookies)
+    client.post(
+        f"/customers/{customer['id']}/deactivate",
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+    empleado_cookies = _empleado_cookies(client, admin_cookies)
+
+    response = client.post(
+        f"/customers/{customer['id']}/reactivate",
+        cookies=empleado_cookies,
+        headers=_auth_headers(empleado_cookies),
+    )
+
+    assert response.status_code == 403
+
+
+def test_gerente_can_deactivate_and_reactivate_customer(client):
+    admin_cookies = _admin_cookies(client)
+    customer = _create_customer(client, admin_cookies)
+    gerente_cookies = _gerente_cookies(client, admin_cookies)
+
+    deactivate_response = client.post(
+        f"/customers/{customer['id']}/deactivate",
+        cookies=gerente_cookies,
+        headers=_auth_headers(gerente_cookies),
+    )
+    assert deactivate_response.status_code == 200
+    assert deactivate_response.json()["status"] == "inactive"
+
+    reactivate_response = client.post(
+        f"/customers/{customer['id']}/reactivate",
+        cookies=gerente_cookies,
+        headers=_auth_headers(gerente_cookies),
+    )
+    assert reactivate_response.status_code == 200
+    assert reactivate_response.json()["status"] == "active"
+
+
+def test_empleado_can_list_customers_and_view_balance(client):
+    admin_cookies = _admin_cookies(client)
+    customer = _create_customer(client, admin_cookies)
+    empleado_cookies = _empleado_cookies(client, admin_cookies)
+
+    list_response = client.get("/customers", cookies=empleado_cookies)
+    assert list_response.status_code == 200
+    assert any(item["id"] == customer["id"] for item in list_response.json())
+
+    balance_response = client.get(
+        f"/customers/{customer['id']}/balance", cookies=empleado_cookies
+    )
+    assert balance_response.status_code == 200
 
 
 def test_customer_phone_is_optional(client):
