@@ -14,6 +14,7 @@ import type { Credit, Customer } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { FieldRow } from '../../shared/FieldRow'
+import { formatAmount } from '../../shared/formatAmount'
 import { formatDateTime } from '../../shared/formatDateTime'
 import { firstName, initials } from '../../shared/formatName'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
@@ -55,12 +56,6 @@ interface CustomerFormValues {
 }
 
 const EMPTY_FORM: CustomerFormValues = { name: '', phone: '', address: '' }
-
-function formatAmount(amount: string): string {
-  const value = Number(amount)
-  if (Number.isNaN(value)) return amount
-  return value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
 
 function HistoryIcon() {
   return (

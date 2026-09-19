@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { fetchCustomerBalances } from '../../api/catalog'
 import { fetchStockSummary, type StockSummary } from '../inventory/stockRows'
+import { formatAmount } from '../../shared/formatAmount'
 import { NavIconGlyph } from '../../shared/layout/NavIcon'
 
 const EMPTY_SUMMARY: StockSummary = { total: 0, stockBajo: 0, sinStock: 0 }
@@ -9,6 +11,8 @@ type Status = 'loading' | 'success' | 'error'
 export function DashboardPage() {
   const [summary, setSummary] = useState<StockSummary>(EMPTY_SUMMARY)
   const [status, setStatus] = useState<Status>('loading')
+  const [pendingTotal, setPendingTotal] = useState(0)
+  const [balanceStatus, setBalanceStatus] = useState<Status>('loading')
 
   useEffect(() => {
     fetchStockSummary()
@@ -19,11 +23,40 @@ export function DashboardPage() {
       .catch(() => setStatus('error'))
   }, [])
 
+  useEffect(() => {
+    fetchCustomerBalances()
+      .then((balances) => {
+        const total = balances.reduce((sum, item) => {
+          const value = Number(item.balance)
+          return value > 0 ? sum + value : sum
+        }, 0)
+        setPendingTotal(total)
+        setBalanceStatus('success')
+      })
+      .catch(() => setBalanceStatus('error'))
+  }, [])
+
   return (
     <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div>
         <h1 className="text-3xl font-bold">Panel</h1>
         <p className="mt-1 whitespace-nowrap text-base opacity-60 lg:text-lg">Resumen general del negocio</p>
+      </div>
+
+      <div className="rounded-xl border border-line bg-surface p-5">
+        <p className="text-sm font-bold uppercase tracking-wide opacity-50">Fiado pendiente</p>
+        {balanceStatus === 'loading' && (
+          <div className="mt-1 flex items-center gap-3" role="status">
+            <span className="h-6 w-6 animate-spin rounded-full border-4 border-line border-t-brand" />
+            <p className="text-xl font-semibold">Cargando…</p>
+          </div>
+        )}
+        {balanceStatus === 'success' && <p className="mt-1 text-3xl font-bold">${formatAmount(String(pendingTotal))}</p>}
+        {balanceStatus === 'error' && (
+          <p className="mt-1 text-xl font-semibold text-danger" role="alert">
+            No se pudo cargar
+          </p>
+        )}
       </div>
 
       {status === 'loading' && (
@@ -57,23 +90,6 @@ export function DashboardPage() {
           <p className="text-lg opacity-50">Cuando tengas productos con variantes activas, su stock va a aparecer acá.</p>
         </div>
       )}
-
-      <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-16 text-center">
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="h-10 w-10 opacity-40"
-        >
-          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z" />
-        </svg>
-        <p className="text-xl font-semibold opacity-70">En construcción</p>
-        <p className="text-lg opacity-50">Próximamente vas a ver acá el resumen de ingresos y egresos del negocio.</p>
-      </div>
     </section>
   )
 }
