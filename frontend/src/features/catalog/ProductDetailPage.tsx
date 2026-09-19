@@ -168,9 +168,6 @@ export function ProductDetailPage() {
   const [pendingImageFile, setPendingImageFile] = useState<File | null>(null)
   const [imageRemoved, setImageRemoved] = useState(false)
 
-  const [priceDraft, setPriceDraft] = useState('')
-  const [variantDraftRows, setVariantDraftRows] = useState<{ id: number; label: string; price: string }[]>([])
-
   const [addingVariant, setAddingVariant] = useState(false)
   const [newVariantLabel, setNewVariantLabel] = useState('')
   const [newVariantValues, setNewVariantValues] = useState<SelectedAttributeValue[]>([])
@@ -365,15 +362,6 @@ export function ProductDetailPage() {
             unitId: productResult.unit_id,
             status: productResult.status,
           })
-          const priceByVariantId = new Map(priceResults.map((result) => [result.variant_id, result.price]))
-          setPriceDraft(priceByVariantId.get(productResult.variants[0].id)?.amount ?? '')
-          setVariantDraftRows(
-            productResult.variants.map((variant) => ({
-              id: variant.id,
-              label: variant.label ?? '',
-              price: priceByVariantId.get(variant.id)?.amount ?? '',
-            })),
-          )
           setPendingImageFile(null)
           setImageRemoved(false)
           setEditingProduct(true)
@@ -527,40 +515,7 @@ export function ProductDetailPage() {
       }
 
       const nextPricesByVariant = new Map(pricesByVariant)
-      let nextVariants = product.variants
-
-      if (product.variants.length === 1 && product.variants[0].is_implicit) {
-        const variant = product.variants[0]
-        const trimmedPrice = priceDraft.trim()
-        const currentAmount = pricesByVariant.get(variant.id)?.amount
-        if (trimmedPrice !== '' && trimmedPrice !== currentAmount) {
-          const price = await changeVariantPrice(variant.id, trimmedPrice, pricesByVariant.get(variant.id)?.id ?? null)
-          nextPricesByVariant.set(variant.id, price)
-        }
-      } else {
-        for (const row of variantDraftRows) {
-          const variant = product.variants.find((candidate) => candidate.id === row.id)
-          if (variant === undefined) continue
-
-          const trimmedLabel = row.label.trim()
-          if (trimmedLabel !== (variant.label ?? '')) {
-            const result = await updateVariant(variant.id, {
-              label: trimmedLabel === '' ? null : trimmedLabel,
-              attribute_value_ids: variant.attribute_value_ids,
-            })
-            nextVariants = nextVariants.map((candidate) =>
-              candidate.id === result.variant.id ? result.variant : candidate,
-            )
-          }
-
-          const trimmedPrice = row.price.trim()
-          const currentAmount = pricesByVariant.get(variant.id)?.amount
-          if (trimmedPrice !== '' && trimmedPrice !== currentAmount) {
-            const price = await changeVariantPrice(variant.id, trimmedPrice, pricesByVariant.get(variant.id)?.id ?? null)
-            nextPricesByVariant.set(variant.id, price)
-          }
-        }
-      }
+      const nextVariants = product.variants
 
       setPricesByVariant(nextPricesByVariant)
       setProduct({ ...updated, variants: nextVariants })
