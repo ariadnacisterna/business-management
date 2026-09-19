@@ -42,6 +42,7 @@ const IMAGE_UPLOAD_ERROR_MESSAGE = 'El producto se creó, pero no se pudo subir 
 const PRICE_SAVE_ERROR_MESSAGE = 'El producto se creó, pero no se pudo guardar el precio inicial.'
 const STOCK_ADJUST_ERROR_MESSAGE = 'El producto se creó, pero no se pudo cargar el stock inicial.'
 const MINIMUM_STOCK_ERROR_MESSAGE = 'El producto se creó, pero no se pudo definir el stock mínimo.'
+const CHECK_DUPLICATE_NAME_ERROR_MESSAGE = 'No se pudo verificar si el nombre está repetido. El producto se guardará igual.'
 const INITIAL_STOCK_REASON_NAME = 'Carga inicial'
 
 const CREATE_NEW_OPTION = '__create__'
@@ -323,7 +324,10 @@ export function ProductFormPage() {
         const normalizedTyped = normalizeForComparison(trimmedName)
         return result.items.some((item) => normalizeForComparison(item.name) === normalizedTyped)
       })
-      .catch(() => false)
+      .catch(() => {
+        showError(CHECK_DUPLICATE_NAME_ERROR_MESSAGE)
+        return false
+      })
     setCheckingName(false)
 
     if (isDuplicate) {

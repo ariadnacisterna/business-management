@@ -405,6 +405,69 @@ describe('ProductDetailPage', () => {
     ).toBeInTheDocument()
   })
 
+  it('warns when the stock refetch fails after adjusting stock', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(SINGLE_VARIANT_PRODUCT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
+      .mockResolvedValueOnce(stockResponse(20, { quantity: 7, status: 'stock_bajo' }))
+      .mockResolvedValueOnce(jsonResponse([{ id: 1, name: 'Conteo físico', status: 'active' }]))
+
+    render(
+      <MemoryRouter initialEntries={['/products/6?edit=1']}>
+        <ToastProvider>
+        <AuthProvider>
+          <ReadyGate>
+            <Routes>
+              <Route path="/products" element={<h1>Productos</h1>} />
+              <Route path="/products/:productId" element={<ProductDetailPage />} />
+            </Routes>
+          </ReadyGate>
+        </AuthProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+
+    expect(
+      await screen.findByText((_, element) => element?.tagName === 'P' && element.textContent === '7 (Stock bajo)'),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Actualizar stock' }))
+
+    await user.type(screen.getByLabelText(/^Cantidad nueva/), '20')
+    await user.click(screen.getByRole('button', { name: 'Motivo del ajuste' }))
+    await user.click(screen.getByRole('option', { name: 'Conteo físico' }))
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        id: 1,
+        variant_id: 20,
+        reason_id: 1,
+        quantity_before: 7,
+        quantity_after: 20,
+        observation: null,
+        created_at: new Date().toISOString(),
+        created_by_account_id: 1,
+        created_by_account_name: 'Ada Lovelace',
+      }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+
+    fetchMock.mockRejectedValueOnce(new Error('network error'))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Confirmar' }))
+
+    expect(await screen.findByText('Stock actualizado.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('El ajuste de stock se guardó, pero no se pudo actualizar la pantalla. Recargá para ver el stock actual.'),
+    ).toBeInTheDocument()
+  })
+
   it('asks for confirmation before deactivating and saves after confirming', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
@@ -723,5 +786,23 @@ describe('ProductDetailPage', () => {
 
     expect(await screen.findByText('Ya existe un producto con ese nombre.')).toBeInTheDocument()
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  })
+
+  it('warns without blocking the save when the duplicate name check fails', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage('/products/5?edit=1')
+
+    const nameInput = await screen.findByLabelText(/^Nombre\s?\*?$/)
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Otro producto')
+
+    fetchMock.mockRejectedValueOnce(new Error('network error'))
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    expect(
+      await screen.findByText('No se pudo verificar si el nombre está repetido. El producto se guardará igual.'),
+    ).toBeInTheDocument()
+    expect(await screen.findByRole('alertdialog', { name: 'Guardar cambios' })).toBeInTheDocument()
   })
 })

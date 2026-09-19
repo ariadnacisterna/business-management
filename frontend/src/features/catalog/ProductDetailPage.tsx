@@ -71,6 +71,8 @@ const LOAD_ERROR_MESSAGE = 'No se pudo cargar el producto.'
 const SAVE_ERROR_MESSAGE = 'No se pudo guardar. Intentá de nuevo.'
 const CREATE_CATEGORY_ERROR_MESSAGE = 'No se pudo crear la categoría. Intentá de nuevo.'
 const CREATE_UNIT_ERROR_MESSAGE = 'No se pudo crear la unidad. Intentá de nuevo.'
+const CHECK_DUPLICATE_NAME_ERROR_MESSAGE = 'No se pudo verificar si el nombre está repetido. El producto se guardará igual.'
+const REFRESH_STOCK_ERROR_MESSAGE = 'El ajuste de stock se guardó, pero no se pudo actualizar la pantalla. Recargá para ver el stock actual.'
 
 const CREATE_NEW_OPTION = '__create__'
 
@@ -470,7 +472,10 @@ export function ProductDetailPage() {
             (item) => item.id !== product.id && normalizeForComparison(item.name) === normalizedTyped,
           )
         })
-        .catch(() => false)
+        .catch(() => {
+          showError(CHECK_DUPLICATE_NAME_ERROR_MESSAGE)
+          return false
+        })
       setCheckingProductName(false)
 
       if (isDuplicate) {
@@ -679,7 +684,7 @@ export function ProductDetailPage() {
   function refreshStock() {
     fetchAllStock()
       .then((rows) => setStockByVariant(new Map(rows.map((row) => [row.variant_id, row]))))
-      .catch(() => {})
+      .catch(() => showError(REFRESH_STOCK_ERROR_MESSAGE))
   }
 
   return (

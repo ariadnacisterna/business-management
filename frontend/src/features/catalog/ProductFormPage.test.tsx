@@ -256,6 +256,25 @@ describe('ProductFormPage', () => {
     expect(screen.queryByRole('button', { name: 'Producto único' })).not.toBeInTheDocument()
   })
 
+  it('warns without blocking step 2 when the duplicate name check fails', async () => {
+    const user = userEvent.setup()
+    mockInitialLoad(fetchMock, ADMIN_ACCOUNT)
+    fetchMock.mockRejectedValueOnce(new Error('network error'))
+
+    renderPage()
+
+    await user.type(await screen.findByLabelText(/^Nombre \*?$/), 'Hilo blanco')
+    await pickOption(user, 'Categoría', 'Mercería')
+    await pickOption(user, 'Unidad', 'Unidad (un)')
+    await user.click(screen.getByRole('button', { name: 'Continuar' }))
+
+    expect(
+      await screen.findByText('No se pudo verificar si el nombre está repetido. El producto se guardará igual.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Ya existe un producto con ese nombre.')).not.toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Producto único' })).toBeInTheDocument()
+  })
+
   it('does not create the product when the wizard is cancelled at the review step', async () => {
     const user = userEvent.setup()
     mockInitialLoad(fetchMock, ADMIN_ACCOUNT)
