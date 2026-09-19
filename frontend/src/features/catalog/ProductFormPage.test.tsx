@@ -371,6 +371,160 @@ describe('ProductFormPage', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Producto creado correctamente.')
   })
 
+  describe('shared price across variants', () => {
+    const TWO_VARIANT_PRODUCT = {
+      product: {
+        id: 7,
+        name: 'Cinta bebé',
+        category_id: 1,
+        unit_id: 1,
+        status: 'active',
+        variants: [
+          { id: 30, product_id: 7, label: 'Rosa', is_implicit: false, status: 'active', attribute_value_ids: [] },
+          { id: 31, product_id: 7, label: 'Negra', is_implicit: false, status: 'active', attribute_value_ids: [] },
+        ],
+      },
+      possible_duplicates: [],
+    }
+
+    function mockTwoVariantCreation() {
+      mockInitialLoad(fetchMock, ADMIN_ACCOUNT)
+      fetchMock.mockResolvedValueOnce(jsonResponse(EMPTY_PRODUCT_PAGE))
+      fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+        if (url === '/products' && init?.method === 'POST') return jsonResponse(TWO_VARIANT_PRODUCT, 201)
+        if (url === '/movement-reasons') {
+          return jsonResponse({ id: 9, name: 'Carga inicial', status: 'active' }, 201)
+        }
+        return jsonResponse({})
+      })
+    }
+
+    async function openTwoVariants(user: ReturnType<typeof userEvent.setup>) {
+      await fillStep1AndContinue(user, 'Cinta bebé')
+      await user.click(await screen.findByRole('button', { name: 'Producto con variantes' }))
+      await user.click(screen.getByRole('button', { name: '+ Agregar variante' }))
+      const labels = screen.getAllByLabelText('Nombre de la variante')
+      await user.type(labels[0], 'Rosa')
+      await user.type(labels[1], 'Negra')
+    }
+
+    function callsTo(pattern: RegExp, method?: string) {
+      return fetchMock.mock.calls.filter(
+        ([url, init]) => pattern.test(String(url)) && (method === undefined || (init as RequestInit)?.method === method),
+      )
+    }
+
+    function bodyOf(call: unknown[]) {
+      return JSON.parse(String((call[1] as RequestInit).body))
+    }
+
+    async function confirmCreation(user: ReturnType<typeof userEvent.setup>) {
+      await user.click(screen.getByRole('button', { name: 'Continuar' }))
+      await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+      expect(await screen.findByRole('status')).toHaveTextContent('Producto creado correctamente.')
+    }
+
+    it('applies the shared price to every variant', async () => {
+      const user = userEvent.setup()
+      mockTwoVariantCreation()
+      renderPage()
+
+      await openTwoVariants(user)
+      await user.type(screen.getByLabelText('Precio para todas las variantes'), '100')
+      await confirmCreation(user)
+
+      const priceCalls = callsTo(/\/variants\/\d+\/price$/, 'PUT')
+      expect(priceCalls.map((call) => call[0])).toEqual(['/variants/30/price', '/variants/31/price'])
+      expect(priceCalls.map((call) => bodyOf(call).amount)).toEqual(['100', '100'])
+    })
+
+    it('uses the own price of a variant that opted in and the shared price for the rest', async () => {
+      const user = userEvent.setup()
+      mockTwoVariantCreation()
+      renderPage()
+
+      await openTwoVariants(user)
+      await user.type(screen.getByLabelText('Precio para todas las variantes'), '100')
+      await user.click(screen.getByLabelText('Precio distinto para la variante 2'))
+      await user.type(screen.getByLabelText('Precio de la variante 2'), '250')
+      await confirmCreation(user)
+
+      const priceCalls = callsTo(/\/variants\/\d+\/price$/, 'PUT')
+      expect(priceCalls.map((call) => [call[0], bodyOf(call).amount])).toEqual([
+        ['/variants/30/price', '100'],
+        ['/variants/31/price', '250'],
+      ])
+    })
+
+    it('does not set any price when neither the shared nor an own price is filled', async () => {
+      const user = userEvent.setup()
+      mockTwoVariantCreation()
+      renderPage()
+
+      await openTwoVariants(user)
+      await user.click(screen.getByLabelText('Precio distinto para la variante 1'))
+      await confirmCreation(user)
+
+      expect(callsTo(/\/variants\/\d+\/price$/)).toHaveLength(0)
+    })
+
+    it('keeps current stock and minimum stock independent per variant', async () => {
+      const user = userEvent.setup()
+      mockTwoVariantCreation()
+      renderPage()
+
+      await openTwoVariants(user)
+      await user.type(screen.getByLabelText('Precio para todas las variantes'), '100')
+      await user.type(screen.getByLabelText('Stock actual de la variante 1'), '5')
+      await user.type(screen.getByLabelText('Stock actual de la variante 2'), '8')
+      await user.type(screen.getByLabelText('Stock min. de la variante 2'), '3')
+      await confirmCreation(user)
+
+      const stockCalls = callsTo(/\/variants\/\d+\/stock\/adjustments$/, 'POST')
+      expect(stockCalls.map((call) => [call[0], bodyOf(call).quantity])).toEqual([
+        ['/variants/30/stock/adjustments', 5],
+        ['/variants/31/stock/adjustments', 8],
+      ])
+      const minimumCalls = callsTo(/\/variants\/\d+\/stock\/minimum$/, 'PATCH')
+      expect(minimumCalls.map((call) => [call[0], bodyOf(call).minimum_quantity])).toEqual([
+        ['/variants/31/stock/minimum', 3],
+      ])
+    })
+
+    it('shows the effective price of each variant in the review step', async () => {
+      const user = userEvent.setup()
+      mockTwoVariantCreation()
+      renderPage()
+
+      await openTwoVariants(user)
+      await user.type(screen.getByLabelText('Precio para todas las variantes'), '100')
+      await user.click(screen.getByLabelText('Precio distinto para la variante 2'))
+      await user.type(screen.getByLabelText('Precio de la variante 2'), '250')
+      await user.click(screen.getByRole('button', { name: 'Continuar' }))
+
+      expect(screen.getByText('Rosa', { selector: 'p' }).closest('li')).toHaveTextContent('Precio: $100')
+      expect(screen.getByText('Negra', { selector: 'p' }).closest('li')).toHaveTextContent('Precio: $250')
+    })
+
+    it('goes back to the shared price when the option is turned off, without losing what was typed', async () => {
+      const user = userEvent.setup()
+      mockTwoVariantCreation()
+      renderPage()
+
+      await openTwoVariants(user)
+      await user.type(screen.getByLabelText('Precio para todas las variantes'), '100')
+      await user.click(screen.getByLabelText('Precio distinto para la variante 2'))
+      await user.type(screen.getByLabelText('Precio de la variante 2'), '250')
+      await user.click(screen.getByLabelText('Precio distinto para la variante 2'))
+
+      expect(screen.queryByLabelText('Precio de la variante 2')).not.toBeInTheDocument()
+      expect(screen.getByLabelText('Precio para todas las variantes')).toHaveValue('100')
+
+      await user.click(screen.getByRole('button', { name: 'Continuar' }))
+      expect(screen.getByText('Negra', { selector: 'p' }).closest('li')).toHaveTextContent('Precio: $100')
+    })
+  })
+
   it('does not render the form for an account without catalog management permissions', async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse(EMPLOYEE_ACCOUNT))

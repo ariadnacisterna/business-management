@@ -154,7 +154,9 @@ export function ProductFormPage() {
   const [singlePrice, setSinglePrice] = useState('')
   const [singleStock, setSingleStock] = useState('')
   const [singleMinimum, setSingleMinimum] = useState('')
+  const [sharedPrice, setSharedPrice] = useState('')
   const [variantPrices, setVariantPrices] = useState<Record<number, string>>({})
+  const [variantCustomPrice, setVariantCustomPrice] = useState<Record<number, boolean>>({})
   const [variantStocks, setVariantStocks] = useState<Record<number, string>>({})
   const [variantMinimums, setVariantMinimums] = useState<Record<number, string>>({})
 
@@ -242,6 +244,12 @@ export function ProductFormPage() {
     }
   }
 
+  function effectiveVariantPrice(key: number) {
+    const own = (variantPrices[key] ?? '').trim()
+    if (variantCustomPrice[key] && own !== '') return own
+    return sharedPrice.trim()
+  }
+
   function addVariantDraft() {
     setVariantDrafts((prev) => [...prev, { key: nextDraftKey++, label: '', values: [] }])
   }
@@ -249,6 +257,11 @@ export function ProductFormPage() {
   function removeVariantDraft(key: number) {
     setVariantDrafts((prev) => prev.filter((draft) => draft.key !== key))
     setVariantPrices((prev) => {
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+    setVariantCustomPrice((prev) => {
       const next = { ...prev }
       delete next[key]
       return next
@@ -288,6 +301,7 @@ export function ProductFormPage() {
     if (!withVariants) {
       setVariantDrafts([])
       setVariantPrices({})
+      setVariantCustomPrice({})
       setVariantStocks({})
       setVariantMinimums({})
     } else if (variantDrafts.length === 0) {
@@ -389,7 +403,7 @@ export function ProductFormPage() {
       for (let index = 0; index < product.variants.length; index += 1) {
         const variant = product.variants[index]
         const draftKey = variantDrafts[index]?.key
-        const price = (isSingle ? singlePrice : (draftKey !== undefined ? variantPrices[draftKey] : '') ?? '').trim()
+        const price = (isSingle ? singlePrice : draftKey !== undefined ? effectiveVariantPrice(draftKey) : '').trim()
         const stock = (isSingle ? singleStock : (draftKey !== undefined ? variantStocks[draftKey] : '') ?? '').trim()
         const minimum = (isSingle ? singleMinimum : (draftKey !== undefined ? variantMinimums[draftKey] : '') ?? '').trim()
 
@@ -772,6 +786,18 @@ export function ProductFormPage() {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-4 border-t border-line pt-4">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-base font-semibold">
+                        Precio para todas las variantes <span className="font-normal opacity-70">(opcional)</span>
+                      </span>
+                      <PriceInput
+                        value={sharedPrice}
+                        placeholder="0.00"
+                        onChange={setSharedPrice}
+                        ariaLabel="Precio para todas las variantes"
+                        className={priceInputClasses}
+                      />
+                    </label>
                     {variantDrafts.map((draft, index) => (
                       <div key={draft.key} className="flex flex-col gap-4 rounded-2xl border border-line p-4">
                         <div className="flex items-start justify-between gap-3">
@@ -803,19 +829,7 @@ export function ProductFormPage() {
                           onRemove={(valueId) => removeVariantValue(draft.key, valueId)}
                           onAttributeCreated={(attribute) => setAttributes((prev) => [...prev, attribute])}
                         />
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                          <label className="flex flex-col gap-1">
-                            <span className="whitespace-nowrap text-base font-semibold">
-                              Precio <span className="font-normal opacity-70">(opcional)</span>
-                            </span>
-                            <PriceInput
-                              value={variantPrices[draft.key] ?? ''}
-                              placeholder="0.00"
-                              onChange={(value) => setVariantPrices((prev) => ({ ...prev, [draft.key]: value }))}
-                              ariaLabel={`Precio de la variante ${index + 1}`}
-                              className={priceInputClasses}
-                            />
-                          </label>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <label className="flex flex-col gap-1">
                             <span className="whitespace-nowrap text-base font-semibold">
                               Stock actual <span className="font-normal opacity-70">(opcional)</span>
@@ -849,6 +863,32 @@ export function ProductFormPage() {
                             />
                           </label>
                         </div>
+                        <label className="flex min-h-12 items-center gap-3 text-lg">
+                          <input
+                            type="checkbox"
+                            checked={variantCustomPrice[draft.key] === true}
+                            onChange={(event) =>
+                              setVariantCustomPrice((prev) => ({ ...prev, [draft.key]: event.target.checked }))
+                            }
+                            aria-label={`Precio distinto para la variante ${index + 1}`}
+                            className="h-6 w-6 accent-brand"
+                          />
+                          Cargar un precio distinto para esta variante
+                        </label>
+                        {variantCustomPrice[draft.key] === true && (
+                          <label className="flex flex-col gap-1">
+                            <span className="text-base font-semibold">
+                              Precio de esta variante <span className="font-normal opacity-70">(opcional)</span>
+                            </span>
+                            <PriceInput
+                              value={variantPrices[draft.key] ?? ''}
+                              placeholder="0.00"
+                              onChange={(value) => setVariantPrices((prev) => ({ ...prev, [draft.key]: value }))}
+                              ariaLabel={`Precio de la variante ${index + 1}`}
+                              className={priceInputClasses}
+                            />
+                          </label>
+                        )}
                       </div>
                     ))}
                     <button type="button" onClick={addVariantDraft} className={`${secondaryButtonClasses} mt-1`}>
@@ -936,7 +976,7 @@ export function ProductFormPage() {
                           <p className="m-0 font-bold">{draft.label.trim() !== '' ? draft.label : `Variante ${index + 1}`}</p>
                           <div className="mt-1 grid grid-cols-1 gap-2 text-base sm:grid-cols-3">
                             <span>
-                              Precio: <span className="font-bold text-brand">${variantPrices[draft.key] || '0.00'}</span>
+                              Precio: <span className="font-bold text-brand">${effectiveVariantPrice(draft.key) || '0.00'}</span>
                             </span>
                             <span>Stock actual: {variantStocks[draft.key]?.trim() ? variantStocks[draft.key] : '—'}</span>
                             <span>Stock min.: {variantMinimums[draft.key]?.trim() ? variantMinimums[draft.key] : '—'}</span>
