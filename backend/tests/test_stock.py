@@ -334,7 +334,9 @@ def test_list_stock_excludes_inactive_products_and_variants(client):
     admin_cookies = _admin_cookies(client)
     category = _create_category(client, admin_cookies, "Categoria inactiva")
     unit = _create_unit(client, admin_cookies, "Unidad inactiva", "u2")
-    product = _create_product(client, admin_cookies, "Producto a desactivar", category["id"], unit["id"])
+    product = _create_product(
+        client, admin_cookies, "Producto a desactivar", category["id"], unit["id"]
+    )
 
     client.post(
         f"/products/{product['id']}/deactivate",
@@ -375,11 +377,15 @@ def test_list_stock_filters_by_category_and_search(client):
     admin_cookies = _admin_cookies(client)
     category = _create_category(client, admin_cookies, "Categoria filtro stock")
     unit = _create_unit(client, admin_cookies, "Unidad filtro stock", "fu")
-    product = _create_product(client, admin_cookies, "Producto filtrable stock", category["id"], unit["id"])
+    product = _create_product(
+        client, admin_cookies, "Producto filtrable stock", category["id"], unit["id"]
+    )
     variant_id = product["variants"][0]["id"]
 
     response = client.get(
-        "/stock", params={"category_id": category["id"], "search": "filtrable"}, cookies=admin_cookies
+        "/stock",
+        params={"category_id": category["id"], "search": "filtrable"},
+        cookies=admin_cookies,
     )
 
     assert response.status_code == 200, response.text

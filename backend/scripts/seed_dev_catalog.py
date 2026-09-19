@@ -13,8 +13,16 @@ PROVIDERS_BY_BUSINESS = {
         {"name": "Hilanderías Reunidas", "contact_name": None, "phone": None},
     ),
     "despensa": (
-        {"name": "Almacén Mayorista Centro", "contact_name": "Roberto Sosa", "phone": "011-4555-5566"},
-        {"name": "Distribuidora de Bebidas del Oeste", "contact_name": None, "phone": "011-4555-7788"},
+        {
+            "name": "Almacén Mayorista Centro",
+            "contact_name": "Roberto Sosa",
+            "phone": "011-4555-5566",
+        },
+        {
+            "name": "Distribuidora de Bebidas del Oeste",
+            "contact_name": None,
+            "phone": "011-4555-7788",
+        },
     ),
 }
 
@@ -56,9 +64,13 @@ def main() -> None:
                 continue
             for provider_data in provider_list:
                 try:
-                    providers.create_provider(db, business.id, provider_data["name"], actor.id, **{
-                        key: value for key, value in provider_data.items() if key != "name"
-                    })
+                    providers.create_provider(
+                        db,
+                        business.id,
+                        provider_data["name"],
+                        actor.id,
+                        **{key: value for key, value in provider_data.items() if key != "name"},
+                    )
                     print(f"Creado proveedor '{provider_data['name']}' en {business.name}")
                 except DuplicateProviderName:
                     print(f"Ya existe el proveedor '{provider_data['name']}', se omite")
@@ -70,9 +82,13 @@ def main() -> None:
                 continue
             for customer_data in customer_list:
                 try:
-                    customers.create_customer(db, business.id, customer_data["name"], actor.id, **{
-                        key: value for key, value in customer_data.items() if key != "name"
-                    })
+                    customers.create_customer(
+                        db,
+                        business.id,
+                        customer_data["name"],
+                        actor.id,
+                        **{key: value for key, value in customer_data.items() if key != "name"},
+                    )
                     print(f"Creado cliente '{customer_data['name']}' en {business.name}")
                 except DuplicateCustomerName:
                     print(f"Ya existe el cliente '{customer_data['name']}', se omite")

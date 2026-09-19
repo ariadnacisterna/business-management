@@ -55,18 +55,14 @@ def list_credits(db: Session, business_id: int, customer_id: int) -> list[Credit
     get_customer(db, business_id, customer_id)
     return list(
         db.scalars(
-            select(Credit)
-            .where(Credit.customer_id == customer_id)
-            .order_by(Credit.created_at)
+            select(Credit).where(Credit.customer_id == customer_id).order_by(Credit.created_at)
         ).all()
     )
 
 
 def get_customer_balance(db: Session, business_id: int, customer_id: int) -> Decimal:
     get_customer(db, business_id, customer_id)
-    balance = db.scalar(
-        select(_balance_expression()).where(Credit.customer_id == customer_id)
-    )
+    balance = db.scalar(select(_balance_expression()).where(Credit.customer_id == customer_id))
     return Decimal(balance)
 
 
@@ -85,9 +81,7 @@ def list_customers_with_pending_balance(
     return [(customer, Decimal(balance)) for customer, balance in rows]
 
 
-def list_all_customer_balances(
-    db: Session, business_id: int
-) -> list[tuple[Customer, Decimal]]:
+def list_all_customer_balances(db: Session, business_id: int) -> list[tuple[Customer, Decimal]]:
     balance_column = _balance_expression()
     rows = db.execute(
         select(Customer, balance_column)

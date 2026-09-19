@@ -67,9 +67,7 @@ def upgrade() -> None:
             ["category.id"],
             name=op.f("fk_provider_category_category_id_category"),
         ),
-        sa.PrimaryKeyConstraint(
-            "provider_id", "category_id", name=op.f("pk_provider_category")
-        ),
+        sa.PrimaryKeyConstraint("provider_id", "category_id", name=op.f("pk_provider_category")),
     )
 
     op.add_column("product", sa.Column("provider_id", sa.Integer(), nullable=True))

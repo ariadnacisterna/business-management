@@ -185,15 +185,20 @@ def stock_counts(db: Session, business_id: int) -> dict[str, int]:
         )
     )
     total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
-    sin_stock = db.scalar(
-        select(func.count()).select_from(base.where(Variant.quantity == 0).subquery())
-    ) or 0
-    stock_bajo = db.scalar(
-        select(func.count()).select_from(
-            base.where(
-                Variant.quantity > 0,
-                Variant.quantity <= func.coalesce(Variant.minimum_quantity, DEFAULT_MINIMUM_STOCK),
-            ).subquery()
+    sin_stock = (
+        db.scalar(select(func.count()).select_from(base.where(Variant.quantity == 0).subquery()))
+        or 0
+    )
+    stock_bajo = (
+        db.scalar(
+            select(func.count()).select_from(
+                base.where(
+                    Variant.quantity > 0,
+                    Variant.quantity
+                    <= func.coalesce(Variant.minimum_quantity, DEFAULT_MINIMUM_STOCK),
+                ).subquery()
+            )
         )
-    ) or 0
+        or 0
+    )
     return {"total": total, "stock_bajo": stock_bajo, "sin_stock": sin_stock}

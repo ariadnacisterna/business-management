@@ -186,9 +186,7 @@ def test_empleado_can_list_customers_and_view_balance(client):
     assert list_response.status_code == 200
     assert any(item["id"] == customer["id"] for item in list_response.json())
 
-    balance_response = client.get(
-        f"/customers/{customer['id']}/balance", cookies=empleado_cookies
-    )
+    balance_response = client.get(f"/customers/{customer['id']}/balance", cookies=empleado_cookies)
     assert balance_response.status_code == 200
 
 

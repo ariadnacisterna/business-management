@@ -463,9 +463,7 @@ def test_update_variant_changes_label_and_attribute_values(client):
     assert body["attribute_value_ids"] == [green["id"]]
 
 
-def test_create_product_rejects_a_variant_with_no_label_and_no_attributes_when_there_is_more_than_one(
-    client,
-):
+def test_create_product_rejects_an_unlabeled_variant_when_there_are_several(client):
     admin_cookies = _admin_cookies(client)
     category = _create_category(client, admin_cookies, "Merceria variante sin nombre")
     unit = _create_unit(client, admin_cookies, "Metro sin nombre", "msn", True)

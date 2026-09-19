@@ -61,7 +61,9 @@ def test_create_account_rejects_an_empty_name(client):
 def test_create_account_rejects_a_password_without_the_required_complexity(client):
     admin_cookies = _admin_cookies(client)
 
-    response = _create_account(client, admin_cookies, "empleada-clave-debil", "clave-segura-1", EMPLEADO)
+    response = _create_account(
+        client, admin_cookies, "empleada-clave-debil", "clave-segura-1", EMPLEADO
+    )
 
     assert response.status_code == 422
 
@@ -240,7 +242,9 @@ def test_administrador_can_reset_a_password_and_it_revokes_existing_sessions(cli
 
 def test_reset_password_rejects_a_password_without_the_required_complexity(client):
     admin_cookies = _admin_cookies(client)
-    created = _create_account(client, admin_cookies, "empleada10", "Clave-segura-1", EMPLEADO).json()
+    created = _create_account(
+        client, admin_cookies, "empleada10", "Clave-segura-1", EMPLEADO
+    ).json()
 
     response = client.post(
         f"/accounts/{created['id']}/reset-password",
@@ -501,8 +505,6 @@ def test_an_account_can_still_reset_its_own_password(client):
 
 
 def test_an_account_created_before_the_complexity_rule_still_logs_in(client):
-    admin_cookies = _admin_cookies(client)
-
     login_response = client.post(
         "/auth/login",
         json={

@@ -55,12 +55,12 @@ def upgrade() -> None:
         sa.UniqueConstraint("business_id", "name", name="uq_movement_reason_business_id_name"),
     )
 
-    op.add_column("variant", sa.Column("quantity", sa.Integer(), nullable=False, server_default="0"))
+    op.add_column(
+        "variant", sa.Column("quantity", sa.Integer(), nullable=False, server_default="0")
+    )
     op.alter_column("variant", "quantity", server_default=None)
     op.add_column("variant", sa.Column("minimum_quantity", sa.Integer(), nullable=True))
-    op.create_check_constraint(
-        op.f("ck_variant_quantity_non_negative"), "variant", "quantity >= 0"
-    )
+    op.create_check_constraint(op.f("ck_variant_quantity_non_negative"), "variant", "quantity >= 0")
     op.create_check_constraint(
         op.f("ck_variant_minimum_quantity_non_negative"),
         "variant",

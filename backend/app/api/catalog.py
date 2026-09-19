@@ -483,7 +483,9 @@ def _stock_response(variant: Variant) -> StockResponse:
     )
 
 
-def _stock_movement_response(movement: StockMovement, account_names: dict[int, str]) -> StockMovementResponse:
+def _stock_movement_response(
+    movement: StockMovement, account_names: dict[int, str]
+) -> StockMovementResponse:
     return StockMovementResponse(
         id=movement.id,
         variant_id=movement.variant_id,
@@ -893,7 +895,9 @@ def create_product(
     except (InvalidCatalogInput, VariantLabelRequired) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     except DuplicateProductName as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Ya existe un producto con ese nombre.") from exc
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Ya existe un producto con ese nombre."
+        ) from exc
     except DuplicateVariantInProduct as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
@@ -992,7 +996,9 @@ def update_product(
     except InvalidCatalogInput as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     except DuplicateProductName as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Ya existe un producto con ese nombre.") from exc
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Ya existe un producto con ese nombre."
+        ) from exc
 
     return _product_response(product)
 
@@ -1884,7 +1890,9 @@ def list_stock_movements(
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
 
-    account_names = get_account_names(db, [movement.created_by_account_id for movement in movement_list])
+    account_names = get_account_names(
+        db, [movement.created_by_account_id for movement in movement_list]
+    )
     return [_stock_movement_response(movement, account_names) for movement in movement_list]
 
 

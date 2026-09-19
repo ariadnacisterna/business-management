@@ -58,9 +58,7 @@ def upgrade() -> None:
         sa.Column("amount", sa.Numeric(precision=12, scale=2), nullable=False),
         sa.Column("created_by_account_id", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.CheckConstraint(
-            "type IN ('cargo', 'pago')", name=op.f("ck_credit_type_valid")
-        ),
+        sa.CheckConstraint("type IN ('cargo', 'pago')", name=op.f("ck_credit_type_valid")),
         sa.CheckConstraint("amount > 0", name=op.f("ck_credit_amount_positive")),
         sa.ForeignKeyConstraint(
             ["customer_id"], ["customer.id"], name=op.f("fk_credit_customer_id_customer")
