@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useNavigate } from 'react-router-dom'
 import {
   createShortage,
@@ -134,7 +134,10 @@ export function ProductsPage() {
     return () => clearTimeout(timer)
   }, [searchInput])
 
+  const requestIdRef = useRef(0)
+
   function load() {
+    const requestId = ++requestIdRef.current
     setStatus('loading')
     setLoadError(null)
     fetchProductsPage({
@@ -145,11 +148,13 @@ export function ProductsPage() {
       search: appliedSearch.trim() === '' ? undefined : appliedSearch.trim(),
     })
       .then((result) => {
+        if (requestId !== requestIdRef.current) return
         setProducts(result.items)
         setTotal(result.total)
         setStatus('success')
       })
       .catch(() => {
+        if (requestId !== requestIdRef.current) return
         setLoadError(LOAD_ERROR_MESSAGE)
         setStatus('error')
       })

@@ -44,6 +44,14 @@ const STOCK_ROW = {
 }
 const STOCK = { variant_id: 10, quantity: 2, minimum_quantity: null, effective_minimum_quantity: 5, status: 'stock_bajo' }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 }
@@ -145,6 +153,40 @@ describe('InventoryPage', () => {
     expect(await screen.findByText('No hay variantes que coincidan.')).toBeInTheDocument()
     const lastCall = fetchMock.mock.calls.at(-1)
     expect(String(lastCall?.[0])).toContain('quick_filter=normal')
+  })
+
+  it('discards a stale stock list response that resolves after a newer one', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage()
+
+    await screen.findAllByText('Hilo blanco')
+    const baseCallCount = fetchMock.mock.calls.length
+
+    const stale = deferred<Response>()
+    const fresh = deferred<Response>()
+    // Call #1: fired by selecting "Con stock" below.
+    fetchMock.mockImplementationOnce(() => stale.promise)
+    // Call #2: fired right after by selecting "Bajo", before call #1 resolves.
+    fetchMock.mockImplementationOnce(() => fresh.promise)
+
+    await user.click(screen.getByRole('button', { name: 'Filtrar por estado de stock' }))
+    await user.click(await screen.findByRole('option', { name: 'Con stock' }))
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBe(baseCallCount + 1))
+
+    await user.click(screen.getByRole('button', { name: 'Filtrar por estado de stock' }))
+    await user.click(await screen.findByRole('option', { name: 'Bajo' }))
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBe(baseCallCount + 2))
+
+    fresh.resolve(jsonResponse(stockPage([{ ...STOCK_ROW, product_name: 'Resultado nuevo' }])))
+    await waitFor(() => expect(screen.getByText('Resultado nuevo')).toBeInTheDocument())
+    expect(screen.queryByText('Resultado viejo')).not.toBeInTheDocument()
+
+    stale.resolve(jsonResponse(stockPage([{ ...STOCK_ROW, product_name: 'Resultado viejo' }])))
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(screen.getByText('Resultado nuevo')).toBeInTheDocument()
+    expect(screen.queryByText('Resultado viejo')).not.toBeInTheDocument()
   })
 
   it('enables Actualizar only once quantity and reason are set, and adjusts stock on confirm', async () => {

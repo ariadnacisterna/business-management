@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -77,6 +77,14 @@ const PRODUCTS: Product[] = [
     ],
   },
 ]
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -310,6 +318,43 @@ describe('ProductsPage', () => {
 
     const lastCall = fetchMock.mock.calls.at(-1)?.[0] as string
     expect(lastCall).toContain('category_id=2')
+  })
+
+  it('discards a stale list response that resolves after a newer one', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    const baseCallCount = fetchMock.mock.calls.length
+
+    const staleProduct: Product = { ...PRODUCTS[0], id: 101, name: 'Resultado viejo' }
+    const freshProduct: Product = { ...PRODUCTS[0], id: 102, name: 'Resultado nuevo' }
+
+    const stale = deferred<Response>()
+    const fresh = deferred<Response>()
+    // Call #1: fired by the category click below (search not applied yet).
+    fetchMock.mockImplementationOnce(() => stale.promise)
+    // Call #2: fired once the search debounce settles a moment later.
+    fetchMock.mockImplementationOnce(() => fresh.promise)
+
+    fireEvent.change(screen.getByLabelText('Buscar productos'), { target: { value: 'cinta' } })
+
+    await user.click(screen.getByRole('button', { name: 'Filtrar por categoría' }))
+    await user.click(screen.getByRole('option', { name: 'Telas' }))
+
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBe(baseCallCount + 1))
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBe(baseCallCount + 2), { timeout: 2000 })
+
+    fresh.resolve(productPage([freshProduct], { total: 1 }))
+    await waitFor(() => expect(screen.getByText('Resultado nuevo')).toBeInTheDocument())
+    expect(screen.queryByText('Resultado viejo')).not.toBeInTheDocument()
+
+    stale.resolve(productPage([staleProduct], { total: 1 }))
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(screen.getByText('Resultado nuevo')).toBeInTheDocument()
+    expect(screen.queryByText('Resultado viejo')).not.toBeInTheDocument()
   })
 
   it('shows page-number controls compressed when there are many pages, always keeping pages 1 and 2', async () => {

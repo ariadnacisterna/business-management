@@ -430,7 +430,10 @@ function StockTab({
     return () => clearTimeout(timer)
   }, [searchInput])
 
+  const requestIdRef = useRef(0)
+
   function load() {
+    const requestId = ++requestIdRef.current
     setStatus('loading')
     setLoadError(null)
     fetchStockPage({
@@ -441,11 +444,13 @@ function StockTab({
       quickFilter: filters.quickFilter === 'all' ? undefined : filters.quickFilter,
     })
       .then((result) => {
+        if (requestId !== requestIdRef.current) return
         setItems(result.items)
         setTotal(result.total)
         setStatus('success')
       })
       .catch(() => {
+        if (requestId !== requestIdRef.current) return
         setLoadError(LOAD_ERROR_MESSAGE)
         setStatus('error')
       })

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import {
   changeProductPrice,
   changeVariantPrice,
@@ -131,7 +131,10 @@ export function PricingPage() {
     return () => clearTimeout(timer)
   }, [searchInput])
 
+  const requestIdRef = useRef(0)
+
   function load() {
+    const requestId = ++requestIdRef.current
     setStatus('loading')
     setLoadError(null)
     fetchProductsPage({
@@ -141,6 +144,7 @@ export function PricingPage() {
       search: appliedSearch.trim() === '' ? undefined : appliedSearch.trim(),
     })
       .then(async (result) => {
+        if (requestId !== requestIdRef.current) return
         setProducts(result.items)
         setTotal(result.total)
 
@@ -150,12 +154,14 @@ export function PricingPage() {
         const priceResults = await Promise.all(
           activeVariants.map((variant) => fetchVariantCurrentPrice(variant.id)),
         )
+        if (requestId !== requestIdRef.current) return
         setPricesByVariant(new Map(priceResults.map((entry) => [entry.variant_id, entry.price])))
         setDrafts(new Map())
 
         setStatus('success')
       })
       .catch(() => {
+        if (requestId !== requestIdRef.current) return
         setLoadError(LOAD_ERROR_MESSAGE)
         setStatus('error')
       })
