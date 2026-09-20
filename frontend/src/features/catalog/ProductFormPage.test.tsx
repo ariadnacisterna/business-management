@@ -158,7 +158,7 @@ describe('ProductFormPage', () => {
       '/variants/10/price',
       expect.objectContaining({
         method: 'PUT',
-        body: JSON.stringify({ amount: '150', expected_current_price_id: null }),
+        body: JSON.stringify({ amount: '150' }),
       }),
     )
   })
@@ -476,7 +476,7 @@ describe('ProductFormPage', () => {
       await confirmCreation(user)
 
       const stockCalls = callsTo(/\/variants\/\d+\/stock\/adjustments$/, 'POST')
-      expect(stockCalls.map((call) => [call[0], bodyOf(call).quantity])).toEqual([
+      expect(stockCalls.map((call) => [call[0], bodyOf(call).delta])).toEqual([
         ['/variants/30/stock/adjustments', 5],
         ['/variants/31/stock/adjustments', 8],
       ])
@@ -484,6 +484,19 @@ describe('ProductFormPage', () => {
       expect(minimumCalls.map((call) => [call[0], bodyOf(call).minimum_quantity])).toEqual([
         ['/variants/31/stock/minimum', 3],
       ])
+    })
+
+    it('does not call the stock adjustment when the initial stock is empty or zero', async () => {
+      const user = userEvent.setup()
+      mockTwoVariantCreation()
+      renderPage()
+
+      await openTwoVariants(user)
+      await user.type(screen.getByLabelText('Precio para todas las variantes'), '100')
+      await user.type(screen.getByLabelText('Stock actual de la variante 2'), '0')
+      await confirmCreation(user)
+
+      expect(callsTo(/\/variants\/\d+\/stock\/adjustments$/, 'POST')).toHaveLength(0)
     })
 
     it('shows the effective price of each variant in the review step', async () => {

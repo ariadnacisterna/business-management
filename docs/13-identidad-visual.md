@@ -147,8 +147,7 @@ al cerrarse solo, un botón de "aceptar" no aportaría nada.
 
 Excepción: no agregar un popup en paralelo a un error que ya está
 embebido en la descripción de un `ConfirmDialog` para pedir "reconfirmá
-con el dato actualizado" (ej. conflicto 409 al cambiar un precio,
-activar/desactivar un valor de atributo o una variante). El popup se
+con el dato actualizado" (ej. activar/desactivar un valor de atributo o una variante). El popup se
 renderiza por encima del diálogo (z-index) y repite el mismo texto,
 tapando el diálogo que el usuario todavía necesita para reconfirmar —
 en esos casos el mensaje embebido en el diálogo es la única

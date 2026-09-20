@@ -21,6 +21,8 @@ import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { Pagination } from '../../shared/Pagination'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
+import { describeChange, evaluateDelta, evaluateTargetStock } from '../../shared/signedDelta'
 import { STOCK_STATUS_LABELS, stockStatusClasses, stockStatusTextColor } from '../../shared/stockStatus'
 import { useToast } from '../../shared/Toast'
 import { firstName } from '../../shared/formatName'
@@ -200,50 +202,44 @@ function MinimumStockEditor({
   )
 }
 
-function quantityErrorMessage(quantity: string, parsedQuantity: number): string | null {
-  if (quantity.trim() === '') return null
-  if (!Number.isInteger(parsedQuantity)) return 'Ingresá un número entero.'
-  if (parsedQuantity < 0) return 'La cantidad no puede ser negativa.'
-  return null
-}
-
 function StockRowEditor({
   row,
   onRequestAdjust,
 }: {
   row: StockRow
-  onRequestAdjust: (quantity: number) => void
+  onRequestAdjust: (delta: number) => void
 }) {
-  const [quantity, setQuantity] = useState('')
+  const [delta, setDelta] = useState('')
+  const [wholeQuantity, setWholeQuantity] = useState(false)
 
   useEffect(() => {
-    setQuantity('')
+    setDelta('')
   }, [row.quantity])
 
-  const parsedQuantity = Number(quantity)
-  const quantityValid =
-    quantity.trim() !== '' && Number.isInteger(parsedQuantity) && parsedQuantity >= 0
-  const edited = quantityValid && parsedQuantity !== row.quantity
-  const quantityError = quantityErrorMessage(quantity, parsedQuantity)
+  const evaluation = wholeQuantity
+    ? evaluateTargetStock(row.quantity, delta)
+    : evaluateDelta('stock', row.quantity, delta)
+  const edited = evaluation.state === 'ready'
 
   return (
-    <div className="flex w-full flex-col gap-2">
-      <div className="grid grid-cols-2 gap-2">
-        <input
-          type="number"
-          min={0}
-          step={1}
-          value={quantity}
-          placeholder={String(row.quantity)}
-          onChange={(event) => setQuantity(event.target.value)}
-          aria-label={`Cantidad nueva para ${variantLabel(row)}`}
-          aria-invalid={quantityError !== null}
+    <div data-testid="stock-editor" className="flex w-full flex-col gap-2">
+      <div className="grid grid-cols-2 items-start gap-2">
+        <SignedDeltaInput
+          kind="stock"
+          value={delta}
+          onChange={setDelta}
+          allowSign={!wholeQuantity}
+          ariaLabel={
+            wholeQuantity
+              ? `Cantidad nueva para ${variantLabel(row)}`
+              : `Cuánto sumar o restar a ${variantLabel(row)}`
+          }
           className={edited ? editedInputClasses : inputClasses}
         />
         <button
           type="button"
           disabled={!edited}
-          onClick={() => onRequestAdjust(parsedQuantity)}
+          onClick={() => onRequestAdjust(evaluation.delta ?? 0)}
           className={
             edited
               ? 'h-12 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90'
@@ -253,10 +249,20 @@ function StockRowEditor({
           Actualizar
         </button>
       </div>
-      {quantityError !== null && (
-        <p role="alert" className="m-0 text-base text-danger">
-          {quantityError}
-        </p>
+      <label className="flex items-center gap-2 text-lg text-ink/60">
+        <input
+          type="checkbox"
+          checked={wholeQuantity}
+          onChange={(event) => {
+            setWholeQuantity(event.target.checked)
+            setDelta('')
+          }}
+          className="checkbox-brand"
+        />
+        Cambiar toda la cantidad
+      </label>
+      {evaluation.state !== 'empty' && (
+        <DeltaPreview kind="stock" current={row.quantity} evaluation={evaluation} />
       )}
     </div>
   )
@@ -275,7 +281,7 @@ const DEFAULT_STOCK_FILTERS: StockFilters = { page: 1, pageSize: 25, categoryId:
 
 interface AdjustConfirmState {
   row: StockRow
-  quantity: number
+  delta: number
 }
 
 interface HistoryState {
@@ -401,16 +407,17 @@ function StockTab({
     )
   }
 
-  function requestAdjust(row: StockRow, quantity: number) {
-    setConfirmState({ row, quantity })
+  function requestAdjust(row: StockRow, delta: number) {
+    setConfirmState({ row, delta })
   }
 
   async function confirmAdjust() {
     if (confirmState === null) return
     setConfirming(true)
-    const { row, quantity } = confirmState
+    const { row, delta } = confirmState
+    let movement: StockMovement
     try {
-      await adjustStock(row.variant_id, { quantity })
+      movement = await adjustStock(row.variant_id, { delta })
     } catch (error) {
       showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
       setConfirmState(null)
@@ -419,7 +426,7 @@ function StockTab({
     }
 
     setConfirmState(null)
-    showSuccess('Stock ajustado.')
+    showSuccess(`Stock ajustado: ${movement.quantity_before} → ${movement.quantity_after}.`)
 
     try {
       const stock = await fetchStock(row.variant_id)
@@ -716,7 +723,7 @@ function StockTab({
                   {canManage && (
                     <StockRowEditor
                       row={row}
-                      onRequestAdjust={(quantity) => requestAdjust(row, quantity)}
+                      onRequestAdjust={(delta) => requestAdjust(row, delta)}
                     />
                   )}
                   {canManage && <FieldRow label="Último cambio" value={lastChangeLabel(row)} />}
@@ -779,8 +786,8 @@ function StockTab({
             </div>
             <StockRowEditor
               row={adjustingRow}
-              onRequestAdjust={(quantity) => {
-                requestAdjust(adjustingRow, quantity)
+              onRequestAdjust={(delta) => {
+                requestAdjust(adjustingRow, delta)
                 setAdjustingRow(null)
               }}
             />
@@ -817,7 +824,7 @@ function StockTab({
       {confirmState !== null && (
         <ConfirmDialog
           title="Ajustar stock"
-          description={`El stock de "${variantLabel(confirmState.row)}" va a pasar de ${confirmState.row.quantity} a ${confirmState.quantity}.`}
+          description={`El stock de "${variantLabel(confirmState.row)}" cambia: ${describeChange('stock', confirmState.row.quantity, confirmState.delta)}.`}
           confirmLabel={confirming ? 'Guardando…' : 'Ajustar'}
           onConfirm={confirmAdjust}
           onCancel={() => setConfirmState(null)}

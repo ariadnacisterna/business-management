@@ -1,14 +1,15 @@
 import { useState } from 'react'
-import { changeProductPrice, changeVariantPrice } from '../../api/catalog'
+import { changeProductPrice, changeVariantPrice, setInitialVariantPrice } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Price, Product, Variant } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
 import { PriceInput } from '../../shared/PriceInput'
+import { AllVariantsPreview, DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
+import { deltaToApi, evaluateDelta, evaluateForAll, evaluateTargetPrice } from '../../shared/signedDelta'
 import { useToast } from '../../shared/Toast'
-import { formatPrice } from '../../shared/formatPrice'
+import { formatPrice, formatPriceExact } from '../../shared/formatPrice'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 
-const CONFLICT_ERROR_MESSAGE = 'El precio cambió mientras tanto. Cerrá y volvé a intentar.'
 const GENERIC_ERROR_MESSAGE = 'No se pudo guardar el precio. Intentá de nuevo.'
 
 function describeVariantLabel(variant: Variant): string {
@@ -39,10 +40,29 @@ export function ChangePriceModal({
   const { showSuccess, showError } = useToast()
   const [amount, setAmount] = useState('')
   const [applyToAll, setApplyToAll] = useState(defaultApplyToAll)
+  const [wholePrice, setWholePrice] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const activeVariantCount = activeVariantPrices.size
-  const canSubmit = amount.trim() !== '' && Number(amount) > 0
+  const isInitialPrice = !applyToAll && currentPrice === null
+
+  const singleEvaluation = wholePrice
+    ? evaluateTargetPrice(currentPrice?.amount ?? 0, amount)
+    : evaluateDelta('price', currentPrice?.amount ?? 0, amount)
+  const pricedEntries = product.variants.flatMap((candidate) => {
+    const price = activeVariantPrices.get(candidate.id)
+    if (price === null || price === undefined) return []
+    return [{ label: describeVariantLabel(candidate), current: price.amount }]
+  })
+  const allEvaluation = evaluateForAll(pricedEntries, amount)
+  const skippedVariants = product.variants.filter(
+    (candidate) => activeVariantPrices.has(candidate.id) && activeVariantPrices.get(candidate.id) === null,
+  )
+  const canSubmit = isInitialPrice
+    ? amount.trim() !== '' && Number(amount) > 0
+    : applyToAll
+      ? allEvaluation.ready
+      : singleEvaluation.state === 'ready'
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -52,24 +72,34 @@ export function ChangePriceModal({
     setSaving(true)
     try {
       if (applyToAll) {
-        const expectedIds: Record<number, number | null> = {}
-        for (const [variantId, price] of activeVariantPrices) {
-          expectedIds[variantId] = price?.id ?? null
-        }
-        const result = await changeProductPrice(product.id, trimmed, expectedIds)
+        const delta = allEvaluation.delta ?? 0
+        const result = await changeProductPrice(product.id, String(deltaToApi('price', delta)))
         onSuccess(result.prices.map((price) => ({ variantId: price.variant_id, price })))
-        showSuccess('Precio actualizado para todas las variantes.')
-      } else {
-        const price = await changeVariantPrice(variant.id, trimmed, currentPrice?.id ?? null)
+        const skippedNames = result.skipped_variant_ids
+          .map((skippedId) => product.variants.find((candidate) => candidate.id === skippedId))
+          .filter((candidate): candidate is Variant => candidate !== undefined)
+          .map(describeVariantLabel)
+        showSuccess(
+          skippedNames.length > 0
+            ? `Precio actualizado en ${result.prices.length} variantes. Se omitieron por no tener precio: ${skippedNames.join(', ')}.`
+            : 'Precio actualizado para todas las variantes.',
+        )
+      } else if (isInitialPrice) {
+        const price = await setInitialVariantPrice(variant.id, trimmed)
         onSuccess([{ variantId: variant.id, price }])
-        showSuccess('Precio actualizado.')
+        showSuccess(`Precio inicial cargado: ${formatPriceExact(price.amount)}.`)
+      } else {
+        const price = await changeVariantPrice(
+          variant.id,
+          String(deltaToApi('price', singleEvaluation.delta ?? 0)),
+        )
+        onSuccess([{ variantId: variant.id, price }])
+        showSuccess(
+          `Precio actualizado: ${formatPriceExact(currentPrice?.amount ?? 0)} → ${formatPriceExact(price.amount)}.`,
+        )
       }
     } catch (submitError) {
-      showError(
-        submitError instanceof ApiError && submitError.status === 409
-          ? CONFLICT_ERROR_MESSAGE
-          : GENERIC_ERROR_MESSAGE,
-      )
+      showError(submitError instanceof ApiError ? submitError.message : GENERIC_ERROR_MESSAGE)
     } finally {
       setSaving(false)
     }
@@ -116,32 +146,94 @@ export function ChangePriceModal({
           </div>
         </div>
 
-        <div>
-          <label htmlFor="new-price-amount" className="text-lg font-semibold uppercase tracking-wide opacity-70">
-            Nuevo precio (ARS) <span className="text-danger">*</span>
-          </label>
-          <div className="mt-1.5">
-            <PriceInput
-              id="new-price-amount"
-              value={amount}
-              onChange={setAmount}
-              ariaLabel="Nuevo precio (ARS)"
-              disabled={saving}
-              required
-              autoFocus
-              className="h-12 w-full rounded-xl border border-line pl-8 pr-3 text-lg font-bold focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
-            />
+        {isInitialPrice ? (
+          <div>
+            <label htmlFor="new-price-amount" className="text-lg font-semibold uppercase tracking-wide opacity-70">
+              Precio inicial (ARS) <span className="text-danger">*</span>
+            </label>
+            <div className="mt-1.5">
+              <PriceInput
+                id="new-price-amount"
+                value={amount}
+                onChange={setAmount}
+                ariaLabel="Precio inicial (ARS)"
+                disabled={saving}
+                required
+                autoFocus
+                className="h-12 w-full rounded-xl border border-line pl-8 pr-3 text-lg font-bold focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
+              />
+            </div>
           </div>
-        </div>
+        ) : (
+          <div>
+            <label htmlFor="new-price-delta" className="text-lg font-semibold uppercase tracking-wide opacity-70">
+              {wholePrice ? 'Precio nuevo (ARS)' : 'Cuánto sumar o restar (ARS)'} <span className="text-danger">*</span>
+            </label>
+            <div className="mt-1.5">
+              {wholePrice ? (
+                <PriceInput
+                  id="new-price-delta"
+                  value={amount}
+                  onChange={setAmount}
+                  ariaLabel="Precio nuevo (ARS)"
+                  disabled={saving}
+                  autoFocus
+                  className="h-12 w-full rounded-xl border border-line pl-8 pr-3 text-lg font-bold focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
+                />
+              ) : (
+                <SignedDeltaInput
+                  kind="price"
+                  id="new-price-delta"
+                  value={amount}
+                  onChange={setAmount}
+                  ariaLabel="Cuánto sumar o restar (ARS)"
+                  disabled={saving}
+                  autoFocus
+                  className="h-12 w-full rounded-xl border border-line pl-8 pr-3 text-lg font-bold focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
+                />
+              )}
+            </div>
+            {!applyToAll && (
+              <label className="mt-3 flex items-center gap-2 text-lg text-ink/60">
+                <input
+                  type="checkbox"
+                  checked={wholePrice}
+                  onChange={(event) => {
+                    setWholePrice(event.target.checked)
+                    setAmount('')
+                  }}
+                  disabled={saving}
+                  className="checkbox-brand"
+                />
+                Cambiar todo el precio
+              </label>
+            )}
+          </div>
+        )}
+
+        {!isInitialPrice && !applyToAll && currentPrice !== null && (
+          <DeltaPreview kind="price" current={currentPrice.amount} evaluation={singleEvaluation} />
+        )}
+
+        {applyToAll && (
+          <AllVariantsPreview
+            evaluation={allEvaluation}
+            skippedLabels={skippedVariants.map(describeVariantLabel)}
+          />
+        )}
 
         {activeVariantCount > 1 && (
           <label className="flex items-center gap-2 text-lg">
             <input
               type="checkbox"
               checked={applyToAll}
-              onChange={(event) => setApplyToAll(event.target.checked)}
+              onChange={(event) => {
+                setApplyToAll(event.target.checked)
+                setWholePrice(false)
+                setAmount('')
+              }}
               disabled={saving}
-              className="h-5 w-5 accent-brand"
+              className="checkbox-brand"
             />
             Aplicar a TODAS las variantes ({activeVariantCount})
           </label>

@@ -3,11 +3,11 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
-from app.constants.limits import DEFAULT_MINIMUM_STOCK
+from app.constants.limits import DEFAULT_MINIMUM_STOCK, MAX_STOCK_QUANTITY
 from app.constants.status import EntityStatus, StockStatus
 from app.db.models import Product, StockMovement, Variant
 from app.domain.catalog.errors import InvalidStockQuantity
-from app.domain.catalog.products import get_variant
+from app.domain.catalog.products import get_variant, get_variant_for_update
 
 
 def effective_minimum_quantity(variant: Variant) -> int:
@@ -48,23 +48,33 @@ def adjust_stock(
     business_id: int,
     variant_id: int,
     actor_account_id: int,
-    new_quantity: int,
+    delta: int,
     observation: str | None = None,
 ) -> StockMovement:
-    variant = get_variant(db, business_id, variant_id)
-    if new_quantity < 0:
-        raise InvalidStockQuantity("La cantidad no puede ser negativa")
+    get_variant(db, business_id, variant_id)
+    if delta == 0:
+        raise InvalidStockQuantity("El ajuste no puede ser cero: no hay ningún cambio")
+    if abs(delta) > MAX_STOCK_QUANTITY:
+        raise InvalidStockQuantity("La cantidad es demasiado grande")
+
+    variant = get_variant_for_update(db, business_id, variant_id)
+    quantity_before = variant.quantity
+    quantity_after = quantity_before + delta
+    if quantity_after < 0:
+        db.rollback()
+        raise InvalidStockQuantity(f"No podés descontar más de lo que hay ({quantity_before})")
+    if quantity_after > MAX_STOCK_QUANTITY:
+        db.rollback()
+        raise InvalidStockQuantity("La cantidad resultante es demasiado grande")
 
     stripped_observation = observation.strip() if observation else None
-
-    quantity_before = variant.quantity
-    variant.quantity = new_quantity
+    variant.quantity = quantity_after
 
     now = datetime.now(UTC)
     movement = StockMovement(
         variant_id=variant.id,
         quantity_before=quantity_before,
-        quantity_after=new_quantity,
+        quantity_after=quantity_after,
         observation=stripped_observation or None,
         created_by_account_id=actor_account_id,
         created_at=now,

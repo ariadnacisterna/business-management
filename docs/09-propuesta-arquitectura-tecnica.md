@@ -348,34 +348,49 @@ relaciones.
 
 ### Cambio de precio
 
-Una única transacción deberá:
+El cambio recibe una diferencia (positiva o negativa) sobre el precio vigente
+(D-060). Una única transacción deberá:
 
-1. verificar la variante, el negocio y el precio que la usuaria vio;
-2. detectar si otra operación lo cambió;
-3. cerrar la vigencia anterior;
-4. insertar el nuevo precio;
-5. registrar a la responsable y la auditoría;
-6. confirmar todos los cambios juntos.
+1. verificar la variante y el negocio;
+2. bloquear la fila de la variante, de modo que dos cambios simultáneos se
+   apliquen uno después del otro y no choquen con el índice único parcial
+   (un precio abierto por variante y negocio);
+3. leer el precio vigente bajo el bloqueo y calcular el resultante;
+4. rechazar el cambio si la diferencia es cero, si el resultado es cero o menos
+   (RN-024), o si excede la escala y precisión de la columna;
+5. cerrar la vigencia anterior e insertar el nuevo precio;
+6. registrar a la responsable y la auditoría;
+7. confirmar todos los cambios juntos.
 
-Si el precio cambió desde que se mostró el formulario, la API responderá con un
-conflicto y el valor actual para solicitar una nueva confirmación. Después de
-esa confirmación, prevalecerá el último cambio aceptado, de acuerdo con la regla
-vigente.
+No se verifica el precio que la usuaria vio: la diferencia se compone sobre el
+valor real y la respuesta devuelve el precio resultante, que la interfaz
+muestra. El precio inicial de una variante sin precio vigente se fija
+directamente con el mismo bloqueo, y solo es válido si no hay precio vigente.
 
 ### Cambio de precio de todas las variantes de un producto
 
 Es la operación habitual en la mercería, donde los colores de una misma cinta
-comparten precio. Deberá resolverse en **una sola transacción** que repita los
-pasos anteriores para cada variante activa del producto en el negocio activo.
+comparten precio. Se resuelve en **una sola transacción** que bloquea las
+variantes activas en orden de id (evita interbloqueos) y aplica la diferencia a
+cada una que tenga precio vigente.
 
-Su propiedad relevante es la atomicidad: si una de las variantes falla, no debe
-aplicarse ninguna. Un producto que quedara con la mitad de sus colores al precio
-nuevo y la otra mitad al viejo produciría exactamente el error que el sistema
-viene a eliminar.
+Su propiedad relevante es la atomicidad: si alguna variante quedaría en cero o
+menos, la operación se rechaza nombrando cuáles (por etiqueta) y no se aplica
+ninguna. Un producto que quedara con la mitad de sus colores al precio nuevo y
+la otra mitad al viejo produciría exactamente el error que el sistema viene a
+eliminar.
 
-La detección de conflictos considerará el conjunto: si cualquiera de las
-variantes cambió desde que se mostró el formulario, la operación se rechazará
-mostrando el estado actual de todas.
+Las variantes activas sin precio no se tocan y la respuesta las informa
+(`skipped_variant_ids`); si ninguna tiene precio, se rechaza. La respuesta
+devuelve los precios resultantes.
+
+### Ajuste de stock
+
+El ajuste recibe una diferencia entera (D-060). Una única transacción bloquea la
+fila de la variante, lee la cantidad bajo el bloqueo, calcula la resultante,
+rechaza el ajuste si es negativa (informando la cantidad actual), si la
+diferencia es cero o si excede el rango de la columna, y guarda la cantidad y el
+movimiento con antes y después.
 
 ### Alta de producto
 
@@ -491,7 +506,7 @@ Antes de considerar lista la implementación se necesitarán:
 
 - pruebas unitarias de reglas y permisos;
 - pruebas de integración contra PostgreSQL, no una sustitución por SQLite;
-- pruebas de transacciones y conflictos de precios;
+- pruebas de transacciones y de cambios de precio y de stock simultáneos;
 - prueba de que un cambio de precio aplicado a todas las variantes de un
   producto no puede quedar a medias;
 - prueba de que un producto con variantes de distinto precio funciona de

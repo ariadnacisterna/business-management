@@ -22,7 +22,7 @@
 | RN-005 | Un cambio de precio cierra la vigencia del precio anterior y crea un nuevo registro; no reemplaza el historial. |
 | RN-006 | Todo cambio de precio debe identificar a la persona que lo realizó y el momento del cambio. |
 | RN-023 | Todos los importes del sistema se expresan exclusivamente en pesos argentinos (ARS). |
-| RN-024 | Todo precio representa el valor final al público y debe ser estrictamente mayor que cero. |
+| RN-024 | Todo precio representa el valor final al público y debe ser estrictamente mayor que cero; un cambio por diferencia que lo dejara en cero o menos se rechaza (D-060). |
 | RN-028 | Una variante está disponible en un negocio cuando tiene un precio vigente en ese negocio. Una variante sin precio vigente no aparece en las consultas de ese negocio. |
 
 ## Atributos normalizados
@@ -66,7 +66,7 @@
 | RN-043 | Todo fiado debe identificar a la cuenta que lo registró y el momento del registro (mismo criterio que un cambio de precio, RN-006). |
 | RN-044 | El stock se registra por variante, no por producto (mismo criterio que el faltante, RN-036), y pertenece al negocio. |
 | RN-045 | Ajustar el stock de una variante está reservado a Gerente y superiores, a diferencia de marcar un faltante (RN-035), porque afecta un número que el resto del equipo consulta para decidir. |
-| RN-046 | Ajustar stock reemplaza la cantidad actual por una cantidad nueva indicada por quien ajusta (no una diferencia); el sistema calcula la diferencia para el historial. |
+| RN-046 | Ajustar stock suma o resta una diferencia indicada por quien ajusta a la cantidad actual (no la reemplaza por una cantidad nueva); el sistema calcula la cantidad resultante para el historial y rechaza el ajuste si la dejara negativa o si la diferencia es cero (D-060). |
 | RN-047 | Todo movimiento de stock debe identificar la cuenta que lo hizo y el momento (mismo criterio que un cambio de precio, RN-006), además de la cantidad antes y después, y una observación opcional. |
 | RN-049 | El estado de stock de una variante es Sin stock si la cantidad es 0, Stock bajo si es mayor que 0 y menor o igual a su stock mínimo, o Normal en cualquier otro caso. |
 | RN-050 | El stock mínimo se define por variante; si no se definió uno, se usa un valor por defecto del sistema. |

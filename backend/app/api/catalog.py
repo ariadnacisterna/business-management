@@ -330,7 +330,7 @@ class SetMinimumStockRequest(BaseModel):
 
 
 class StockAdjustmentRequest(BaseModel):
-    quantity: int
+    delta: int
     observation: str | None = None
 
 
@@ -1722,7 +1722,7 @@ def adjust_stock(
             business.id,
             variant_id,
             _actor.id,
-            payload.quantity,
+            payload.delta,
             observation=payload.observation,
         )
     except VariantNotFound as exc:

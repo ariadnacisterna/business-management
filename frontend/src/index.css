@@ -108,3 +108,35 @@ select {
 .scrollbar-clean::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+.checkbox-brand {
+  appearance: none;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  cursor: pointer;
+  border: 2px solid color-mix(in srgb, var(--color-ink) 40%, transparent);
+  border-radius: 0.25rem;
+  background-color: var(--color-surface);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 0.85rem;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.checkbox-brand:hover,
+.checkbox-brand:focus-visible {
+  border-color: var(--color-brand);
+  outline: none;
+}
+
+.checkbox-brand:checked {
+  border-color: var(--color-brand);
+  background-color: var(--color-brand);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 12 10 18 20 6'/%3E%3C/svg%3E");
+}
+
+.checkbox-brand:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}

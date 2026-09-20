@@ -38,13 +38,13 @@ Ejemplo esperado para RF-002 a RF-005: la consulta `cinta bebe 2 roja` debe pode
 
 | ID | Requisito | Prioridad |
 |---|---|---:|
-| RF-018 | Una usuaria autorizada podrá establecer y actualizar el precio de una variante en el negocio activo. | Alta |
+| RF-018 | Una usuaria autorizada podrá establecer el precio inicial de una variante en el negocio activo y actualizarlo indicando cuánto se suma o se resta al precio vigente (D-060). | Alta |
 | RF-019 | Cada variante tendrá un único precio de venta vigente por negocio. | Alta |
 | RF-020 | Al modificar un precio, el sistema conservará el valor anterior y el nuevo. | Alta |
 | RF-021 | Cada cambio de precio registrará fecha, hora y usuaria responsable. | Alta |
 | RF-022 | Una usuaria autorizada podrá consultar el historial cronológico de precios de una variante. | Media |
 | RF-023 | El historial de precios no podrá modificarse desde las funciones normales de administración. | Alta |
-| RF-038 | El sistema permitirá aplicar un mismo precio a todas las variantes de un producto en una sola operación, registrando el cambio individualmente en cada una. | Alta |
+| RF-038 | El sistema permitirá aplicar una misma diferencia (suma o resta) al precio de todas las variantes activas con precio de un producto en una sola operación, todo o nada, registrando el cambio individualmente en cada una (D-060). | Alta |
 
 ### Acceso, dispositivos e importación
 
@@ -84,7 +84,7 @@ Ejemplo esperado para RF-002 a RF-005: la consulta `cinta bebe 2 roja` debe pode
 | RF-049 | Un Usuario autorizado podrá registrar un cargo o un pago en la cuenta corriente de un cliente. | Alta |
 | RF-050 | El sistema mostrará el saldo actual de cada cliente, calculado a partir de sus cargos y pagos. | Alta |
 | RF-051 | El sistema mostrará una lista de clientes con saldo pendiente. | Media |
-| RF-052 | Un Usuario autorizado podrá ajustar la cantidad en stock de una variante, indicando la cantidad nueva. | Alta |
+| RF-052 | Un Usuario autorizado podrá ajustar la cantidad en stock de una variante, indicando cuánto se suma o se resta a la cantidad actual; la cantidad no puede quedar negativa (D-060). | Alta |
 | RF-053 | El sistema calculará y mostrará el estado de stock de cada variante (Normal, Stock bajo o Sin stock) según su cantidad actual y su stock mínimo. | Alta |
 | RF-054 | El sistema registrará un historial de movimientos de stock por variante: fecha, cantidad, valores antes y después, cuenta que lo hizo, y una observación opcional. | Alta |
 | RF-056 | Un Usuario autorizado podrá definir el stock mínimo de cada variante; el sistema aplicará un valor por defecto si no se define uno. | Media |

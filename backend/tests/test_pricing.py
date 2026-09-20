@@ -136,7 +136,7 @@ def test_gerente_can_set_initial_price_for_a_variant(client):
 
     response = client.put(
         f"/variants/{variant_id}/price",
-        json={"amount": "150.00", "expected_current_price_id": None},
+        json={"amount": "150.00"},
         cookies=gerente_cookies,
         headers=_auth_headers(gerente_cookies),
     )
@@ -160,7 +160,7 @@ def test_gerente_sees_author_name_in_price_and_history(client):
 
     change = client.put(
         f"/variants/{variant_id}/price",
-        json={"amount": "80.00", "expected_current_price_id": None},
+        json={"amount": "80.00"},
         cookies=gerente_cookies,
         headers=_auth_headers(gerente_cookies),
     )
@@ -183,7 +183,7 @@ def test_empleado_cannot_change_price(client):
 
     response = client.put(
         f"/variants/{variant_id}/price",
-        json={"amount": "50.00", "expected_current_price_id": None},
+        json={"amount": "50.00"},
         cookies=empleado_cookies,
         headers=_auth_headers(empleado_cookies),
     )
@@ -196,7 +196,7 @@ def test_empleado_can_read_current_price_and_history(client):
     _product, variant_id = _set_up_product_with_single_variant(client, admin_cookies, "lectura")
     client.put(
         f"/variants/{variant_id}/price",
-        json={"amount": "60.00", "expected_current_price_id": None},
+        json={"amount": "60.00"},
         cookies=admin_cookies,
         headers=_auth_headers(admin_cookies),
     )
@@ -227,7 +227,7 @@ def test_zero_or_negative_price_is_rejected(client):
 
     response = client.put(
         f"/variants/{variant_id}/price",
-        json={"amount": "0.00", "expected_current_price_id": None},
+        json={"amount": "0.00"},
         cookies=admin_cookies,
         headers=_auth_headers(admin_cookies),
     )
@@ -237,23 +237,35 @@ def test_zero_or_negative_price_is_rejected(client):
     assert current["price"] is None
 
 
-def test_changing_price_closes_the_previous_one_and_keeps_history(client):
+def _put_variant_price(client, cookies, variant_id, **body):
+    return client.put(
+        f"/variants/{variant_id}/price",
+        json=body,
+        cookies=cookies,
+        headers=_auth_headers(cookies),
+    )
+
+
+def _put_product_price(client, cookies, product_id, delta):
+    return client.put(
+        f"/products/{product_id}/price",
+        json={"delta": delta},
+        cookies=cookies,
+        headers=_auth_headers(cookies),
+    )
+
+
+def _current_amount(client, cookies, variant_id):
+    price = client.get(f"/variants/{variant_id}/price", cookies=cookies).json()["price"]
+    return price["amount"] if price else None
+
+
+def test_changing_price_by_delta_closes_the_previous_one_and_keeps_history(client):
     admin_cookies = _admin_cookies(client)
     _product, variant_id = _set_up_product_with_single_variant(client, admin_cookies, "historial")
+    first = _put_variant_price(client, admin_cookies, variant_id, amount="100.00").json()
 
-    first = client.put(
-        f"/variants/{variant_id}/price",
-        json={"amount": "100.00", "expected_current_price_id": None},
-        cookies=admin_cookies,
-        headers=_auth_headers(admin_cookies),
-    ).json()
-
-    second = client.put(
-        f"/variants/{variant_id}/price",
-        json={"amount": "120.00", "expected_current_price_id": first["id"]},
-        cookies=admin_cookies,
-        headers=_auth_headers(admin_cookies),
-    )
+    second = _put_variant_price(client, admin_cookies, variant_id, delta="20.00")
 
     assert second.status_code == 200, second.text
     second_body = second.json()
@@ -272,33 +284,124 @@ def test_changing_price_closes_the_previous_one_and_keeps_history(client):
     assert current["price"]["id"] == second_body["id"]
 
 
-def test_stale_expected_price_is_rejected_with_current_value(client):
+def test_negative_delta_subtracts_from_the_current_price(client):
     admin_cookies = _admin_cookies(client)
-    _product, variant_id = _set_up_product_with_single_variant(client, admin_cookies, "conflicto")
+    _product, variant_id = _set_up_product_with_single_variant(client, admin_cookies, "resta")
+    _put_variant_price(client, admin_cookies, variant_id, amount="1000.00")
 
-    first = client.put(
-        f"/variants/{variant_id}/price",
-        json={"amount": "200.00", "expected_current_price_id": None},
-        cookies=admin_cookies,
-        headers=_auth_headers(admin_cookies),
-    ).json()
+    response = _put_variant_price(client, admin_cookies, variant_id, delta="-250.50")
 
-    stale_attempt = client.put(
-        f"/variants/{variant_id}/price",
-        json={"amount": "999.00", "expected_current_price_id": None},
-        cookies=admin_cookies,
-        headers=_auth_headers(admin_cookies),
-    )
+    assert response.status_code == 200, response.text
+    assert response.json()["amount"] == "749.50"
 
-    assert stale_attempt.status_code == 409, stale_attempt.text
-    detail = stale_attempt.json()["detail"]
-    assert detail["current_price"]["id"] == first["id"]
-    assert detail["current_price"]["amount"] == "200.00"
 
-    current = client.get(f"/variants/{variant_id}/price", cookies=admin_cookies).json()
-    assert current["price"]["amount"] == "200.00"
+def test_price_can_land_exactly_at_the_smallest_allowed_value(client):
+    admin_cookies = _admin_cookies(client)
+    _product, variant_id = _set_up_product_with_single_variant(client, admin_cookies, "piso")
+    _put_variant_price(client, admin_cookies, variant_id, amount="1000.00")
+
+    response = _put_variant_price(client, admin_cookies, variant_id, delta="-999.99")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["amount"] == "0.01"
+
+
+def test_delta_that_leaves_price_at_zero_or_below_is_rejected_without_changes(client):
+    admin_cookies = _admin_cookies(client)
+    _product, variant_id = _set_up_product_with_single_variant(client, admin_cookies, "bajopiso")
+    _put_variant_price(client, admin_cookies, variant_id, amount="1000.00")
+
+    at_zero = _put_variant_price(client, admin_cookies, variant_id, delta="-1000")
+    below_zero = _put_variant_price(client, admin_cookies, variant_id, delta="-1500")
+
+    assert at_zero.status_code == 422, at_zero.text
+    assert at_zero.json()["detail"] == "El precio no puede quedar en cero o menos"
+    assert below_zero.status_code == 422, below_zero.text
+    assert _current_amount(client, admin_cookies, variant_id) == "1000.00"
     history = client.get(f"/variants/{variant_id}/prices", cookies=admin_cookies).json()
     assert len(history) == 1
+
+
+def test_zero_delta_is_rejected(client):
+    admin_cookies = _admin_cookies(client)
+    _product, variant_id = _set_up_product_with_single_variant(client, admin_cookies, "deltacero")
+    _put_variant_price(client, admin_cookies, variant_id, amount="100.00")
+
+    response = _put_variant_price(client, admin_cookies, variant_id, delta="0")
+
+    assert response.status_code == 422, response.text
+    assert _current_amount(client, admin_cookies, variant_id) == "100.00"
+
+
+def test_two_consecutive_deltas_compose(client):
+    admin_cookies = _admin_cookies(client)
+    _product, variant_id = _set_up_product_with_single_variant(client, admin_cookies, "componen")
+    _put_variant_price(client, admin_cookies, variant_id, amount="100.00")
+
+    _put_variant_price(client, admin_cookies, variant_id, delta="50")
+    response = _put_variant_price(client, admin_cookies, variant_id, delta="-30")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["amount"] == "120.00"
+
+
+def test_delta_without_a_current_price_is_rejected(client):
+    admin_cookies = _admin_cookies(client)
+    _product, variant_id = _set_up_product_with_single_variant(client, admin_cookies, "sinvigente")
+
+    response = _put_variant_price(client, admin_cookies, variant_id, delta="10")
+
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == (
+        "La variante todavía no tiene precio: cargá el precio inicial"
+    )
+    assert _current_amount(client, admin_cookies, variant_id) is None
+
+
+def test_initial_amount_is_rejected_when_a_current_price_exists(client):
+    admin_cookies = _admin_cookies(client)
+    _product, variant_id = _set_up_product_with_single_variant(client, admin_cookies, "yatiene")
+    _put_variant_price(client, admin_cookies, variant_id, amount="100.00")
+
+    response = _put_variant_price(client, admin_cookies, variant_id, amount="999.00")
+
+    assert response.status_code == 422, response.text
+    assert _current_amount(client, admin_cookies, variant_id) == "100.00"
+
+
+def test_price_change_requires_exactly_one_of_delta_or_amount(client):
+    admin_cookies = _admin_cookies(client)
+    _product, variant_id = _set_up_product_with_single_variant(client, admin_cookies, "exacto")
+
+    neither = _put_variant_price(client, admin_cookies, variant_id)
+    both = _put_variant_price(client, admin_cookies, variant_id, delta="5", amount="10")
+
+    assert neither.status_code == 422, neither.text
+    assert both.status_code == 422, both.text
+    assert _current_amount(client, admin_cookies, variant_id) is None
+
+
+@pytest.mark.parametrize("value", ["1.005", "99999999999.00", "-99999999999.00"])
+def test_delta_with_too_many_decimals_or_out_of_range_is_rejected(client, value):
+    admin_cookies = _admin_cookies(client)
+    _product, variant_id = _set_up_product_with_single_variant(client, admin_cookies, "rango")
+    _put_variant_price(client, admin_cookies, variant_id, amount="100.00")
+
+    response = _put_variant_price(client, admin_cookies, variant_id, delta=value)
+
+    assert response.status_code == 422, response.text
+    assert _current_amount(client, admin_cookies, variant_id) == "100.00"
+
+
+def test_delta_that_overflows_the_column_is_rejected(client):
+    admin_cookies = _admin_cookies(client)
+    _product, variant_id = _set_up_product_with_single_variant(client, admin_cookies, "desborde")
+    _put_variant_price(client, admin_cookies, variant_id, amount="9999999999.00")
+
+    response = _put_variant_price(client, admin_cookies, variant_id, delta="5000000000.00")
+
+    assert response.status_code == 422, response.text
+    assert _current_amount(client, admin_cookies, variant_id) == "9999999999.00"
 
 
 def test_two_variants_of_the_same_product_keep_independent_prices(client):
@@ -307,131 +410,123 @@ def test_two_variants_of_the_same_product_keep_independent_prices(client):
         client, admin_cookies, "independiente"
     )
 
-    client.put(
-        f"/variants/{red_id}/price",
-        json={"amount": "30.00", "expected_current_price_id": None},
-        cookies=admin_cookies,
-        headers=_auth_headers(admin_cookies),
-    )
-    client.put(
-        f"/variants/{blue_id}/price",
-        json={"amount": "45.00", "expected_current_price_id": None},
-        cookies=admin_cookies,
-        headers=_auth_headers(admin_cookies),
-    )
+    _put_variant_price(client, admin_cookies, red_id, amount="30.00")
+    _put_variant_price(client, admin_cookies, blue_id, amount="45.00")
 
-    red_price = client.get(f"/variants/{red_id}/price", cookies=admin_cookies).json()
-    blue_price = client.get(f"/variants/{blue_id}/price", cookies=admin_cookies).json()
-    assert red_price["price"]["amount"] == "30.00"
-    assert blue_price["price"]["amount"] == "45.00"
+    assert _current_amount(client, admin_cookies, red_id) == "30.00"
+    assert _current_amount(client, admin_cookies, blue_id) == "45.00"
 
 
-def test_change_product_price_applies_to_all_active_variants_in_one_operation(client):
+def test_change_product_price_applies_the_delta_to_every_priced_variant(client):
     admin_cookies = _admin_cookies(client)
-    _product, (red_id, blue_id) = _set_up_product_with_two_variants(client, admin_cookies, "lote")
-    product_id = _product["id"]
+    product, (red_id, blue_id) = _set_up_product_with_two_variants(client, admin_cookies, "lote")
+    _put_variant_price(client, admin_cookies, red_id, amount="30.00")
+    _put_variant_price(client, admin_cookies, blue_id, amount="45.00")
 
-    response = client.put(
-        f"/products/{product_id}/price",
-        json={
-            "amount": "75.50",
-            "expected_current_price_ids": {red_id: None, blue_id: None},
-        },
-        cookies=admin_cookies,
-        headers=_auth_headers(admin_cookies),
-    )
+    response = _put_product_price(client, admin_cookies, product["id"], "10.50")
 
     assert response.status_code == 200, response.text
-    changed = response.json()["prices"]
-    assert len(changed) == 2
-    assert {price["variant_id"] for price in changed} == {red_id, blue_id}
-    assert all(price["amount"] == "75.50" for price in changed)
-
-    red_price = client.get(f"/variants/{red_id}/price", cookies=admin_cookies).json()
-    blue_price = client.get(f"/variants/{blue_id}/price", cookies=admin_cookies).json()
-    assert red_price["price"]["amount"] == "75.50"
-    assert blue_price["price"]["amount"] == "75.50"
-    assert red_price["price"]["id"] != blue_price["price"]["id"]
+    body = response.json()
+    assert body["skipped_variant_ids"] == []
+    amounts = {price["variant_id"]: price["amount"] for price in body["prices"]}
+    assert amounts == {red_id: "40.50", blue_id: "55.50"}
+    assert _current_amount(client, admin_cookies, red_id) == "40.50"
+    assert _current_amount(client, admin_cookies, blue_id) == "55.50"
 
 
-def test_change_product_price_rejects_all_when_one_variant_is_stale(client):
+def test_change_product_price_with_negative_delta_subtracts(client):
     admin_cookies = _admin_cookies(client)
-    _product, (red_id, blue_id) = _set_up_product_with_two_variants(
-        client, admin_cookies, "loteconflicto"
-    )
-    product_id = _product["id"]
+    product, (red_id, blue_id) = _set_up_product_with_two_variants(client, admin_cookies, "restal")
+    _put_variant_price(client, admin_cookies, red_id, amount="30.00")
+    _put_variant_price(client, admin_cookies, blue_id, amount="45.00")
 
-    client.put(
-        f"/variants/{red_id}/price",
-        json={"amount": "10.00", "expected_current_price_id": None},
-        cookies=admin_cookies,
-        headers=_auth_headers(admin_cookies),
-    )
+    response = _put_product_price(client, admin_cookies, product["id"], "-10")
 
-    response = client.put(
-        f"/products/{product_id}/price",
-        json={
-            "amount": "99.00",
-            "expected_current_price_ids": {red_id: None, blue_id: None},
-        },
-        cookies=admin_cookies,
-        headers=_auth_headers(admin_cookies),
-    )
+    assert response.status_code == 200, response.text
+    assert _current_amount(client, admin_cookies, red_id) == "20.00"
+    assert _current_amount(client, admin_cookies, blue_id) == "35.00"
 
-    assert response.status_code == 409, response.text
+
+def test_change_product_price_is_all_or_nothing_when_one_variant_breaks_the_floor(client):
+    admin_cookies = _admin_cookies(client)
+    product, (red_id, blue_id) = _set_up_product_with_two_variants(
+        client, admin_cookies, "todonada"
+    )
+    _put_variant_price(client, admin_cookies, red_id, amount="100.00")
+    _put_variant_price(client, admin_cookies, blue_id, amount="20.00")
+
+    response = _put_product_price(client, admin_cookies, product["id"], "-50")
+
+    assert response.status_code == 422, response.text
     detail = response.json()["detail"]
-    assert str(red_id) in detail["current_prices"]
-    assert detail["current_prices"][str(red_id)]["amount"] == "10.00"
-    assert detail["current_prices"][str(blue_id)] is None
-
-    red_price = client.get(f"/variants/{red_id}/price", cookies=admin_cookies).json()
-    blue_price = client.get(f"/variants/{blue_id}/price", cookies=admin_cookies).json()
-    assert red_price["price"]["amount"] == "10.00"
-    assert blue_price["price"] is None
+    assert "Azul" in detail
+    assert "Roja" not in detail
+    assert _current_amount(client, admin_cookies, red_id) == "100.00"
+    assert _current_amount(client, admin_cookies, blue_id) == "20.00"
+    assert len(client.get(f"/variants/{red_id}/prices", cookies=admin_cookies).json()) == 1
 
 
-def test_change_product_price_requires_expected_id_for_every_active_variant(client):
+def test_change_product_price_skips_and_reports_variants_without_a_price(client):
     admin_cookies = _admin_cookies(client)
-    _product, (red_id, _blue_id) = _set_up_product_with_two_variants(
-        client, admin_cookies, "incompleto"
+    product, (red_id, blue_id) = _set_up_product_with_two_variants(
+        client, admin_cookies, "omitidas"
     )
-    product_id = _product["id"]
+    _put_variant_price(client, admin_cookies, red_id, amount="30.00")
 
-    response = client.put(
-        f"/products/{product_id}/price",
-        json={"amount": "20.00", "expected_current_price_ids": {red_id: None}},
-        cookies=admin_cookies,
-        headers=_auth_headers(admin_cookies),
+    response = _put_product_price(client, admin_cookies, product["id"], "5")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["skipped_variant_ids"] == [blue_id]
+    assert [price["variant_id"] for price in body["prices"]] == [red_id]
+    assert _current_amount(client, admin_cookies, red_id) == "35.00"
+    assert _current_amount(client, admin_cookies, blue_id) is None
+
+
+def test_change_product_price_fails_when_no_active_variant_has_a_price(client):
+    admin_cookies = _admin_cookies(client)
+    product, (red_id, blue_id) = _set_up_product_with_two_variants(
+        client, admin_cookies, "ningunaconprecio"
     )
+
+    response = _put_product_price(client, admin_cookies, product["id"], "5")
+
+    assert response.status_code == 422, response.text
+    assert _current_amount(client, admin_cookies, red_id) is None
+    assert _current_amount(client, admin_cookies, blue_id) is None
+
+
+def test_change_product_price_rejects_a_zero_delta(client):
+    admin_cookies = _admin_cookies(client)
+    product, (red_id, _blue_id) = _set_up_product_with_two_variants(
+        client, admin_cookies, "lotecero"
+    )
+    _put_variant_price(client, admin_cookies, red_id, amount="30.00")
+
+    response = _put_product_price(client, admin_cookies, product["id"], "0")
 
     assert response.status_code == 422, response.text
 
 
 def test_change_product_price_ignores_inactive_variants(client, db_session):
     admin_cookies = _admin_cookies(client)
-    _product, (red_id, blue_id) = _set_up_product_with_two_variants(
+    product, (red_id, blue_id) = _set_up_product_with_two_variants(
         client, admin_cookies, "inactiva"
     )
-    product_id = _product["id"]
+    _put_variant_price(client, admin_cookies, red_id, amount="30.00")
+    _put_variant_price(client, admin_cookies, blue_id, amount="45.00")
 
     inactive_variant = db_session.get(Variant, blue_id)
     inactive_variant.status = "inactive"
     db_session.commit()
 
-    response = client.put(
-        f"/products/{product_id}/price",
-        json={"amount": "33.00", "expected_current_price_ids": {red_id: None}},
-        cookies=admin_cookies,
-        headers=_auth_headers(admin_cookies),
-    )
+    response = _put_product_price(client, admin_cookies, product["id"], "3")
 
     assert response.status_code == 200, response.text
-    changed = response.json()["prices"]
-    assert len(changed) == 1
-    assert changed[0]["variant_id"] == red_id
-
-    blue_price = client.get(f"/variants/{blue_id}/price", cookies=admin_cookies).json()
-    assert blue_price["price"] is None
+    body = response.json()
+    assert [price["variant_id"] for price in body["prices"]] == [red_id]
+    assert body["skipped_variant_ids"] == []
+    assert _current_amount(client, admin_cookies, blue_id) == "45.00"
 
 
 def test_change_product_price_fails_when_no_active_variants_remain(client, db_session):
@@ -442,12 +537,7 @@ def test_change_product_price_fails_when_no_active_variants_remain(client, db_se
     only_variant.status = "inactive"
     db_session.commit()
 
-    response = client.put(
-        f"/products/{product['id']}/price",
-        json={"amount": "10.00", "expected_current_price_ids": {}},
-        cookies=admin_cookies,
-        headers=_auth_headers(admin_cookies),
-    )
+    response = _put_product_price(client, admin_cookies, product["id"], "10")
 
     assert response.status_code == 422, response.text
 
@@ -456,10 +546,9 @@ def test_change_product_price_is_atomic_when_a_variant_fails_mid_operation(
     client, db_session, monkeypatch
 ):
     admin_cookies = _admin_cookies(client)
-    _product, (red_id, blue_id) = _set_up_product_with_two_variants(
-        client, admin_cookies, "atomico"
-    )
-    product_id = _product["id"]
+    product, (red_id, blue_id) = _set_up_product_with_two_variants(client, admin_cookies, "atomico")
+    _put_variant_price(client, admin_cookies, red_id, amount="30.00")
+    _put_variant_price(client, admin_cookies, blue_id, amount="45.00")
     business_id = _business_id(db_session)
     admin_account_id = _admin_account_id(db_session)
 
@@ -476,19 +565,14 @@ def test_change_product_price_is_atomic_when_a_variant_fails_mid_operation(
 
     with pytest.raises(RuntimeError):
         pricing_module.change_product_price(
-            db_session,
-            product_id,
-            business_id,
-            Decimal("55.00"),
-            admin_account_id,
-            expected_current_price_ids={red_id: None, blue_id: None},
+            db_session, product["id"], business_id, Decimal("5.00"), admin_account_id
         )
     db_session.rollback()
 
     red_price = pricing_module.get_current_price_for_variant(db_session, red_id, business_id)
     blue_price = pricing_module.get_current_price_for_variant(db_session, blue_id, business_id)
-    assert red_price is None
-    assert blue_price is None
+    assert red_price.amount == Decimal("30.00")
+    assert blue_price.amount == Decimal("45.00")
 
 
 def test_price_amount_is_stored_as_an_exact_decimal(client, db_session):
@@ -497,7 +581,7 @@ def test_price_amount_is_stored_as_an_exact_decimal(client, db_session):
 
     client.put(
         f"/variants/{variant_id}/price",
-        json={"amount": "19.99", "expected_current_price_id": None},
+        json={"amount": "19.99"},
         cookies=admin_cookies,
         headers=_auth_headers(admin_cookies),
     )

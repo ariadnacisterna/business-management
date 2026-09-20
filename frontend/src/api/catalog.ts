@@ -13,6 +13,7 @@ import type {
   Product,
   ProductCreationResult,
   ProductPage,
+  ProductPriceChange,
   Provider,
   Shortage,
   Stock,
@@ -150,7 +151,7 @@ export function updateVariant(id: number, input: VariantInput): Promise<VariantC
 export function setInitialVariantPrice(variantId: number, amount: string): Promise<Price> {
   return apiFetch<Price>(`/variants/${variantId}/price`, {
     method: 'PUT',
-    body: JSON.stringify({ amount, expected_current_price_id: null }),
+    body: JSON.stringify({ amount }),
   })
 }
 
@@ -162,25 +163,17 @@ export function fetchVariantPriceHistory(variantId: number): Promise<Price[]> {
   return apiFetch<Price[]>(`/variants/${variantId}/prices`)
 }
 
-export function changeVariantPrice(
-  variantId: number,
-  amount: string,
-  expectedCurrentPriceId: number | null,
-): Promise<Price> {
+export function changeVariantPrice(variantId: number, delta: string): Promise<Price> {
   return apiFetch<Price>(`/variants/${variantId}/price`, {
     method: 'PUT',
-    body: JSON.stringify({ amount, expected_current_price_id: expectedCurrentPriceId }),
+    body: JSON.stringify({ delta }),
   })
 }
 
-export function changeProductPrice(
-  productId: number,
-  amount: string,
-  expectedCurrentPriceIds: Record<number, number | null>,
-): Promise<{ prices: Price[] }> {
-  return apiFetch<{ prices: Price[] }>(`/products/${productId}/price`, {
+export function changeProductPrice(productId: number, delta: string): Promise<ProductPriceChange> {
+  return apiFetch<ProductPriceChange>(`/products/${productId}/price`, {
     method: 'PUT',
-    body: JSON.stringify({ amount, expected_current_price_ids: expectedCurrentPriceIds }),
+    body: JSON.stringify({ delta }),
   })
 }
 
@@ -347,7 +340,7 @@ export function fetchStock(variantId: number): Promise<Stock> {
 
 export function adjustStock(
   variantId: number,
-  input: { quantity: number; observation?: string },
+  input: { delta: number; observation?: string },
 ): Promise<StockMovement> {
   return apiFetch<StockMovement>(`/variants/${variantId}/stock/adjustments`, {
     method: 'POST',

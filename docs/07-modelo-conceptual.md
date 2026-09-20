@@ -180,7 +180,7 @@ Las características que no necesiten integridad ni filtros frecuentes podrán s
 
 ### Precio
 
-Registro temporal del precio final al público de una variante en un negocio. El importe es siempre positivo y se expresa exclusivamente en ARS. El registro sin fecha de finalización es el vigente. Los precios anteriores no se borran ni modifican durante la operación normal.
+Registro temporal del precio final al público de una variante en un negocio. El importe es siempre positivo y se expresa exclusivamente en ARS. El registro sin fecha de finalización es el vigente. Los precios anteriores no se borran ni modifican durante la operación normal. Un cambio se expresa como diferencia sobre el vigente y el sistema guarda el valor resultante; el precio inicial se fija directamente (D-060).
 
 Una misma variante puede tener precios distintos en dos negocios de la misma organización.
 
@@ -212,7 +212,7 @@ Fiado: movimiento de la cuenta corriente de un cliente. Es un **cargo** (se llev
 
 Stock: cantidad actual de una variante (no del producto, mismo criterio que el faltante, D-052). Cada variante tiene además un stock mínimo, propio o el valor por defecto del sistema si no se definió uno; a partir de la cantidad y el mínimo se deriva su estado: **Sin stock** (cantidad 0), **Stock bajo** (mayor que 0 y hasta el mínimo) o **Normal**.
 
-Movimiento de stock: registro de un ajuste de cantidad sobre una variante. Quien ajusta indica la cantidad nueva (no una diferencia); el sistema calcula y guarda la cantidad anterior, la nueva, la cuenta que lo hizo, el momento, y una observación opcional. Reservado a Gerente y superiores (D-052), a diferencia del faltante.
+Movimiento de stock: registro de un ajuste de cantidad sobre una variante. Quien ajusta indica cuánto suma o resta (no la cantidad final); el sistema calcula y guarda la cantidad anterior, la resultante, la cuenta que lo hizo, el momento, y una observación opcional. Reservado a Gerente y superiores (D-052), a diferencia del faltante.
 
 ## Extensiones futuras previstas (etapas posteriores a la 2)
 

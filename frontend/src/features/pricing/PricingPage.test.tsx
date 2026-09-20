@@ -100,6 +100,24 @@ function currentPrice(variantId: number, amount: string | null, priceId = varian
   })
 }
 
+function priceBody(id: number, variantId: number, amount: string) {
+  return {
+    id,
+    variant_id: variantId,
+    business_id: 1,
+    amount,
+    effective_from: new Date().toISOString(),
+    effective_to: null,
+    created_by_account_id: 1,
+    created_by_account_name: 'Ada Lovelace',
+    created_at: new Date().toISOString(),
+  }
+}
+
+function priceResponse(id: number, variantId: number, amount: string) {
+  return jsonResponse(priceBody(id, variantId, amount))
+}
+
 const CATEGORIES = [
   { id: 1, name: 'Cintas', status: 'active' },
   { id: 2, name: 'Botones', status: 'active' },
@@ -295,145 +313,250 @@ describe('PricingPage', () => {
     expect(screen.queryByLabelText('Limpiar búsqueda')).not.toBeInTheDocument()
   })
 
-  it('enables Actualizar only for the row whose price was edited, and changes it on confirm', async () => {
+  it('adds a typed amount to the current price and shows the resulting price before confirming', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
     renderPage(ADMIN_ACCOUNT)
 
     await screen.findByText('Cinta bebé')
 
-    const priceInput = screen.getByLabelText('Nuevo precio para Cinta bebé Estándar')
-    const row = priceInput.closest('[data-testid="price-row"]') as HTMLElement
+    const deltaInput = screen.getByLabelText('Cuánto sumar o restar a Cinta bebé Estándar')
+    const row = deltaInput.closest('[data-testid="price-row"]') as HTMLElement
     const updateButton = within(row).getByRole('button', { name: 'Actualizar' })
     expect(updateButton).toBeDisabled()
 
-    await user.clear(priceInput)
-    await user.type(priceInput, '175')
+    await user.type(deltaInput, '+25')
+    expect(within(row).getByTestId('delta-preview')).toHaveTextContent(/Precio:\s*\$\s150,00\s*→\s*\$\s175,00/)
     expect(updateButton).not.toBeDisabled()
 
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse({
-        id: 999,
-        variant_id: 10,
-        business_id: 1,
-        amount: '175.00',
-        effective_from: new Date().toISOString(),
-        effective_to: null,
-        created_by_account_id: 1,
-        created_by_account_name: 'Ada Lovelace',
-        created_at: new Date().toISOString(),
-      }),
-    )
+    fetchMock.mockResolvedValueOnce(priceResponse(999, 10, '175.00'))
 
     await user.click(updateButton)
-    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    const dialog = screen.getByRole('alertdialog')
+    expect(dialog).toHaveTextContent(/\$\s150,00\s*→\s*\$\s175,00\s*\(diferencia \+\$\s25,00\)/)
     await user.click(screen.getByRole('button', { name: 'Confirmar' }))
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
-    expect(await screen.findByText('$ 175')).toBeInTheDocument()
+    expect(await screen.findByText(/^\$\s175$/)).toBeInTheDocument()
+    const lastCall = fetchMock.mock.calls.at(-1)
+    expect(lastCall?.[0]).toBe('/variants/10/price')
+    expect(JSON.parse(lastCall?.[1]?.body as string)).toEqual({ delta: '25.00' })
+    expect(await screen.findByText(/Precio actualizado:\s*\$\s150,00\s*→\s*\$\s175,00/)).toBeInTheDocument()
   })
 
-  it('surfaces the current price and lets the user reconfirm on a 409 conflict', async () => {
+  it('subtracts a negative amount typed with the minus sign', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
     renderPage(ADMIN_ACCOUNT)
 
     await screen.findByText('Cinta bebé')
-    const priceInput = screen.getByLabelText('Nuevo precio para Cinta bebé Estándar')
-    const row = priceInput.closest('[data-testid="price-row"]') as HTMLElement
-    await user.clear(priceInput)
-    await user.type(priceInput, '175')
+    const deltaInput = screen.getByLabelText('Cuánto sumar o restar a Cinta bebé Estándar')
+    const row = deltaInput.closest('[data-testid="price-row"]') as HTMLElement
+
+    await user.type(deltaInput, '-50')
+    expect(within(row).getByTestId('delta-preview')).toHaveTextContent(/Precio:\s*\$\s150,00\s*→\s*\$\s100,00/)
+
+    fetchMock.mockResolvedValueOnce(priceResponse(999, 10, '100.00'))
     await user.click(within(row).getByRole('button', { name: 'Actualizar' }))
-
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(
-        {
-          detail: {
-            message: 'El precio cambió',
-            current_price: {
-              id: 555,
-              variant_id: 10,
-              business_id: 1,
-              amount: '160.00',
-              effective_from: new Date().toISOString(),
-              effective_to: null,
-              created_by_account_id: 1,
-              created_by_account_name: 'Ada Lovelace',
-              created_at: new Date().toISOString(),
-            },
-          },
-        },
-        409,
-      ),
-    )
-
-    await user.click(screen.getByRole('button', { name: 'Confirmar' }))
-
-    expect(await screen.findByText(/\$\s?160 mientras tanto/)).toBeInTheDocument()
-
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse({
-        id: 999,
-        variant_id: 10,
-        business_id: 1,
-        amount: '175.00',
-        effective_from: new Date().toISOString(),
-        effective_to: null,
-        created_by_account_id: 1,
-        created_by_account_name: 'Ada Lovelace',
-        created_at: new Date().toISOString(),
-      }),
-    )
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(/\(diferencia -\$\s50,00\)/)
     await user.click(screen.getByRole('button', { name: 'Confirmar' }))
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
-    expect(await screen.findByText('$ 175')).toBeInTheDocument()
+    const lastCall = fetchMock.mock.calls.at(-1)
+    expect(JSON.parse(lastCall?.[1]?.body as string)).toEqual({ delta: '-50.00' })
   })
 
-  it('offers "apply to all variants" for a product with more than one active variant', async () => {
+  it('changes the whole price when the option is checked, sending the difference to the server', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    const deltaInput = screen.getByLabelText('Cuánto sumar o restar a Cinta bebé Estándar')
+    const row = deltaInput.closest('[data-testid="price-row"]') as HTMLElement
+
+    await user.click(within(row).getByLabelText('Cambiar todo el precio'))
+    const wholeInput = within(row).getByLabelText('Precio nuevo para Cinta bebé Estándar')
+    await user.type(wholeInput, '200')
+    expect(within(row).getByTestId('delta-preview')).toHaveTextContent(/Precio:\s*\$\s150,00\s*→\s*\$\s200,00/)
+
+    fetchMock.mockResolvedValueOnce(priceResponse(999, 10, '200.00'))
+    await user.click(within(row).getByRole('button', { name: 'Actualizar' }))
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(/\(diferencia \+\$\s50,00\)/)
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    const lastCall = fetchMock.mock.calls.at(-1)
+    expect(lastCall?.[0]).toBe('/variants/10/price')
+    expect(JSON.parse(lastCall?.[1]?.body as string)).toEqual({ delta: '50.00' })
+  })
+
+  it('rejects a whole price equal to the current one or zero', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    const row = screen
+      .getByLabelText('Cuánto sumar o restar a Cinta bebé Estándar')
+      .closest('[data-testid="price-row"]') as HTMLElement
+    await user.click(within(row).getByLabelText('Cambiar todo el precio'))
+    const wholeInput = within(row).getByLabelText('Precio nuevo para Cinta bebé Estándar')
+
+    await user.type(wholeInput, '150')
+    expect(within(row).getByRole('alert')).toHaveTextContent('El precio nuevo es igual al actual.')
+    expect(within(row).getByRole('button', { name: 'Actualizar' })).toBeDisabled()
+
+    await user.clear(wholeInput)
+    await user.type(wholeInput, '0')
+    expect(within(row).getByRole('alert')).toHaveTextContent('El precio no puede quedar en cero o menos')
+    expect(within(row).getByRole('button', { name: 'Actualizar' })).toBeDisabled()
+  })
+
+  it('rejects a difference that would leave the price at zero or below', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    const deltaInput = screen.getByLabelText('Cuánto sumar o restar a Cinta bebé Estándar')
+    const row = deltaInput.closest('[data-testid="price-row"]') as HTMLElement
+
+    await user.type(deltaInput, '-150')
+
+    expect(within(row).getByRole('alert')).toHaveTextContent('El precio no puede quedar en cero o menos')
+    expect(within(row).getByRole('button', { name: 'Actualizar' })).toBeDisabled()
+  })
+
+  it('rejects a zero difference', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    const deltaInput = screen.getByLabelText('Cuánto sumar o restar a Cinta bebé Estándar')
+    const row = deltaInput.closest('[data-testid="price-row"]') as HTMLElement
+
+    await user.type(deltaInput, '0')
+
+    expect(within(row).getByRole('alert')).toHaveTextContent('La diferencia no puede ser cero.')
+    expect(within(row).getByRole('button', { name: 'Actualizar' })).toBeDisabled()
+  })
+
+  it('loads the initial price of a variant without price using the absolute amount', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    const products: Product[] = [
+      {
+        ...PRODUCTS[0],
+        variants: [{ ...PRODUCTS[0].variants[0], price_amount: null }],
+      },
+    ]
+    renderPage(ADMIN_ACCOUNT, products)
+
+    await screen.findByText('Cinta bebé')
+    const initialInput = screen.getByLabelText('Precio inicial para Cinta bebé Estándar')
+    const row = initialInput.closest('[data-testid="price-row"]') as HTMLElement
+    
+    await user.type(initialInput, '80')
+    fetchMock.mockResolvedValueOnce(priceResponse(999, 10, '80.00'))
+    await user.click(within(row).getByRole('button', { name: 'Cargar precio' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    const lastCall = fetchMock.mock.calls.at(-1)
+    expect(lastCall?.[0]).toBe('/variants/10/price')
+    expect(JSON.parse(lastCall?.[1]?.body as string)).toEqual({ amount: '80' })
+    expect(await screen.findByText(/^\$\s80$/)).toBeInTheDocument()
+  })
+
+  it('offers "apply to all variants" and applies the difference to each variant', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
     renderPage(ADMIN_ACCOUNT)
 
     await screen.findAllByText('Botones surtidos')
-    const applyAllInput = screen.getByLabelText('Nuevo precio para todas las variantes de Botones surtidos')
-    await user.type(applyAllInput, '30')
-    await user.click(screen.getByRole('button', { name: 'Actualizar todas' }))
+    const applyAllInput = screen.getByLabelText('Cuánto sumar o restar a todas las variantes de Botones surtidos')
+    await user.type(applyAllInput, '5')
 
-    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    const preview = screen.getByTestId('apply-all-preview')
+    expect(preview).toHaveTextContent(/Chico:\s*\$\s10,00\s*→\s*\$\s15,00/)
+    expect(preview).toHaveTextContent(/Grande:\s*\$\s20,00\s*→\s*\$\s25,00/)
+
+    await user.click(screen.getByRole('button', { name: 'Actualizar todas' }))
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(/\(diferencia \+\$\s5,00\)/)
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
-        prices: [
-          {
-            id: 201,
-            variant_id: 20,
-            business_id: 1,
-            amount: '30.00',
-            effective_from: new Date().toISOString(),
-            effective_to: null,
-            created_by_account_id: 1,
-            created_by_account_name: 'Ada Lovelace',
-            created_at: new Date().toISOString(),
-          },
-          {
-            id: 211,
-            variant_id: 21,
-            business_id: 1,
-            amount: '30.00',
-            effective_from: new Date().toISOString(),
-            effective_to: null,
-            created_by_account_id: 1,
-            created_by_account_name: 'Ada Lovelace',
-            created_at: new Date().toISOString(),
-          },
-        ],
+        prices: [priceBody(201, 20, '15.00'), priceBody(211, 21, '25.00')],
+        skipped_variant_ids: [],
       }),
     )
     await user.click(screen.getByRole('button', { name: 'Confirmar' }))
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
-    expect(await screen.findAllByText('$ 30')).toHaveLength(2)
+    expect(await screen.findByText(/^\$\s15$/)).toBeInTheDocument()
+    expect(await screen.findByText(/^\$\s25$/)).toBeInTheDocument()
+    const lastCall = fetchMock.mock.calls.at(-1)
+    expect(lastCall?.[0]).toBe('/products/2/price')
+    expect(JSON.parse(lastCall?.[1]?.body as string)).toEqual({ delta: '5.00' })
+  })
+
+  it('blocks "apply to all" and names the variants that would reach zero', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findAllByText('Botones surtidos')
+    const applyAllInput = screen.getByLabelText('Cuánto sumar o restar a todas las variantes de Botones surtidos')
+    await user.type(applyAllInput, '-10')
+
+    expect(screen.getByTestId('apply-all-preview')).toHaveTextContent(
+      'El precio no puede quedar en cero o menos en: Chico',
+    )
+    expect(screen.getByRole('button', { name: 'Actualizar todas' })).toBeDisabled()
+  })
+
+  it('reports the variants without price that "apply to all" skipped', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    const products: Product[] = [
+      {
+        ...PRODUCTS[1],
+        variants: [
+          PRODUCTS[1].variants[0],
+          { ...PRODUCTS[1].variants[1], price_amount: null },
+        ],
+      },
+    ]
+    renderPage(ADMIN_ACCOUNT, products)
+
+    await screen.findAllByText('Botones surtidos')
+    const applyAllInput = screen.getByLabelText('Cuánto sumar o restar a todas las variantes de Botones surtidos')
+    await user.type(applyAllInput, '5')
+    expect(screen.getByTestId('apply-all-preview')).toHaveTextContent('Grande: sin precio, no se modifica')
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ prices: [priceBody(201, 20, '15.00')], skipped_variant_ids: [21] }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Actualizar todas' }))
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('Sin precio, no se modifican: Grande.')
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+    expect(await screen.findByText(/Se omitieron por no tener precio: Grande/)).toBeInTheDocument()
+  })
+
+  it('shows the server message when the change is rejected', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    const deltaInput = screen.getByLabelText('Cuánto sumar o restar a Cinta bebé Estándar')
+    const row = deltaInput.closest('[data-testid="price-row"]') as HTMLElement
+    await user.type(deltaInput, '10')
+    fetchMock.mockResolvedValueOnce(jsonResponse({ detail: 'El precio no puede quedar en cero o menos' }, 422))
+    await user.click(within(row).getByRole('button', { name: 'Actualizar' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+    expect(await screen.findByText('El precio no puede quedar en cero o menos')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
   })
 
   it('shows the price history for a variant', async () => {
@@ -534,7 +657,7 @@ describe('PricingPage', () => {
     renderPage(EMPLOYEE_ACCOUNT)
 
     await screen.findByText('Cinta bebé')
-    expect(screen.queryByLabelText('Nuevo precio para Cinta bebé Estándar')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Cuánto sumar o restar a Cinta bebé Estándar')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Actualizar' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Actualizar todas' })).not.toBeInTheDocument()
     expect(screen.queryByText('Último cambio')).not.toBeInTheDocument()

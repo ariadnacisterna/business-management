@@ -62,13 +62,17 @@
 
 ### Criterios de aceptación
 
-- Antes de confirmar se muestran el precio anterior y el nuevo.
+- Indico cuánto se suma o se resta al precio vigente (por ejemplo +500 o -200), no el precio final.
+- Antes de confirmar se muestran el precio anterior, el resultante y la diferencia con signo.
+- Si el resultado quedaría en cero o menos, no se permite confirmar y se explica el motivo.
+- Una variante sin precio vigente recibe su precio inicial directamente.
 - Al confirmar, el nuevo precio pasa a ser el único vigente.
 - El valor anterior continúa disponible en el historial.
 - El registro incluye fecha, hora y responsable.
 - Una consulta posterior muestra inmediatamente el nuevo precio.
-- Dado un producto con varias variantes del mismo precio, cuando se elige aplicarlo a todas, entonces ninguna queda con el valor anterior y cada una registra su propio cambio.
-- Si la actualización conjunta falla a mitad de camino, no se aplica ningún cambio.
+- Dado un producto con varias variantes, cuando se elige aplicar una diferencia a todas, entonces cada una con precio registra su propio cambio; las que no tienen precio no se tocan y se informa cuáles fueron.
+- Si la actualización conjunta falla a mitad de camino, o si alguna variante quedaría en cero o menos, no se aplica ningún cambio y se nombran las variantes afectadas.
+- Tras confirmar se muestra el precio resultante real, que puede diferir del calculado en pantalla si otra persona cambió antes.
 
 ## HU-06 — Proteger el acceso al catálogo
 
@@ -219,13 +223,15 @@ Esta historia no es necesaria para la mercería, donde las variantes suelen comp
 ## HU-17 — Saber cuánto queda de cada cosa
 
 **Como** Gerente o superior,
-**quiero** ajustar la cantidad en stock de una variante indicando cuánto hay ahora,
+**quiero** ajustar la cantidad en stock de una variante indicando cuánto sumo o resto,
 **para** reemplazar el cuaderno donde anoto entradas y salidas de mercadería.
 
 ### Criterios de aceptación
 
-- Al ajustar, indico la cantidad nueva (no cuánto entró o salió).
-- El sistema calcula y guarda la diferencia, junto con quién lo hizo y cuándo.
+- Al ajustar, indico cuánto entró (5, +5) o salió (-3), no la cantidad final.
+- Puedo marcar «Cambiar toda la cantidad» e indicar la cantidad final; la interfaz calcula la diferencia y la envía como cualquier otro ajuste.
+- Antes de confirmar se ve el resultado (por ejemplo, Stock: 50 → 55); si quedaría negativo no se permite y se avisa cuánto hay.
+- El sistema calcula y guarda la cantidad anterior y la resultante, junto con quién lo hizo y cuándo.
 - Un Empleado puede ver el stock pero no ajustarlo.
 
 ## HU-18 — Ver qué se está por acabar

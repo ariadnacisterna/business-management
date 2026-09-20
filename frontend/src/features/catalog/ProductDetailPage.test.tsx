@@ -175,10 +175,10 @@ describe('ProductDetailPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Cambiar precio' }))
 
-    await user.type(screen.getByLabelText('Nuevo precio (ARS)'), '45.50')
+    await user.type(screen.getByLabelText('Precio inicial (ARS)'), '45.50')
     await user.click(screen.getByRole('button', { name: 'Confirmar' }))
 
-    expect(await screen.findByText(/45,50/)).toBeInTheDocument()
+    expect((await screen.findAllByText(/45,50/)).length).toBeGreaterThan(0)
     expect(screen.queryByRole('heading', { name: 'Cambiar Precio' })).not.toBeInTheDocument()
   })
 
@@ -368,7 +368,7 @@ describe('ProductDetailPage', () => {
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Actualizar stock' }))
 
-    await user.type(screen.getByLabelText(/^Cantidad nueva/), '20')
+    await user.type(screen.getByLabelText('Cuánto sumar o restar'), '13')
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -392,6 +392,56 @@ describe('ProductDetailPage', () => {
     expect(
       await screen.findByText((_, element) => element?.tagName === 'P' && element.textContent === '20 (Normal)'),
     ).toBeInTheDocument()
+  })
+
+  it('previews the resulting stock and rejects taking out more than there is in the "Actualizar stock" modal', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(SINGLE_VARIANT_PRODUCT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
+      .mockResolvedValueOnce(stockResponse(20, { quantity: 7, status: 'stock_bajo' }))
+
+    render(
+      <MemoryRouter initialEntries={['/products/6?edit=1']}>
+        <ToastProvider>
+        <AuthProvider>
+          <ReadyGate>
+            <Routes>
+              <Route path="/products" element={<h1>Productos</h1>} />
+              <Route path="/products/:productId" element={<ProductDetailPage />} />
+            </Routes>
+          </ReadyGate>
+        </AuthProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+
+    expect(
+      await screen.findByText((_, element) => element?.tagName === 'P' && element.textContent === '7 (Stock bajo)'),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Actualizar stock' }))
+
+    const deltaInput = screen.getByLabelText('Cuánto sumar o restar')
+    const confirmButton = screen.getByRole('button', { name: 'Confirmar' })
+    expect(confirmButton).toBeDisabled()
+
+    await user.type(deltaInput, '-8')
+    expect(screen.getByRole('alert')).toHaveTextContent('No podés descontar más de lo que hay (7)')
+    expect(confirmButton).toBeDisabled()
+
+    await user.clear(deltaInput)
+    await user.type(deltaInput, '-7')
+    expect(screen.getByTestId('delta-preview')).toHaveTextContent('Stock: 7 → 0')
+    expect(confirmButton).not.toBeDisabled()
+
+    await user.click(confirmButton)
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent('7 → 0 (diferencia -7)')
   })
 
   it('warns when the stock refetch fails after adjusting stock', async () => {
@@ -427,7 +477,7 @@ describe('ProductDetailPage', () => {
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Actualizar stock' }))
 
-    await user.type(screen.getByLabelText(/^Cantidad nueva/), '20')
+    await user.type(screen.getByLabelText('Cuánto sumar o restar'), '13')
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -447,7 +497,7 @@ describe('ProductDetailPage', () => {
     fetchMock.mockRejectedValueOnce(new Error('network error'))
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Confirmar' }))
 
-    expect(await screen.findByText('Stock actualizado.')).toBeInTheDocument()
+    expect(await screen.findByText('Stock actualizado: 7 → 20.')).toBeInTheDocument()
     expect(
       await screen.findByText('El ajuste de stock se guardó, pero no se pudo actualizar la pantalla. Recargá para ver el stock actual.'),
     ).toBeInTheDocument()

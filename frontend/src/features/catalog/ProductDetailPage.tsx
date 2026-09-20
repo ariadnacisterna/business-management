@@ -3,7 +3,6 @@ import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 
 import {
   addVariant,
   adjustStock,
-  changeVariantPrice,
   createCategory,
   createUnit,
   deactivateProduct,
@@ -22,6 +21,7 @@ import {
   reactivateProduct,
   reactivateVariant,
   removeProductImage,
+  setInitialVariantPrice,
   setMinimumStock,
   setProductProvider,
   updateProduct,
@@ -216,7 +216,7 @@ export function ProductDetailPage() {
 
       const trimmedPrice = newVariantPrice.trim()
       if (trimmedPrice !== '') {
-        const price = await changeVariantPrice(createdVariant.id, trimmedPrice, null)
+        const price = await setInitialVariantPrice(createdVariant.id, trimmedPrice)
         setPricesByVariant((prev) => new Map(prev).set(createdVariant.id, price))
       }
 
@@ -224,8 +224,8 @@ export function ProductDetailPage() {
       const trimmedMinimum = newVariantMinimum.trim()
       if (trimmedStock !== '' || trimmedMinimum !== '') {
         let stockResult
-        if (trimmedStock !== '') {
-          stockResult = await adjustStock(createdVariant.id, { quantity: Number(trimmedStock) })
+        if (trimmedStock !== '' && Number(trimmedStock) > 0) {
+          stockResult = await adjustStock(createdVariant.id, { delta: Number(trimmedStock) })
         }
         if (trimmedMinimum !== '') {
           stockResult = await setMinimumStock(createdVariant.id, Number(trimmedMinimum))
@@ -510,18 +510,7 @@ export function ProductDetailPage() {
       showSuccess('Producto actualizado.')
       close()
     } catch (error) {
-      const isPriceConflict =
-        error instanceof ApiError &&
-        error.status === 409 &&
-        typeof error.body === 'object' &&
-        error.body !== null
-      showError(
-        isPriceConflict
-          ? 'Un precio cambió mientras tanto. Cerrá y volvé a intentar.'
-          : error instanceof ApiError
-            ? error.message
-            : SAVE_ERROR_MESSAGE,
-      )
+      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
     } finally {
       setSavingProduct(false)
     }

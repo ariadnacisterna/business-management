@@ -81,7 +81,7 @@ def _set_up_product_with_single_variant(client, admin_cookies, suffix):
 def _set_price(client, cookies, variant_id, amount):
     response = client.put(
         f"/variants/{variant_id}/price",
-        json={"amount": amount, "expected_current_price_id": None},
+        json={"amount": amount},
         cookies=cookies,
         headers=_auth_headers(cookies),
     )

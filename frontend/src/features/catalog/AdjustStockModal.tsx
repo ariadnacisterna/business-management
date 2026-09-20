@@ -4,6 +4,8 @@ import { ApiError } from '../../api/client'
 import type { Product, StockRow, Variant } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
+import { describeChange, evaluateDelta, evaluateTargetStock } from '../../shared/signedDelta'
 import { useToast } from '../../shared/Toast'
 
 const GENERIC_ERROR_MESSAGE = 'No se pudo guardar el ajuste. Intentá de nuevo.'
@@ -31,25 +33,16 @@ export function AdjustStockModal({
 }: Props) {
   const { showSuccess, showError } = useToast()
 
-  const [quantity, setQuantity] = useState('')
+  const [delta, setDelta] = useState('')
+  const [wholeQuantity, setWholeQuantity] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const parsedQuantity = Number(quantity)
   const currentQuantity = currentStock?.quantity ?? 0
-  const canSubmit =
-    quantity.trim() !== '' &&
-    Number.isInteger(parsedQuantity) &&
-    parsedQuantity >= 0 &&
-    parsedQuantity !== currentQuantity
-  const quantityError =
-    quantity.trim() === ''
-      ? null
-      : !Number.isInteger(parsedQuantity)
-        ? 'Ingresá un número entero.'
-        : parsedQuantity < 0
-          ? 'La cantidad no puede ser negativa.'
-          : null
+  const evaluation = wholeQuantity
+    ? evaluateTargetStock(currentQuantity, delta)
+    : evaluateDelta('stock', currentQuantity, delta)
+  const canSubmit = evaluation.state === 'ready'
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -61,8 +54,8 @@ export function AdjustStockModal({
     setConfirming(false)
     setSaving(true)
     try {
-      await adjustStock(variant.id, { quantity: parsedQuantity })
-      showSuccess('Stock actualizado.')
+      const movement = await adjustStock(variant.id, { delta: evaluation.delta ?? 0 })
+      showSuccess(`Stock actualizado: ${movement.quantity_before} → ${movement.quantity_after}.`)
       onSuccess()
     } catch (error) {
       showError(error instanceof ApiError ? error.message : GENERIC_ERROR_MESSAGE)
@@ -106,27 +99,38 @@ export function AdjustStockModal({
         </div>
 
         <div>
-          <label htmlFor="adjust-stock-quantity" className="text-lg font-semibold uppercase tracking-wide opacity-70">
-            Cantidad nueva <span className="text-danger">*</span>
+          <label htmlFor="adjust-stock-delta" className="text-lg font-semibold uppercase tracking-wide opacity-70">
+            {wholeQuantity ? 'Cantidad nueva' : 'Cuánto sumar o restar'} <span className="text-danger">*</span>
           </label>
-          <input
-            id="adjust-stock-quantity"
-            type="number"
-            min={0}
-            step={1}
-            value={quantity}
-            onChange={(event) => setQuantity(event.target.value)}
-            disabled={saving}
-            autoFocus
-            aria-invalid={quantityError !== null}
-            className="mt-1.5 h-12 w-full rounded-xl border border-line px-3 text-lg font-bold focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
-          />
-          {quantityError !== null && (
-            <p role="alert" className="m-0 mt-1.5 text-base text-danger">
-              {quantityError}
-            </p>
-          )}
+          <div className="mt-1.5">
+            <SignedDeltaInput
+              kind="stock"
+              id="adjust-stock-delta"
+              value={delta}
+              onChange={setDelta}
+              allowSign={!wholeQuantity}
+              ariaLabel={wholeQuantity ? 'Cantidad nueva' : 'Cuánto sumar o restar'}
+              disabled={saving}
+              autoFocus
+              className="h-12 w-full rounded-xl border border-line px-3 text-lg font-bold focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
+            />
+          </div>
+          <label className="mt-3 flex items-center gap-2 text-lg text-ink/60">
+            <input
+              type="checkbox"
+              checked={wholeQuantity}
+              onChange={(event) => {
+                setWholeQuantity(event.target.checked)
+                setDelta('')
+              }}
+              disabled={saving}
+              className="checkbox-brand"
+            />
+            Cambiar toda la cantidad
+          </label>
         </div>
+
+        <DeltaPreview kind="stock" current={currentQuantity} evaluation={evaluation} />
 
         <div className="flex gap-2">
           <button
@@ -150,7 +154,7 @@ export function AdjustStockModal({
       {confirming && (
         <ConfirmDialog
           title="Actualizar stock"
-          description={`El stock de "${product.name}" (${describeVariantLabel(variant)}) va a pasar de ${currentQuantity} a ${parsedQuantity}.`}
+          description={`El stock de "${product.name}" (${describeVariantLabel(variant)}) cambia: ${describeChange('stock', currentQuantity, evaluation.delta ?? 0)}.`}
           confirmLabel="Confirmar"
           onConfirm={confirmSubmit}
           onCancel={() => setConfirming(false)}

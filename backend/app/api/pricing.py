@@ -16,13 +16,7 @@ from app.domain.access.permissions import (
 )
 from app.domain.catalog.errors import ProductNotFound, VariantNotFound
 from app.domain.pricing import prices
-from app.domain.pricing.errors import (
-    InvalidPriceAmount,
-    MissingExpectedPrice,
-    PriceConflict,
-    ProductHasNoPriceableVariants,
-    ProductPriceConflict,
-)
+from app.domain.pricing.errors import InvalidPriceAmount, ProductHasNoPriceableVariants
 
 router = APIRouter()
 
@@ -45,17 +39,17 @@ class CurrentPriceResponse(BaseModel):
 
 
 class ChangeVariantPriceRequest(BaseModel):
-    amount: Decimal
-    expected_current_price_id: int | None = None
+    delta: Decimal | None = None
+    amount: Decimal | None = None
 
 
 class ChangeProductPriceRequest(BaseModel):
-    amount: Decimal
-    expected_current_price_ids: dict[int, int | None]
+    delta: Decimal
 
 
 class ProductPriceChangeResponse(BaseModel):
     prices: list[PriceResponse]
+    skipped_variant_ids: list[int]
 
 
 def _price_response(price: Price, account_names: dict[int, str]) -> PriceResponse:
@@ -130,27 +124,14 @@ def change_variant_price(
             db,
             variant_id,
             business.id,
-            payload.amount,
             _actor.id,
-            payload.expected_current_price_id,
+            delta=payload.delta,
+            amount=payload.amount,
         )
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
     except InvalidPriceAmount as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
-    except PriceConflict as exc:
-        conflict_account_ids = (
-            [exc.current_price.created_by_account_id] if exc.current_price is not None else []
-        )
-        conflict_account_names = prices.get_account_names(db, conflict_account_ids)
-        current = _optional_price_response(exc.current_price, conflict_account_names)
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            {
-                "message": str(exc),
-                "current_price": current.model_dump(mode="json") if current else None,
-            },
-        ) from exc
 
     account_names = prices.get_account_names(db, [price.created_by_account_id])
     return _price_response(price, account_names)
@@ -169,13 +150,8 @@ def change_product_price(
     business: Business = Depends(get_active_business),
 ) -> ProductPriceChangeResponse:
     try:
-        changed = prices.change_product_price(
-            db,
-            product_id,
-            business.id,
-            payload.amount,
-            _actor.id,
-            payload.expected_current_price_ids,
+        changed, skipped_variant_ids = prices.change_product_price(
+            db, product_id, business.id, payload.delta, _actor.id
         )
     except ProductNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
@@ -185,33 +161,9 @@ def change_product_price(
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY, "El producto no tiene variantes activas"
         ) from exc
-    except MissingExpectedPrice as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
-    except ProductPriceConflict as exc:
-        conflict_account_names = prices.get_account_names(
-            db,
-            [
-                price.created_by_account_id
-                for price in exc.current_prices.values()
-                if price is not None
-            ],
-        )
-        current_prices = {
-            str(variant_id): _optional_price_response(price, conflict_account_names)
-            for variant_id, price in exc.current_prices.items()
-        }
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            {
-                "message": str(exc),
-                "current_prices": {
-                    variant_id: response.model_dump(mode="json") if response else None
-                    for variant_id, response in current_prices.items()
-                },
-            },
-        ) from exc
 
     account_names = prices.get_account_names(db, [price.created_by_account_id for price in changed])
     return ProductPriceChangeResponse(
-        prices=[_price_response(price, account_names) for price in changed]
+        prices=[_price_response(price, account_names) for price in changed],
+        skipped_variant_ids=skipped_variant_ids,
     )

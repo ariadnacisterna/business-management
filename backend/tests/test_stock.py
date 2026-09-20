@@ -1,3 +1,5 @@
+import pytest
+
 from app.constants.access import CSRF_HEADER_NAME
 from app.constants.roles import EMPLEADO, GERENTE
 from app.core.config import get_settings
@@ -81,10 +83,10 @@ def _setup_variant(client, admin_cookies, name="Producto con stock"):
     return product["variants"][0]["id"]
 
 
-def _adjust_stock(client, cookies, variant_id, quantity, observation=None):
+def _adjust_stock(client, cookies, variant_id, delta, observation=None):
     return client.post(
         f"/variants/{variant_id}/stock/adjustments",
-        json={"quantity": quantity, "observation": observation},
+        json={"delta": delta, "observation": observation},
         cookies=cookies,
         headers=_auth_headers(cookies),
     )
@@ -172,13 +174,91 @@ def test_admin_can_adjust_stock_since_it_outranks_gerente(client):
     assert response.status_code == 201, response.text
 
 
-def test_cannot_adjust_stock_with_negative_quantity(client):
+def test_negative_delta_subtracts_from_current_stock(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(client, admin_cookies)
+    _adjust_stock(client, admin_cookies, variant_id, 50)
+
+    response = _adjust_stock(client, admin_cookies, variant_id, -20)
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["quantity_before"] == 50
+    assert body["quantity_after"] == 30
+
+
+def test_delta_below_zero_is_rejected_with_the_current_stock_and_changes_nothing(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(client, admin_cookies)
+    _adjust_stock(client, admin_cookies, variant_id, 50)
+
+    response = _adjust_stock(client, admin_cookies, variant_id, -52)
+
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == "No podés descontar más de lo que hay (50)"
+    stock = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies).json()
+    assert stock["quantity"] == 50
+    movements = client.get(f"/variants/{variant_id}/stock/movements", cookies=admin_cookies)
+    assert len(movements.json()) == 1
+
+
+def test_delta_that_leaves_stock_exactly_at_zero_is_accepted(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(client, admin_cookies)
+    _adjust_stock(client, admin_cookies, variant_id, 50)
+
+    response = _adjust_stock(client, admin_cookies, variant_id, -50)
+
+    assert response.status_code == 201, response.text
+    assert response.json()["quantity_after"] == 0
+    stock = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies).json()
+    assert stock["quantity"] == 0
+    assert stock["status"] == "sin_stock"
+
+
+def test_zero_delta_is_rejected(client):
     admin_cookies = _admin_cookies(client)
     variant_id = _setup_variant(client, admin_cookies)
 
-    response = _adjust_stock(client, admin_cookies, variant_id, -5)
+    response = _adjust_stock(client, admin_cookies, variant_id, 0)
 
-    assert response.status_code == 422
+    assert response.status_code == 422, response.text
+    movements = client.get(f"/variants/{variant_id}/stock/movements", cookies=admin_cookies)
+    assert movements.json() == []
+
+
+def test_two_consecutive_deltas_compose(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(client, admin_cookies)
+
+    _adjust_stock(client, admin_cookies, variant_id, 30)
+    response = _adjust_stock(client, admin_cookies, variant_id, 12)
+
+    assert response.status_code == 201, response.text
+    assert response.json()["quantity_before"] == 30
+    assert response.json()["quantity_after"] == 42
+
+
+@pytest.mark.parametrize("delta", [2_147_483_648, -2_147_483_648, 10**30])
+def test_delta_outside_the_column_range_is_rejected_not_a_server_error(client, delta):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(client, admin_cookies)
+
+    response = _adjust_stock(client, admin_cookies, variant_id, delta)
+
+    assert response.status_code == 422, response.text
+
+
+def test_delta_that_overflows_the_column_is_rejected(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(client, admin_cookies)
+    _adjust_stock(client, admin_cookies, variant_id, 2_000_000_000)
+
+    response = _adjust_stock(client, admin_cookies, variant_id, 200_000_000)
+
+    assert response.status_code == 422, response.text
+    stock = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies).json()
+    assert stock["quantity"] == 2_000_000_000
 
 
 def test_stock_status_thresholds(client):
@@ -196,11 +276,11 @@ def test_stock_status_thresholds(client):
     at_minimum = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies).json()
     assert at_minimum["status"] == "stock_bajo"
 
-    _adjust_stock(client, admin_cookies, variant_id, 6)
+    _adjust_stock(client, admin_cookies, variant_id, 1)
     above_minimum = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies).json()
     assert above_minimum["status"] == "normal"
 
-    _adjust_stock(client, admin_cookies, variant_id, 0)
+    _adjust_stock(client, admin_cookies, variant_id, -6)
     empty = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies).json()
     assert empty["status"] == "sin_stock"
 
@@ -210,7 +290,7 @@ def test_list_stock_movements_orders_most_recent_first(client):
     variant_id = _setup_variant(client, admin_cookies)
 
     _adjust_stock(client, admin_cookies, variant_id, 3)
-    _adjust_stock(client, admin_cookies, variant_id, 7)
+    _adjust_stock(client, admin_cookies, variant_id, 4)
 
     response = client.get(f"/variants/{variant_id}/stock/movements", cookies=admin_cookies)
 
@@ -447,7 +527,7 @@ def test_adjust_stock_works_without_reason_and_history_has_no_reason(client):
 
     response = client.post(
         f"/variants/{variant_id}/stock/adjustments",
-        json={"quantity": 12},
+        json={"delta": 12},
         cookies=admin_cookies,
         headers=_auth_headers(admin_cookies),
     )

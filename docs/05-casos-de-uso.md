@@ -111,16 +111,18 @@ El cambio de precio se realiza mediante CU-06 para proteger su historial.
 1. El Usuario localiza el producto.
 2. Selecciona cambiar precio.
 3. El sistema muestra el precio vigente en el negocio activo. Si el producto tiene varias variantes, muestra el precio de cada una e indica si coinciden.
-4. El Usuario ingresa el nuevo precio.
-5. El sistema solicita confirmación mostrando el valor anterior y el nuevo.
+4. El Usuario ingresa cuánto se suma o se resta al precio vigente.
+5. El sistema solicita confirmación mostrando el valor anterior, el resultante y la diferencia con signo.
 6. El Usuario confirma.
-7. El sistema registra el nuevo precio, finaliza la vigencia del anterior y guarda fecha, hora y responsable.
+7. El sistema calcula el precio resultante sobre el valor vigente real, registra el nuevo precio, finaliza la vigencia del anterior y guarda fecha, hora y responsable.
 
 ### Flujos alternativos
 
-- **A1 — Valor inválido:** si el valor es menor o igual que cero, el sistema explica el error y no modifica el precio.
-- **A2 — Precio modificado por otra persona:** el sistema advierte que el dato cambió y muestra el valor vigente antes de permitir una nueva confirmación.
-- **A3 — Un precio para todas las variantes:** el Usuario elige aplicar el importe a todo el producto. El sistema cierra la vigencia anterior y registra el nuevo precio de cada variante dentro de una única operación, de modo que ninguna quede con el valor viejo.
+- **A1 — Valor inválido:** si la diferencia es cero, o si el precio resultante sería menor o igual que cero, el sistema explica el error y no modifica el precio.
+- **A2 — Precio modificado por otra persona:** la diferencia se aplica sobre el valor vigente real y el sistema muestra el precio resultante.
+- **A3 — Un precio para todas las variantes:** el Usuario elige aplicar la diferencia a todo el producto. El sistema cierra la vigencia anterior y registra el nuevo precio de cada variante activa con precio dentro de una única operación, todo o nada: si alguna quedaría en cero o menos no se aplica ninguna y se nombran las variantes. Las variantes sin precio no se tocan y se informan.
+- **A6 — Cambiar todo el precio:** en el cambio de una sola variante, el Usuario puede marcar «Cambiar todo el precio» e indicar el precio final; la interfaz calcula la diferencia con el vigente y la envía como cualquier otro cambio (D-060), de modo que el resultado real puede diferir si otra persona cambió antes. No está disponible al aplicar a todas las variantes.
+- **A5 — Variante sin precio vigente:** el Usuario carga su precio inicial directamente, no una diferencia.
 - **A4 — Precio de una sola variante:** el Usuario elige la variante y cambia únicamente su precio. Las demás conservan el suyo.
 
 ## CU-07 — Consultar historial de precios

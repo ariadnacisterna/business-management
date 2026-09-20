@@ -121,6 +121,11 @@ export interface Price {
   created_at: string
 }
 
+export interface ProductPriceChange {
+  prices: Price[]
+  skipped_variant_ids: number[]
+}
+
 export interface CurrentPrice {
   variant_id: number
   price: Price | null

@@ -397,9 +397,9 @@ export function ProductFormPage() {
             priceFailed = true
           }
         }
-        if (stock !== '') {
+        if (stock !== '' && Number(stock) > 0) {
           try {
-            await adjustStock(variant.id, { quantity: Number(stock) })
+            await adjustStock(variant.id, { delta: Number(stock) })
           } catch {
             stockFailed = true
           }

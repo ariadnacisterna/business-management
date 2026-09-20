@@ -516,6 +516,30 @@ def get_product(db: Session, business_id: int, product_id: int) -> Product:
     return product
 
 
+def get_variant_for_update(db: Session, business_id: int, variant_id: int) -> Variant:
+    get_variant(db, business_id, variant_id)
+    return db.execute(
+        select(Variant)
+        .where(Variant.id == variant_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).scalar_one()
+
+
+def get_variants_for_update(db: Session, variant_ids: list[int]) -> list[Variant]:
+    return list(
+        db.execute(
+            select(Variant)
+            .where(Variant.id.in_(variant_ids))
+            .order_by(Variant.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        .scalars()
+        .all()
+    )
+
+
 def get_variant(db: Session, business_id: int, variant_id: int) -> Variant:
     variant = db.get(Variant, variant_id)
     if variant is None or variant.product.business_id != business_id:

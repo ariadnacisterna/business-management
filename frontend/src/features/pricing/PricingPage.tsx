@@ -6,6 +6,7 @@ import {
   fetchProductsPage,
   fetchVariantCurrentPrice,
   fetchVariantPriceHistory,
+  setInitialVariantPrice,
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Category, Price, Product, Variant } from '../../api/types'
@@ -23,9 +24,18 @@ import { ProductThumbnail } from '../../shared/ProductThumbnail'
 import { PriceInput } from '../../shared/PriceInput'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { AllVariantsPreview, DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
+import {
+  deltaToApi,
+  describeChange,
+  evaluateDelta,
+  evaluateForAll,
+  evaluateTargetPrice,
+  formatSignedDelta,
+} from '../../shared/signedDelta'
 import { useToast } from '../../shared/Toast'
 import { firstName } from '../../shared/formatName'
-import { formatPrice } from '../../shared/formatPrice'
+import { formatPrice, formatPriceExact } from '../../shared/formatPrice'
 import { formatDateTime } from '../../shared/formatDateTime'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 import { useScrollbar } from '../../shared/useScrollbar'
@@ -46,19 +56,17 @@ interface VariantConfirmState {
   kind: 'variant'
   product: Product
   variant: Variant
-  newAmount: string
-  expectedPriceId: number | null
   currentAmount: string | null
-  conflictMessage: string | null
+  delta: number | null
+  initialAmount: string | null
 }
 
 interface ProductConfirmState {
   kind: 'product'
   product: Product
-  variants: Variant[]
-  newAmount: string
-  expectedPriceIds: Record<number, number | null>
-  conflictMessage: string | null
+  delta: number
+  priced: { variant: Variant; currentAmount: string }[]
+  skipped: Variant[]
 }
 
 type ConfirmState = VariantConfirmState | ProductConfirmState
@@ -71,9 +79,161 @@ interface HistoryState {
 }
 
 const inputClasses =
-  'h-12 w-40 rounded-lg border border-line bg-surface pl-7 pr-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
+  'h-12 w-full rounded-lg border border-line bg-surface pl-7 pr-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
 const editedInputClasses =
-  'h-12 w-40 rounded-lg border-2 border-brand bg-surface pl-7 pr-3 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-brand/10'
+  'h-12 w-full rounded-lg border-2 border-brand bg-surface pl-7 pr-3 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-brand/10'
+const initialInputClasses =
+  'h-12 w-full rounded-lg border border-line bg-surface pl-7 pr-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
+const activeButtonClasses =
+  'h-12 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90'
+const inactiveButtonClasses = 'h-12 cursor-not-allowed rounded-lg bg-line px-5 text-base font-bold text-ink/40'
+
+function VariantPriceEditor({
+  product,
+  variant,
+  currentPrice,
+  draft,
+  onDraftChange,
+  onRequest,
+}: {
+  product: Product
+  variant: Variant
+  currentPrice: Price | null
+  draft: string
+  onDraftChange: (value: string) => void
+  onRequest: (delta: number | null, initialAmount: string | null) => void
+}) {
+  const [wholePrice, setWholePrice] = useState(false)
+  const subject = `${product.name} ${variantLabel(variant)}`
+
+  if (currentPrice === null) {
+    const trimmed = draft.trim()
+    const ready = trimmed !== '' && Number(trimmed) > 0
+    return (
+      <div className="grid w-full grid-cols-2 items-start gap-2">
+        <PriceInput
+          value={draft}
+          onChange={onDraftChange}
+          ariaLabel={`Precio inicial para ${subject}`}
+          className={initialInputClasses}
+        />
+        <button
+          type="button"
+          disabled={!ready}
+          onClick={() => onRequest(null, trimmed)}
+          className={ready ? activeButtonClasses : inactiveButtonClasses}
+        >
+          Cargar precio
+        </button>
+      </div>
+    )
+  }
+
+  const evaluation = wholePrice
+    ? evaluateTargetPrice(currentPrice.amount, draft)
+    : evaluateDelta('price', currentPrice.amount, draft)
+  const ready = evaluation.state === 'ready'
+  const fieldClassName = ready ? editedInputClasses : inputClasses
+
+  function toggleWholePrice(checked: boolean) {
+    setWholePrice(checked)
+    onDraftChange('')
+  }
+
+  return (
+    <div className="flex w-full flex-col gap-2">
+      <div className="grid grid-cols-2 items-start gap-2">
+        {wholePrice ? (
+          <PriceInput
+            value={draft}
+            onChange={onDraftChange}
+            ariaLabel={`Precio nuevo para ${subject}`}
+            className={fieldClassName}
+          />
+        ) : (
+          <SignedDeltaInput
+            kind="price"
+            value={draft}
+            onChange={onDraftChange}
+            ariaLabel={`Cuánto sumar o restar a ${subject}`}
+            className={fieldClassName}
+          />
+        )}
+        <button
+          type="button"
+          disabled={!ready}
+          onClick={() => onRequest(evaluation.delta, null)}
+          className={ready ? activeButtonClasses : inactiveButtonClasses}
+        >
+          Actualizar
+        </button>
+      </div>
+      <label className="flex items-center gap-2 text-lg text-ink/60">
+        <input
+          type="checkbox"
+          checked={wholePrice}
+          onChange={(event) => toggleWholePrice(event.target.checked)}
+          className="checkbox-brand"
+        />
+        Cambiar todo el precio
+      </label>
+      {evaluation.state !== 'empty' && (
+        <DeltaPreview kind="price" current={currentPrice.amount} evaluation={evaluation} />
+      )}
+    </div>
+  )
+}
+
+function ProductPriceEditor({
+  product,
+  variants,
+  pricesByVariant,
+  draft,
+  onDraftChange,
+  onRequest,
+}: {
+  product: Product
+  variants: Variant[]
+  pricesByVariant: Map<number, Price | null>
+  draft: string
+  onDraftChange: (value: string) => void
+  onRequest: (delta: number) => void
+}) {
+  const priced = variants.flatMap((variant) => {
+    const price = pricesByVariant.get(variant.id)
+    return price === null || price === undefined ? [] : [{ variant, currentAmount: price.amount }]
+  })
+  const skipped = variants.filter((variant) => (pricesByVariant.get(variant.id) ?? null) === null)
+  const evaluation = evaluateForAll(
+    priced.map((entry) => ({ label: variantLabel(entry.variant), current: entry.currentAmount })),
+    draft,
+  )
+  const editing =
+    evaluation.entries.length === 0 ? draft.trim() !== '' : evaluation.entries[0].evaluation.state !== 'empty'
+
+  return (
+    <div className="flex w-full flex-col gap-2">
+      <div className="grid grid-cols-2 items-start gap-2">
+        <SignedDeltaInput
+          kind="price"
+          value={draft}
+          onChange={onDraftChange}
+          ariaLabel={`Cuánto sumar o restar a todas las variantes de ${product.name}`}
+          className={evaluation.ready ? editedInputClasses : inputClasses}
+        />
+        <button
+          type="button"
+          disabled={!evaluation.ready}
+          onClick={() => onRequest(evaluation.delta ?? 0)}
+          className={evaluation.ready ? activeButtonClasses : inactiveButtonClasses}
+        >
+          Actualizar todas
+        </button>
+      </div>
+      {editing && <AllVariantsPreview evaluation={evaluation} skippedLabels={skipped.map(variantLabel)} />}
+    </div>
+  )
+}
 
 export function PricingPage() {
   const { account } = useAuth()
@@ -193,34 +353,27 @@ export function PricingPage() {
     return `${formatRelativeTime(price.effective_from)} por ${firstName(price.created_by_account_name)}`
   }
 
-  function startVariantChange(product: Product, variant: Variant) {
-    const trimmed = draftFor(variant.id).trim()
-    if (trimmed === '') return
+  function startVariantChange(product: Product, variant: Variant, delta: number | null, initialAmount: string | null) {
     setConfirmState({
       kind: 'variant',
       product,
       variant,
-      newAmount: trimmed,
-      expectedPriceId: pricesByVariant.get(variant.id)?.id ?? null,
       currentAmount: pricesByVariant.get(variant.id)?.amount ?? null,
-      conflictMessage: null,
+      delta,
+      initialAmount,
     })
   }
 
-  function startProductChange(product: Product, variants: Variant[]) {
-    const trimmed = (productDrafts.get(product.id) ?? '').trim()
-    if (trimmed === '') return
-    const expectedPriceIds: Record<number, number | null> = {}
-    for (const variant of variants) {
-      expectedPriceIds[variant.id] = pricesByVariant.get(variant.id)?.id ?? null
-    }
+  function startProductChange(product: Product, variants: Variant[], delta: number) {
     setConfirmState({
       kind: 'product',
       product,
-      variants,
-      newAmount: trimmed,
-      expectedPriceIds,
-      conflictMessage: null,
+      delta,
+      priced: variants.flatMap((variant) => {
+        const price = pricesByVariant.get(variant.id)
+        return price === null || price === undefined ? [] : [{ variant, currentAmount: price.amount }]
+      }),
+      skipped: variants.filter((variant) => (pricesByVariant.get(variant.id) ?? null) === null),
     })
   }
 
@@ -230,11 +383,14 @@ export function PricingPage() {
 
     try {
       if (confirmState.kind === 'variant') {
-        const price = await changeVariantPrice(
-          confirmState.variant.id,
-          confirmState.newAmount,
-          confirmState.expectedPriceId,
-        )
+        const previousAmount = confirmState.currentAmount
+        const price =
+          confirmState.initialAmount !== null
+            ? await setInitialVariantPrice(confirmState.variant.id, confirmState.initialAmount)
+            : await changeVariantPrice(
+                confirmState.variant.id,
+                String(deltaToApi('price', confirmState.delta ?? 0)),
+              )
         setPricesByVariant((prev) => new Map(prev).set(price.variant_id, price))
         setDrafts((prev) => {
           const next = new Map(prev)
@@ -242,12 +398,15 @@ export function PricingPage() {
           return next
         })
         setConfirmState(null)
-        showSuccess('Precio actualizado.')
+        showSuccess(
+          previousAmount === null
+            ? `Precio inicial cargado: ${formatPriceExact(price.amount)}.`
+            : `Precio actualizado: ${formatPriceExact(previousAmount)} → ${formatPriceExact(price.amount)}.`,
+        )
       } else {
         const result = await changeProductPrice(
           confirmState.product.id,
-          confirmState.newAmount,
-          confirmState.expectedPriceIds,
+          String(deltaToApi('price', confirmState.delta)),
         )
         setPricesByVariant((prev) => {
           const next = new Map(prev)
@@ -265,38 +424,18 @@ export function PricingPage() {
           return next
         })
         setConfirmState(null)
-        showSuccess('Precio actualizado para todas las variantes.')
+        const skippedNames = confirmState.skipped
+          .filter((variant) => result.skipped_variant_ids.includes(variant.id))
+          .map(variantLabel)
+        showSuccess(
+          skippedNames.length > 0
+            ? `Precio actualizado en ${result.prices.length} variantes. Se omitieron por no tener precio: ${skippedNames.join(', ')}.`
+            : 'Precio actualizado para todas las variantes.',
+        )
       }
     } catch (error) {
-      if (error instanceof ApiError && error.status === 409 && confirmState.kind === 'variant') {
-        const body = error.body as { current_price?: Price | null } | null
-        const currentPrice = body?.current_price ?? null
-        const conflictMessage =
-          currentPrice !== null
-            ? `El precio cambió a ${formatPrice(currentPrice.amount)} mientras tanto. Confirmá de nuevo para aplicar tu precio.`
-            : 'El precio cambió mientras tanto. Confirmá de nuevo para aplicar tu precio.'
-        setConfirmState({
-          ...confirmState,
-          expectedPriceId: currentPrice?.id ?? null,
-          currentAmount: currentPrice?.amount ?? null,
-          conflictMessage,
-        })
-      } else if (error instanceof ApiError && error.status === 409 && confirmState.kind === 'product') {
-        const body = error.body as { current_prices?: Record<string, Price | null> } | null
-        const currentPrices = body?.current_prices ?? {}
-        const expectedPriceIds: Record<number, number | null> = { ...confirmState.expectedPriceIds }
-        for (const [variantId, price] of Object.entries(currentPrices)) {
-          expectedPriceIds[Number(variantId)] = price?.id ?? null
-        }
-        setConfirmState({
-          ...confirmState,
-          expectedPriceIds,
-          conflictMessage: 'Algunos precios cambiaron mientras tanto. Confirmá de nuevo para aplicar tu precio.',
-        })
-      } else {
-        showError('No se pudo actualizar el precio. Intentá de nuevo.')
-        setConfirmState(null)
-      }
+      showError(error instanceof ApiError ? error.message : 'No se pudo actualizar el precio. Intentá de nuevo.')
+      setConfirmState(null)
     } finally {
       setConfirming(false)
     }
@@ -316,12 +455,22 @@ export function PricingPage() {
   const confirmDescription = (() => {
     if (confirmState === null) return ''
     if (confirmState.kind === 'variant') {
-      const oldLabel = confirmState.currentAmount !== null ? formatPrice(confirmState.currentAmount) : 'sin precio'
-      const base = `"${confirmState.product.name}" (${variantLabel(confirmState.variant)}): de ${oldLabel} a ${formatPrice(confirmState.newAmount)}.`
-      return confirmState.conflictMessage !== null ? `${confirmState.conflictMessage} ${base}` : base
+      const name = `"${confirmState.product.name}" (${variantLabel(confirmState.variant)})`
+      if (confirmState.initialAmount !== null) {
+        return `${name}: precio inicial de ${formatPriceExact(confirmState.initialAmount)}.`
+      }
+      const transition = describeChange('price', confirmState.currentAmount ?? 0, confirmState.delta ?? 0)
+      return `${name}: ${transition}.`
     }
-    const base = `"${confirmState.product.name}" y sus ${confirmState.variants.length} variantes van a pasar a costar ${formatPrice(confirmState.newAmount)}.`
-    return confirmState.conflictMessage !== null ? `${confirmState.conflictMessage} ${base}` : base
+    const lines = confirmState.priced.map((entry) => {
+      const result = Math.round(Number(entry.currentAmount) * 100) + confirmState.delta
+      return `${variantLabel(entry.variant)} ${formatPriceExact(entry.currentAmount)} → ${formatPriceExact(result / 100)}`
+    })
+    const skippedText =
+      confirmState.skipped.length > 0
+        ? ` Sin precio, no se modifican: ${confirmState.skipped.map(variantLabel).join(', ')}.`
+        : ''
+    return `"${confirmState.product.name}": ${lines.join('; ')} (diferencia ${formatSignedDelta('price', confirmState.delta)}).${skippedText}`
   })()
 
   const hasActiveFilters = appliedSearch !== '' || categoryId !== 'all'
@@ -466,26 +615,19 @@ export function PricingPage() {
                             aplicar a las {activeVariants.length} variantes
                           </span>
                         </p>
-                        <PriceInput
-                          value={productDrafts.get(product.id) ?? ''}
-                          onChange={(value) => setProductDrafts((prev) => new Map(prev).set(product.id, value))}
-                          ariaLabel={`Nuevo precio para todas las variantes de ${product.name}`}
-                          className={`${inputClasses} w-full`}
+                        <ProductPriceEditor
+                          product={product}
+                          variants={activeVariants}
+                          pricesByVariant={pricesByVariant}
+                          draft={productDrafts.get(product.id) ?? ''}
+                          onDraftChange={(value) => setProductDrafts((prev) => new Map(prev).set(product.id, value))}
+                          onRequest={(delta) => startProductChange(product, activeVariants, delta)}
                         />
-                        <button
-                          type="button"
-                          disabled={(productDrafts.get(product.id) ?? '').trim() === ''}
-                          onClick={() => startProductChange(product, activeVariants)}
-                          className="h-12 w-full rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-line disabled:text-ink/40"
-                        >
-                          Actualizar todas
-                        </button>
                       </div>
                     )}
                     {activeVariants.map((variant) => {
                       const currentPrice = pricesByVariant.get(variant.id) ?? null
                       const draft = draftFor(variant.id)
-                      const edited = draft.trim() !== '' && draft.trim() !== (currentPrice?.amount ?? '')
                       return (
                         <div key={variant.id} data-testid="price-row" className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
                           <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
@@ -506,27 +648,16 @@ export function PricingPage() {
                             <FieldRow label="Variante" value={variantLabel(variant)} />
                           </div>
                           {canManage && (
-                            <div className="grid grid-cols-2 gap-2">
-                              <PriceInput
-                                value={draft}
-                                placeholder={currentPrice?.amount}
-                                onChange={(value) => setDraft(variant.id, value)}
-                                ariaLabel={`Nuevo precio para ${product.name} ${variantLabel(variant)}`}
-                                className={`${edited ? editedInputClasses : inputClasses} w-full`}
-                              />
-                              <button
-                                type="button"
-                                disabled={!edited}
-                                onClick={() => startVariantChange(product, variant)}
-                                className={
-                                  edited
-                                    ? 'h-12 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90'
-                                    : 'h-12 cursor-not-allowed rounded-lg bg-line px-5 text-base font-bold text-ink/40'
-                                }
-                              >
-                                Actualizar
-                              </button>
-                            </div>
+                            <VariantPriceEditor
+                              product={product}
+                              variant={variant}
+                              currentPrice={currentPrice}
+                              draft={draft}
+                              onDraftChange={(value) => setDraft(variant.id, value)}
+                              onRequest={(delta, initialAmount) =>
+                                startVariantChange(product, variant, delta, initialAmount)
+                              }
+                            />
                           )}
                           {canManage && <FieldRow label="Último cambio" value={lastChangeLabel(variant.id)} />}
                           {canManage && (
@@ -593,7 +724,7 @@ export function PricingPage() {
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Variante</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Precio actual</th>
                     {canManage && (
-                      <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Nuevo precio</th>
+                      <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Sumar o restar</th>
                     )}
                     {canManage && (
                       <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Último cambio</th>
@@ -617,34 +748,25 @@ export function PricingPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3" />
-                            <td className="px-4 py-3">
-                              <PriceInput
-                                value={productDrafts.get(product.id) ?? ''}
-                                onChange={(value) =>
+                            <td className="min-w-64 px-4 py-3 align-top">
+                              <ProductPriceEditor
+                                product={product}
+                                variants={activeVariants}
+                                pricesByVariant={pricesByVariant}
+                                draft={productDrafts.get(product.id) ?? ''}
+                                onDraftChange={(value) =>
                                   setProductDrafts((prev) => new Map(prev).set(product.id, value))
                                 }
-                                ariaLabel={`Nuevo precio para todas las variantes de ${product.name}`}
-                                className={inputClasses}
+                                onRequest={(delta) => startProductChange(product, activeVariants, delta)}
                               />
                             </td>
-                            <td className="px-4 py-3" />
-                            <td className="px-4 py-3">
-                              <button
-                                type="button"
-                                disabled={(productDrafts.get(product.id) ?? '').trim() === ''}
-                                onClick={() => startProductChange(product, activeVariants)}
-                                className="h-12 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-line disabled:text-ink/40"
-                              >
-                                Actualizar todas
-                              </button>
-                            </td>
+                            <td colSpan={2} className="px-4 py-3" />
                           </tr>
                         )}
                         {activeVariants.map((variant) => {
                           const currentPrice = pricesByVariant.get(variant.id) ?? null
                           const draft = draftFor(variant.id)
-                          const edited = draft.trim() !== '' && draft.trim() !== (currentPrice?.amount ?? '')
-                          return (
+                              return (
                             <tr key={variant.id} data-testid="price-row" className="border-t border-line transition-colors hover:bg-surface-brand/60">
                               <td className="px-4 py-3.5">
                                 <ProductThumbnail imageUrl={product.image_url} name={product.name} sizeClassName="h-12 w-12" />
@@ -662,28 +784,17 @@ export function PricingPage() {
                                 )}
                               </td>
                               {canManage && (
-                                <td className="px-4 py-3.5">
-                                  <div className="flex items-center gap-2">
-                                    <PriceInput
-                                      value={draft}
-                                      placeholder={currentPrice?.amount}
-                                      onChange={(value) => setDraft(variant.id, value)}
-                                      ariaLabel={`Nuevo precio para ${product.name} ${variantLabel(variant)}`}
-                                      className={edited ? editedInputClasses : inputClasses}
-                                    />
-                                    <button
-                                      type="button"
-                                      disabled={!edited}
-                                      onClick={() => startVariantChange(product, variant)}
-                                      className={
-                                        edited
-                                          ? 'h-12 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90'
-                                          : 'h-12 cursor-not-allowed rounded-lg bg-line px-5 text-base font-bold text-ink/40'
-                                      }
-                                    >
-                                      Actualizar
-                                    </button>
-                                  </div>
+                                <td className="min-w-64 px-4 py-3.5 align-top">
+                                  <VariantPriceEditor
+                                    product={product}
+                                    variant={variant}
+                                    currentPrice={currentPrice}
+                                    draft={draft}
+                                    onDraftChange={(value) => setDraft(variant.id, value)}
+                                    onRequest={(delta, initialAmount) =>
+                                      startVariantChange(product, variant, delta, initialAmount)
+                                    }
+                                  />
                                 </td>
                               )}
                               {canManage && (

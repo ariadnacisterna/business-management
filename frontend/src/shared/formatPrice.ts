@@ -17,3 +17,8 @@ export function formatPrice(amount: number | string): string {
   const hasDecimals = Math.round(value * 100) % 100 !== 0
   return hasDecimals ? decimalFormatter.format(value) : integerFormatter.format(value)
 }
+
+export function formatPriceExact(amount: number | string): string {
+  const value = typeof amount === 'string' ? Number(amount) : amount
+  return decimalFormatter.format(value)
+}

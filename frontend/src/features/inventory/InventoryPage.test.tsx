@@ -187,67 +187,151 @@ describe('InventoryPage', () => {
     expect(screen.queryByText('Resultado viejo')).not.toBeInTheDocument()
   })
 
-  it('enables Actualizar only once a different quantity is set, and adjusts stock on confirm', async () => {
+  const SUM_LABEL = /Cuánto sumar o restar a Hilo blanco/
+
+  function movementResponse(before: number, after: number) {
+    return jsonResponse({
+      id: 99,
+      variant_id: 10,
+      quantity_before: before,
+      quantity_after: after,
+      observation: null,
+      created_at: '2026-01-01T00:00:00Z',
+      created_by_account_id: 1,
+      created_by_account_name: 'Ada Lovelace',
+    })
+  }
+
+  it('adds a typed amount to the current stock, previews the result and adjusts on confirm', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
     renderPage()
 
     await screen.findAllByText('Hilo blanco')
 
-    const quantityInput = screen.getAllByLabelText(/Cantidad nueva para Hilo blanco/)[0]
-    const row = quantityInput.closest('div')?.parentElement as HTMLElement
+    const deltaInput = screen.getAllByLabelText(SUM_LABEL)[0]
+    const row = deltaInput.closest('[data-testid="stock-editor"]') as HTMLElement
     const updateButton = within(row).getByRole('button', { name: 'Actualizar' })
     expect(updateButton).toBeDisabled()
+    expect(within(row).queryByTestId('delta-preview')).not.toBeInTheDocument()
 
-    await user.clear(quantityInput)
-    await user.type(quantityInput, '8')
+    await user.type(deltaInput, '6')
+    expect(within(row).getByTestId('delta-preview')).toHaveTextContent('Stock: 2 → 8')
     expect(updateButton).not.toBeDisabled()
     expect(screen.queryByRole('button', { name: /Motivo del ajuste/ })).not.toBeInTheDocument()
 
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse({
-        id: 99,
-        variant_id: 10,
-        quantity_before: 2,
-        quantity_after: 8,
-        observation: null,
-        created_at: '2026-01-01T00:00:00Z',
-        created_by_account_id: 1,
-        created_by_account_name: 'Ada Lovelace',
-      }),
-    )
+    fetchMock.mockResolvedValueOnce(movementResponse(2, 8))
     fetchMock.mockResolvedValueOnce(jsonResponse({ ...STOCK, quantity: 8, status: 'normal' }))
     fetchMock.mockResolvedValueOnce(jsonResponse(summaryFor([{ status: 'normal' }])))
 
     await user.click(updateButton)
-    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('2 → 8 (diferencia +6)')
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Ajustar' }))
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
+    expect(screen.getByText('Stock ajustado: 2 → 8.')).toBeInTheDocument()
+    const adjustCall = fetchMock.mock.calls.find((call) => call[0] === '/variants/10/stock/adjustments')
+    expect(JSON.parse(adjustCall?.[1]?.body as string)).toEqual({ delta: 6 })
   })
 
-  it('shows an error message and keeps Actualizar disabled when the new quantity is negative', async () => {
+  it('subtracts a negative amount typed with the minus sign', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage()
+
+    await screen.findAllByText('Hilo blanco')
+
+    const deltaInput = screen.getAllByLabelText(SUM_LABEL)[0]
+    const row = deltaInput.closest('[data-testid="stock-editor"]') as HTMLElement
+    await user.type(deltaInput, '-1')
+    expect(within(row).getByTestId('delta-preview')).toHaveTextContent('Stock: 2 → 1')
+
+    fetchMock.mockResolvedValueOnce(movementResponse(2, 1))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...STOCK, quantity: 1 }))
+    fetchMock.mockResolvedValueOnce(jsonResponse(summaryFor([{ status: 'stock_bajo' }])))
+    await user.click(within(row).getByRole('button', { name: 'Actualizar' }))
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('2 → 1 (diferencia -1)')
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Ajustar' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    const adjustCall = fetchMock.mock.calls.find((call) => call[0] === '/variants/10/stock/adjustments')
+    expect(JSON.parse(adjustCall?.[1]?.body as string)).toEqual({ delta: -1 })
+  })
+
+  it('changes the whole quantity when the option is checked, sending the difference to the server', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(GERENTE_ACCOUNT, { ...STOCK_ROW, quantity: 50, status: 'normal' })
+
+    await screen.findAllByText('Hilo blanco')
+    const row = screen.getAllByLabelText(SUM_LABEL)[0].closest('[data-testid="stock-editor"]') as HTMLElement
+
+    await user.click(within(row).getByLabelText('Cambiar toda la cantidad'))
+    const wholeInput = within(row).getByLabelText(/Cantidad nueva para Hilo blanco/)
+    await user.type(wholeInput, '-')
+    expect(wholeInput).toHaveValue('')
+    await user.type(wholeInput, '42')
+    expect(within(row).getByTestId('delta-preview')).toHaveTextContent('Stock: 50 → 42')
+
+    fetchMock.mockResolvedValueOnce(movementResponse(50, 42))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...STOCK, quantity: 42, status: 'normal' }))
+    fetchMock.mockResolvedValueOnce(jsonResponse(summaryFor([{ status: 'normal' }])))
+    await user.click(within(row).getByRole('button', { name: 'Actualizar' }))
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('50 → 42 (diferencia -8)')
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Ajustar' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    const adjustCall = fetchMock.mock.calls.find((call) => call[0] === '/variants/10/stock/adjustments')
+    expect(JSON.parse(adjustCall?.[1]?.body as string)).toEqual({ delta: -8 })
+  })
+
+  it('rejects a whole quantity equal to the current one', async () => {
+    const user = userEvent.setup()
+    renderPage(GERENTE_ACCOUNT, { ...STOCK_ROW, quantity: 50, status: 'normal' })
+
+    await screen.findAllByText('Hilo blanco')
+    const row = screen.getAllByLabelText(SUM_LABEL)[0].closest('[data-testid="stock-editor"]') as HTMLElement
+    await user.click(within(row).getByLabelText('Cambiar toda la cantidad'))
+    await user.type(within(row).getByLabelText(/Cantidad nueva para Hilo blanco/), '50')
+
+    expect(within(row).getByRole('alert')).toHaveTextContent('La cantidad nueva es igual a la actual.')
+    expect(within(row).getByRole('button', { name: 'Actualizar' })).toBeDisabled()
+  })
+
+  it('rejects taking out more than there is and accepts leaving exactly zero', async () => {
+    const user = userEvent.setup()
+    renderPage(GERENTE_ACCOUNT, { ...STOCK_ROW, quantity: 50, status: 'normal' })
+
+    await screen.findAllByText('Hilo blanco')
+
+    const deltaInput = screen.getAllByLabelText(SUM_LABEL)[0]
+    const row = deltaInput.closest('[data-testid="stock-editor"]') as HTMLElement
+    const updateButton = within(row).getByRole('button', { name: 'Actualizar' })
+
+    await user.type(deltaInput, '-52')
+    expect(within(row).getByRole('alert')).toHaveTextContent('No podés descontar más de lo que hay (50)')
+    expect(updateButton).toBeDisabled()
+
+    await user.clear(deltaInput)
+    await user.type(deltaInput, '-50')
+    expect(within(row).queryByRole('alert')).not.toBeInTheDocument()
+    expect(within(row).getByTestId('delta-preview')).toHaveTextContent('Stock: 50 → 0')
+    expect(updateButton).not.toBeDisabled()
+  })
+
+  it('rejects a zero adjustment', async () => {
     const user = userEvent.setup()
     renderPage()
 
     await screen.findAllByText('Hilo blanco')
 
-    const quantityInput = screen.getAllByLabelText(/Cantidad nueva para Hilo blanco/)[0]
-    const row = quantityInput.closest('div')?.parentElement as HTMLElement
-    const updateButton = within(row).getByRole('button', { name: 'Actualizar' })
+    const deltaInput = screen.getAllByLabelText(SUM_LABEL)[0]
+    const row = deltaInput.closest('[data-testid="stock-editor"]') as HTMLElement
+    await user.type(deltaInput, '0')
 
-    await user.clear(quantityInput)
-    await user.type(quantityInput, '-50')
-
-    expect(within(row).getByRole('alert')).toHaveTextContent('La cantidad no puede ser negativa.')
-    expect(updateButton).toBeDisabled()
-
-    await user.clear(quantityInput)
-    await user.type(quantityInput, '8')
-
-    expect(within(row).queryByRole('alert')).not.toBeInTheDocument()
-    expect(updateButton).not.toBeDisabled()
+    expect(within(row).getByRole('alert')).toHaveTextContent('El ajuste no puede ser cero.')
+    expect(within(row).getByRole('button', { name: 'Actualizar' })).toBeDisabled()
   })
 
   it('treats the adjustment as successful even when the refetch afterward fails', async () => {
@@ -259,25 +343,13 @@ describe('InventoryPage', () => {
 
     await screen.findAllByText('Hilo blanco')
 
-    const quantityInput = screen.getAllByLabelText(/Cantidad nueva para Hilo blanco/)[0]
-    const row = quantityInput.closest('div')?.parentElement as HTMLElement
+    const deltaInput = screen.getAllByLabelText(SUM_LABEL)[0]
+    const row = deltaInput.closest('[data-testid="stock-editor"]') as HTMLElement
     const updateButton = within(row).getByRole('button', { name: 'Actualizar' })
 
-    await user.clear(quantityInput)
-    await user.type(quantityInput, '8')
+    await user.type(deltaInput, '6')
 
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse({
-        id: 99,
-        variant_id: 10,
-        quantity_before: 2,
-        quantity_after: 8,
-        observation: null,
-        created_at: '2026-01-01T00:00:00Z',
-        created_by_account_id: 1,
-        created_by_account_name: 'Ada Lovelace',
-      }),
-    )
+    fetchMock.mockResolvedValueOnce(movementResponse(2, 8))
     fetchMock.mockRejectedValueOnce(new Error('network error'))
     fetchMock.mockResolvedValueOnce(jsonResponse(summaryFor([{ status: 'normal' }])))
 
@@ -296,7 +368,7 @@ describe('InventoryPage', () => {
     renderPage(EMPLEADO_ACCOUNT)
 
     await screen.findAllByText('Hilo blanco')
-    expect(screen.queryByLabelText(/Cantidad nueva para Hilo blanco/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Cuánto sumar o restar a Hilo blanco/)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/Ver historial de stock/)).not.toBeInTheDocument()
   })
 
