@@ -9,7 +9,6 @@ import type {
   CustomerBalance,
   CustomerBalanceSummary,
   CustomerWithBalance,
-  MovementReason,
   Price,
   Product,
   ProductCreationResult,
@@ -342,33 +341,13 @@ export function createCredit(customerId: number, type: string, amount: string): 
   })
 }
 
-export function fetchMovementReasons(): Promise<MovementReason[]> {
-  return apiFetch<MovementReason[]>('/movement-reasons')
-}
-
-export function createMovementReason(name: string): Promise<MovementReason> {
-  return apiFetch<MovementReason>('/movement-reasons', { method: 'POST', body: JSON.stringify({ name }) })
-}
-
-export function updateMovementReason(id: number, name: string): Promise<MovementReason> {
-  return apiFetch<MovementReason>(`/movement-reasons/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) })
-}
-
-export function deactivateMovementReason(id: number): Promise<MovementReason> {
-  return apiFetch<MovementReason>(`/movement-reasons/${id}/deactivate`, { method: 'POST' })
-}
-
-export function reactivateMovementReason(id: number): Promise<MovementReason> {
-  return apiFetch<MovementReason>(`/movement-reasons/${id}/reactivate`, { method: 'POST' })
-}
-
 export function fetchStock(variantId: number): Promise<Stock> {
   return apiFetch<Stock>(`/variants/${variantId}/stock`)
 }
 
 export function adjustStock(
   variantId: number,
-  input: { quantity: number; reason_id: number; observation?: string },
+  input: { quantity: number; observation?: string },
 ): Promise<StockMovement> {
   return apiFetch<StockMovement>(`/variants/${variantId}/stock/adjustments`, {
     method: 'POST',

@@ -7,7 +7,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.constants.limits import OBSERVATION_MAX_LENGTH
 
 if TYPE_CHECKING:
-    from app.db.models.movement_reason import MovementReason
     from app.db.models.variant import Variant
 
 from app.db.base import Base
@@ -29,7 +28,6 @@ class StockMovement(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     variant_id: Mapped[int] = mapped_column(ForeignKey("variant.id"), nullable=False)
-    reason_id: Mapped[int] = mapped_column(ForeignKey("movement_reason.id"), nullable=False)
     quantity_before: Mapped[int] = mapped_column(Integer, nullable=False)
     quantity_after: Mapped[int] = mapped_column(Integer, nullable=False)
     observation: Mapped[str | None] = mapped_column(String(OBSERVATION_MAX_LENGTH), nullable=True)
@@ -37,4 +35,3 @@ class StockMovement(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     variant: Mapped["Variant"] = relationship(back_populates="stock_movements")
-    reason: Mapped["MovementReason"] = relationship(back_populates="stock_movements")

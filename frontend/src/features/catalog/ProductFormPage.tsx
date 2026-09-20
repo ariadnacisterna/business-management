@@ -3,12 +3,10 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import {
   adjustStock,
   createCategory,
-  createMovementReason,
   createProduct,
   createUnit,
   fetchAttributes,
   fetchCategories,
-  fetchMovementReasons,
   fetchProductsPage,
   fetchProviders,
   fetchUnits,
@@ -18,7 +16,7 @@ import {
   uploadProductImage,
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
-import type { Attribute, Category, MovementReason, Provider, Unit, Variant } from '../../api/types'
+import type { Attribute, Category, Provider, Unit, Variant } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { normalizeForComparison } from '../../shared/normalizeForComparison'
@@ -43,7 +41,6 @@ const PRICE_SAVE_ERROR_MESSAGE = 'El producto se creó, pero no se pudo guardar 
 const STOCK_ADJUST_ERROR_MESSAGE = 'El producto se creó, pero no se pudo cargar el stock inicial.'
 const MINIMUM_STOCK_ERROR_MESSAGE = 'El producto se creó, pero no se pudo definir el stock mínimo.'
 const CHECK_DUPLICATE_NAME_ERROR_MESSAGE = 'No se pudo verificar si el nombre está repetido. El producto se guardará igual.'
-const INITIAL_STOCK_REASON_NAME = 'Carga inicial'
 
 const CREATE_NEW_OPTION = '__create__'
 
@@ -124,7 +121,6 @@ export function ProductFormPage() {
   const [units, setUnits] = useState<Unit[]>([])
   const [attributes, setAttributes] = useState<Attribute[]>([])
   const [providers, setProviders] = useState<Provider[]>([])
-  const [reasons, setReasons] = useState<MovementReason[]>([])
   const [loadStatus, setLoadStatus] = useState<'loading' | 'success' | 'error'>('loading')
 
   const [step, setStep] = useState<1 | 2 | 3>(1)
@@ -172,27 +168,15 @@ export function ProductFormPage() {
       fetchUnits(),
       fetchAttributes(),
       canViewProviders ? fetchProviders() : Promise.resolve([]),
-      fetchMovementReasons(),
     ])
-      .then(([categoryList, unitList, attributeList, providerList, reasonList]) => {
+      .then(([categoryList, unitList, attributeList, providerList]) => {
         setCategories(categoryList.filter((category) => category.status === 'active'))
         setUnits(unitList.filter((unit) => unit.status === 'active'))
         setAttributes(attributeList.filter((attribute) => attribute.status === 'active'))
         setProviders(providerList.filter((provider) => provider.status === 'active'))
-        setReasons(reasonList)
         setLoadStatus('success')
       })
       .catch(() => setLoadStatus('error'))
-  }
-
-  async function resolveInitialStockReasonId(): Promise<number> {
-    const existing = reasons.find(
-      (reason) => reason.status === 'active' && reason.name.trim().toLowerCase() === INITIAL_STOCK_REASON_NAME.toLowerCase(),
-    )
-    if (existing !== undefined) return existing.id
-    const created = await createMovementReason(INITIAL_STOCK_REASON_NAME)
-    setReasons((prev) => [...prev, created])
-    return created.id
   }
 
   useEffect(loadFormData, [])
@@ -396,7 +380,6 @@ export function ProductFormPage() {
       }
 
       const isSingle = product.variants.length === 1 && product.variants[0].is_implicit
-      let stockReasonId: number | null = null
       let priceFailed = false
       let stockFailed = false
       let minimumFailed = false
@@ -416,8 +399,7 @@ export function ProductFormPage() {
         }
         if (stock !== '') {
           try {
-            if (stockReasonId === null) stockReasonId = await resolveInitialStockReasonId()
-            await adjustStock(variant.id, { quantity: Number(stock), reason_id: stockReasonId })
+            await adjustStock(variant.id, { quantity: Number(stock) })
           } catch {
             stockFailed = true
           }

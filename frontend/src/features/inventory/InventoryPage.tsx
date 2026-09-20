@@ -2,9 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   adjustStock,
   changeShortageStatus,
-  createMovementReason,
   fetchCategories,
-  fetchMovementReasons,
   fetchShortages,
   fetchStock,
   fetchStockMovements,
@@ -13,7 +11,7 @@ import {
   setMinimumStock,
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
-import type { Category, MovementReason, Shortage, Stock, StockMovement, Unit } from '../../api/types'
+import type { Category, Shortage, Stock, StockMovement, Unit } from '../../api/types'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { CloseButton } from '../../shared/CloseButton'
 import { FieldRow } from '../../shared/FieldRow'
@@ -44,18 +42,13 @@ const LOAD_ERROR_MESSAGE = 'No se pudo cargar el inventario.'
 const SAVE_ERROR_MESSAGE = 'No se pudo guardar el ajuste. Intentá de nuevo.'
 const REFRESH_AFTER_ADJUST_WARNING_MESSAGE =
   'El ajuste se guardó, pero la fila puede no reflejarlo hasta el próximo refresco.'
-const CREATE_REASON_ERROR_MESSAGE = 'No se pudo crear el motivo. Intentá de nuevo.'
 const HISTORY_LOAD_ERROR_MESSAGE = 'No se pudo cargar el historial.'
 const MINIMUM_SAVE_ERROR_MESSAGE = 'No se pudo guardar el stock mínimo. Intentá de nuevo.'
-
-const CREATE_NEW_REASON_OPTION = '__create__'
 
 const inputClasses =
   'h-12 w-full rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
 const editedInputClasses =
   'h-12 w-full rounded-lg border-2 border-brand bg-surface px-3 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-brand/10'
-const secondaryButtonClasses =
-  'h-12 rounded-lg border border-line px-5 text-base font-semibold transition-colors hover:bg-surface-brand'
 
 
 function variantLabel(row: StockRow): string {
@@ -207,56 +200,35 @@ function MinimumStockEditor({
   )
 }
 
+function quantityErrorMessage(quantity: string, parsedQuantity: number): string | null {
+  if (quantity.trim() === '') return null
+  if (!Number.isInteger(parsedQuantity)) return 'Ingresá un número entero.'
+  if (parsedQuantity < 0) return 'La cantidad no puede ser negativa.'
+  return null
+}
+
 function StockRowEditor({
   row,
-  reasons,
-  onReasonCreated,
   onRequestAdjust,
 }: {
   row: StockRow
-  reasons: MovementReason[]
-  onReasonCreated: (reason: MovementReason) => void
-  onRequestAdjust: (quantity: number, reasonId: number) => void
+  onRequestAdjust: (quantity: number) => void
 }) {
-  const activeReasons = reasons.filter((reason) => reason.status === 'active')
   const [quantity, setQuantity] = useState('')
-  const [reasonId, setReasonId] = useState('')
-  const [creatingReason, setCreatingReason] = useState(false)
-  const [newReasonName, setNewReasonName] = useState('')
-  const [savingNewReason, setSavingNewReason] = useState(false)
-  const [newReasonError, setNewReasonError] = useState<string | null>(null)
 
   useEffect(() => {
     setQuantity('')
-    setReasonId('')
   }, [row.quantity])
-
-  async function handleCreateReason() {
-    const trimmed = newReasonName.trim()
-    if (trimmed === '') return
-    setSavingNewReason(true)
-    setNewReasonError(null)
-    try {
-      const created = await createMovementReason(trimmed)
-      onReasonCreated(created)
-      setReasonId(String(created.id))
-      setCreatingReason(false)
-      setNewReasonName('')
-    } catch (error) {
-      setNewReasonError(error instanceof ApiError ? error.message : CREATE_REASON_ERROR_MESSAGE)
-    } finally {
-      setSavingNewReason(false)
-    }
-  }
 
   const parsedQuantity = Number(quantity)
   const quantityValid =
     quantity.trim() !== '' && Number.isInteger(parsedQuantity) && parsedQuantity >= 0
-  const edited = quantityValid && parsedQuantity !== row.quantity && reasonId !== ''
+  const edited = quantityValid && parsedQuantity !== row.quantity
+  const quantityError = quantityErrorMessage(quantity, parsedQuantity)
 
   return (
     <div className="flex w-full flex-col gap-2">
-      <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[96px_1fr_110px]">
+      <div className="grid grid-cols-2 gap-2">
         <input
           type="number"
           min={0}
@@ -265,76 +237,26 @@ function StockRowEditor({
           placeholder={String(row.quantity)}
           onChange={(event) => setQuantity(event.target.value)}
           aria-label={`Cantidad nueva para ${variantLabel(row)}`}
+          aria-invalid={quantityError !== null}
           className={edited ? editedInputClasses : inputClasses}
-        />
-        <SelectMenu
-          value={reasonId}
-          onChange={(value) => {
-            if (value === CREATE_NEW_REASON_OPTION) {
-              setCreatingReason(true)
-              return
-            }
-            setReasonId(value)
-          }}
-          ariaLabel={`Motivo del ajuste para ${variantLabel(row)}`}
-          className="w-full"
-          options={[
-            { value: '', label: 'Motivo' },
-            ...activeReasons.map((reason) => ({ value: String(reason.id), label: reason.name })),
-            { value: CREATE_NEW_REASON_OPTION, label: '+ Crear motivo nuevo…' },
-          ]}
         />
         <button
           type="button"
           disabled={!edited}
-          onClick={() => onRequestAdjust(parsedQuantity, Number(reasonId))}
+          onClick={() => onRequestAdjust(parsedQuantity)}
           className={
             edited
-              ? 'h-12 w-full rounded-lg bg-brand px-3 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90'
-              : 'h-12 w-full cursor-not-allowed rounded-lg bg-line px-3 text-base font-bold text-ink/40'
+              ? 'h-12 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90'
+              : 'h-12 cursor-not-allowed rounded-lg bg-line px-5 text-base font-bold text-ink/40'
           }
         >
           Actualizar
         </button>
       </div>
-
-      {creatingReason && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3">
-          <input
-            type="text"
-            aria-label="Nombre del motivo nuevo"
-            placeholder="Nombre del motivo"
-            value={newReasonName}
-            onChange={(event) => setNewReasonName(event.target.value)}
-            disabled={savingNewReason}
-            className="h-12 rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
-          />
-          <button
-            type="button"
-            onClick={handleCreateReason}
-            disabled={savingNewReason || newReasonName.trim() === ''}
-            className={secondaryButtonClasses}
-          >
-            Crear
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setCreatingReason(false)
-              setNewReasonName('')
-              setNewReasonError(null)
-            }}
-            disabled={savingNewReason}
-            className={secondaryButtonClasses}
-          >
-            Cancelar
-          </button>
-          {newReasonError !== null && (
-            <p role="alert" className="m-0 w-full text-base text-danger">
-              {newReasonError}
-            </p>
-          )}
-        </div>
+      {quantityError !== null && (
+        <p role="alert" className="m-0 text-base text-danger">
+          {quantityError}
+        </p>
       )}
     </div>
   )
@@ -354,7 +276,6 @@ const DEFAULT_STOCK_FILTERS: StockFilters = { page: 1, pageSize: 25, categoryId:
 interface AdjustConfirmState {
   row: StockRow
   quantity: number
-  reasonId: number
 }
 
 interface HistoryState {
@@ -367,8 +288,6 @@ function StockTab({
   canManage,
   categories,
   units,
-  reasons,
-  onReasonCreated,
   criticalSignal,
   viewMode,
   onAdjusted,
@@ -376,8 +295,6 @@ function StockTab({
   canManage: boolean
   categories: Category[]
   units: Unit[]
-  reasons: MovementReason[]
-  onReasonCreated: (reason: MovementReason) => void
   criticalSignal: number
   viewMode: ViewMode
   onAdjusted: () => void
@@ -484,16 +401,16 @@ function StockTab({
     )
   }
 
-  function requestAdjust(row: StockRow, quantity: number, reasonId: number) {
-    setConfirmState({ row, quantity, reasonId })
+  function requestAdjust(row: StockRow, quantity: number) {
+    setConfirmState({ row, quantity })
   }
 
   async function confirmAdjust() {
     if (confirmState === null) return
     setConfirming(true)
-    const { row, quantity, reasonId } = confirmState
+    const { row, quantity } = confirmState
     try {
-      await adjustStock(row.variant_id, { quantity, reason_id: reasonId })
+      await adjustStock(row.variant_id, { quantity })
     } catch (error) {
       showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
       setConfirmState(null)
@@ -521,10 +438,6 @@ function StockTab({
     fetchStockMovements(row.variant_id)
       .then((movements) => setHistoryState({ row, status: 'success', movements }))
       .catch(() => setHistoryState({ row, status: 'error', movements: [] }))
-  }
-
-  function reasonName(reasonId: number): string {
-    return reasons.find((reason) => reason.id === reasonId)?.name ?? '—'
   }
 
   const hasActiveFilters = searchInput !== '' || filters.categoryId !== 'all' || filters.quickFilter !== 'all'
@@ -803,9 +716,7 @@ function StockTab({
                   {canManage && (
                     <StockRowEditor
                       row={row}
-                      reasons={reasons}
-                      onReasonCreated={onReasonCreated}
-                      onRequestAdjust={(quantity, reasonId) => requestAdjust(row, quantity, reasonId)}
+                      onRequestAdjust={(quantity) => requestAdjust(row, quantity)}
                     />
                   )}
                   {canManage && <FieldRow label="Último cambio" value={lastChangeLabel(row)} />}
@@ -868,10 +779,8 @@ function StockTab({
             </div>
             <StockRowEditor
               row={adjustingRow}
-              reasons={reasons}
-              onReasonCreated={onReasonCreated}
-              onRequestAdjust={(quantity, reasonId) => {
-                requestAdjust(adjustingRow, quantity, reasonId)
+              onRequestAdjust={(quantity) => {
+                requestAdjust(adjustingRow, quantity)
                 setAdjustingRow(null)
               }}
             />
@@ -963,7 +872,6 @@ function StockTab({
                             <p className="m-0 text-base opacity-70">
                               {movement.quantity_before} → {movement.quantity_after}
                             </p>
-                            <p className="m-0 text-base opacity-70">Motivo: {reasonName(movement.reason_id)}</p>
                             <p className="m-0 text-base opacity-70">Cambiado por: {firstName(movement.created_by_account_name)}</p>
                             {movement.observation !== null && (
                               <p className="m-0 text-base opacity-70">{movement.observation}</p>
@@ -1355,7 +1263,6 @@ export function InventoryPage() {
 
   const [categories, setCategories] = useState<Category[]>([])
   const [units, setUnits] = useState<Unit[]>([])
-  const [reasons, setReasons] = useState<MovementReason[]>([])
   const [summary, setSummary] = useState<StockSummary>(EMPTY_SUMMARY)
   const [status, setStatus] = useState<LoadStatus>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -1372,11 +1279,10 @@ export function InventoryPage() {
   function load() {
     setStatus('loading')
     setLoadError(null)
-    Promise.all([fetchCategories(), fetchUnits(), fetchMovementReasons(), fetchStockSummary()])
-      .then(([categoryResult, unitResult, reasonResult, summaryResult]) => {
+    Promise.all([fetchCategories(), fetchUnits(), fetchStockSummary()])
+      .then(([categoryResult, unitResult, summaryResult]) => {
         setCategories(categoryResult)
         setUnits(unitResult)
-        setReasons(reasonResult)
         setSummary(summaryResult)
         setStatus('success')
       })
@@ -1487,8 +1393,6 @@ export function InventoryPage() {
           canManage={canManage}
           categories={categories}
           units={units}
-          reasons={reasons}
-          onReasonCreated={(reason) => setReasons((current) => [...current, reason])}
           criticalSignal={criticalSignal}
           viewMode={viewMode}
           onAdjusted={refreshSummary}

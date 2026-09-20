@@ -528,7 +528,6 @@ describe('ProductsPage', () => {
           page_size: 50,
         }),
       )
-      .mockResolvedValueOnce(jsonResponse([]))
 
     render(
       <MemoryRouter initialEntries={['/products']}>

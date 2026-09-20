@@ -6,8 +6,7 @@ from sqlalchemy.orm import Session, aliased
 from app.constants.limits import DEFAULT_MINIMUM_STOCK
 from app.constants.status import EntityStatus, StockStatus
 from app.db.models import Product, StockMovement, Variant
-from app.domain.catalog.errors import InactiveMovementReason, InvalidStockQuantity
-from app.domain.catalog.movement_reasons import get_movement_reason
+from app.domain.catalog.errors import InvalidStockQuantity
 from app.domain.catalog.products import get_variant
 
 
@@ -50,16 +49,11 @@ def adjust_stock(
     variant_id: int,
     actor_account_id: int,
     new_quantity: int,
-    reason_id: int,
     observation: str | None = None,
 ) -> StockMovement:
     variant = get_variant(db, business_id, variant_id)
     if new_quantity < 0:
         raise InvalidStockQuantity("La cantidad no puede ser negativa")
-
-    reason = get_movement_reason(db, business_id, reason_id)
-    if reason.status != EntityStatus.ACTIVE.value:
-        raise InactiveMovementReason
 
     stripped_observation = observation.strip() if observation else None
 
@@ -69,7 +63,6 @@ def adjust_stock(
     now = datetime.now(UTC)
     movement = StockMovement(
         variant_id=variant.id,
-        reason_id=reason.id,
         quantity_before=quantity_before,
         quantity_after=new_quantity,
         observation=stripped_observation or None,

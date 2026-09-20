@@ -5,7 +5,6 @@ import {
   adjustStock,
   changeVariantPrice,
   createCategory,
-  createMovementReason,
   createUnit,
   deactivateProduct,
   deactivateVariant,
@@ -13,7 +12,6 @@ import {
   fetchAttributes,
   fetchAttributeValues,
   fetchCategories,
-  fetchMovementReasons,
   fetchProduct,
   fetchProductsPage,
   fetchProviders,
@@ -34,7 +32,6 @@ import { ApiError } from '../../api/client'
 import type {
   Attribute,
   Category,
-  MovementReason,
   Price,
   Product,
   Provider,
@@ -186,16 +183,6 @@ export function ProductDetailPage() {
     setNewVariantError(null)
   }
 
-  async function resolveInitialStockReasonId(): Promise<number> {
-    const existing = reasons.find(
-      (reason) => reason.status === 'active' && reason.name.trim().toLowerCase() === 'carga inicial',
-    )
-    if (existing !== undefined) return existing.id
-    const created = await createMovementReason('Carga inicial')
-    setReasons((prev) => [...prev, created])
-    return created.id
-  }
-
   function findDuplicateVariant(
     label: string,
     attributeValueIds: number[],
@@ -238,8 +225,7 @@ export function ProductDetailPage() {
       if (trimmedStock !== '' || trimmedMinimum !== '') {
         let stockResult
         if (trimmedStock !== '') {
-          const reasonId = await resolveInitialStockReasonId()
-          stockResult = await adjustStock(createdVariant.id, { quantity: Number(trimmedStock), reason_id: reasonId })
+          stockResult = await adjustStock(createdVariant.id, { quantity: Number(trimmedStock) })
         }
         if (trimmedMinimum !== '') {
           stockResult = await setMinimumStock(createdVariant.id, Number(trimmedMinimum))
@@ -285,7 +271,6 @@ export function ProductDetailPage() {
 
   const [pricesByVariant, setPricesByVariant] = useState<Map<number, Price | null>>(new Map())
   const [stockByVariant, setStockByVariant] = useState<Map<number, StockRow>>(new Map())
-  const [reasons, setReasons] = useState<MovementReason[]>([])
   const [adjustingVariant, setAdjustingVariant] = useState<Variant | null>(null)
   const [stockHistoryState, setStockHistoryState] = useState<
     { variant: Variant; status: 'loading' | 'success' | 'error'; movements: StockMovement[] } | null
@@ -349,10 +334,9 @@ export function ProductDetailPage() {
         setPricesByVariant(new Map(priceResults.map((result) => [result.variant_id, result.price])))
 
         if (canManage) {
-          const [stockRows, reasonList] = await Promise.all([fetchAllStock(), fetchMovementReasons()])
+          const stockRows = await fetchAllStock()
           if (requestId !== requestIdRef.current) return
           setStockByVariant(new Map(stockRows.map((row) => [row.variant_id, row])))
-          setReasons(reasonList)
         }
 
         if (searchParams.get('edit') === '1' && canManage) {
@@ -1741,8 +1725,6 @@ export function ProductDetailPage() {
           categoryName={categories.find((category) => category.id === product.category_id)?.name ?? '—'}
           variant={adjustingVariant}
           currentStock={stockByVariant.get(adjustingVariant.id)}
-          reasons={reasons}
-          onReasonCreated={(reason) => setReasons((prev) => [...prev, reason])}
           onClose={() => setAdjustingVariant(null)}
           onSuccess={() => {
             refreshStock()

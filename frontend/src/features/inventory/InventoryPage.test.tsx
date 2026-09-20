@@ -26,7 +26,6 @@ const EMPLEADO_ACCOUNT = { ...GERENTE_ACCOUNT, role: 'Empleado' }
 
 const CATEGORIES = [{ id: 1, name: 'Hilados', status: 'active' }]
 const UNITS = [{ id: 1, name: 'Unidad', abbreviation: 'un', allows_fraction: false, status: 'active' }]
-const REASONS = [{ id: 1, name: 'Conteo físico', status: 'active' }]
 const STOCK_ROW = {
   product_id: 1,
   product_name: 'Hilo blanco',
@@ -74,7 +73,6 @@ function renderPage(account: unknown = GERENTE_ACCOUNT, stockRow = STOCK_ROW) {
     .mockResolvedValueOnce(jsonResponse(account))
     .mockResolvedValueOnce(jsonResponse(CATEGORIES))
     .mockResolvedValueOnce(jsonResponse(UNITS))
-    .mockResolvedValueOnce(jsonResponse(REASONS))
     .mockResolvedValueOnce(jsonResponse(summaryFor([stockRow])))
     .mockResolvedValueOnce(jsonResponse(stockPage([stockRow])))
 
@@ -189,7 +187,7 @@ describe('InventoryPage', () => {
     expect(screen.queryByText('Resultado viejo')).not.toBeInTheDocument()
   })
 
-  it('enables Actualizar only once quantity and reason are set, and adjusts stock on confirm', async () => {
+  it('enables Actualizar only once a different quantity is set, and adjusts stock on confirm', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
     renderPage()
@@ -203,17 +201,13 @@ describe('InventoryPage', () => {
 
     await user.clear(quantityInput)
     await user.type(quantityInput, '8')
-    expect(updateButton).toBeDisabled()
-
-    await user.click(within(row).getByRole('button', { name: /Motivo del ajuste/ }))
-    await user.click(await screen.findByRole('option', { name: 'Conteo físico' }))
     expect(updateButton).not.toBeDisabled()
+    expect(screen.queryByRole('button', { name: /Motivo del ajuste/ })).not.toBeInTheDocument()
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         id: 99,
         variant_id: 10,
-        reason_id: 1,
         quantity_before: 2,
         quantity_after: 8,
         observation: null,
@@ -233,6 +227,29 @@ describe('InventoryPage', () => {
     expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
   })
 
+  it('shows an error message and keeps Actualizar disabled when the new quantity is negative', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findAllByText('Hilo blanco')
+
+    const quantityInput = screen.getAllByLabelText(/Cantidad nueva para Hilo blanco/)[0]
+    const row = quantityInput.closest('div')?.parentElement as HTMLElement
+    const updateButton = within(row).getByRole('button', { name: 'Actualizar' })
+
+    await user.clear(quantityInput)
+    await user.type(quantityInput, '-50')
+
+    expect(within(row).getByRole('alert')).toHaveTextContent('La cantidad no puede ser negativa.')
+    expect(updateButton).toBeDisabled()
+
+    await user.clear(quantityInput)
+    await user.type(quantityInput, '8')
+
+    expect(within(row).queryByRole('alert')).not.toBeInTheDocument()
+    expect(updateButton).not.toBeDisabled()
+  })
+
   it('treats the adjustment as successful even when the refetch afterward fails', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
@@ -248,14 +265,11 @@ describe('InventoryPage', () => {
 
     await user.clear(quantityInput)
     await user.type(quantityInput, '8')
-    await user.click(within(row).getByRole('button', { name: /Motivo del ajuste/ }))
-    await user.click(await screen.findByRole('option', { name: 'Conteo físico' }))
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         id: 99,
         variant_id: 10,
-        reason_id: 1,
         quantity_before: 2,
         quantity_after: 8,
         observation: null,
@@ -353,7 +367,6 @@ describe('InventoryPage', () => {
       .mockResolvedValueOnce(jsonResponse(GERENTE_ACCOUNT))
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
-      .mockResolvedValueOnce(jsonResponse(REASONS))
       .mockResolvedValueOnce(jsonResponse(summaryFor([STOCK_ROW])))
       .mockResolvedValueOnce(jsonResponse({ items: [STOCK_ROW], total: 40, page: 1, page_size: 25 }))
 
@@ -380,27 +393,6 @@ describe('InventoryPage', () => {
     expect(screen.queryByRole('button', { name: 'Acciones para Inventario' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ver como tabla' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ver como tarjetas' })).toBeInTheDocument()
-  })
-
-  it('creates a new movement reason inline from the row editor', async () => {
-    const user = userEvent.setup()
-    const fetchMock = fetch as ReturnType<typeof vi.fn>
-    renderPage()
-
-    await screen.findAllByText('Hilo blanco')
-
-    await user.click(screen.getAllByRole('button', { name: /Motivo del ajuste/ })[0])
-    await user.click(await screen.findByRole('option', { name: '+ Crear motivo nuevo…' }))
-
-    const nameInput = screen.getByLabelText('Nombre del motivo nuevo')
-    await user.type(nameInput, 'Rotura')
-
-    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 2, name: 'Rotura', status: 'active' }))
-
-    await user.click(screen.getByRole('button', { name: 'Crear' }))
-
-    expect(screen.queryByLabelText('Nombre del motivo nuevo')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: /Motivo del ajuste/ })[0]).toHaveTextContent('Rotura')
   })
 
   it('shows the estado y categoría select labels with context when collapsed', async () => {
@@ -435,7 +427,6 @@ describe('InventoryPage', () => {
       .mockResolvedValueOnce(jsonResponse(GERENTE_ACCOUNT))
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
-      .mockResolvedValueOnce(jsonResponse(REASONS))
       .mockResolvedValueOnce(jsonResponse(summaryFor([])))
 
     render(
@@ -467,7 +458,6 @@ describe('InventoryPage', () => {
         {
           id: 1,
           variant_id: 10,
-          reason_id: 1,
           quantity_before: 5,
           quantity_after: 2,
           observation: 'Conteo de fin de mes',
@@ -483,7 +473,7 @@ describe('InventoryPage', () => {
     const dialog = await screen.findByRole('dialog', { name: /Historial de stock de Hilo blanco/ })
     expect(within(dialog).getByText('5 → 2')).toBeInTheDocument()
     expect(within(dialog).getByText('-3')).toBeInTheDocument()
-    expect(within(dialog).getByText('Motivo: Conteo físico')).toBeInTheDocument()
+    expect(within(dialog).queryByText(/Motivo/)).not.toBeInTheDocument()
     expect(within(dialog).getByText('Conteo de fin de mes')).toBeInTheDocument()
     expect(within(dialog).getByText('Cambiado por: Ada')).toBeInTheDocument()
   })

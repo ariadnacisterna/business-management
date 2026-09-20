@@ -14,7 +14,6 @@ from app.db.models import (
     Business,
     Credit,
     Customer,
-    MovementReason,
     Price,
     Product,
     Provider,
@@ -36,7 +35,6 @@ from app.domain.catalog import (
     categories,
     credits,
     customers,
-    movement_reasons,
     products,
     providers,
     shortages,
@@ -52,7 +50,6 @@ from app.domain.catalog.errors import (
     DuplicateAttributeValue,
     DuplicateCategoryName,
     DuplicateCustomerName,
-    DuplicateMovementReasonName,
     DuplicateOpenShortage,
     DuplicateProductName,
     DuplicateProviderName,
@@ -60,7 +57,6 @@ from app.domain.catalog.errors import (
     DuplicateVariantInProduct,
     ImageTooLarge,
     ImplicitVariantNeedsLabel,
-    InactiveMovementReason,
     InvalidAttributeValue,
     InvalidCatalogInput,
     InvalidCreditAmount,
@@ -68,7 +64,6 @@ from app.domain.catalog.errors import (
     InvalidImageType,
     InvalidShortageTransition,
     InvalidStockQuantity,
-    MovementReasonNotFound,
     ProductNotFound,
     ProviderNotFound,
     ShortageNotFound,
@@ -322,20 +317,6 @@ class CustomerBalanceSummaryResponse(BaseModel):
     last_movement_by_account_name: str | None
 
 
-class MovementReasonResponse(BaseModel):
-    id: int
-    name: str
-    status: str
-
-
-class CreateMovementReasonRequest(BaseModel):
-    name: str
-
-
-class UpdateMovementReasonRequest(BaseModel):
-    name: str | None = None
-
-
 class StockResponse(BaseModel):
     variant_id: int
     quantity: int
@@ -350,14 +331,12 @@ class SetMinimumStockRequest(BaseModel):
 
 class StockAdjustmentRequest(BaseModel):
     quantity: int
-    reason_id: int
     observation: str | None = None
 
 
 class StockMovementResponse(BaseModel):
     id: int
     variant_id: int
-    reason_id: int
     quantity_before: int
     quantity_after: int
     observation: str | None
@@ -469,10 +448,6 @@ def _provider_response(provider: Provider) -> ProviderResponse:
     )
 
 
-def _movement_reason_response(reason: MovementReason) -> MovementReasonResponse:
-    return MovementReasonResponse(id=reason.id, name=reason.name, status=reason.status)
-
-
 def _stock_response(variant: Variant) -> StockResponse:
     return StockResponse(
         variant_id=variant.id,
@@ -489,7 +464,6 @@ def _stock_movement_response(
     return StockMovementResponse(
         id=movement.id,
         variant_id=movement.variant_id,
-        reason_id=movement.reason_id,
         quantity_before=movement.quantity_before,
         quantity_after=movement.quantity_after,
         observation=movement.observation,
@@ -1690,119 +1664,6 @@ def create_credit(
     return _credit_response(credit, {_actor.id: _actor.name})
 
 
-@router.post(
-    "/movement-reasons",
-    response_model=MovementReasonResponse,
-    status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_csrf)],
-)
-def create_movement_reason(
-    payload: CreateMovementReasonRequest,
-    db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(GERENTE)),
-    business: Business = Depends(get_active_business),
-) -> MovementReasonResponse:
-    try:
-        reason = movement_reasons.create_movement_reason(db, business.id, payload.name, _actor.id)
-    except DuplicateMovementReasonName as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, "El motivo ya existe") from exc
-    except InvalidCatalogInput as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
-
-    return _movement_reason_response(reason)
-
-
-@router.get("/movement-reasons", response_model=list[MovementReasonResponse])
-def list_movement_reasons(
-    db: Session = Depends(get_db),
-    _actor: Account = Depends(get_current_user),
-    business: Business = Depends(get_active_business),
-) -> list[MovementReasonResponse]:
-    return [
-        _movement_reason_response(reason)
-        for reason in movement_reasons.list_movement_reasons(db, business.id)
-    ]
-
-
-@router.get("/movement-reasons/{reason_id}", response_model=MovementReasonResponse)
-def get_movement_reason(
-    reason_id: int,
-    db: Session = Depends(get_db),
-    _actor: Account = Depends(get_current_user),
-    business: Business = Depends(get_active_business),
-) -> MovementReasonResponse:
-    try:
-        reason = movement_reasons.get_movement_reason(db, business.id, reason_id)
-    except MovementReasonNotFound as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Motivo no encontrado") from exc
-
-    return _movement_reason_response(reason)
-
-
-@router.patch(
-    "/movement-reasons/{reason_id}",
-    response_model=MovementReasonResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def update_movement_reason(
-    reason_id: int,
-    payload: UpdateMovementReasonRequest,
-    db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(GERENTE)),
-    business: Business = Depends(get_active_business),
-) -> MovementReasonResponse:
-    try:
-        reason = movement_reasons.update_movement_reason(
-            db, business.id, reason_id, _actor.id, name=payload.name
-        )
-    except MovementReasonNotFound as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Motivo no encontrado") from exc
-    except DuplicateMovementReasonName as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, "El motivo ya existe") from exc
-    except InvalidCatalogInput as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
-
-    return _movement_reason_response(reason)
-
-
-@router.post(
-    "/movement-reasons/{reason_id}/deactivate",
-    response_model=MovementReasonResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def deactivate_movement_reason(
-    reason_id: int,
-    db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(GERENTE)),
-    business: Business = Depends(get_active_business),
-) -> MovementReasonResponse:
-    try:
-        reason = movement_reasons.deactivate_movement_reason(db, business.id, reason_id, _actor.id)
-    except MovementReasonNotFound as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Motivo no encontrado") from exc
-
-    return _movement_reason_response(reason)
-
-
-@router.post(
-    "/movement-reasons/{reason_id}/reactivate",
-    response_model=MovementReasonResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def reactivate_movement_reason(
-    reason_id: int,
-    db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(GERENTE)),
-    business: Business = Depends(get_active_business),
-) -> MovementReasonResponse:
-    try:
-        reason = movement_reasons.reactivate_movement_reason(db, business.id, reason_id, _actor.id)
-    except MovementReasonNotFound as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Motivo no encontrado") from exc
-
-    return _movement_reason_response(reason)
-
-
 @router.get("/variants/{variant_id}/stock", response_model=StockResponse)
 def get_stock(
     variant_id: int,
@@ -1862,15 +1723,10 @@ def adjust_stock(
             variant_id,
             _actor.id,
             payload.quantity,
-            payload.reason_id,
             observation=payload.observation,
         )
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
-    except MovementReasonNotFound as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Motivo invalido") from exc
-    except InactiveMovementReason as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Motivo inactivo") from exc
     except InvalidStockQuantity as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 

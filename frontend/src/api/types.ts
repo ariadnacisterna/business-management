@@ -161,12 +161,6 @@ export interface CustomerBalanceSummary {
   last_movement_by_account_name: string | null
 }
 
-export interface MovementReason {
-  id: number
-  name: string
-  status: string
-}
-
 export interface Stock {
   variant_id: number
   quantity: number
@@ -207,7 +201,6 @@ export interface StockCounts {
 export interface StockMovement {
   id: number
   variant_id: number
-  reason_id: number
   quantity_before: number
   quantity_after: number
   observation: string | null

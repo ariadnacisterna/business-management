@@ -81,18 +81,10 @@ def _setup_variant(client, admin_cookies, name="Producto con stock"):
     return product["variants"][0]["id"]
 
 
-def _create_movement_reason(client, cookies, name):
-    response = client.post(
-        "/movement-reasons", json={"name": name}, cookies=cookies, headers=_auth_headers(cookies)
-    )
-    assert response.status_code == 201, response.text
-    return response.json()
-
-
-def _adjust_stock(client, cookies, variant_id, quantity, reason_id, observation=None):
+def _adjust_stock(client, cookies, variant_id, quantity, observation=None):
     return client.post(
         f"/variants/{variant_id}/stock/adjustments",
-        json={"quantity": quantity, "reason_id": reason_id, "observation": observation},
+        json={"quantity": quantity, "observation": observation},
         cookies=cookies,
         headers=_auth_headers(cookies),
     )
@@ -142,23 +134,12 @@ def test_empleado_cannot_view_stock_movements(client):
     assert response.status_code == 403
 
 
-def test_default_movement_reasons_are_seeded(client):
-    admin_cookies = _admin_cookies(client)
-
-    response = client.get("/movement-reasons", cookies=admin_cookies)
-
-    assert response.status_code == 200, response.text
-    names = {reason["name"] for reason in response.json()}
-    assert {"Entrada", "Salida", "Corrección", "Rotura"}.issubset(names)
-
-
 def test_gerente_can_adjust_stock(client):
     admin_cookies = _admin_cookies(client)
     variant_id = _setup_variant(client, admin_cookies)
-    reason = _create_movement_reason(client, admin_cookies, "Entrada de prueba")
     gerente_cookies = _gerente_cookies(client, admin_cookies)
 
-    response = _adjust_stock(client, gerente_cookies, variant_id, 25, reason["id"], "Compra")
+    response = _adjust_stock(client, gerente_cookies, variant_id, 25, "Compra")
 
     assert response.status_code == 201, response.text
     body = response.json()
@@ -175,10 +156,9 @@ def test_gerente_can_adjust_stock(client):
 def test_empleado_cannot_adjust_stock(client):
     admin_cookies = _admin_cookies(client)
     variant_id = _setup_variant(client, admin_cookies)
-    reason = _create_movement_reason(client, admin_cookies, "Entrada empleado")
     empleado_cookies = _empleado_cookies(client, admin_cookies)
 
-    response = _adjust_stock(client, empleado_cookies, variant_id, 10, reason["id"])
+    response = _adjust_stock(client, empleado_cookies, variant_id, 10)
 
     assert response.status_code == 403
 
@@ -186,9 +166,8 @@ def test_empleado_cannot_adjust_stock(client):
 def test_admin_can_adjust_stock_since_it_outranks_gerente(client):
     admin_cookies = _admin_cookies(client)
     variant_id = _setup_variant(client, admin_cookies)
-    reason = _create_movement_reason(client, admin_cookies, "Entrada admin")
 
-    response = _adjust_stock(client, admin_cookies, variant_id, 5, reason["id"])
+    response = _adjust_stock(client, admin_cookies, variant_id, 5)
 
     assert response.status_code == 201, response.text
 
@@ -196,24 +175,8 @@ def test_admin_can_adjust_stock_since_it_outranks_gerente(client):
 def test_cannot_adjust_stock_with_negative_quantity(client):
     admin_cookies = _admin_cookies(client)
     variant_id = _setup_variant(client, admin_cookies)
-    reason = _create_movement_reason(client, admin_cookies, "Entrada negativa")
 
-    response = _adjust_stock(client, admin_cookies, variant_id, -5, reason["id"])
-
-    assert response.status_code == 422
-
-
-def test_cannot_adjust_stock_with_inactive_reason(client):
-    admin_cookies = _admin_cookies(client)
-    variant_id = _setup_variant(client, admin_cookies)
-    reason = _create_movement_reason(client, admin_cookies, "Motivo a desactivar")
-    client.post(
-        f"/movement-reasons/{reason['id']}/deactivate",
-        cookies=admin_cookies,
-        headers=_auth_headers(admin_cookies),
-    )
-
-    response = _adjust_stock(client, admin_cookies, variant_id, 5, reason["id"])
+    response = _adjust_stock(client, admin_cookies, variant_id, -5)
 
     assert response.status_code == 422
 
@@ -221,7 +184,6 @@ def test_cannot_adjust_stock_with_inactive_reason(client):
 def test_stock_status_thresholds(client):
     admin_cookies = _admin_cookies(client)
     variant_id = _setup_variant(client, admin_cookies)
-    reason = _create_movement_reason(client, admin_cookies, "Ajuste umbral")
 
     client.patch(
         f"/variants/{variant_id}/stock/minimum",
@@ -230,15 +192,15 @@ def test_stock_status_thresholds(client):
         headers=_auth_headers(admin_cookies),
     )
 
-    _adjust_stock(client, admin_cookies, variant_id, 5, reason["id"])
+    _adjust_stock(client, admin_cookies, variant_id, 5)
     at_minimum = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies).json()
     assert at_minimum["status"] == "stock_bajo"
 
-    _adjust_stock(client, admin_cookies, variant_id, 6, reason["id"])
+    _adjust_stock(client, admin_cookies, variant_id, 6)
     above_minimum = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies).json()
     assert above_minimum["status"] == "normal"
 
-    _adjust_stock(client, admin_cookies, variant_id, 0, reason["id"])
+    _adjust_stock(client, admin_cookies, variant_id, 0)
     empty = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies).json()
     assert empty["status"] == "sin_stock"
 
@@ -246,10 +208,9 @@ def test_stock_status_thresholds(client):
 def test_list_stock_movements_orders_most_recent_first(client):
     admin_cookies = _admin_cookies(client)
     variant_id = _setup_variant(client, admin_cookies)
-    reason = _create_movement_reason(client, admin_cookies, "Movimiento historial")
 
-    _adjust_stock(client, admin_cookies, variant_id, 3, reason["id"])
-    _adjust_stock(client, admin_cookies, variant_id, 7, reason["id"])
+    _adjust_stock(client, admin_cookies, variant_id, 3)
+    _adjust_stock(client, admin_cookies, variant_id, 7)
 
     response = client.get(f"/variants/{variant_id}/stock/movements", cookies=admin_cookies)
 
@@ -265,7 +226,6 @@ def test_list_stock_movements_orders_most_recent_first(client):
 
 def test_low_stock_count_reflects_bajo_and_sin_stock_variants(client):
     admin_cookies = _admin_cookies(client)
-    reason = _create_movement_reason(client, admin_cookies, "Movimiento conteo")
 
     before = client.get("/stock/low-count", cookies=admin_cookies)
     assert before.status_code == 200
@@ -274,7 +234,7 @@ def test_low_stock_count_reflects_bajo_and_sin_stock_variants(client):
     sin_stock_variant = _setup_variant(client, admin_cookies, "Producto sin stock")
 
     normal_variant = _setup_variant(client, admin_cookies, "Producto normal")
-    _adjust_stock(client, admin_cookies, normal_variant, 100, reason["id"])
+    _adjust_stock(client, admin_cookies, normal_variant, 100)
 
     after = client.get("/stock/low-count", cookies=admin_cookies)
     assert after.status_code == 200
@@ -284,9 +244,8 @@ def test_low_stock_count_reflects_bajo_and_sin_stock_variants(client):
 
 def test_list_stock_returns_all_active_variants_in_one_call(client):
     admin_cookies = _admin_cookies(client)
-    reason = _create_movement_reason(client, admin_cookies, "Movimiento listado")
     variant_id = _setup_variant(client, admin_cookies, "Producto listado")
-    _adjust_stock(client, admin_cookies, variant_id, 100, reason["id"])
+    _adjust_stock(client, admin_cookies, variant_id, 100)
 
     response = client.get("/stock", cookies=admin_cookies)
 
@@ -304,9 +263,8 @@ def test_list_stock_returns_all_active_variants_in_one_call(client):
 
 def test_list_stock_includes_last_movement_with_account_name(client):
     admin_cookies = _admin_cookies(client)
-    reason = _create_movement_reason(client, admin_cookies, "Movimiento con ultimo cambio")
     variant_id = _setup_variant(client, admin_cookies, "Producto con ultimo cambio")
-    _adjust_stock(client, admin_cookies, variant_id, 50, reason["id"])
+    _adjust_stock(client, admin_cookies, variant_id, 50)
 
     response = client.get("/stock", cookies=admin_cookies)
 
@@ -400,10 +358,9 @@ def test_list_stock_filters_by_category_and_search(client):
 
 def test_list_stock_quick_filter_critical_returns_only_sin_stock(client):
     admin_cookies = _admin_cookies(client)
-    reason = _create_movement_reason(client, admin_cookies, "Movimiento filtro critico")
     sin_stock_variant = _setup_variant(client, admin_cookies, "Producto criterio sin stock")
     normal_variant = _setup_variant(client, admin_cookies, "Producto criterio normal")
-    _adjust_stock(client, admin_cookies, normal_variant, 100, reason["id"])
+    _adjust_stock(client, admin_cookies, normal_variant, 100)
 
     response = client.get("/stock", params={"quick_filter": "sin_stock"}, cookies=admin_cookies)
 
@@ -415,10 +372,9 @@ def test_list_stock_quick_filter_critical_returns_only_sin_stock(client):
 
 def test_list_stock_quick_filter_normal_returns_only_normal_stock(client):
     admin_cookies = _admin_cookies(client)
-    reason = _create_movement_reason(client, admin_cookies, "Movimiento filtro normal")
     sin_stock_variant = _setup_variant(client, admin_cookies, "Producto criterio sin stock normal")
     normal_variant = _setup_variant(client, admin_cookies, "Producto criterio normal filtro")
-    _adjust_stock(client, admin_cookies, normal_variant, 100, reason["id"])
+    _adjust_stock(client, admin_cookies, normal_variant, 100)
 
     response = client.get("/stock", params={"quick_filter": "normal"}, cookies=admin_cookies)
 
@@ -438,9 +394,8 @@ def test_list_stock_rejects_invalid_quick_filter(client):
 
 def test_empleado_list_stock_hides_quantity_and_status(client):
     admin_cookies = _admin_cookies(client)
-    reason = _create_movement_reason(client, admin_cookies, "Movimiento oculto para empleado")
     variant_id = _setup_variant(client, admin_cookies, "Producto oculto para empleado")
-    _adjust_stock(client, admin_cookies, variant_id, 100, reason["id"])
+    _adjust_stock(client, admin_cookies, variant_id, 100)
     empleado_cookies = _empleado_cookies(client, admin_cookies)
 
     response = client.get("/stock", cookies=empleado_cookies)
@@ -457,10 +412,9 @@ def test_empleado_list_stock_hides_quantity_and_status(client):
 
 def test_empleado_list_stock_ignores_quick_filter(client):
     admin_cookies = _admin_cookies(client)
-    reason = _create_movement_reason(client, admin_cookies, "Movimiento filtro empleado")
     sin_stock_variant = _setup_variant(client, admin_cookies, "Producto sin stock para empleado")
     normal_variant = _setup_variant(client, admin_cookies, "Producto normal para empleado")
-    _adjust_stock(client, admin_cookies, normal_variant, 100, reason["id"])
+    _adjust_stock(client, admin_cookies, normal_variant, 100)
     empleado_cookies = _empleado_cookies(client, admin_cookies)
 
     response = client.get("/stock", params={"quick_filter": "sin_stock"}, cookies=empleado_cookies)
@@ -473,7 +427,6 @@ def test_empleado_list_stock_ignores_quick_filter(client):
 
 def test_stock_counts_reflect_all_variants_regardless_of_pagination(client):
     admin_cookies = _admin_cookies(client)
-    reason = _create_movement_reason(client, admin_cookies, "Movimiento conteo total")
 
     before = client.get("/stock/counts", cookies=admin_cookies)
     assert before.status_code == 200
@@ -481,68 +434,43 @@ def test_stock_counts_reflect_all_variants_regardless_of_pagination(client):
 
     _setup_variant(client, admin_cookies, "Producto conteo sin stock")
     normal_variant = _setup_variant(client, admin_cookies, "Producto conteo normal")
-    _adjust_stock(client, admin_cookies, normal_variant, 100, reason["id"])
+    _adjust_stock(client, admin_cookies, normal_variant, 100)
 
     after = client.get("/stock/counts", cookies=admin_cookies).json()
     assert after["total"] == before_body["total"] + 2
     assert after["sin_stock"] == before_body["sin_stock"] + 1
 
 
-def test_create_and_deactivate_movement_reason(client):
+def test_adjust_stock_works_without_reason_and_history_has_no_reason(client):
     admin_cookies = _admin_cookies(client)
-
-    created = _create_movement_reason(client, admin_cookies, "Motivo editable")
-    assert created["status"] == "active"
-
-    updated = client.patch(
-        f"/movement-reasons/{created['id']}",
-        json={"name": "Motivo renombrado"},
-        cookies=admin_cookies,
-        headers=_auth_headers(admin_cookies),
-    )
-    assert updated.status_code == 200, updated.text
-    assert updated.json()["name"] == "Motivo renombrado"
-
-    deactivated = client.post(
-        f"/movement-reasons/{created['id']}/deactivate",
-        cookies=admin_cookies,
-        headers=_auth_headers(admin_cookies),
-    )
-    assert deactivated.status_code == 200
-    assert deactivated.json()["status"] == "inactive"
-
-    reactivated = client.post(
-        f"/movement-reasons/{created['id']}/reactivate",
-        cookies=admin_cookies,
-        headers=_auth_headers(admin_cookies),
-    )
-    assert reactivated.status_code == 200
-    assert reactivated.json()["status"] == "active"
-
-
-def test_cannot_create_duplicate_movement_reason_name(client):
-    admin_cookies = _admin_cookies(client)
-    _create_movement_reason(client, admin_cookies, "Motivo duplicado")
+    variant_id = _setup_variant(client, admin_cookies)
 
     response = client.post(
-        "/movement-reasons",
-        json={"name": "Motivo duplicado"},
+        f"/variants/{variant_id}/stock/adjustments",
+        json={"quantity": 12},
         cookies=admin_cookies,
         headers=_auth_headers(admin_cookies),
     )
 
-    assert response.status_code == 409
+    assert response.status_code == 201, response.text
+    assert "reason_id" not in response.json()
+
+    movements = client.get(f"/variants/{variant_id}/stock/movements", cookies=admin_cookies)
+    assert movements.status_code == 200
+    assert len(movements.json()) == 1
+    assert "reason_id" not in movements.json()[0]
 
 
-def test_empleado_cannot_create_movement_reason(client):
+def test_movement_reasons_endpoints_no_longer_exist(client):
     admin_cookies = _admin_cookies(client)
-    empleado_cookies = _empleado_cookies(client, admin_cookies)
 
-    response = client.post(
+    listing = client.get("/movement-reasons", cookies=admin_cookies)
+    creation = client.post(
         "/movement-reasons",
-        json={"name": "Motivo empleado"},
-        cookies=empleado_cookies,
-        headers=_auth_headers(empleado_cookies),
+        json={"name": "Motivo"},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
     )
 
-    assert response.status_code == 403
+    assert listing.status_code == 404
+    assert creation.status_code == 404

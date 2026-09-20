@@ -1,15 +1,12 @@
 import { useState } from 'react'
-import { adjustStock, createMovementReason } from '../../api/catalog'
+import { adjustStock } from '../../api/catalog'
 import { ApiError } from '../../api/client'
-import type { MovementReason, Product, StockRow, Variant } from '../../api/types'
+import type { Product, StockRow, Variant } from '../../api/types'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
-import { SelectMenu } from '../../shared/SelectMenu'
 import { useToast } from '../../shared/Toast'
 
 const GENERIC_ERROR_MESSAGE = 'No se pudo guardar el ajuste. Intentá de nuevo.'
-const CREATE_REASON_ERROR_MESSAGE = 'No se pudo crear el motivo. Intentá de nuevo.'
-const CREATE_NEW_REASON_OPTION = '__create__'
 
 function describeVariantLabel(variant: Variant): string {
   return variant.label ?? (variant.is_implicit ? 'Estándar' : `Variante #${variant.id}`)
@@ -20,8 +17,6 @@ interface Props {
   categoryName: string
   variant: Variant
   currentStock: StockRow | undefined
-  reasons: MovementReason[]
-  onReasonCreated: (reason: MovementReason) => void
   onClose: () => void
   onSuccess: () => void
 }
@@ -31,23 +26,14 @@ export function AdjustStockModal({
   categoryName,
   variant,
   currentStock,
-  reasons,
-  onReasonCreated,
   onClose,
   onSuccess,
 }: Props) {
   const { showSuccess, showError } = useToast()
-  const activeReasons = reasons.filter((reason) => reason.status === 'active')
 
   const [quantity, setQuantity] = useState('')
-  const [reasonId, setReasonId] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [saving, setSaving] = useState(false)
-
-  const [creatingReason, setCreatingReason] = useState(false)
-  const [newReasonName, setNewReasonName] = useState('')
-  const [savingNewReason, setSavingNewReason] = useState(false)
-  const [newReasonError, setNewReasonError] = useState<string | null>(null)
 
   const parsedQuantity = Number(quantity)
   const currentQuantity = currentStock?.quantity ?? 0
@@ -55,26 +41,15 @@ export function AdjustStockModal({
     quantity.trim() !== '' &&
     Number.isInteger(parsedQuantity) &&
     parsedQuantity >= 0 &&
-    parsedQuantity !== currentQuantity &&
-    reasonId !== ''
-
-  async function handleCreateReason() {
-    const trimmed = newReasonName.trim()
-    if (trimmed === '') return
-    setSavingNewReason(true)
-    setNewReasonError(null)
-    try {
-      const created = await createMovementReason(trimmed)
-      onReasonCreated(created)
-      setReasonId(String(created.id))
-      setCreatingReason(false)
-      setNewReasonName('')
-    } catch (error) {
-      setNewReasonError(error instanceof ApiError ? error.message : CREATE_REASON_ERROR_MESSAGE)
-    } finally {
-      setSavingNewReason(false)
-    }
-  }
+    parsedQuantity !== currentQuantity
+  const quantityError =
+    quantity.trim() === ''
+      ? null
+      : !Number.isInteger(parsedQuantity)
+        ? 'Ingresá un número entero.'
+        : parsedQuantity < 0
+          ? 'La cantidad no puede ser negativa.'
+          : null
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -86,7 +61,7 @@ export function AdjustStockModal({
     setConfirming(false)
     setSaving(true)
     try {
-      await adjustStock(variant.id, { quantity: parsedQuantity, reason_id: Number(reasonId) })
+      await adjustStock(variant.id, { quantity: parsedQuantity })
       showSuccess('Stock actualizado.')
       onSuccess()
     } catch (error) {
@@ -143,68 +118,13 @@ export function AdjustStockModal({
             onChange={(event) => setQuantity(event.target.value)}
             disabled={saving}
             autoFocus
+            aria-invalid={quantityError !== null}
             className="mt-1.5 h-12 w-full rounded-xl border border-line px-3 text-lg font-bold focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
           />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <span className="text-lg font-semibold uppercase tracking-wide opacity-70">
-            Motivo <span className="text-danger">*</span>
-          </span>
-          <SelectMenu
-            value={reasonId}
-            onChange={(value) => {
-              if (value === CREATE_NEW_REASON_OPTION) {
-                setCreatingReason(true)
-                return
-              }
-              setReasonId(value)
-            }}
-            ariaLabel="Motivo del ajuste"
-            className="w-full"
-            options={[
-              { value: '', label: 'Motivo' },
-              ...activeReasons.map((reason) => ({ value: String(reason.id), label: reason.name })),
-              { value: CREATE_NEW_REASON_OPTION, label: '+ Crear motivo nuevo…' },
-            ]}
-          />
-          {creatingReason && (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3">
-              <input
-                type="text"
-                aria-label="Nombre del motivo nuevo"
-                placeholder="Nombre del motivo"
-                value={newReasonName}
-                onChange={(event) => setNewReasonName(event.target.value)}
-                disabled={savingNewReason}
-                className="h-12 flex-1 rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
-              />
-              <button
-                type="button"
-                onClick={handleCreateReason}
-                disabled={savingNewReason || newReasonName.trim() === ''}
-                className="h-12 rounded-lg border border-line px-5 text-base font-semibold transition-colors hover:bg-surface-brand"
-              >
-                Crear
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCreatingReason(false)
-                  setNewReasonName('')
-                  setNewReasonError(null)
-                }}
-                disabled={savingNewReason}
-                className="h-12 rounded-lg border border-line px-5 text-base font-semibold transition-colors hover:bg-surface-brand"
-              >
-                Cancelar
-              </button>
-              {newReasonError !== null && (
-                <p role="alert" className="m-0 w-full text-base text-danger">
-                  {newReasonError}
-                </p>
-              )}
-            </div>
+          {quantityError !== null && (
+            <p role="alert" className="m-0 mt-1.5 text-base text-danger">
+              {quantityError}
+            </p>
           )}
         </div>
 

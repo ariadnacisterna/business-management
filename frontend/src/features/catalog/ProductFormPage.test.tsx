@@ -36,7 +36,6 @@ const CATEGORIES = [{ id: 1, name: 'Mercería', status: 'active' }]
 const UNITS = [{ id: 1, name: 'Unidad', abbreviation: 'un', allows_fraction: false, status: 'active' }]
 const ATTRIBUTES = [{ id: 1, name: 'Color', status: 'active' }]
 const PROVIDERS: unknown[] = []
-const REASONS: unknown[] = []
 const EMPTY_PRODUCT_PAGE = { items: [], total: 0, page: 1, page_size: 10 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -58,7 +57,6 @@ function mockInitialLoad(fetchMock: ReturnType<typeof vi.fn>, account: unknown) 
     .mockResolvedValueOnce(jsonResponse(UNITS))
     .mockResolvedValueOnce(jsonResponse(ATTRIBUTES))
     .mockResolvedValueOnce(jsonResponse(PROVIDERS))
-    .mockResolvedValueOnce(jsonResponse(REASONS))
 }
 
 async function fillStep1AndContinue(user: ReturnType<typeof userEvent.setup>, name: string) {
@@ -392,9 +390,6 @@ describe('ProductFormPage', () => {
       fetchMock.mockResolvedValueOnce(jsonResponse(EMPTY_PRODUCT_PAGE))
       fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
         if (url === '/products' && init?.method === 'POST') return jsonResponse(TWO_VARIANT_PRODUCT, 201)
-        if (url === '/movement-reasons') {
-          return jsonResponse({ id: 9, name: 'Carga inicial', status: 'active' }, 201)
-        }
         return jsonResponse({})
       })
     }
@@ -547,7 +542,6 @@ describe('ProductFormPage', () => {
       if (url === '/categories') return Promise.resolve(jsonResponse(CATEGORIES))
       if (url === '/units') return Promise.resolve(jsonResponse(UNITS))
       if (url === '/attributes') return Promise.resolve(jsonResponse(ATTRIBUTES))
-      if (url === '/movement-reasons') return Promise.resolve(jsonResponse(REASONS))
       return Promise.resolve(jsonResponse([]))
     })
 

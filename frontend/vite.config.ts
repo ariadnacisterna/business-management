@@ -14,7 +14,6 @@ const API_PATH_PREFIXES = [
   '/imports',
   '/health',
   '/stock',
-  '/movement-reasons',
   '/providers',
   '/customers',
   '/shortages',

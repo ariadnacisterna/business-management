@@ -69,10 +69,6 @@ function stockResponse(variantId: number, overrides: Partial<{ quantity: number;
   })
 }
 
-function reasonsResponse() {
-  return jsonResponse([])
-}
-
 function multiStockResponse(variantIds: number[]) {
   return jsonResponse({
     items: variantIds.map((variantId) => ({
@@ -107,7 +103,6 @@ function renderPage(initialPath: string) {
     .mockResolvedValueOnce(jsonResponse([]))
     .mockResolvedValueOnce(jsonResponse({ variant_id: 10, price: null }))
     .mockResolvedValueOnce(stockResponse(10))
-    .mockResolvedValueOnce(reasonsResponse())
 
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
@@ -227,7 +222,6 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
       .mockResolvedValueOnce(stockResponse(20))
-      .mockResolvedValueOnce(reasonsResponse())
 
     render(
       <MemoryRouter initialEntries={['/products/6?edit=1']}>
@@ -316,7 +310,6 @@ describe('ProductDetailPage', () => {
           page_size: 25,
         }),
       )
-      .mockResolvedValueOnce(reasonsResponse())
 
     render(
       <MemoryRouter initialEntries={['/products/6?edit=1']}>
@@ -354,7 +347,6 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
       .mockResolvedValueOnce(stockResponse(20, { quantity: 7, status: 'stock_bajo' }))
-      .mockResolvedValueOnce(jsonResponse([{ id: 1, name: 'Conteo físico', status: 'active' }]))
 
     render(
       <MemoryRouter initialEntries={['/products/6?edit=1']}>
@@ -377,14 +369,11 @@ describe('ProductDetailPage', () => {
     await user.click(screen.getByRole('button', { name: 'Actualizar stock' }))
 
     await user.type(screen.getByLabelText(/^Cantidad nueva/), '20')
-    await user.click(screen.getByRole('button', { name: 'Motivo del ajuste' }))
-    await user.click(screen.getByRole('option', { name: 'Conteo físico' }))
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         id: 1,
         variant_id: 20,
-        reason_id: 1,
         quantity_before: 7,
         quantity_after: 20,
         observation: null,
@@ -417,7 +406,6 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
       .mockResolvedValueOnce(stockResponse(20, { quantity: 7, status: 'stock_bajo' }))
-      .mockResolvedValueOnce(jsonResponse([{ id: 1, name: 'Conteo físico', status: 'active' }]))
 
     render(
       <MemoryRouter initialEntries={['/products/6?edit=1']}>
@@ -440,14 +428,11 @@ describe('ProductDetailPage', () => {
     await user.click(screen.getByRole('button', { name: 'Actualizar stock' }))
 
     await user.type(screen.getByLabelText(/^Cantidad nueva/), '20')
-    await user.click(screen.getByRole('button', { name: 'Motivo del ajuste' }))
-    await user.click(screen.getByRole('option', { name: 'Conteo físico' }))
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         id: 1,
         variant_id: 20,
-        reason_id: 1,
         quantity_before: 7,
         quantity_after: 20,
         observation: null,
@@ -517,7 +502,6 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse({ variant_id: 10, price: null }))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 11, price: null }))
       .mockResolvedValueOnce(multiStockResponse([10, 11]))
-      .mockResolvedValueOnce(reasonsResponse())
 
     render(
       <MemoryRouter initialEntries={['/products/5?edit=1']}>
@@ -576,7 +560,6 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse({ variant_id: 10, price: null }))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 11, price: null }))
       .mockResolvedValueOnce(multiStockResponse([10, 11]))
-      .mockResolvedValueOnce(reasonsResponse())
 
     render(
       <MemoryRouter initialEntries={['/products/5?edit=1']}>
@@ -619,7 +602,6 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
       .mockResolvedValueOnce(stockResponse(20))
-      .mockResolvedValueOnce(reasonsResponse())
 
     render(
       <MemoryRouter initialEntries={['/products/6']}>
@@ -690,7 +672,6 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse(providers))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 10, price: null }))
       .mockResolvedValueOnce(stockResponse(10))
-      .mockResolvedValueOnce(reasonsResponse())
 
     render(
       <MemoryRouter initialEntries={['/products/5?edit=1']}>
@@ -741,7 +722,6 @@ describe('ProductDetailPage', () => {
       if (url === '/attributes') return Promise.resolve(jsonResponse([]))
       if (url === '/variants/10/price') return Promise.resolve(jsonResponse({ variant_id: 10, price: null }))
       if (url === '/stock') return Promise.resolve(stockResponse(10))
-      if (url === '/movement-reasons') return Promise.resolve(reasonsResponse())
       return Promise.resolve(jsonResponse([]))
     })
 
