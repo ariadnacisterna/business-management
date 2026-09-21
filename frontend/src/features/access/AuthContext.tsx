@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   changeActiveBusiness,
   fetchCurrentAccount,
@@ -10,23 +10,8 @@ import {
 import { setUnauthorizedHandler } from '../../api/client'
 import type { Account } from '../../api/types'
 import { applyFontSize, cacheFontSize } from '../../shared/fontSize'
-import { useToast } from '../../shared/Toast'
-
-type SessionStatus = 'loading' | 'ready'
-
-interface AuthContextValue {
-  account: Account | null
-  status: SessionStatus
-  justLoggedIn: boolean
-  login: (userName: string, password: string) => Promise<void>
-  logout: () => Promise<void>
-  switchBusiness: (businessId: number) => Promise<void>
-  changeFontSize: (fontSize: number) => Promise<void>
-  changeName: (name: string) => Promise<void>
-  acknowledgeLogin: () => void
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null)
+import { useToast } from '../../shared/useToast'
+import { AuthContext, type AuthContextValue, type SessionStatus } from './useAuth'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { showError } = useToast()
@@ -100,12 +85,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
-
-export function useAuth(): AuthContextValue {
-  const context = useContext(AuthContext)
-  if (context === null) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
 }

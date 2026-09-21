@@ -1,12 +1,12 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-export function useTableScrollbar(deps: unknown[]) {
+export function useTableScrollbar([first, second, third]: readonly unknown[]) {
   const tableScrollRef = useRef<HTMLDivElement>(null)
   const theadRef = useRef<HTMLTableSectionElement>(null)
   const [scrollbar, setScrollbar] = useState({ visible: false, headerHeight: 0, thumbTop: 0, thumbHeight: 0 })
   const dragRef = useRef<{ startY: number; startScrollTop: number; range: number } | null>(null)
 
-  function updateScrollbar() {
+  const updateScrollbar = useCallback(() => {
     const container = tableScrollRef.current
     const header = theadRef.current
     if (container === null || header === null) return
@@ -33,7 +33,7 @@ export function useTableScrollbar(deps: unknown[]) {
         ? prev
         : next,
     )
-  }
+  }, [])
 
   useLayoutEffect(() => {
     updateScrollbar()
@@ -53,7 +53,7 @@ export function useTableScrollbar(deps: unknown[]) {
       observer.disconnect()
       window.removeEventListener('resize', updateScrollbar)
     }
-  }, deps)
+  }, [updateScrollbar, first, second, third])
 
   function handleThumbPointerDown(event: React.PointerEvent<HTMLDivElement>) {
     const container = tableScrollRef.current

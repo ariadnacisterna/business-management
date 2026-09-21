@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useAuth } from '../../features/access/AuthContext'
+import { useAuth } from '../../features/access/useAuth'
 
 const PHRASES_BY_GREETING: Record<'Buen día' | 'Buenas tardes' | 'Buenas noches', string> = {
   'Buen día': 'Que tengas una jornada productiva.',

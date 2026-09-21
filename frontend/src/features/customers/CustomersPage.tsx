@@ -26,12 +26,12 @@ import { PriceInput } from '../../shared/PriceInput'
 import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
-import { useToast } from '../../shared/Toast'
+import { useToast } from '../../shared/useToast'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { NavIconGlyph } from '../../shared/layout/NavIcon'
 import type { ViewMode } from '../../shared/ViewToggle'
 import { ViewToggle } from '../../shared/ViewToggle'
-import { useAuth } from '../access/AuthContext'
+import { useAuth } from '../access/useAuth'
 import { canManageCustomers, canViewCustomerHistory } from '../access/roles'
 
 type Status = 'loading' | 'success' | 'error'
@@ -335,12 +335,12 @@ function CustomerHistoryModal({ customer, onClose }: { customer: Customer; onClo
 
   useEffect(load, [customer.id])
 
-  let running = 0
-  const withBalance = credits.map((credit) => {
-    const before = running
-    running += credit.type === 'cargo' ? Number(credit.amount) : -Number(credit.amount)
-    return { credit, before, after: running }
-  })
+  const withBalance = credits.reduce<{ credit: Credit; before: number; after: number }[]>((entries, credit) => {
+    const before = entries.at(-1)?.after ?? 0
+    const change = credit.type === 'cargo' ? Number(credit.amount) : -Number(credit.amount)
+    entries.push({ credit, before, after: before + change })
+    return entries
+  }, [])
   const sorted = [...withBalance].reverse()
 
   return (

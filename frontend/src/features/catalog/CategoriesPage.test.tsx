@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { ToastProvider } from '../../shared/Toast'
-import { AuthProvider, useAuth } from '../access/AuthContext'
+import { AuthProvider } from '../access/AuthContext'
+import { useAuth } from '../access/useAuth'
 import { CategoriesPage } from './CategoriesPage'
 
 function ReadyGate({ children }: { children: ReactNode }) {

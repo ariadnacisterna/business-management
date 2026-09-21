@@ -6,7 +6,7 @@ import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
 import { describeChange, evaluateDelta, evaluateTargetStock } from '../../shared/signedDelta'
-import { useToast } from '../../shared/Toast'
+import { useToast } from '../../shared/useToast'
 
 const GENERIC_ERROR_MESSAGE = 'No se pudo guardar el ajuste. Intentá de nuevo.'
 

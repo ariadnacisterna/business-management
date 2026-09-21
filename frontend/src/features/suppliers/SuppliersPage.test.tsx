@@ -4,7 +4,8 @@ import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../shared/Toast'
-import { AuthProvider, useAuth } from '../access/AuthContext'
+import { AuthProvider } from '../access/AuthContext'
+import { useAuth } from '../access/useAuth'
 import { SuppliersPage } from './SuppliersPage'
 
 function ReadyGate({ children }: { children: ReactNode }) {
@@ -260,7 +261,9 @@ describe('SuppliersPage', () => {
 
     await screen.findAllByText('Papelera Central')
     const lastCall = fetchMock.mock.calls.at(-1)
-    const body = JSON.parse((lastCall?.[1] as RequestInit).body as string)
+    expect(lastCall).toBeDefined()
+    const [, requestInit] = lastCall as [string, RequestInit]
+    const body = JSON.parse(requestInit.body as string)
     expect(body.last_purchase_at).toBe(expectedIso)
   })
 
@@ -304,7 +307,9 @@ describe('SuppliersPage', () => {
 
     await screen.findAllByText('Papelera Central')
     const lastCall = fetchMock.mock.calls.at(-1)
-    const body = JSON.parse((lastCall?.[1] as RequestInit).body as string)
+    expect(lastCall).toBeDefined()
+    const [, requestInit] = lastCall as [string, RequestInit]
+    const body = JSON.parse(requestInit.body as string)
     expect(body.category_ids).toEqual([1])
   })
 

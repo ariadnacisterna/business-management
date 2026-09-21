@@ -5,7 +5,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ManagedAccount } from '../../api/types'
 import { ToastProvider } from '../../shared/Toast'
-import { AuthProvider, useAuth } from '../access/AuthContext'
+import { AuthProvider } from '../access/AuthContext'
+import { useAuth } from '../access/useAuth'
 import { AccountsPage } from './AccountsPage'
 
 function ReadyGate({ children }: { children: ReactNode }) {

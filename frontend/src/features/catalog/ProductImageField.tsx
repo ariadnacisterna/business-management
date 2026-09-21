@@ -4,7 +4,7 @@ import { ApiError } from '../../api/client'
 import type { Product } from '../../api/types'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { TrashIcon } from '../../shared/icons'
-import { useToast } from '../../shared/Toast'
+import { useToast } from '../../shared/useToast'
 
 const UPLOAD_ERROR_MESSAGE = 'No se pudo subir la imagen. Intentá de nuevo.'
 const REMOVE_ERROR_MESSAGE = 'No se pudo quitar la imagen. Intentá de nuevo.'

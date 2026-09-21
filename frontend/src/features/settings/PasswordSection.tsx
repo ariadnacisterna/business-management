@@ -4,8 +4,9 @@ import { ApiError } from '../../api/client'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { EyeIcon } from '../../shared/icons'
-import { isPasswordSecure, PasswordChecklist } from '../../shared/passwordRules'
-import { useToast } from '../../shared/Toast'
+import { PasswordChecklist } from '../../shared/PasswordChecklist'
+import { isPasswordSecure } from '../../shared/passwordRules'
+import { useToast } from '../../shared/useToast'
 
 const inputClasses =
   'h-12 w-full rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'

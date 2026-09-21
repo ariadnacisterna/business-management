@@ -4,7 +4,8 @@ import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../shared/Toast'
-import { AuthProvider, useAuth } from '../access/AuthContext'
+import { AuthProvider } from '../access/AuthContext'
+import { useAuth } from '../access/useAuth'
 import { InventoryPage } from './InventoryPage'
 
 function ReadyGate({ children }: { children: ReactNode }) {

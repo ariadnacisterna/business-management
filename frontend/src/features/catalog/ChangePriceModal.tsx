@@ -6,7 +6,7 @@ import { CloseButton } from '../../shared/CloseButton'
 import { PriceInput } from '../../shared/PriceInput'
 import { AllVariantsPreview, DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
 import { deltaToApi, evaluateDelta, evaluateForAll, evaluateTargetPrice } from '../../shared/signedDelta'
-import { useToast } from '../../shared/Toast'
+import { useToast } from '../../shared/useToast'
 import { formatPrice, formatPriceExact } from '../../shared/formatPrice'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 

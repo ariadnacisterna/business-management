@@ -3,8 +3,8 @@ import { ApiError } from '../../api/client'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { PencilIcon } from '../../shared/icons'
-import { useToast } from '../../shared/Toast'
-import { useAuth } from '../access/AuthContext'
+import { useToast } from '../../shared/useToast'
+import { useAuth } from '../access/useAuth'
 
 const inputClasses =
   'h-14 w-full rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'

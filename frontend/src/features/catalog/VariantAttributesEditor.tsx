@@ -3,7 +3,7 @@ import { createAttribute, createAttributeValue, fetchAttributeValues } from '../
 import { ApiError } from '../../api/client'
 import type { Attribute, AttributeValue } from '../../api/types'
 import { SelectMenu } from '../../shared/SelectMenu'
-import { useToast } from '../../shared/Toast'
+import { useToast } from '../../shared/useToast'
 import { TrashIcon } from '../../shared/icons'
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los valores.'

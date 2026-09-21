@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { AuthProvider, useAuth } from './features/access/AuthContext'
+import { AuthProvider } from './features/access/AuthContext'
+import { useAuth } from './features/access/useAuth'
 import { LoginPage } from './features/access/LoginPage'
 import { ProtectedRoute } from './features/access/ProtectedRoute'
 import { canManageAccounts, canManageSuppliers, canViewDashboard } from './features/access/roles'

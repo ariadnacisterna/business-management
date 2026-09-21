@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { useAuth } from '../../features/access/AuthContext'
+import { useAuth } from '../../features/access/useAuth'
 import { ScrollToTopButton } from '../ScrollToTopButton'
 import { AccountMenu } from './AccountMenu'
 import { HeaderClock } from './HeaderClock'

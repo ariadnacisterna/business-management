@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FONT_SIZE_STEPS } from '../../shared/fontSize'
-import { useToast } from '../../shared/Toast'
-import { useAuth } from '../access/AuthContext'
+import { useToast } from '../../shared/useToast'
+import { useAuth } from '../access/useAuth'
 import { PasswordSection } from './PasswordSection'
 import { ProfileSection } from './ProfileSection'
 

@@ -10,11 +10,11 @@ import {
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Attribute, AttributeValue } from '../../api/types'
-import { useAuth } from '../access/AuthContext'
+import { useAuth } from '../access/useAuth'
 import { canManageCatalog } from '../access/roles'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
-import { useToast } from '../../shared/Toast'
+import { useToast } from '../../shared/useToast'
 
 type Status = 'loading' | 'success' | 'error'
 

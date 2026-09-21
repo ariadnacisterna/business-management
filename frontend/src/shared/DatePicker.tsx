@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { formatDisplayDate, parseISODate } from './dateDisplay'
 import { CLOSE_FLOATING_MENUS_EVENT } from './floatingMenuEvents'
 
 const DATE_PICKER_OPEN_EVENT = 'date-picker-open'
@@ -18,19 +19,6 @@ interface Props {
   disableFuture?: boolean
 }
 
-export function formatISODateDisplay(value: string): string {
-  const date = parseISODate(value)
-  return date !== null ? formatDisplayDate(date) : value
-}
-
-function parseISODate(value: string): Date | null {
-  if (value === '') return null
-  const [year, month, day] = value.split('-').map(Number)
-  if (year === undefined || month === undefined || day === undefined) return null
-  const date = new Date(year, month - 1, day)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
 function toISODate(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -47,10 +35,6 @@ function buildCalendarDays(viewYear: number, viewMonth: number): Date[] {
   const mondayIndex = (firstOfMonth.getDay() + 6) % 7
   const gridStart = new Date(viewYear, viewMonth, 1 - mondayIndex)
   return Array.from({ length: 42 }, (_, index) => new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + index))
-}
-
-function formatDisplayDate(date: Date): string {
-  return date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function formatMonthName(viewMonth: number): string {

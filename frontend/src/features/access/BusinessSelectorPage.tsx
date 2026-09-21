@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Brand } from '../../shared/Brand'
-import { useAuth } from './AuthContext'
+import { useAuth } from './useAuth'
 
 interface BusinessSelectorPageProps {
   onSelected: () => void

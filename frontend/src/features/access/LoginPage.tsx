@@ -2,8 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { InvalidCredentialsError } from '../../api/auth'
 import { Brand } from '../../shared/Brand'
-import { useToast } from '../../shared/Toast'
-import { useAuth } from './AuthContext'
+import { useToast } from '../../shared/useToast'
+import { useAuth } from './useAuth'
 import { LoginHelpDialog } from './LoginHelpDialog'
 
 export function LoginPage() {

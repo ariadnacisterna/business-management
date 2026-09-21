@@ -1,7 +1,8 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CloseButton } from './CloseButton'
 import { CLOSE_FLOATING_MENUS_EVENT } from './floatingMenuEvents'
 import { CheckIcon, CrossIcon } from './icons'
+import { ToastContext, type ToastContextValue } from './useToast'
 
 type ToastType = 'success' | 'error'
 
@@ -10,13 +11,6 @@ interface ToastRecord {
   type: ToastType
   message: string
 }
-
-interface ToastContextValue {
-  showSuccess: (message: string) => void
-  showError: (message: string) => void
-}
-
-const ToastContext = createContext<ToastContextValue | null>(null)
 
 const AUTO_DISMISS_MS = 5000
 
@@ -137,12 +131,4 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       </div>
     </ToastContext.Provider>
   )
-}
-
-export function useToast(): ToastContextValue {
-  const context = useContext(ToastContext)
-  if (context === null) {
-    throw new Error('useToast must be used within a ToastProvider')
-  }
-  return context
 }

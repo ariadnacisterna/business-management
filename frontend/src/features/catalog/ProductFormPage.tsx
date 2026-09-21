@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import {
   adjustStock,
@@ -22,9 +22,9 @@ import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { normalizeForComparison } from '../../shared/normalizeForComparison'
 import { PriceInput } from '../../shared/PriceInput'
 import { SelectMenu } from '../../shared/SelectMenu'
-import { useToast } from '../../shared/Toast'
+import { useToast } from '../../shared/useToast'
 import { useScrollbar } from '../../shared/useScrollbar'
-import { useAuth } from '../access/AuthContext'
+import { useAuth } from '../access/useAuth'
 import { canManageCatalog, canManageSuppliers } from '../access/roles'
 import { DuplicateWarning } from './DuplicateWarning'
 import { NewProductImagePicker } from './ProductImageField'
@@ -161,7 +161,7 @@ export function ProductFormPage() {
   const [createdProductId, setCreatedProductId] = useState<number | null>(null)
   const [duplicatesFound, setDuplicatesFound] = useState<Variant[] | null>(null)
 
-  function loadFormData() {
+  const loadFormData = useCallback(() => {
     setLoadStatus('loading')
     Promise.all([
       fetchCategories(),
@@ -177,9 +177,9 @@ export function ProductFormPage() {
         setLoadStatus('success')
       })
       .catch(() => setLoadStatus('error'))
-  }
+  }, [canViewProviders])
 
-  useEffect(loadFormData, [])
+  useEffect(loadFormData, [loadFormData])
 
   function close() {
     navigate('/products')

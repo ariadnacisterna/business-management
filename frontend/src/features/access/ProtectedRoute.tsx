@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { BusinessSelectorPage } from './BusinessSelectorPage'
-import { useAuth } from './AuthContext'
+import { useAuth } from './useAuth'
 import { isDueno } from './roles'
 
 export function ProtectedRoute() {

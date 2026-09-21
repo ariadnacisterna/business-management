@@ -10,7 +10,7 @@ import {
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Category, Price, Product, Variant } from '../../api/types'
-import { useAuth } from '../access/AuthContext'
+import { useAuth } from '../access/useAuth'
 import { canManageCatalog } from '../access/roles'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { CloseButton } from '../../shared/CloseButton'
@@ -33,7 +33,7 @@ import {
   evaluateTargetPrice,
   formatSignedDelta,
 } from '../../shared/signedDelta'
-import { useToast } from '../../shared/Toast'
+import { useToast } from '../../shared/useToast'
 import { firstName } from '../../shared/formatName'
 import { formatPrice, formatPriceExact } from '../../shared/formatPrice'
 import { formatDateTime } from '../../shared/formatDateTime'

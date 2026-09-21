@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Account, Business } from '../../api/types'
 import { isDueno } from '../../features/access/roles'
 import { ConfirmDialog } from '../ConfirmDialog'
-import { useToast } from '../Toast'
+import { useToast } from '../useToast'
 import { firstName, initials } from '../formatName'
 
 interface Props {
