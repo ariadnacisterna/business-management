@@ -333,11 +333,9 @@ export function ProductDetailPage() {
         if (requestId !== requestIdRef.current) return
         setPricesByVariant(new Map(priceResults.map((result) => [result.variant_id, result.price])))
 
-        if (canManage) {
-          const stockRows = await fetchAllStock()
-          if (requestId !== requestIdRef.current) return
-          setStockByVariant(new Map(stockRows.map((row) => [row.variant_id, row])))
-        }
+        const stockRows = await fetchAllStock()
+        if (requestId !== requestIdRef.current) return
+        setStockByVariant(new Map(stockRows.map((row) => [row.variant_id, row])))
 
         if (searchParams.get('edit') === '1' && canManage) {
           setProductDraft({
@@ -1115,7 +1113,7 @@ export function ProductDetailPage() {
             )}
 
             {product.variants.length === 1 && product.variants[0].is_implicit && (
-              <div className={`grid grid-cols-1 gap-3 ${canManage ? 'sm:grid-cols-2' : ''}`}>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-3">
                   <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
                     Precio
@@ -1172,8 +1170,7 @@ export function ProductDetailPage() {
                   </div>
                 </div>
 
-                {canManage && (
-                  <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3">
                     <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
                       Stock
                     </h2>
@@ -1191,42 +1188,45 @@ export function ProductDetailPage() {
                         })()}
                       </div>
 
-                      <div className="flex flex-col gap-0.5 text-base opacity-60">
-                        <p className="m-0">
-                          <span>Último cambio: </span>
-                          <span>
-                            {(() => {
-                              const stock = stockByVariant.get(product.variants[0].id)
-                              if (stock === undefined || stock.last_movement_at === null || stock.last_movement_by_account_name === null) {
-                                return '—'
-                              }
-                              return `${formatRelativeTime(stock.last_movement_at)} por ${firstName(stock.last_movement_by_account_name)}`
-                            })()}
-                          </span>
-                        </p>
-                      </div>
+                      {canManage && (
+                        <div className="flex flex-col gap-0.5 text-base opacity-60">
+                          <p className="m-0">
+                            <span>Último cambio: </span>
+                            <span>
+                              {(() => {
+                                const stock = stockByVariant.get(product.variants[0].id)
+                                if (stock === undefined || stock.last_movement_at === null || stock.last_movement_by_account_name === null) {
+                                  return '—'
+                                }
+                                return `${formatRelativeTime(stock.last_movement_at)} por ${firstName(stock.last_movement_by_account_name)}`
+                              })()}
+                            </span>
+                          </p>
+                        </div>
+                      )}
 
-                      <div className="mt-auto flex flex-nowrap gap-2">
-                        {editingProduct && (
+                      {canManage && (
+                        <div className="mt-auto flex flex-nowrap gap-2">
+                          {editingProduct && (
+                            <button
+                              type="button"
+                              onClick={() => setAdjustingVariant(product.variants[0])}
+                              className={compactPrimaryButtonClasses}
+                            >
+                              Actualizar stock
+                            </button>
+                          )}
                           <button
                             type="button"
-                            onClick={() => setAdjustingVariant(product.variants[0])}
-                            className={compactPrimaryButtonClasses}
+                            onClick={() => openStockHistory(product.variants[0])}
+                            className={compactSecondaryButtonClasses}
                           >
-                            Actualizar stock
+                            Ver historial
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => openStockHistory(product.variants[0])}
-                          className={compactSecondaryButtonClasses}
-                        >
-                          Ver historial
-                        </button>
-                      </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                </div>
               </div>
             )}
 
@@ -1324,7 +1324,7 @@ export function ProductDetailPage() {
                             )}
                           </div>
 
-                          <div className={`grid grid-cols-1 gap-3 ${canManage ? 'sm:grid-cols-2' : ''}`}>
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div className="flex flex-col gap-3">
                               <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
                                 Precio
@@ -1379,8 +1379,7 @@ export function ProductDetailPage() {
                               </div>
                             </div>
 
-                            {canManage && (
-                              <div className="flex flex-col gap-3">
+                            <div className="flex flex-col gap-3">
                                 <h2 className="m-0 border-l-4 border-brand pl-3 text-base font-bold uppercase tracking-wide opacity-70">
                                   Stock
                                 </h2>
@@ -1401,44 +1400,47 @@ export function ProductDetailPage() {
                                   })()}
                                 </div>
 
-                                <p className="m-0 text-base opacity-60">
-                                  <span>Último cambio: </span>
-                                  <span>
-                                    {(() => {
-                                      const stock = stockByVariant.get(variant.id)
-                                      if (
-                                        stock === undefined ||
-                                        stock.last_movement_at === null ||
-                                        stock.last_movement_by_account_name === null
-                                      ) {
-                                        return '—'
-                                      }
-                                      return `${formatRelativeTime(stock.last_movement_at)} por ${firstName(stock.last_movement_by_account_name)}`
-                                    })()}
-                                  </span>
-                                </p>
+                                {canManage && (
+                                  <p className="m-0 text-base opacity-60">
+                                    <span>Último cambio: </span>
+                                    <span>
+                                      {(() => {
+                                        const stock = stockByVariant.get(variant.id)
+                                        if (
+                                          stock === undefined ||
+                                          stock.last_movement_at === null ||
+                                          stock.last_movement_by_account_name === null
+                                        ) {
+                                          return '—'
+                                        }
+                                        return `${formatRelativeTime(stock.last_movement_at)} por ${firstName(stock.last_movement_by_account_name)}`
+                                      })()}
+                                    </span>
+                                  </p>
+                                )}
 
-                                <div className="mt-auto flex flex-nowrap gap-2">
-                                  {editingProduct && (
+                                {canManage && (
+                                  <div className="mt-auto flex flex-nowrap gap-2">
+                                    {editingProduct && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setAdjustingVariant(variant)}
+                                        className={compactPrimaryButtonClasses}
+                                      >
+                                        Actualizar stock
+                                      </button>
+                                    )}
                                     <button
                                       type="button"
-                                      onClick={() => setAdjustingVariant(variant)}
-                                      className={compactPrimaryButtonClasses}
+                                      onClick={() => openStockHistory(variant)}
+                                      className={compactSecondaryButtonClasses}
                                     >
-                                      Actualizar stock
+                                      Ver historial
                                     </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => openStockHistory(variant)}
-                                    className={compactSecondaryButtonClasses}
-                                  >
-                                    Ver historial
-                                  </button>
-                                </div>
+                                  </div>
+                                )}
                                 </div>
                               </div>
-                            )}
                           </div>
 
                         </div>

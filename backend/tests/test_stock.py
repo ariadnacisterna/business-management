@@ -472,9 +472,9 @@ def test_list_stock_rejects_invalid_quick_filter(client):
     assert response.status_code == 422
 
 
-def test_empleado_list_stock_hides_quantity_and_status(client):
+def test_empleado_list_stock_shows_quantity_and_status_but_not_minimum(client):
     admin_cookies = _admin_cookies(client)
-    variant_id = _setup_variant(client, admin_cookies, "Producto oculto para empleado")
+    variant_id = _setup_variant(client, admin_cookies, "Producto visible para empleado")
     _adjust_stock(client, admin_cookies, variant_id, 100)
     empleado_cookies = _empleado_cookies(client, admin_cookies)
 
@@ -483,26 +483,83 @@ def test_empleado_list_stock_hides_quantity_and_status(client):
     assert response.status_code == 200, response.text
     rows = response.json()["items"]
     row = next(row for row in rows if row["variant_id"] == variant_id)
-    assert row["product_name"] == "Producto oculto para empleado"
-    assert row["quantity"] is None
+    assert row["product_name"] == "Producto visible para empleado"
+    assert row["quantity"] == 100
+    assert row["status"] == "normal"
     assert row["minimum_quantity"] is None
     assert row["effective_minimum_quantity"] is None
-    assert row["status"] is None
 
 
-def test_empleado_list_stock_ignores_quick_filter(client):
+def test_gerente_list_stock_shows_quantity_status_and_minimum(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(client, admin_cookies, "Producto visible para gerente")
+    _adjust_stock(client, admin_cookies, variant_id, 100)
+    gerente_cookies = _gerente_cookies(client, admin_cookies)
+
+    response = client.get("/stock", cookies=gerente_cookies)
+
+    assert response.status_code == 200, response.text
+    row = next(row for row in response.json()["items"] if row["variant_id"] == variant_id)
+    assert row["quantity"] == 100
+    assert row["status"] == "normal"
+    assert row["effective_minimum_quantity"] is not None
+
+
+def test_empleado_list_stock_applies_quick_filter(client):
     admin_cookies = _admin_cookies(client)
     sin_stock_variant = _setup_variant(client, admin_cookies, "Producto sin stock para empleado")
     normal_variant = _setup_variant(client, admin_cookies, "Producto normal para empleado")
     _adjust_stock(client, admin_cookies, normal_variant, 100)
     empleado_cookies = _empleado_cookies(client, admin_cookies)
 
-    response = client.get("/stock", params={"quick_filter": "sin_stock"}, cookies=empleado_cookies)
+    sin_stock = client.get("/stock", params={"quick_filter": "sin_stock"}, cookies=empleado_cookies)
+    normal = client.get("/stock", params={"quick_filter": "normal"}, cookies=empleado_cookies)
 
-    assert response.status_code == 200, response.text
-    variant_ids = {row["variant_id"] for row in response.json()["items"]}
-    assert sin_stock_variant in variant_ids
-    assert normal_variant in variant_ids
+    assert sin_stock.status_code == 200, sin_stock.text
+    sin_stock_ids = {row["variant_id"] for row in sin_stock.json()["items"]}
+    assert sin_stock_variant in sin_stock_ids
+    assert normal_variant not in sin_stock_ids
+    normal_ids = {row["variant_id"] for row in normal.json()["items"]}
+    assert normal_variant in normal_ids
+    assert sin_stock_variant not in normal_ids
+
+
+def test_list_stock_hides_last_movement_from_empleado_and_shows_it_to_gerente(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(client, admin_cookies, "Producto con ultimo movimiento")
+    _adjust_stock(client, admin_cookies, variant_id, 10)
+    empleado_cookies = _empleado_cookies(client, admin_cookies)
+    gerente_cookies = _gerente_cookies(client, admin_cookies)
+
+    empleado_response = client.get("/stock", cookies=empleado_cookies)
+    gerente_response = client.get("/stock", cookies=gerente_cookies)
+
+    assert empleado_response.status_code == 200, empleado_response.text
+    empleado_row = next(
+        row for row in empleado_response.json()["items"] if row["variant_id"] == variant_id
+    )
+    assert empleado_row["last_movement_at"] is None
+    assert empleado_row["last_movement_by_account_name"] is None
+    gerente_row = next(
+        row for row in gerente_response.json()["items"] if row["variant_id"] == variant_id
+    )
+    assert gerente_row["last_movement_at"] is not None
+    assert gerente_row["last_movement_by_account_name"] is not None
+
+
+def test_empleado_cannot_set_minimum_stock(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(client, admin_cookies)
+    empleado_cookies = _empleado_cookies(client, admin_cookies)
+
+    response = client.patch(
+        f"/variants/{variant_id}/stock/minimum",
+        json={"minimum_quantity": 5},
+        cookies=empleado_cookies,
+        headers=_auth_headers(empleado_cookies),
+    )
+
+    assert response.status_code == 403
 
 
 def test_stock_counts_reflect_all_variants_regardless_of_pagination(client):

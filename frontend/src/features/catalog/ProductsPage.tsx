@@ -119,12 +119,10 @@ export function ProductsPage() {
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {})
     fetchUnits().then(setUnits).catch(() => {})
-    if (canManage) {
-      fetchAllStock()
-        .then((rows) => setStockByVariant(new Map(rows.map((row) => [row.variant_id, row]))))
-        .catch(() => {})
-    }
-  }, [account?.active_business_id, canManage])
+    fetchAllStock()
+      .then((rows) => setStockByVariant(new Map(rows.map((row) => [row.variant_id, row]))))
+      .catch(() => {})
+  }, [account?.active_business_id])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -497,7 +495,7 @@ export function ProductsPage() {
                       </Link>
                       <p className="mt-0.5 text-lg opacity-60">{categoryName(product.category_id)}</p>
                     </div>
-                    <div className={`grid gap-3 border-t border-line pt-3 ${canManage ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                    <div className="grid grid-cols-4 gap-3 border-t border-line pt-3">
                       <div>
                         <p className="text-sm font-bold uppercase tracking-wide opacity-50">Precio</p>
                         <p className="mt-0.5 text-lg font-bold">
@@ -513,18 +511,16 @@ export function ProductsPage() {
                           )}
                         </p>
                       </div>
-                      {canManage && (
-                        <div>
-                          <p className="text-sm font-bold uppercase tracking-wide opacity-50">Stock</p>
-                          <p className="mt-0.5 text-lg font-bold">
-                            {(() => {
-                              const stockInfo = productStockInfo(product, stockByVariant)
-                              if (stockInfo === null) return <span className="opacity-40">—</span>
-                              return <span className={stockStatusTextColor(stockInfo.status)}>{stockInfo.quantity}</span>
-                            })()}
-                          </p>
-                        </div>
-                      )}
+                      <div>
+                        <p className="text-sm font-bold uppercase tracking-wide opacity-50">Stock</p>
+                        <p className="mt-0.5 text-lg font-bold">
+                          {(() => {
+                            const stockInfo = productStockInfo(product, stockByVariant)
+                            if (stockInfo === null) return <span className="opacity-40">—</span>
+                            return <span className={stockStatusTextColor(stockInfo.status)}>{stockInfo.quantity}</span>
+                          })()}
+                        </p>
+                      </div>
                       <div>
                         <p className="text-sm font-bold uppercase tracking-wide opacity-50">Unidad</p>
                         <p className="mt-0.5 text-lg font-bold">{unitName(product.unit_id)}</p>
@@ -579,9 +575,7 @@ export function ProductsPage() {
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Variantes</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Unidad</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Precio</th>
-                    {canManage && (
-                      <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Stock</th>
-                    )}
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Stock</th>
                     <th className="whitespace-nowrap py-3 pl-8 pr-4 text-left text-sm font-bold uppercase tracking-wide opacity-60">Estado</th>
                     <th className="px-4 py-3" />
                   </tr>
@@ -621,15 +615,13 @@ export function ProductsPage() {
                           )
                         })()}
                       </td>
-                      {canManage && (
-                        <td className="whitespace-nowrap px-4 py-3.5 text-lg font-bold">
-                          {(() => {
-                            const stockInfo = productStockInfo(product, stockByVariant)
-                            if (stockInfo === null) return <span className="italic opacity-40">—</span>
-                            return <span className={stockStatusTextColor(stockInfo.status)}>{stockInfo.quantity}</span>
-                          })()}
-                        </td>
-                      )}
+                      <td className="whitespace-nowrap px-4 py-3.5 text-lg font-bold">
+                        {(() => {
+                          const stockInfo = productStockInfo(product, stockByVariant)
+                          if (stockInfo === null) return <span className="italic opacity-40">—</span>
+                          return <span className={stockStatusTextColor(stockInfo.status)}>{stockInfo.quantity}</span>
+                        })()}
+                      </td>
                       <td className="py-3.5 pl-8 pr-4">
                         <span
                           className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${

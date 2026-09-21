@@ -103,9 +103,7 @@ function renderPage(account: unknown, initialPath = '/products') {
     .mockResolvedValueOnce(jsonResponse(account))
     .mockResolvedValueOnce(jsonResponse(CATEGORIES))
     .mockResolvedValueOnce(jsonResponse(UNITS))
-  if ((account as { role?: string }).role !== 'Empleado') {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 25 }))
-  }
+  fetchMock.mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 25 }))
   fetchMock.mockResolvedValueOnce(productPage(PRODUCTS))
 
   return render(

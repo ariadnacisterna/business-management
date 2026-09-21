@@ -243,7 +243,7 @@ describe('ProductDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Cambiar precio' })).toBeInTheDocument()
   })
 
-  it('hides "Último cambio" and "Ver historial" for an empleado', async () => {
+  it('shows read-only stock quantity and status but no history or adjust for an empleado', async () => {
     const fetchMock = fetch as ReturnType<typeof vi.fn>
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ ...ADMIN_ACCOUNT, role: 'Empleado' }))
@@ -251,8 +251,8 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse(CATEGORIES))
       .mockResolvedValueOnce(jsonResponse(UNITS))
       .mockResolvedValueOnce(jsonResponse([]))
-      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
+      .mockResolvedValueOnce(stockResponse(20, { quantity: 7, status: 'stock_bajo' }))
 
     render(
       <MemoryRouter initialEntries={['/products/6']}>
@@ -270,8 +270,12 @@ describe('ProductDetailPage', () => {
     )
 
     expect(await screen.findByRole('heading', { name: 'Precio' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Stock' })).toBeInTheDocument()
+    expect(
+      await screen.findByText((_, element) => element?.tagName === 'P' && element.textContent === '7 (Stock bajo)'),
+    ).toBeInTheDocument()
     expect(screen.queryByText(/Último cambio/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/^Stock:/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Actualizar stock' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Ver historial' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Cambiar precio' })).not.toBeInTheDocument()
   })

@@ -457,22 +457,20 @@ function StockTab({
 
   const filterControls = (
     <>
-      {canManage && (
-        <SelectMenu
-          value={filters.quickFilter}
-          onChange={(value) =>
-            setFilters((current) => ({ ...current, quickFilter: value as QuickFilter, page: 1 }))
-          }
-          ariaLabel="Filtrar por estado de stock"
-          className="w-full lg:w-56"
-          options={[
-            { value: 'all', label: 'Todos los estados' },
-            { value: 'normal', label: 'Con stock' },
-            { value: 'stock_bajo', label: 'Bajo' },
-            { value: 'sin_stock', label: 'Crítico' },
-          ]}
-        />
-      )}
+      <SelectMenu
+        value={filters.quickFilter}
+        onChange={(value) =>
+          setFilters((current) => ({ ...current, quickFilter: value as QuickFilter, page: 1 }))
+        }
+        ariaLabel="Filtrar por estado de stock"
+        className="w-full lg:w-56"
+        options={[
+          { value: 'all', label: 'Todos los estados' },
+          { value: 'normal', label: 'Con stock' },
+          { value: 'stock_bajo', label: 'Bajo' },
+          { value: 'sin_stock', label: 'Crítico' },
+        ]}
+      />
       <SelectMenu
         value={filters.categoryId === 'all' ? 'all' : String(filters.categoryId)}
         onChange={(value) =>
@@ -573,12 +571,8 @@ function StockTab({
                   <th className="w-64 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Producto</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Categoría</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Variante</th>
-                  {canManage && (
-                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Stock actual</th>
-                  )}
-                  {canManage && (
-                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Estado</th>
-                  )}
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Stock actual</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Estado</th>
                   {canManage && (
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Stock mín.</th>
                   )}
@@ -597,13 +591,13 @@ function StockTab({
                     <td className="w-64 px-4 py-3 text-lg font-medium">{row.product_name}</td>
                     <td className="px-4 py-3 text-lg opacity-70">{categoryName(row.category_id)}</td>
                     <td className="px-4 py-3 text-lg opacity-70">{variantDisplayLabel(row)}</td>
-                    {canManage && (
-                      <td className="whitespace-nowrap px-4 py-3">
-                        <span className="inline-flex items-center gap-1">
-                          <span className="inline-flex min-w-[64px] items-baseline gap-1">
-                            <span className="text-xl font-bold text-brand">{row.quantity}</span>
-                            <span className="text-lg opacity-70">{unitAbbreviation(row.unit_id)}</span>
-                          </span>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="inline-flex min-w-[64px] items-baseline gap-1">
+                          <span className="text-xl font-bold text-brand">{row.quantity}</span>
+                          <span className="text-lg opacity-70">{unitAbbreviation(row.unit_id)}</span>
+                        </span>
+                        {canManage && (
                           <button
                             type="button"
                             onClick={() => setAdjustingRow(row)}
@@ -612,16 +606,14 @@ function StockTab({
                           >
                             <EditIcon />
                           </button>
-                        </span>
-                      </td>
-                    )}
-                    {canManage && (
-                      <td className="whitespace-nowrap px-4 py-3">
-                        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-base font-semibold ${stockStatusClasses(row.status)}`}>
-                          ● {STOCK_STATUS_LABELS[row.status] ?? row.status}
-                        </span>
-                      </td>
-                    )}
+                        )}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-base font-semibold ${stockStatusClasses(row.status)}`}>
+                        ● {STOCK_STATUS_LABELS[row.status] ?? row.status}
+                      </span>
+                    </td>
                     {canManage && (
                       <td className="whitespace-nowrap px-4 py-3">
                         <span className="inline-flex items-center gap-1">
@@ -692,21 +684,17 @@ function StockTab({
                       <ProductThumbnail imageUrl={row.image_url} name={row.product_name} sizeClassName="h-12 w-12" />
                       <p className="text-xl font-bold leading-tight">{row.product_name}</p>
                     </div>
-                    {canManage && (
-                      <span className={`whitespace-nowrap text-2xl font-bold ${stockStatusTextColor(row.status)}`}>
-                        {row.quantity} <span className="text-base font-normal opacity-60">{unitAbbreviation(row.unit_id)}</span>
-                      </span>
-                    )}
+                    <span className={`whitespace-nowrap text-2xl font-bold ${stockStatusTextColor(row.status)}`}>
+                      {row.quantity} <span className="text-base font-normal opacity-60">{unitAbbreviation(row.unit_id)}</span>
+                    </span>
                   </div>
 
-                  {canManage && (
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-lg opacity-60">Estado</span>
-                      <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-sm font-semibold ${stockStatusClasses(row.status)}`}>
-                        ● {STOCK_STATUS_LABELS[row.status] ?? row.status}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-lg opacity-60">Estado</span>
+                    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-sm font-semibold ${stockStatusClasses(row.status)}`}>
+                      ● {STOCK_STATUS_LABELS[row.status] ?? row.status}
+                    </span>
+                  </div>
 
                   <div className="flex flex-col gap-1.5">
                     <FieldRow label="Categoría" value={categoryName(row.category_id)} />

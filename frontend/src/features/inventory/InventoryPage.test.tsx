@@ -372,17 +372,21 @@ describe('InventoryPage', () => {
     expect(screen.queryByLabelText(/Ver historial de stock/)).not.toBeInTheDocument()
   })
 
-  it('hides quantity, status, minimum stock and the sin-stock counters/banner for an employee', async () => {
-    renderPage(EMPLEADO_ACCOUNT)
+  it('shows quantity, status and the status filter to an employee, without minimum stock, adjust or history', async () => {
+    renderPage(EMPLEADO_ACCOUNT, { ...STOCK_ROW, minimum_quantity: null, effective_minimum_quantity: null as unknown as number })
 
     await screen.findAllByText('Hilo blanco')
-    expect(screen.queryByText('Estado')).not.toBeInTheDocument()
+    expect(screen.getByText('Estado')).toBeInTheDocument()
+    expect(screen.getByText('2')).toBeInTheDocument()
+    expect(screen.getAllByText(/Stock bajo/).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Filtrar por estado de stock' })).toBeInTheDocument()
+    expect(screen.queryByText('Stock mín.')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Editar stock mínimo/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Ajustar stock de/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Ver historial de stock/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Último cambio')).not.toBeInTheDocument()
     expect(screen.queryByText(/con stock bajo/)).not.toBeInTheDocument()
     expect(screen.queryByText(/sin stock/)).not.toBeInTheDocument()
-    expect(screen.queryByText('Stock mín.')).not.toBeInTheDocument()
-    expect(screen.getByText('Categoría')).toBeInTheDocument()
-    expect(screen.getByText('Variante')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Filtrar por estado de stock' })).not.toBeInTheDocument()
   })
 
   it('switches between card and table view while keeping the data visible', async () => {

@@ -10,7 +10,7 @@ Los tres primeros roles operan siempre sobre un único negocio (el que tenga cad
 
 ### Empleado
 
-Puede buscar y consultar precios, navegar el catálogo por categoría, ver el historial de precios y registrar ventas (etapa futura). No administra el catálogo: crear o modificar productos y variantes, cambiar precios, administrar categorías, unidades y atributos, y desactivar o reactivar productos quedan reservados a Gerente y superiores.
+Puede buscar y consultar precios, navegar el catálogo por categoría, ver el historial de precios y registrar ventas (etapa futura). Ve la cantidad en stock y el estado (Normal, Stock bajo, Sin stock) de cada variante, pero no ajusta el stock ni ve su historial de movimientos ni el stock mínimo (D-062). No administra el catálogo: crear o modificar productos y variantes, cambiar precios, administrar categorías, unidades y atributos, y desactivar o reactivar productos quedan reservados a Gerente y superiores.
 
 ### Gerente
 
