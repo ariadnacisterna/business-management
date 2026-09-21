@@ -63,7 +63,7 @@
 | RN-040 | El cliente pertenece al negocio, no a la organización, igual que el resto del catálogo (RN-027). |
 | RN-041 | Un fiado no desglosa productos, solo un importe y si es cargo o pago. |
 | RN-042 | El saldo de un cliente es la suma de sus cargos menos sus pagos; no puede editarse directamente, solo a través de nuevos movimientos. |
-| RN-043 | Todo fiado debe identificar a la cuenta que lo registró y el momento del registro (mismo criterio que un cambio de precio, RN-006). |
+| RN-043 | Todo fiado debe identificar a la cuenta que lo registró y el momento del registro (mismo criterio que un cambio de precio, RN-006). Consultar ese historial y el último cambio de un cliente queda reservado a Gerente y superiores (D-061). |
 | RN-044 | El stock se registra por variante, no por producto (mismo criterio que el faltante, RN-036), y pertenece al negocio. |
 | RN-045 | Ajustar el stock de una variante está reservado a Gerente y superiores, a diferencia de marcar un faltante (RN-035), porque afecta un número que el resto del equipo consulta para decidir. |
 | RN-046 | Ajustar stock suma o resta una diferencia indicada por quien ajusta a la cantidad actual (no la reemplaza por una cantidad nueva); el sistema calcula la cantidad resultante para el historial y rechaza el ajuste si la dejara negativa o si la diferencia es cero (D-060). |

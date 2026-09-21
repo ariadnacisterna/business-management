@@ -385,6 +385,45 @@ def test_customer_credits_are_listed_in_order(client):
     assert body[1]["type"] == "pago"
 
 
+def test_empleado_cannot_list_customer_credits_but_gerente_can(client):
+    admin_cookies = _admin_cookies(client)
+    empleado_cookies = _empleado_cookies(client, admin_cookies)
+    gerente_cookies = _gerente_cookies(client, admin_cookies)
+    customer = _create_customer(client, admin_cookies)
+    _create_credit(client, empleado_cookies, customer["id"], "cargo", "100.00")
+
+    empleado_response = client.get(f"/customers/{customer['id']}/credits", cookies=empleado_cookies)
+    gerente_response = client.get(f"/customers/{customer['id']}/credits", cookies=gerente_cookies)
+
+    assert empleado_response.status_code == 403
+    assert gerente_response.status_code == 200
+    assert len(gerente_response.json()) == 1
+
+
+def test_customer_balances_hide_last_movement_from_empleado_but_not_gerente(client):
+    admin_cookies = _admin_cookies(client)
+    empleado_cookies = _empleado_cookies(client, admin_cookies)
+    gerente_cookies = _gerente_cookies(client, admin_cookies)
+    customer = _create_customer(client, admin_cookies)
+    _create_credit(client, empleado_cookies, customer["id"], "cargo", "100.00")
+    _create_credit(client, empleado_cookies, customer["id"], "pago", "40.00")
+
+    empleado_response = client.get("/customers/balances", cookies=empleado_cookies)
+    gerente_response = client.get("/customers/balances", cookies=gerente_cookies)
+
+    assert empleado_response.status_code == 200
+    empleado_row = {row["customer_id"]: row for row in empleado_response.json()}[customer["id"]]
+    assert Decimal(empleado_row["balance"]) == Decimal("60.00")
+    assert empleado_row["last_movement_at"] is None
+    assert empleado_row["last_movement_by_account_name"] is None
+
+    assert gerente_response.status_code == 200
+    gerente_row = {row["customer_id"]: row for row in gerente_response.json()}[customer["id"]]
+    assert Decimal(gerente_row["balance"]) == Decimal("60.00")
+    assert gerente_row["last_movement_at"] is not None
+    assert gerente_row["last_movement_by_account_name"] is not None
+
+
 def test_customer_not_found_returns_404(client):
     admin_cookies = _admin_cookies(client)
 

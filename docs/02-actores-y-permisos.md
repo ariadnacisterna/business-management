@@ -73,6 +73,7 @@ Una contraseña se recupera mediante un restablecimiento realizado por un Admini
 | Crear y modificar clientes | Sí | Sí | Sí | Sí |
 | Registrar un cargo o un pago de un cliente | Sí | Sí | Sí | Sí |
 | Consultar el saldo de los clientes | Sí | Sí | Sí | Sí |
+| Ver el historial de movimientos y el último cambio de un cliente | No | Sí | Sí | Sí |
 
 ## Permisos previstos para etapas futuras
 

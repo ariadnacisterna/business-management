@@ -1498,7 +1498,13 @@ def list_customer_balances(
     business: Business = Depends(get_active_business),
 ) -> list[CustomerBalanceSummaryResponse]:
     balances = credits.list_all_customer_balances(db, business.id)
-    last_credits = credits.get_last_credits(db, [customer.id for customer, _ in balances])
+    actor_role = get_role_name(db, _actor.id, business.id)
+    can_view_last_movement = ROLE_RANK.get(actor_role, -1) >= ROLE_RANK[GERENTE]
+    last_credits = (
+        credits.get_last_credits(db, [customer.id for customer, _ in balances])
+        if can_view_last_movement
+        else {}
+    )
     account_names = get_account_names(
         db, [credit.created_by_account_id for credit in last_credits.values()]
     )
@@ -1625,7 +1631,7 @@ def get_customer_balance(
 def list_credits(
     customer_id: int,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(get_current_user),
+    _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
 ) -> list[CreditResponse]:
     try:

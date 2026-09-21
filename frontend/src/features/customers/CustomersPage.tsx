@@ -32,7 +32,7 @@ import { NavIconGlyph } from '../../shared/layout/NavIcon'
 import type { ViewMode } from '../../shared/ViewToggle'
 import { ViewToggle } from '../../shared/ViewToggle'
 import { useAuth } from '../access/AuthContext'
-import { canManageCustomers } from '../access/roles'
+import { canManageCustomers, canViewCustomerHistory } from '../access/roles'
 
 type Status = 'loading' | 'success' | 'error'
 
@@ -420,11 +420,13 @@ interface LastMovement {
 function CustomerBalanceEditor({
   customer,
   lastMovement,
+  canViewHistory,
   onMovementRegistered,
   onOpenHistory,
 }: {
   customer: Customer
   lastMovement: LastMovement | undefined
+  canViewHistory: boolean
   onMovementRegistered: (credit: Credit) => void
   onOpenHistory: () => void
 }) {
@@ -487,7 +489,7 @@ function CustomerBalanceEditor({
         </button>
       </div>
 
-      {lastMovement !== undefined && (
+      {canViewHistory && lastMovement !== undefined && (
         <div className="flex items-center justify-between gap-3 text-lg">
           <span className="opacity-60">Último cambio</span>
           <span className="font-semibold">
@@ -496,13 +498,15 @@ function CustomerBalanceEditor({
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={onOpenHistory}
-        className="flex h-12 items-center justify-center gap-2 rounded-lg border border-line text-base font-semibold text-ink/70 transition-colors hover:bg-surface-brand hover:text-brand"
-      >
-        <HistoryIcon /> Ver historial
-      </button>
+      {canViewHistory && (
+        <button
+          type="button"
+          onClick={onOpenHistory}
+          className="flex h-12 items-center justify-center gap-2 rounded-lg border border-line text-base font-semibold text-ink/70 transition-colors hover:bg-surface-brand hover:text-brand"
+        >
+          <HistoryIcon /> Ver historial
+        </button>
+      )}
 
       {confirming && (
         <ConfirmDialog
@@ -538,6 +542,7 @@ export function CustomersPage() {
   const { showSuccess, showError } = useToast()
   const { account } = useAuth()
   const canManage = canManageCustomers(account)
+  const canViewHistory = canViewCustomerHistory(account)
 
   function load() {
     setStatus('loading')
@@ -630,7 +635,9 @@ export function CustomersPage() {
       ...(includeMovementActions
         ? [
             { label: 'Registrar pago', icon: '$', onClick: () => setPayingCustomer(customer) },
-            { label: 'Ver historial', icon: <HistoryIcon />, onClick: () => setHistoryCustomer(customer) },
+            ...(canViewHistory
+              ? [{ label: 'Ver historial', icon: <HistoryIcon />, onClick: () => setHistoryCustomer(customer) }]
+              : []),
           ]
         : []),
       ...(canManage
@@ -846,6 +853,7 @@ export function CustomersPage() {
                   <CustomerBalanceEditor
                     customer={customer}
                     lastMovement={lastMovements[customer.id]}
+                    canViewHistory={canViewHistory}
                     onMovementRegistered={handleMovementRegistered}
                     onOpenHistory={() => setHistoryCustomer(customer)}
                   />

@@ -218,7 +218,7 @@ Esta historia no es necesaria para la mercería, donde las variantes suelen comp
 ### Criterios de aceptación
 
 - La lista muestra solo clientes con saldo mayor a cero.
-- Se puede entrar a un cliente y ver el detalle de sus cargos y pagos, ordenados cronológicamente.
+- Un Gerente o superior puede entrar a un cliente y ver el detalle de sus cargos y pagos, ordenados cronológicamente, y cuándo y quién hizo el último cambio; un Empleado ve la lista y el saldo, pero no ese historial (D-061).
 
 ## HU-17 — Saber cuánto queda de cada cosa
 

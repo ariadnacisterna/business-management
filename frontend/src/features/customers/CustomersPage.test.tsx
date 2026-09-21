@@ -39,6 +39,12 @@ const BALANCES = [
   { customer_id: 2, balance: '0.00', last_movement_at: null, last_movement_by_account_name: null },
 ]
 
+const BALANCES_WITHOUT_LAST_MOVEMENT = BALANCES.map((entry) => ({
+  ...entry,
+  last_movement_at: null,
+  last_movement_by_account_name: null,
+}))
+
 const CREDITS = [
   {
     id: 1,
@@ -342,7 +348,7 @@ describe('CustomersPage', () => {
   it('shows the movement history in the history view', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
-    renderPage()
+    renderPage(CUSTOMERS, BALANCES, GERENTE_ACCOUNT)
 
     await screen.findAllByText('Ana Gómez')
 
@@ -354,9 +360,9 @@ describe('CustomersPage', () => {
     expect(screen.getByText('Cambiado por: Empleada')).toBeInTheDocument()
   })
 
-  it('hides create/edit/deactivate controls for Empleado but keeps payment and history', async () => {
+  it('hides create/edit/deactivate controls for Empleado but keeps payment', async () => {
     const user = userEvent.setup()
-    renderPage()
+    renderPage(CUSTOMERS, BALANCES_WITHOUT_LAST_MOVEMENT)
 
     await screen.findAllByText('Ana Gómez')
 
@@ -368,15 +374,43 @@ describe('CustomersPage', () => {
     await user.click(actionsButton)
 
     expect(screen.getByRole('button', { name: 'Registrar pago' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Ver historial' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ver historial' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Editar cliente' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Desactivar$/ })).not.toBeInTheDocument()
+  })
+
+  it('hides last change and history from Empleado in cards but keeps balance and movement registration', async () => {
+    renderPage(CUSTOMERS, BALANCES_WITHOUT_LAST_MOVEMENT)
+
+    await screen.findAllByText('Ana Gómez')
+
+    expect(screen.queryByText('Último cambio')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ver historial' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('$150,00').length).toBeGreaterThan(0)
+    expect(screen.getByLabelText('Importe para Ana Gómez')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Actualizar' }).length).toBeGreaterThan(0)
+  })
+
+  it('shows last change and history to Gerente in cards and in the table menu', async () => {
+    const user = userEvent.setup()
+    renderPage(CUSTOMERS, BALANCES, GERENTE_ACCOUNT)
+
+    await screen.findAllByText('Ana Gómez')
+
+    expect(screen.getByText('Último cambio')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Ver historial' }).length).toBeGreaterThan(0)
+
+    await user.click(screen.getByLabelText('Ver como tabla'))
+    await user.click(screen.getByRole('button', { name: /Acciones para Ana Gómez/ }))
+
+    expect(screen.getByRole('button', { name: 'Registrar pago' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ver historial' })).toBeInTheDocument()
   })
 
   it('updates the balance directly from the card', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
-    renderPage([CUSTOMERS[0]], [BALANCES[0]])
+    renderPage([CUSTOMERS[0]], [BALANCES[0]], GERENTE_ACCOUNT)
 
     await screen.findAllByText('Ana Gómez')
     await user.type(screen.getByLabelText('Importe para Ana Gómez'), '50')
