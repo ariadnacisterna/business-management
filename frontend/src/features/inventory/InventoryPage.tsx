@@ -17,6 +17,7 @@ import { CloseButton } from '../../shared/CloseButton'
 import { FieldRow } from '../../shared/FieldRow'
 import { ProductThumbnail } from '../../shared/ProductThumbnail'
 import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
+import { PencilIcon } from '../../shared/icons'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { Pagination } from '../../shared/Pagination'
 import { SearchInput } from '../../shared/SearchInput'
@@ -94,24 +95,6 @@ function ModalBreadcrumb({ row, action }: { row: StockRow; action: string }) {
   )
 }
 
-function EditIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-5 w-5"
-    >
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
-  )
-}
-
 function MinimumStockDisplay({
   row,
   onEdit,
@@ -133,7 +116,7 @@ function MinimumStockDisplay({
           aria-label={`Editar stock mínimo de ${variantLabel(row)}`}
           className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink/50 transition-colors hover:bg-surface-brand hover:text-brand"
         >
-          <EditIcon />
+          <PencilIcon />
         </button>
       </div>
       <span className="font-semibold">
@@ -604,7 +587,7 @@ function StockTab({
                             aria-label={`Ajustar stock de ${variantLabel(row)}`}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink/50 transition-colors hover:bg-surface-brand hover:text-brand"
                           >
-                            <EditIcon />
+                            <PencilIcon />
                           </button>
                         )}
                       </span>
@@ -627,7 +610,7 @@ function StockTab({
                             aria-label={`Editar stock mínimo de ${variantLabel(row)}`}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink/50 transition-colors hover:bg-surface-brand hover:text-brand"
                           >
-                            <EditIcon />
+                            <PencilIcon />
                           </button>
                         </span>
                       </td>

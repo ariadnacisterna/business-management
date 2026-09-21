@@ -3,22 +3,34 @@ import re
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.constants.limits import PASSWORD_MIN_LENGTH, USERNAME_MIN_LENGTH
+from app.constants.limits import (
+    FONT_SIZE_DEFAULT,
+    FONT_SIZE_MAX,
+    FONT_SIZE_MIN,
+    PASSWORD_MIN_LENGTH,
+    USERNAME_MIN_LENGTH,
+)
 from app.constants.roles import INITIAL_ROLES, ROLE_RANK
 from app.constants.status import EntityStatus
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.db.models import Account, Business, BusinessAccess, Role
 from app.domain.access.errors import (
     AccountNotFound,
     DuplicateUsername,
     InsufficientRoleRank,
     InvalidAccountName,
+    InvalidFontSize,
     InvalidPassword,
     InvalidRole,
     InvalidUsername,
+    PasswordUnchanged,
     SelfActionForbidden,
+    WrongCurrentPassword,
 )
-from app.domain.access.sessions import delete_sessions_for_account
+from app.domain.access.sessions import (
+    delete_other_sessions_for_account,
+    delete_sessions_for_account,
+)
 
 _PASSWORD_COMPLEXITY_PATTERN = re.compile(r"(?=.*[a-z])(?=.*[A-Z])(?=.*\d)")
 
@@ -105,6 +117,7 @@ def create_account(
         user_name=user_name,
         password_hash=hash_password(initial_password),
         status=EntityStatus.ACTIVE.value,
+        font_size=FONT_SIZE_DEFAULT,
     )
     db.add(account)
     db.flush()
@@ -157,6 +170,41 @@ def update_account(
     db.commit()
     db.refresh(account)
     return account
+
+
+def update_own_font_size(db: Session, account: Account, font_size: int) -> Account:
+    if not FONT_SIZE_MIN <= font_size <= FONT_SIZE_MAX:
+        raise InvalidFontSize(
+            f"El tamano de letra debe estar entre {FONT_SIZE_MIN} y {FONT_SIZE_MAX}"
+        )
+    account.font_size = font_size
+    db.commit()
+    db.refresh(account)
+    return account
+
+
+def update_own_name(db: Session, account: Account, name: str) -> Account:
+    account.name = _validate_name(name)
+    db.commit()
+    db.refresh(account)
+    return account
+
+
+def change_own_password(
+    db: Session,
+    account: Account,
+    current_session_id: str,
+    current_password: str,
+    new_password: str,
+) -> None:
+    if not verify_password(current_password, account.password_hash):
+        raise WrongCurrentPassword("La contraseña actual no es correcta")
+    if new_password == current_password:
+        raise PasswordUnchanged("La contraseña nueva debe ser distinta de la actual")
+    _validate_password(new_password)
+    account.password_hash = hash_password(new_password)
+    delete_other_sessions_for_account(db, account.id, current_session_id)
+    db.commit()
 
 
 def deactivate_account(db: Session, business_id: int, account_id: int, actor_id: int) -> Account:

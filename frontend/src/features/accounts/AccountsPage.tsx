@@ -9,7 +9,7 @@ import {
 } from '../../api/accounts'
 import { ApiError } from '../../api/client'
 import type { ManagedAccount } from '../../api/types'
-import { ROLES, type Role } from '../access/roles'
+import { ROLE_BADGE_CLASSES, ROLES, type Role } from '../access/roles'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { FieldRow } from '../../shared/FieldRow'
@@ -20,6 +20,7 @@ import { HighlightedText } from '../../shared/HighlightedText'
 import { LockIcon, PencilIcon } from '../../shared/icons'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { normalizeForComparison } from '../../shared/normalizeForComparison'
+import { isPasswordSecure, PasswordChecklist } from '../../shared/passwordRules'
 import { Pagination } from '../../shared/Pagination'
 import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
@@ -39,38 +40,6 @@ const LOAD_ERROR_MESSAGE = 'No se pudieron cargar las cuentas.'
 const SAVE_ERROR_MESSAGE = 'No se pudo guardar. Intentá de nuevo.'
 
 const USERNAME_MIN_LENGTH = 3
-const PASSWORD_MIN_LENGTH = 4
-
-const PASSWORD_CHECKS: { label: string; test: (password: string) => boolean }[] = [
-  { label: `Al menos ${PASSWORD_MIN_LENGTH} caracteres`, test: (password) => password.length >= PASSWORD_MIN_LENGTH },
-  { label: 'Una letra mayúscula', test: (password) => /[A-Z]/.test(password) },
-  { label: 'Una letra minúscula', test: (password) => /[a-z]/.test(password) },
-  { label: 'Un número', test: (password) => /\d/.test(password) },
-]
-
-function isPasswordSecure(password: string): boolean {
-  return PASSWORD_CHECKS.every((check) => check.test(password))
-}
-
-function PasswordChecklist({ password }: { password: string }) {
-  return (
-    <ul className="m-0 flex list-none flex-col gap-1 p-0">
-      {PASSWORD_CHECKS.map((check) => {
-        const passed = check.test(password)
-        return (
-          <li
-            key={check.label}
-            className={`flex items-center gap-2 text-base font-medium ${passed ? 'text-success' : 'text-ink/50'}`}
-          >
-            <span aria-hidden="true">{passed ? '✓' : '○'}</span>
-            <span className="sr-only">{passed ? 'Cumplido: ' : 'Falta: '}</span>
-            {check.label}
-          </li>
-        )
-      })}
-    </ul>
-  )
-}
 
 const inputClasses =
   'h-12 rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
@@ -84,13 +53,6 @@ const primaryButtonClasses =
   'h-12 rounded-lg bg-brand px-5 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40'
 const secondaryButtonClasses =
   'h-12 rounded-lg border border-line px-5 text-base font-semibold transition-colors hover:bg-surface-brand'
-
-const ROLE_BADGE_CLASSES: Record<Role, string> = {
-  Empleado: 'bg-role-empleado-soft text-role-empleado',
-  Gerente: 'bg-role-gerente-soft text-role-gerente',
-  Administrador: 'bg-role-administrador-soft text-role-administrador',
-  Dueño: 'bg-role-dueno-soft text-role-dueno',
-}
 
 interface AccountFormValues {
   name: string

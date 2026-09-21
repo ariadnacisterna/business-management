@@ -9,6 +9,7 @@ export interface Account {
   name: string
   user_name: string
   status: string
+  font_size: number
   role: string | null
   active_business_id: number
   businesses: Business[]

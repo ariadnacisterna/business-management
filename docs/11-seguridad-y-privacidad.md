@@ -51,6 +51,7 @@ ya escrito.
 | Contraseñas nunca en texto plano | RNF-013 | Se guardan "hasheadas" con un algoritmo reconocido (por ejemplo bcrypt o argon2); ni con acceso directo a la base de datos se puede leer la contraseña real. |
 | Toda comunicación cifrada | D-024 | HTTPS sin excepción, también para el acceso remoto desde el celular del dueño. |
 | Autorización en el servidor, no en la pantalla | RNF-007, RNF-012 | Cada función de la API valida sesión y permiso por sí misma. Ocultar un botón en la interfaz no reemplaza ese control. |
+| Cambio de contraseña propia | D-064, RF-061 | Exige la contraseña actual (si no coincide responde 403, no 401, para no confundirlo con una sesión vencida), aplica las mismas reglas de complejidad que siempre, exige que la nueva sea distinta y cierra todas las demás sesiones de la cuenta conservando la actual. El restablecimiento por un Administrador (D-028) no la pide y cierra todas las sesiones de esa cuenta. |
 | Sesiones con vencimiento | RNF-015, D-005 | Vencen solas según una política configurable y se pueden cerrar antes a mano. |
 | Acceso acotado por negocio | D-017, RNF-018 | Ninguna consulta expone información de un negocio al que la cuenta activa no tenga acceso. |
 | Migraciones controladas, sin ejecución automática de esquema | Sección "Migraciones con Alembic" en 09 | Evita cambios de estructura no revisados en un entorno con datos reales. |

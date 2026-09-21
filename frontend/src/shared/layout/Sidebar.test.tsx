@@ -10,6 +10,7 @@ const ADMINISTRADOR_ACCOUNT: Account = {
   name: 'Cuenta de prueba',
   user_name: 'admin',
   status: 'activo',
+  font_size: 3,
   role: 'Administrador',
   active_business_id: 1,
   businesses: [{ id: 1, name: 'Negocio principal', industry: 'General' }],
@@ -54,14 +55,66 @@ describe('Sidebar', () => {
     expect(onNavigate).toHaveBeenCalled()
   })
 
-  it('renders unbuilt sections as disabled, non-navigable items', () => {
+  it('renders "Ventas" as a disabled, non-navigable item', () => {
     renderSidebar('/products')
 
-    for (const label of ['Ventas', 'Configuraciones']) {
-      const item = screen.getByText(label).closest('[aria-disabled]')
-      expect(item).toHaveAttribute('aria-disabled', 'true')
-      expect(screen.queryByRole('link', { name: new RegExp(label) })).not.toBeInTheDocument()
+    const item = screen.getByText('Ventas').closest('[aria-disabled]')
+    expect(item).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.queryByRole('link', { name: /Ventas/ })).not.toBeInTheDocument()
+  })
+
+  it('groups the sections under Catálogo, Comercial and Administración for an administrador', () => {
+    renderSidebar('/products')
+
+    const catalogo = within(screen.getByRole('group', { name: 'Catálogo' }))
+    expect(catalogo.getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'Productos',
+      'Precios',
+      'Inventario',
+    ])
+
+    const comercial = within(screen.getByRole('group', { name: 'Comercial' }))
+    expect(comercial.getByText('Ventas')).toBeInTheDocument()
+    expect(comercial.getByRole('link', { name: 'Clientes' })).toBeInTheDocument()
+    expect(comercial.getByRole('link', { name: 'Proveedores' })).toBeInTheDocument()
+
+    const administracion = within(screen.getByRole('group', { name: 'Administración' }))
+    expect(administracion.getByRole('link', { name: 'Cuentas' })).toBeInTheDocument()
+  })
+
+  it('does not render a group with no visible items for the role', () => {
+    renderSidebar('/products', false, vi.fn(), { ...ADMINISTRADOR_ACCOUNT, role: 'Gerente' })
+
+    expect(screen.queryByRole('group', { name: 'Administración' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Administración')).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Catálogo' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Comercial' })).toBeInTheDocument()
+  })
+
+  it('shows "Configuración" as a link for every role', () => {
+    for (const role of ['Empleado', 'Gerente', 'Administrador', 'Dueño']) {
+      const { unmount } = renderSidebar('/products', false, vi.fn(), {
+        ...ADMINISTRADOR_ACCOUNT,
+        role,
+      })
+
+      expect(screen.getByRole('link', { name: 'Configuración' })).toHaveAttribute(
+        'href',
+        '/configuraciones',
+      )
+      unmount()
     }
+  })
+
+  it('shows only divider lines between groups when the rail is collapsed', async () => {
+    const user = userEvent.setup()
+    renderSidebar('/products')
+
+    await user.click(screen.getByRole('button', { name: 'Colapsar menú' }))
+
+    expect(screen.queryByText('Catálogo')).not.toBeInTheDocument()
+    expect(screen.queryByText('Comercial')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('separator')).toHaveLength(3)
   })
 
   it('renders "Inventario" as a navigable link for every role', () => {

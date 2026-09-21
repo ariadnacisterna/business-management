@@ -26,6 +26,18 @@ class InvalidAccountName(AccessError):
     pass
 
 
+class InvalidFontSize(AccessError):
+    pass
+
+
+class WrongCurrentPassword(AccessError):
+    pass
+
+
+class PasswordUnchanged(AccessError):
+    pass
+
+
 class InvalidPassword(AccessError):
     pass
 

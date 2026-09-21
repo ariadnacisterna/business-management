@@ -9,10 +9,9 @@ export function PencilIcon({ className = 'h-5 w-5' }: { className?: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
-      style={{ transform: 'rotate(180deg)' }}
     >
-      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-      <path d="M15 5l4 4" />
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
   )
 }

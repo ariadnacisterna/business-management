@@ -4,6 +4,13 @@ export type Role = 'Empleado' | 'Gerente' | 'Administrador' | 'Dueño'
 
 export const ROLES: Role[] = ['Empleado', 'Gerente', 'Administrador', 'Dueño']
 
+export const ROLE_BADGE_CLASSES: Record<Role, string> = {
+  Empleado: 'bg-role-empleado-soft text-role-empleado',
+  Gerente: 'bg-role-gerente-soft text-role-gerente',
+  Administrador: 'bg-role-administrador-soft text-role-administrador',
+  Dueño: 'bg-role-dueno-soft text-role-dueno',
+}
+
 const ROLE_RANK: Record<Role, number> = {
   Empleado: 0,
   Gerente: 1,

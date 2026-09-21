@@ -233,3 +233,42 @@ def test_upgrade_with_second_business_settings_creates_it_and_grants_admin_acces
             engine.dispose()
     finally:
         get_settings.cache_clear()
+
+
+def test_font_size_migration_backfills_existing_accounts_and_enforces_the_range(
+    postgres_empty_schema, monkeypatch, request
+):
+    _isolate_from_second_business_env(monkeypatch, request)
+    config = alembic_config()
+
+    command.upgrade(config, "c2e6a8f0d4b1")
+    command.upgrade(config, "head")
+
+    engine = sa.create_engine(postgres_empty_schema)
+    try:
+        with engine.connect() as connection:
+            font_sizes = (
+                connection.execute(sa.text("SELECT font_size FROM account")).scalars().all()
+            )
+            assert font_sizes == [3]
+
+            default = connection.execute(
+                sa.text(
+                    "SELECT column_default FROM information_schema.columns "
+                    "WHERE table_name = 'account' AND column_name = 'font_size'"
+                )
+            ).scalar_one()
+            assert default is None
+
+        with engine.begin() as connection:
+            try:
+                connection.execute(sa.text("UPDATE account SET font_size = 6"))
+            except sa.exc.IntegrityError:
+                pass
+            else:
+                raise AssertionError("font_size fuera de rango fue aceptado")
+    finally:
+        engine.dispose()
+
+    command.downgrade(config, "c2e6a8f0d4b1")
+    command.downgrade(config, "base")

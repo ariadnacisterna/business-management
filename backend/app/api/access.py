@@ -26,11 +26,14 @@ from app.domain.access.errors import (
     InsufficientRoleRank,
     InvalidAccountName,
     InvalidCredentials,
+    InvalidFontSize,
     InvalidPassword,
     InvalidRole,
     InvalidUsername,
     NoBusinessAccess,
+    PasswordUnchanged,
     SelfActionForbidden,
+    WrongCurrentPassword,
 )
 from app.domain.access.permissions import (
     get_active_business,
@@ -60,12 +63,26 @@ class AccountResponse(BaseModel):
     name: str
     user_name: str
     status: str
+    font_size: int
     role: str | None
     businesses: list[BusinessSummary]
 
 
 class SessionInfoResponse(AccountResponse):
     active_business_id: int
+
+
+class UpdatePreferencesRequest(BaseModel):
+    font_size: int
+
+
+class UpdateOwnNameRequest(BaseModel):
+    name: str
+
+
+class ChangeOwnPasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 
 class ChangeActiveBusinessRequest(BaseModel):
@@ -103,6 +120,7 @@ def _account_response(db: Session, account: Account, business: Business) -> Acco
         name=account.name,
         user_name=account.user_name,
         status=account.status,
+        font_size=account.font_size,
         role=role,
         businesses=_business_summaries(db, account.id),
     )
@@ -117,6 +135,7 @@ def _session_info_response(
         name=account.name,
         user_name=account.user_name,
         status=account.status,
+        font_size=account.font_size,
         role=role,
         active_business_id=business.id,
         businesses=_business_summaries(db, account.id),
@@ -190,6 +209,61 @@ def me(
     account: Account = Depends(get_current_user),
     business: Business = Depends(get_active_business),
 ) -> SessionInfoResponse:
+    return _session_info_response(db, account, business)
+
+
+@router.patch("/auth/me", response_model=SessionInfoResponse, dependencies=[Depends(require_csrf)])
+def update_own_name(
+    payload: UpdateOwnNameRequest,
+    db: Session = Depends(get_db),
+    account: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> SessionInfoResponse:
+    try:
+        account = accounts.update_own_name(db, account, payload.name)
+    except InvalidAccountName as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+    return _session_info_response(db, account, business)
+
+
+@router.post(
+    "/auth/me/password",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_csrf)],
+)
+def change_own_password(
+    payload: ChangeOwnPasswordRequest,
+    db: Session = Depends(get_db),
+    account: Account = Depends(get_current_user),
+    session: AccountSession = Depends(get_current_session),
+) -> None:
+    try:
+        accounts.change_own_password(
+            db, account, session.id, payload.current_password, payload.new_password
+        )
+    except WrongCurrentPassword as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
+    except (PasswordUnchanged, InvalidPassword) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+
+@router.patch(
+    "/auth/me/preferences",
+    response_model=SessionInfoResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def update_preferences(
+    payload: UpdatePreferencesRequest,
+    db: Session = Depends(get_db),
+    account: Account = Depends(get_current_user),
+    business: Business = Depends(get_active_business),
+) -> SessionInfoResponse:
+    try:
+        account = accounts.update_own_font_size(db, account, payload.font_size)
+    except InvalidFontSize as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
     return _session_info_response(db, account, business)
 
 

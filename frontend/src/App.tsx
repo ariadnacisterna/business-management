@@ -14,6 +14,7 @@ import { CustomersPage } from './features/customers/CustomersPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { InventoryPage } from './features/inventory/InventoryPage'
 import { PricingPage } from './features/pricing/PricingPage'
+import { SettingsPage } from './features/settings/SettingsPage'
 import { SuppliersPage } from './features/suppliers/SuppliersPage'
 import { AppLayout } from './shared/layout/AppLayout'
 import { ToastProvider } from './shared/Toast'
@@ -69,6 +70,7 @@ export function App() {
               <Route path="/proveedores" element={<SuppliersRoute />} />
               <Route path="/clientes" element={<CustomersPage />} />
               <Route path="/cuentas" element={<AccountsRoute />} />
+              <Route path="/configuraciones" element={<SettingsPage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

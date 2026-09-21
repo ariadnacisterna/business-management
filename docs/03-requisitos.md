@@ -57,7 +57,7 @@ Ejemplo esperado para RF-002 a RF-005: la consulta `cinta bebe 2 roja` debe pode
 | RF-028 | Un Administrador podrá importar productos, variantes y precios desde un archivo CSV o Excel. | Alta |
 | RF-029 | Antes de confirmar una importación, el sistema mostrará errores, duplicados y un resumen de los cambios. | Alta |
 | RF-030 | Una importación confirmada registrará su fecha y la usuaria responsable. | Media |
-| RF-031 | Un Administrador podrá crear, desactivar y modificar las cuentas y roles de los usuarios. | Alta |
+| RF-031 | Un Administrador podrá crear, desactivar y modificar las cuentas y roles de los usuarios, y restablecer la contraseña de quien la olvide (D-028). El nombre de usuario con el que se inicia sesión solo lo cambia un Administrador o superior. | Alta |
 | RF-039 | Toda consulta y toda modificación de precios se realizarán en el contexto de un negocio al que la cuenta tenga acceso. | Alta |
 
 ### Atributos normalizados
@@ -90,8 +90,10 @@ Ejemplo esperado para RF-002 a RF-005: la consulta `cinta bebe 2 roja` debe pode
 | RF-054 | El sistema registrará un historial de movimientos de stock por variante: fecha, cantidad, valores antes y después, cuenta que lo hizo, y una observación opcional. | Alta |
 | RF-056 | Un Usuario autorizado podrá definir el stock mínimo de cada variante; el sistema aplicará un valor por defecto si no se define uno. | Media |
 | RF-057 | El sistema mostrará, en algún lugar visible de la navegación, un contador de variantes con stock bajo o sin stock. | Media |
-| RF-058 | Una pantalla de Configuraciones mostrará el nombre y el rol de la cuenta activa. | Media |
-| RF-059 | Una cuenta podrá ajustar el tamaño de letra de la interfaz (50 %, 75 %, 100 %, 125 % o 150 %), independientemente del tamaño grande que el sistema usa por defecto. | Media |
+| RF-058 | Una pantalla de Configuración, visible para todos los roles, mostrará el nombre, el rol y el negocio activo de la cuenta (D-063). | Media |
+| RF-059 | Cada cuenta podrá elegir el tamaño de letra de la interfaz entre 5 pasos (Chica, Mediana, Grande, Muy grande y Enorme). Primero se ve una vista previa y el cambio se aplica al tocar Guardar, sin diálogo de confirmación; se guarda en el servidor y queda fijo en cualquier dispositivo. Las cuentas nuevas empiezan en Mediana y las existentes en Grande (D-063). | Media |
+| RF-060 | Cualquier cuenta, de cualquier rol, podrá cambiar su propio nombre desde Configuración, con un lápiz de editar junto al nombre, que abre una ventana donde se guarda o se cancela, con confirmación previa (D-064, D-048). | Media |
+| RF-061 | Cualquier cuenta podrá cambiar su propia contraseña desde Configuración indicando la contraseña actual; la nueva debe cumplir las reglas de complejidad y ser distinta de la actual, y al cambiarla se cierran las demás sesiones abiertas de esa cuenta, conservando la actual. Pide confirmación previa (D-064). | Media |
 
 ## Requisitos no funcionales
 

@@ -73,7 +73,17 @@ clases de utilidad (mismo criterio que D-031 aplicado a CSS).
   (con su licencia); mientras no exista ese archivo, usar la fuente de
   interfaz en negrita (`font-weight: 700`) para el nombre de marca, para no
   bloquear una tarea por un archivo que todavía no está disponible.
-- **Tamaños:** los que ya usa T-010 como base (16px cuerpo). Un precio
+- **Escala de tamaño por cuenta (D-063):** el tamaño base de la página
+  (`font-size` de `html`) lo fija cada cuenta con 5 pasos: 1 Chica (12px),
+  2 Mediana (14px, por defecto en cuentas nuevas), 3 Grande (16px, el
+  tamaño de antes, por defecto en cuentas existentes), 4 Muy grande (18px)
+  y 5 Enorme (20px). Toda la interfaz usa `rem`, así que sigue el ajuste:
+  no fijar tamaños de texto ni de controles en `px`. Para que Chica siga
+  legible, `text-xs` y `text-sm` tienen un mínimo de 11px y 12px (ver
+  `index.css`); en Grande valen lo mismo que siempre. El tamaño se cambia en
+  Configuración y se guarda en el servidor; `localStorage` solo lo
+  recuerda para evitar un salto visual antes de iniciar sesión.
+- **Tamaños:** los que ya usa T-010 como base (16px cuerpo, paso Grande). Un precio
   destacado (pantalla de búsqueda, detalle de producto) usa un tamaño mayor
   y peso semibold como mínimo (`font-size: 20px; font-weight: 600`), para
   que sea legible de un vistazo (HU-03).

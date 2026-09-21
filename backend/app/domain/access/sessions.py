@@ -54,3 +54,12 @@ def delete_session(db: Session, session: AccountSession) -> None:
 
 def delete_sessions_for_account(db: Session, account_id: int) -> None:
     db.execute(delete(AccountSession).where(AccountSession.account_id == account_id))
+
+
+def delete_other_sessions_for_account(db: Session, account_id: int, keep_session_id: str) -> None:
+    db.execute(
+        delete(AccountSession).where(
+            AccountSession.account_id == account_id,
+            AccountSession.id != keep_session_id,
+        )
+    )

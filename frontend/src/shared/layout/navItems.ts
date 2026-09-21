@@ -20,14 +20,40 @@ export interface NavItem {
   minRole?: Role
 }
 
-export const NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Panel', icon: 'panel', end: true, minRole: 'Administrador' },
-  { to: '/products', label: 'Productos', icon: 'products' },
-  { to: '/precios', label: 'Precios', icon: 'prices' },
-  { to: '/inventario', label: 'Inventario', icon: 'inventory' },
-  { to: '/ventas', label: 'Ventas', icon: 'sales', disabled: true },
-  { to: '/proveedores', label: 'Proveedores', icon: 'suppliers', minRole: 'Administrador' },
-  { to: '/clientes', label: 'Clientes', icon: 'customers' },
-  { to: '/cuentas', label: 'Cuentas', icon: 'accounts', minRole: 'Administrador' },
-  { to: '/configuraciones', label: 'Configuraciones', icon: 'settings', disabled: true },
+export interface NavGroup {
+  label: string | null
+  items: NavItem[]
+}
+
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    label: null,
+    items: [{ to: '/', label: 'Panel', icon: 'panel', end: true, minRole: 'Administrador' }],
+  },
+  {
+    label: 'Catálogo',
+    items: [
+      { to: '/products', label: 'Productos', icon: 'products' },
+      { to: '/precios', label: 'Precios', icon: 'prices' },
+      { to: '/inventario', label: 'Inventario', icon: 'inventory' },
+    ],
+  },
+  {
+    label: 'Comercial',
+    items: [
+      { to: '/ventas', label: 'Ventas', icon: 'sales', disabled: true },
+      { to: '/clientes', label: 'Clientes', icon: 'customers' },
+      { to: '/proveedores', label: 'Proveedores', icon: 'suppliers', minRole: 'Administrador' },
+    ],
+  },
+  {
+    label: 'Administración',
+    items: [{ to: '/cuentas', label: 'Cuentas', icon: 'accounts', minRole: 'Administrador' }],
+  },
 ]
+
+export const SETTINGS_ITEM: NavItem = {
+  to: '/configuraciones',
+  label: 'Configuración',
+  icon: 'settings',
+}

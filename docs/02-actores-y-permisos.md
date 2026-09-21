@@ -59,6 +59,8 @@ Una contraseña se recupera mediante un restablecimiento realizado por un Admini
 | Ver el Panel | No | No | Sí | Sí |
 | Importar el catálogo inicial | No | No | Sí | Sí |
 | Administrar cuentas y roles | No | No | Sí | Sí |
+| Ver Configuración y elegir el propio tamaño de letra (D-063) | Sí | Sí | Sí | Sí |
+| Cambiar el propio nombre y la propia contraseña (D-064) | Sí | Sí | Sí | Sí |
 | Elegir con qué negocio trabajar (D-045) | No | No | No | Sí |
 
 ## Matriz de permisos de reposición (Etapa 2)

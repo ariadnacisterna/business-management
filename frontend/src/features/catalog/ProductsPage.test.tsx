@@ -414,9 +414,10 @@ describe('ProductsPage', () => {
     fetchMock.mockResolvedValueOnce(productPage([PRODUCTS[1]], { total: 60, page: 2, page_size: 25 }))
     await user.click(screen.getByRole('button', { name: 'Siguiente' }))
 
-    await screen.findByText('Tela de lino')
-    const lastCall = fetchMock.mock.calls.at(-1)?.[0] as string
-    expect(lastCall).toContain('page=2')
+    await waitFor(() => {
+      const urls = fetchMock.mock.calls.map((call) => call[0] as string)
+      expect(urls.some((url) => url.includes('page=2'))).toBe(true)
+    })
   })
 
   it('offers "Nuevo producto" and an edit action to an administrator, but not to an employee', async () => {

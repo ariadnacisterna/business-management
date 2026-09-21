@@ -32,10 +32,12 @@
   --color-business-3-soft: #ecdcf7;
   --color-business-4: #ad6800;
   --color-business-4-soft: #fbe8cf;
+  --text-xs: max(0.75rem, 11px);
+  --text-sm: max(0.875rem, 12px);
 }
 
 :root {
-  font: 16px/1.45 system-ui, 'Segoe UI', Roboto, sans-serif;
+  font: 1rem/1.45 system-ui, 'Segoe UI', Roboto, sans-serif;
   color-scheme: light;
 }
 

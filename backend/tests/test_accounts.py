@@ -514,3 +514,280 @@ def test_an_account_created_before_the_complexity_rule_still_logs_in(client):
     )
 
     assert login_response.status_code == 200
+
+
+def _patch_preferences(client, cookies, font_size):
+    return client.patch(
+        "/auth/me/preferences",
+        json={"font_size": font_size},
+        cookies=cookies,
+        headers=_auth_headers(cookies),
+    )
+
+
+def test_new_accounts_start_with_the_default_font_size(client):
+    admin_cookies = _admin_cookies(client)
+
+    created = _create_account(
+        client, admin_cookies, "empleada-fuente", "Clave-segura-1", EMPLEADO
+    ).json()
+
+    assert created["font_size"] == 2
+    login = client.post(
+        "/auth/login", json={"user_name": "empleada-fuente", "password": "Clave-segura-1"}
+    )
+    assert login.json()["font_size"] == 2
+
+
+def test_every_role_can_change_its_own_font_size(client):
+    admin_cookies = _admin_cookies(client)
+    for role in (EMPLEADO, GERENTE, ADMINISTRADOR):
+        _create_account(client, admin_cookies, f"user-{role}", "Clave-segura-1", role)
+
+    for user_name in ("user-Empleado", "user-Gerente", "user-Administrador"):
+        cookies = _login(client, user_name, "Clave-segura-1")
+        response = _patch_preferences(client, cookies, 5)
+        assert response.status_code == 200
+        assert response.json()["font_size"] == 5
+        assert client.get("/auth/me", cookies=cookies).json()["font_size"] == 5
+
+    response = _patch_preferences(client, admin_cookies, 4)
+    assert response.status_code == 200
+    assert response.json()["font_size"] == 4
+    assert response.json()["role"] == DUENO
+
+
+def test_invalid_font_size_is_rejected(client):
+    admin_cookies = _admin_cookies(client)
+
+    for value in (0, 6, -1):
+        assert _patch_preferences(client, admin_cookies, value).status_code == 422
+
+    assert client.get("/auth/me", cookies=admin_cookies).json()["font_size"] == 3
+
+
+def test_font_size_change_without_csrf_is_rejected(client):
+    admin_cookies = _admin_cookies(client)
+
+    response = client.patch("/auth/me/preferences", json={"font_size": 4}, cookies=admin_cookies)
+
+    assert response.status_code == 403
+
+
+def test_font_size_change_without_session_is_rejected(client):
+    response = client.patch("/auth/me/preferences", json={"font_size": 4})
+
+    assert response.status_code == 401
+
+
+def test_font_size_change_only_affects_the_calling_account(client):
+    admin_cookies = _admin_cookies(client)
+    _create_account(client, admin_cookies, "otra-cuenta", "Clave-segura-1", EMPLEADO)
+    other_cookies = _login(client, "otra-cuenta", "Clave-segura-1")
+    admin_id = client.get("/auth/me", cookies=admin_cookies).json()["id"]
+
+    response = client.patch(
+        "/auth/me/preferences",
+        json={"font_size": 5, "account_id": admin_id},
+        cookies=other_cookies,
+        headers=_auth_headers(other_cookies),
+    )
+
+    assert response.status_code == 200
+    assert client.get("/auth/me", cookies=admin_cookies).json()["font_size"] == 3
+    assert client.get("/auth/me", cookies=other_cookies).json()["font_size"] == 5
+
+
+def _patch_own_name(client, cookies, name):
+    return client.patch(
+        "/auth/me", json={"name": name}, cookies=cookies, headers=_auth_headers(cookies)
+    )
+
+
+def _change_password(client, cookies, current_password, new_password):
+    return client.post(
+        "/auth/me/password",
+        json={"current_password": current_password, "new_password": new_password},
+        cookies=cookies,
+        headers=_auth_headers(cookies),
+    )
+
+
+def _login_status(client, user_name, password):
+    payload = {"user_name": user_name, "password": password}
+    return client.post("/auth/login", json=payload).status_code
+
+
+def _self_service_cookies(client, role):
+    admin_cookies = _admin_cookies(client)
+    user_name = f"propia-{role}"
+    _create_account(client, admin_cookies, user_name, "Clave-segura-1", role)
+    return user_name, _login(client, user_name, "Clave-segura-1")
+
+
+def test_every_role_can_change_its_own_name(client):
+    for role in (EMPLEADO, GERENTE, ADMINISTRADOR):
+        user_name, cookies = _self_service_cookies(client, role)
+
+        response = _patch_own_name(client, cookies, "  Nombre Nuevo  ")
+
+        assert response.status_code == 200
+        assert response.json()["name"] == "Nombre Nuevo"
+        assert response.json()["user_name"] == user_name
+        assert client.get("/auth/me", cookies=cookies).json()["name"] == "Nombre Nuevo"
+
+    admin_cookies = _admin_cookies(client)
+    assert _patch_own_name(client, admin_cookies, "Dueña Nueva").json()["role"] == DUENO
+
+
+def test_changing_the_own_name_rejects_an_empty_name(client):
+    _, cookies = _self_service_cookies(client, EMPLEADO)
+    before = client.get("/auth/me", cookies=cookies).json()["name"]
+
+    for value in ("", "   "):
+        assert _patch_own_name(client, cookies, value).status_code == 422
+
+    assert client.get("/auth/me", cookies=cookies).json()["name"] == before
+
+
+def test_changing_the_own_name_does_not_change_the_username_or_role(client):
+    user_name, cookies = _self_service_cookies(client, GERENTE)
+
+    response = client.patch(
+        "/auth/me",
+        json={"name": "Otro", "user_name": "intento", "role": DUENO},
+        cookies=cookies,
+        headers=_auth_headers(cookies),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["user_name"] == user_name
+    assert response.json()["role"] == GERENTE
+
+
+def test_changing_the_own_name_without_csrf_or_session_is_rejected(client):
+    _, cookies = _self_service_cookies(client, EMPLEADO)
+
+    assert client.patch("/auth/me", json={"name": "Otro"}, cookies=cookies).status_code == 403
+    client.cookies.clear()
+    assert client.patch("/auth/me", json={"name": "Otro"}).status_code == 401
+
+
+def test_changing_the_own_name_only_affects_the_calling_account(client):
+    admin_cookies = _admin_cookies(client)
+    admin_before = client.get("/auth/me", cookies=admin_cookies).json()
+    _, cookies = _self_service_cookies(client, EMPLEADO)
+
+    client.patch(
+        "/auth/me",
+        json={"name": "Intruso", "account_id": admin_before["id"], "id": admin_before["id"]},
+        cookies=cookies,
+        headers=_auth_headers(cookies),
+    )
+
+    assert client.get("/auth/me", cookies=admin_cookies).json()["name"] == admin_before["name"]
+
+
+def test_every_role_can_change_its_own_password(client):
+    for role in (EMPLEADO, GERENTE, ADMINISTRADOR):
+        user_name, cookies = _self_service_cookies(client, role)
+
+        response = _change_password(client, cookies, "Clave-segura-1", "Clave-nueva-2")
+
+        assert response.status_code == 204
+        assert _login_status(client, user_name, "Clave-nueva-2") == 200
+        assert _login_status(client, user_name, "Clave-segura-1") == 401
+
+    admin_cookies = _admin_cookies(client)
+    settings = get_settings()
+    response = _change_password(
+        client, admin_cookies, settings.initial_admin_password, "Clave-dueno-2"
+    )
+    assert response.status_code == 204
+    assert _login_status(client, settings.initial_admin_username, "Clave-dueno-2") == 200
+
+
+def test_changing_the_password_with_a_wrong_current_password_is_forbidden(client):
+    user_name, cookies = _self_service_cookies(client, EMPLEADO)
+
+    response = _change_password(client, cookies, "Clave-equivocada-1", "Clave-nueva-2")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "La contraseña actual no es correcta"
+    assert _login_status(client, user_name, "Clave-segura-1") == 200
+    assert _login_status(client, user_name, "Clave-nueva-2") == 401
+    assert client.get("/auth/me", cookies=cookies).status_code == 200
+
+
+def test_changing_the_password_rejects_a_new_password_without_complexity(client):
+    user_name, cookies = _self_service_cookies(client, EMPLEADO)
+
+    for weak in ("soloMinusculas", "SOLOMAYUSCULAS1", "abc"):
+        assert _change_password(client, cookies, "Clave-segura-1", weak).status_code == 422
+
+    assert _login_status(client, user_name, "Clave-segura-1") == 200
+
+
+def test_changing_the_password_rejects_a_new_password_equal_to_the_current(client):
+    user_name, cookies = _self_service_cookies(client, EMPLEADO)
+
+    response = _change_password(client, cookies, "Clave-segura-1", "Clave-segura-1")
+
+    assert response.status_code == 422
+    assert "distinta" in response.json()["detail"]
+    assert _login_status(client, user_name, "Clave-segura-1") == 200
+
+
+def test_changing_the_password_closes_the_other_sessions_but_keeps_the_current_one(client):
+    user_name, cookies = _self_service_cookies(client, EMPLEADO)
+    other_cookies = _login(client, user_name, "Clave-segura-1")
+    assert client.get("/auth/me", cookies=other_cookies).status_code == 200
+
+    response = _change_password(client, cookies, "Clave-segura-1", "Clave-nueva-2")
+
+    assert response.status_code == 204
+    assert client.get("/auth/me", cookies=cookies).status_code == 200
+    assert client.get("/auth/me", cookies=other_cookies).status_code == 401
+
+
+def test_changing_the_password_does_not_close_the_sessions_of_other_accounts(client):
+    admin_cookies = _admin_cookies(client)
+    _, cookies = _self_service_cookies(client, EMPLEADO)
+
+    _change_password(client, cookies, "Clave-segura-1", "Clave-nueva-2")
+
+    assert client.get("/auth/me", cookies=admin_cookies).status_code == 200
+
+
+def test_changing_the_password_without_csrf_or_session_is_rejected(client):
+    user_name, cookies = _self_service_cookies(client, EMPLEADO)
+    payload = {"current_password": "Clave-segura-1", "new_password": "Clave-nueva-2"}
+
+    assert client.post("/auth/me/password", json=payload, cookies=cookies).status_code == 403
+    client.cookies.clear()
+    assert client.post("/auth/me/password", json=payload).status_code == 401
+    assert _login_status(client, user_name, "Clave-segura-1") == 200
+
+
+def test_changing_the_password_cannot_target_another_account(client):
+    admin_cookies = _admin_cookies(client)
+    settings = get_settings()
+    admin_id = client.get("/auth/me", cookies=admin_cookies).json()["id"]
+    _, cookies = _self_service_cookies(client, EMPLEADO)
+
+    response = client.post(
+        "/auth/me/password",
+        json={
+            "current_password": "Clave-segura-1",
+            "new_password": "Clave-nueva-2",
+            "account_id": admin_id,
+        },
+        cookies=cookies,
+        headers=_auth_headers(cookies),
+    )
+
+    assert response.status_code == 204
+    admin_login = _login_status(
+        client, settings.initial_admin_username, settings.initial_admin_password
+    )
+    assert admin_login == 200

@@ -247,6 +247,37 @@ Esta historia no es necesaria para la mercería, donde las variantes suelen comp
 - Un contador visible en la navegación muestra cuántas variantes están en Stock bajo o Sin stock.
 - Puedo ver el historial de movimientos de una variante: fecha, cantidad, antes y después, y quién lo hizo.
 
+## HU-19 — Ajustar el tamaño de letra
+
+**Como** Usuario,
+**quiero** elegir el tamaño de letra de la aplicación,
+**para** leerla cómoda según mi vista, en cualquier aparato.
+
+### Criterios de aceptación
+
+- La pantalla Configuración, disponible para todos los roles, muestra mi nombre, mi rol y el negocio activo.
+- Puedo elegir entre cinco tamaños: Chica, Mediana, Grande, Muy grande y Enorme; el actual aparece marcado y veo una vista previa.
+- Al elegir uno veo primero la vista previa; el cambio se aplica a toda la aplicación al tocar Guardar (abajo a la derecha), sin diálogo de confirmación.
+- Si no se pudo guardar, vuelve al tamaño anterior y se me avisa.
+- El tamaño queda guardado en mi cuenta: al entrar desde otro aparato veo el mismo.
+- Las cuentas nuevas empiezan en Mediana; las que ya existían quedan en Grande.
+
+## HU-20 — Cambiar mi nombre y mi contraseña
+
+**Como** Usuario,
+**quiero** cambiar mi propio nombre y mi propia contraseña,
+**para** no depender de que un Administrador lo haga por mí ni de que me ponga una contraseña que no elegí.
+
+### Criterios de aceptación
+
+- En Configuración, sección Mi cuenta, junto a mi nombre hay un lápiz de editar que abre una ventana; ahí escribo el nombre nuevo y lo guardo o cancelo; antes de enviarlo se me pide confirmación, y el nombre nuevo se ve enseguida en el menú de la cuenta.
+- Mi nombre de usuario (el de inicio de sesión) se muestra solo de lectura: lo cambia un Administrador.
+- En Configuración hay una fila "Cambiar contraseña" que abre una ventana igual a la de restablecer contraseña de Cuentas, con un campo más para la contraseña actual; ahí escribo la nueva dos veces y puedo mostrar u ocultar lo que escribo.
+- La nueva debe cumplir las reglas visibles (largo mínimo, mayúscula, minúscula y número) y ser distinta de la actual; si las dos nuevas no coinciden, no se envía nada.
+- Si la contraseña actual no es correcta, se me avisa junto al formulario y no cambia nada.
+- Antes de enviar el cambio se me pide confirmación ("¿Cambiar tu contraseña? Se van a cerrar las demás sesiones abiertas de tu cuenta."); si cancelo, no se envía nada. Al confirmar se me avisa que se cerraron las demás sesiones y sigo con la sesión actual.
+- Si olvidé mi contraseña, un Administrador sigue pudiendo restablecerla.
+
 ## Orden sugerido del MVP
 
 1. HU-03 — Consulta del precio vigente.

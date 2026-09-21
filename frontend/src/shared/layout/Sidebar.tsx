@@ -4,13 +4,86 @@ import { fetchLowStockCount, fetchShortageCount } from '../../api/catalog'
 import type { Account } from '../../api/types'
 import { hasMinimumRole } from '../../features/access/roles'
 import { Brand } from '../Brand'
-import { NAV_ITEMS } from './navItems'
+import { NAV_GROUPS, SETTINGS_ITEM, type NavItem } from './navItems'
 import { NavIconGlyph } from './NavIcon'
 
 interface Props {
   isOpen: boolean
   onNavigate: () => void
   account: Account | null
+}
+
+function NavEntry({
+  item,
+  collapsed,
+  onNavigate,
+  lowStockCount,
+  shortageCount,
+}: {
+  item: NavItem
+  collapsed: boolean
+  onNavigate: () => void
+  lowStockCount: number
+  shortageCount: number
+}) {
+  if (item.disabled === true) {
+    return (
+      <span
+        aria-disabled="true"
+        title={collapsed ? `${item.label} (próximamente)` : undefined}
+        className={`flex min-h-14 cursor-not-allowed items-center gap-3 rounded-lg px-4 py-3 text-lg font-medium text-surface/35 ${
+          collapsed ? 'justify-center' : ''
+        }`}
+      >
+        <NavIconGlyph icon={item.icon} className="h-6 w-6 shrink-0" />
+        {!collapsed && (
+          <span className="flex flex-col leading-tight">
+            <span>{item.label}</span>
+            <span className="text-sm font-normal">(próximamente)</span>
+          </span>
+        )}
+      </span>
+    )
+  }
+
+  return (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      onClick={onNavigate}
+      title={collapsed ? item.label : undefined}
+      className={({ isActive }) =>
+        `relative flex min-h-14 items-center gap-3 rounded-lg px-4 py-3 text-lg font-medium transition-colors ${
+          collapsed ? 'justify-center' : ''
+        } ${
+          isActive
+            ? 'bg-brand text-brand-contrast shadow-md'
+            : 'text-surface/70 hover:bg-surface/10 hover:text-surface'
+        }`
+      }
+    >
+      <NavIconGlyph icon={item.icon} className="h-6 w-6 shrink-0" />
+      {!collapsed && <span className="min-w-0 flex-1">{item.label}</span>}
+      {item.to === '/inventario' && lowStockCount > 0 && (
+        <span
+          className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-[#f1c9c9] px-1.5 text-sm font-bold text-danger ${
+            collapsed ? 'absolute -right-1 -top-1' : ''
+          }`}
+        >
+          {lowStockCount}
+        </span>
+      )}
+      {item.to === '/inventario' && shortageCount > 0 && (
+        <span
+          className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-warning/20 px-1.5 text-sm font-bold text-warning ${
+            collapsed ? 'absolute -right-1 -bottom-1' : ''
+          }`}
+        >
+          {shortageCount}
+        </span>
+      )}
+    </NavLink>
+  )
 }
 
 function SidebarContent({
@@ -28,12 +101,21 @@ function SidebarContent({
   lowStockCount: number
   shortageCount: number
 }) {
-  const visibleNavItems = NAV_ITEMS.filter(
-    (item) => item.minRole === undefined || hasMinimumRole(account, item.minRole),
-  )
+  const visibleGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter(
+      (item) => item.minRole === undefined || hasMinimumRole(account, item.minRole),
+    ),
+  })).filter((group) => group.items.length > 0)
+
+  const entryProps = { collapsed, onNavigate, lowStockCount, shortageCount }
 
   return (
-    <div className={`flex h-full shrink-0 flex-col bg-ink text-surface transition-[width] ${collapsed ? 'w-20' : 'w-64'}`}>
+    <div
+      className={`flex h-full shrink-0 flex-col bg-ink text-surface transition-[width] ${
+        collapsed ? 'w-20' : 'w-64 max-w-[85vw]'
+      }`}
+    >
       <div
         className={`flex h-16 shrink-0 items-center gap-2 overflow-hidden border-b border-surface/10 ${
           collapsed ? 'justify-center px-2' : 'px-4'
@@ -62,65 +144,32 @@ function SidebarContent({
         )}
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {visibleNavItems.map((item) =>
-          item.disabled === true ? (
-            <span
-              key={item.to}
-              aria-disabled="true"
-              title={collapsed ? `${item.label} (próximamente)` : undefined}
-              className={`flex min-h-14 cursor-not-allowed items-center gap-3 rounded-lg px-4 py-3 text-lg font-medium text-surface/35 ${
-                collapsed ? 'justify-center' : ''
-              }`}
+      <nav className="flex min-h-0 flex-1 flex-col">
+        <div className="flex-1 overflow-y-auto px-3 py-4">
+          {visibleGroups.map((group, index) => (
+            <div
+              key={group.label ?? 'top'}
+              role="group"
+              aria-label={group.label ?? undefined}
+              className="space-y-1"
             >
-              <NavIconGlyph icon={item.icon} className="h-6 w-6 shrink-0" />
-              {!collapsed && (
-                <span className="flex flex-col leading-tight">
-                  <span>{item.label}</span>
-                  <span className="text-sm font-normal">(próximamente)</span>
-                </span>
-              )}
-            </span>
-          ) : (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              onClick={onNavigate}
-              title={collapsed ? item.label : undefined}
-              className={({ isActive }) =>
-                `relative flex min-h-14 items-center gap-3 rounded-lg px-4 py-3 text-lg font-medium transition-colors ${
-                  collapsed ? 'justify-center' : ''
-                } ${
-                  isActive
-                    ? 'bg-brand text-brand-contrast shadow-md'
-                    : 'text-surface/70 hover:bg-surface/10 hover:text-surface'
-                }`
-              }
-            >
-              <NavIconGlyph icon={item.icon} className="h-6 w-6 shrink-0" />
-              {!collapsed && <span className="flex-1">{item.label}</span>}
-              {item.to === '/inventario' && lowStockCount > 0 && (
-                <span
-                  className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-[#f1c9c9] px-1.5 text-sm font-bold text-danger ${
-                    collapsed ? 'absolute -right-1 -top-1' : ''
-                  }`}
-                >
-                  {lowStockCount}
-                </span>
-              )}
-              {item.to === '/inventario' && shortageCount > 0 && (
-                <span
-                  className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-warning/20 px-1.5 text-sm font-bold text-warning ${
-                    collapsed ? 'absolute -right-1 -bottom-1' : ''
-                  }`}
-                >
-                  {shortageCount}
-                </span>
-              )}
-            </NavLink>
-          ),
-        )}
+              {collapsed
+                ? index > 0 && <div role="separator" className="mx-2 my-3 border-t border-surface/20" />
+                : group.label !== null && (
+                    <p className="m-0 px-4 pb-1 pt-4 text-sm font-semibold uppercase tracking-wider text-surface/50">
+                      {group.label}
+                    </p>
+                  )}
+              {group.items.map((item) => (
+                <NavEntry key={item.to} item={item} {...entryProps} />
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div className="shrink-0 border-t border-surface/10 px-3 py-3">
+          <NavEntry item={SETTINGS_ITEM} {...entryProps} />
+        </div>
       </nav>
     </div>
   )

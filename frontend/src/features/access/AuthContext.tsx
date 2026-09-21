@@ -4,9 +4,12 @@ import {
   fetchCurrentAccount,
   login as loginRequest,
   logout as logoutRequest,
+  updateOwnName,
+  updatePreferences,
 } from '../../api/auth'
 import { setUnauthorizedHandler } from '../../api/client'
 import type { Account } from '../../api/types'
+import { applyFontSize, cacheFontSize } from '../../shared/fontSize'
 import { useToast } from '../../shared/Toast'
 
 type SessionStatus = 'loading' | 'ready'
@@ -18,6 +21,8 @@ interface AuthContextValue {
   login: (userName: string, password: string) => Promise<void>
   logout: () => Promise<void>
   switchBusiness: (businessId: number) => Promise<void>
+  changeFontSize: (fontSize: number) => Promise<void>
+  changeName: (name: string) => Promise<void>
   acknowledgeLogin: () => void
 }
 
@@ -32,6 +37,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     accountRef.current = account
+  }, [account])
+
+  useEffect(() => {
+    if (account === null) return
+    applyFontSize(account.font_size)
+    cacheFontSize(account.font_size)
   }, [account])
 
   useEffect(() => {
@@ -67,6 +78,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       async switchBusiness(businessId) {
         setAccount(await changeActiveBusiness(businessId))
+      },
+      async changeFontSize(fontSize) {
+        const previous = accountRef.current?.font_size
+        applyFontSize(fontSize)
+        try {
+          setAccount(await updatePreferences(fontSize))
+        } catch (error) {
+          applyFontSize(previous)
+          throw error
+        }
+      },
+      async changeName(name) {
+        setAccount(await updateOwnName(name))
       },
       acknowledgeLogin() {
         setJustLoggedIn(false)
