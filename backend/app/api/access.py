@@ -222,7 +222,7 @@ def update_own_name(
     try:
         account = accounts.update_own_name(db, account, payload.name)
     except InvalidAccountName as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _session_info_response(db, account, business)
 
@@ -245,7 +245,7 @@ def change_own_password(
     except WrongCurrentPassword as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
     except (PasswordUnchanged, InvalidPassword) as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
 
 @router.patch(
@@ -262,7 +262,7 @@ def update_preferences(
     try:
         account = accounts.update_own_font_size(db, account, payload.font_size)
     except InvalidFontSize as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _session_info_response(db, account, business)
 
@@ -314,7 +314,7 @@ def create_account(
             status.HTTP_409_CONFLICT, "El nombre de usuario ya esta en uso"
         ) from exc
     except (InvalidRole, InvalidUsername, InvalidPassword, InvalidAccountName) as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except InsufficientRoleRank as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
 
@@ -381,7 +381,7 @@ def update_account(
             status.HTTP_409_CONFLICT, "El nombre de usuario ya esta en uso"
         ) from exc
     except (InvalidRole, InvalidUsername, InvalidAccountName) as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except (InsufficientRoleRank, SelfActionForbidden) as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
 
@@ -445,6 +445,6 @@ def reset_password(
     except AccountNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cuenta no encontrada") from exc
     except InvalidPassword as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _account_response(db, account, business)

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import sqlalchemy as sa
 from alembic.config import Config
-from fastapi.testclient import TestClient
+from fastapi.testclient import TestClient as StarletteTestClient
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, sessionmaker
@@ -20,6 +20,18 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 ALEMBIC_INI = BACKEND_DIR / "alembic.ini"
 
 TEST_DATABASE_SUFFIX = "_test"
+
+
+class TestClient(StarletteTestClient):
+    __test__ = False
+
+    def request(self, method, url, *, cookies=None, headers=None, **kwargs):
+        if cookies:
+            merged = {cookie.name: cookie.value for cookie in self.cookies.jar}
+            merged.update(dict(cookies))
+            cookie_header = "; ".join(f"{name}={value}" for name, value in merged.items())
+            headers = {**(headers or {}), "Cookie": cookie_header}
+        return super().request(method, url, headers=headers, **kwargs)
 
 
 def alembic_config() -> Config:

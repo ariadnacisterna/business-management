@@ -131,7 +131,7 @@ def change_variant_price(
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
     except InvalidPriceAmount as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     account_names = prices.get_account_names(db, [price.created_by_account_id])
     return _price_response(price, account_names)
@@ -156,10 +156,10 @@ def change_product_price(
     except ProductNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
     except InvalidPriceAmount as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except ProductHasNoPriceableVariants as exc:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "El producto no tiene variantes activas"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "El producto no tiene variantes activas"
         ) from exc
 
     account_names = prices.get_account_names(db, [price.created_by_account_id for price in changed])

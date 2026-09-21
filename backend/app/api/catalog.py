@@ -529,7 +529,7 @@ def create_category(
     except DuplicateCategoryName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "La categoria ya existe") from exc
     except InvalidCatalogInput as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _category_response(category)
 
@@ -581,7 +581,7 @@ def update_category(
     except DuplicateCategoryName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "La categoria ya existe") from exc
     except InvalidCatalogInput as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _category_response(category)
 
@@ -610,7 +610,7 @@ def create_unit(
     except DuplicateUnitName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "La unidad ya existe") from exc
     except InvalidCatalogInput as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _unit_response(unit)
 
@@ -662,7 +662,7 @@ def update_unit(
     except DuplicateUnitName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "La unidad ya existe") from exc
     except InvalidCatalogInput as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _unit_response(unit)
 
@@ -684,7 +684,7 @@ def create_attribute(
     except DuplicateAttributeName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "El atributo ya existe") from exc
     except InvalidCatalogInput as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _attribute_response(attribute)
 
@@ -739,7 +739,7 @@ def create_attribute_value(
             status.HTTP_409_CONFLICT, "El valor ya existe para este atributo"
         ) from exc
     except InvalidCatalogInput as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _attribute_value_response(attribute_value)
 
@@ -782,7 +782,7 @@ def update_attribute_value(
             status.HTTP_409_CONFLICT, "El valor ya existe para este atributo"
         ) from exc
     except InvalidCatalogInput as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _attribute_value_response(attribute_value)
 
@@ -861,13 +861,13 @@ def create_product(
             variants=_to_variant_inputs(payload.variants),
         )
     except CategoryNotFound as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Categoria invalida") from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Categoria invalida") from exc
     except UnitNotFound as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unidad invalida") from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Unidad invalida") from exc
     except InvalidAttributeValue as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except (InvalidCatalogInput, VariantLabelRequired) as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except DuplicateProductName as exc:
         raise HTTPException(
             status.HTTP_409_CONFLICT, "Ya existe un producto con ese nombre."
@@ -900,12 +900,12 @@ def list_products(
         page = page or 1
         page_size = page_size or 25
         if page_size not in ALLOWED_PAGE_SIZES:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "page_size invalido")
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "page_size invalido")
     if status_filter is not None and status_filter not in (
         EntityStatus.ACTIVE.value,
         EntityStatus.INACTIVE.value,
     ):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "status invalido")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "status invalido")
 
     product_list, total = products.list_products(
         db,
@@ -964,11 +964,11 @@ def update_product(
     except ProductNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
     except CategoryNotFound as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Categoria invalida") from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Categoria invalida") from exc
     except UnitNotFound as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unidad invalida") from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Unidad invalida") from exc
     except InvalidCatalogInput as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except DuplicateProductName as exc:
         raise HTTPException(
             status.HTTP_409_CONFLICT, "Ya existe un producto con ese nombre."
@@ -1040,9 +1040,9 @@ def add_variant(
     except ProductNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
     except (ImplicitVariantNeedsLabel, VariantLabelRequired) as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except InvalidAttributeValue as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except DuplicateVariantInProduct as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
@@ -1114,9 +1114,9 @@ def update_variant(
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
     except InvalidAttributeValue as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except VariantLabelRequired as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except DuplicateVariantInProduct as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
@@ -1146,7 +1146,7 @@ def upload_product_image(
     except ProductNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
     except (InvalidImageType, ImageTooLarge) as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except StorageNotConfigured as exc:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE, "El almacenamiento de imagenes no esta configurado"
@@ -1209,9 +1209,9 @@ def create_provider(
     except DuplicateProviderName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "El proveedor ya existe") from exc
     except CategoryNotFound as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Categoria invalida") from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Categoria invalida") from exc
     except InvalidCatalogInput as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _provider_response(provider)
 
@@ -1269,7 +1269,7 @@ def update_provider(
     except DuplicateProviderName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "El proveedor ya existe") from exc
     except InvalidCatalogInput as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _provider_response(provider)
 
@@ -1293,7 +1293,7 @@ def set_provider_categories(
     except ProviderNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Proveedor no encontrado") from exc
     except CategoryNotFound as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Categoria invalida") from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Categoria invalida") from exc
 
     return _provider_response(provider)
 
@@ -1355,7 +1355,7 @@ def set_product_provider(
     except ProductNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
     except ProviderNotFound as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Proveedor invalido") from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Proveedor invalido") from exc
 
     return _product_response(product)
 
@@ -1398,7 +1398,7 @@ def list_shortages(
         ShortageStatus.PEDIDO.value,
         ShortageStatus.RECIBIDO.value,
     ):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "status invalido")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "status invalido")
 
     shortage_list = shortages.list_shortages(
         db, business.id, status=status_filter, provider_id=provider_id, category_id=category_id
@@ -1432,7 +1432,7 @@ def change_shortage_status(
         ShortageStatus.PEDIDO.value,
         ShortageStatus.RECIBIDO.value,
     ):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "status invalido")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "status invalido")
 
     try:
         shortage = shortages.change_shortage_status(
@@ -1465,7 +1465,7 @@ def create_customer(
     except DuplicateCustomerName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "El cliente ya existe") from exc
     except InvalidCatalogInput as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _customer_response(customer)
 
@@ -1569,7 +1569,7 @@ def update_customer(
     except DuplicateCustomerName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "El cliente ya existe") from exc
     except InvalidCatalogInput as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _customer_response(customer)
 
@@ -1663,9 +1663,11 @@ def create_credit(
     except CustomerNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado") from exc
     except InvalidCreditType as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Tipo de fiado invalido") from exc
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "Tipo de fiado invalido"
+        ) from exc
     except InvalidCreditAmount as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Importe invalido") from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Importe invalido") from exc
 
     return _credit_response(credit, {_actor.id: _actor.name})
 
@@ -1704,7 +1706,7 @@ def set_minimum_stock(
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
     except InvalidStockQuantity as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _stock_response(variant)
 
@@ -1734,7 +1736,7 @@ def adjust_stock(
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
     except InvalidStockQuantity as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     account_names = get_account_names(db, [movement.created_by_account_id])
     return _stock_movement_response(movement, account_names)
@@ -1774,13 +1776,13 @@ def list_stock(
         page = page or 1
         page_size = page_size or 25
         if page_size not in ALLOWED_PAGE_SIZES:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "page_size invalido")
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "page_size invalido")
     if quick_filter is not None and quick_filter not in (
         StockStatus.STOCK_BAJO.value,
         StockStatus.SIN_STOCK.value,
         StockStatus.NORMAL.value,
     ):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "quick_filter invalido")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "quick_filter invalido")
 
     actor_role = get_role_name(db, _actor.id, business.id)
     can_view_quantity_and_status = ROLE_RANK.get(actor_role, -1) >= ROLE_RANK[EMPLEADO]

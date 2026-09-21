@@ -193,7 +193,7 @@ def preview_import(
         TooManyRows,
         InvalidFileEncoding,
     ) as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _preview_response(plan)
 
@@ -223,10 +223,10 @@ def confirm_import(
         TooManyRows,
         InvalidFileEncoding,
     ) as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except ImportPlanHasErrors as exc:
         detail = _preview_response(exc.plan).model_dump(mode="json")
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail) from exc
     except DuplicateProductName as exc:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
