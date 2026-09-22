@@ -6,12 +6,27 @@ import { DeltaPreview, SignedDeltaInput } from './SignedDeltaInput'
 import { evaluateDelta } from './signedDelta'
 import type { DeltaKind } from './signedDelta'
 
-function Harness({ kind, current }: { kind: DeltaKind; current: number | string }) {
+function Harness({
+  kind,
+  current,
+  allowDecimals,
+}: {
+  kind: DeltaKind
+  current: number | string
+  allowDecimals?: boolean
+}) {
   const [value, setValue] = useState('')
   return (
     <>
-      <SignedDeltaInput kind={kind} value={value} onChange={setValue} ariaLabel="Diferencia" className="" />
-      <DeltaPreview kind={kind} current={current} evaluation={evaluateDelta(kind, current, value)} />
+      <SignedDeltaInput
+        kind={kind}
+        allowDecimals={allowDecimals}
+        value={value}
+        onChange={setValue}
+        ariaLabel="Diferencia"
+        className=""
+      />
+      <DeltaPreview kind={kind} current={current} evaluation={evaluateDelta(kind, current, value, allowDecimals)} />
     </>
   )
 }
@@ -47,5 +62,15 @@ describe('SignedDeltaInput', () => {
 
     expect(screen.getByLabelText('Diferencia')).toHaveValue('5')
     expect(screen.getByText('Solo se permiten números enteros.')).toBeInTheDocument()
+  })
+
+  it('accepts decimals for stock when the unit allows them', async () => {
+    const user = userEvent.setup()
+    render(<Harness kind="stock" current="2.5" allowDecimals />)
+
+    await user.type(screen.getByLabelText('Diferencia'), '0.75')
+
+    expect(screen.getByLabelText('Diferencia')).toHaveValue('0.75')
+    expect(screen.getByTestId('delta-preview')).toHaveTextContent('Stock: 2.5 → 3.25')
   })
 })

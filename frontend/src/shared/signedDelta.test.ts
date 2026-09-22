@@ -10,14 +10,14 @@ import {
   sanitizeSignedDelta,
 } from './signedDelta'
 
-describe('evaluateDelta for stock', () => {
+describe('evaluateDelta for stock (unit without fraction)', () => {
   it('adds a positive amount, with or without the plus sign', () => {
-    expect(evaluateDelta('stock', 50, '5')).toMatchObject({ state: 'ready', delta: 5, result: 55 })
-    expect(evaluateDelta('stock', 50, '+5')).toMatchObject({ state: 'ready', delta: 5, result: 55 })
+    expect(evaluateDelta('stock', 50, '5')).toMatchObject({ state: 'ready', delta: 5000, result: 55000 })
+    expect(evaluateDelta('stock', 50, '+5')).toMatchObject({ state: 'ready', delta: 5000, result: 55000 })
   })
 
   it('subtracts a negative amount', () => {
-    expect(evaluateDelta('stock', 50, '-20')).toMatchObject({ state: 'ready', delta: -20, result: 30 })
+    expect(evaluateDelta('stock', 50, '-20')).toMatchObject({ state: 'ready', delta: -20000, result: 30000 })
   })
 
   it('accepts leaving the stock exactly at zero', () => {
@@ -40,8 +40,37 @@ describe('evaluateDelta for stock', () => {
     expect(evaluateDelta('stock', 50, '-').state).toBe('empty')
   })
 
-  it('rejects decimals', () => {
+  it('rejects decimals when the unit does not allow them', () => {
     expect(evaluateDelta('stock', 50, '1.5').state).toBe('invalid')
+    expect(evaluateDelta('stock', 50, '1.5').error).toBe('Ingresá un número entero.')
+  })
+})
+
+describe('evaluateDelta for stock (unit with fraction)', () => {
+  it('accepts up to three decimals', () => {
+    expect(evaluateDelta('stock', '2.5', '0.750', true)).toMatchObject({
+      state: 'ready',
+      delta: 750,
+      result: 3250,
+    })
+  })
+
+  it('rejects more than three decimals', () => {
+    expect(evaluateDelta('stock', 50, '2.5001', true)).toMatchObject({
+      state: 'invalid',
+      error: 'Usá como máximo 3 decimales.',
+    })
+  })
+
+  it('rejects taking out more than there is, naming the current stock without trailing zeros', () => {
+    expect(evaluateDelta('stock', '2.5', '-3', true)).toMatchObject({
+      state: 'invalid',
+      error: 'No podés descontar más de lo que hay (2.5)',
+    })
+  })
+
+  it('accepts leaving the stock exactly at zero', () => {
+    expect(evaluateDelta('stock', '2.5', '-2.5', true)).toMatchObject({ state: 'ready', result: 0 })
   })
 })
 
@@ -74,14 +103,19 @@ describe('evaluateDelta for price', () => {
 
 describe('evaluateTargetStock', () => {
   it('turns a final quantity into the difference from the current one', () => {
-    expect(evaluateTargetStock(50, '42')).toMatchObject({ state: 'ready', delta: -8, result: 42 })
-    expect(evaluateTargetStock(50, '0')).toMatchObject({ state: 'ready', delta: -50, result: 0 })
+    expect(evaluateTargetStock(50, '42')).toMatchObject({ state: 'ready', delta: -8000, result: 42000 })
+    expect(evaluateTargetStock(50, '0')).toMatchObject({ state: 'ready', delta: -50000, result: 0 })
   })
 
-  it('rejects the same quantity and non-integers', () => {
+  it('rejects the same quantity and, without allowDecimals, non-integers', () => {
     expect(evaluateTargetStock(50, '50')).toMatchObject({ error: 'La cantidad nueva es igual a la actual.' })
     expect(evaluateTargetStock(50, '1.5').state).toBe('invalid')
     expect(evaluateTargetStock(50, '').state).toBe('empty')
+  })
+
+  it('accepts decimals when the unit allows them', () => {
+    expect(evaluateTargetStock('2.5', '3.250', true)).toMatchObject({ state: 'ready', delta: 750, result: 3250 })
+    expect(evaluateTargetStock(50, '1.5001', true).state).toBe('invalid')
   })
 })
 
@@ -129,16 +163,18 @@ describe('evaluateForAll', () => {
 })
 
 describe('formatting helpers', () => {
-  it('formats the signed difference and the transition', () => {
-    expect(formatSignedDelta('stock', -50)).toBe('-50')
-    expect(formatSignedDelta('stock', 5)).toBe('+5')
-    expect(describeChange('stock', 50, 5)).toBe('50 → 55 (diferencia +5)')
+  it('formats the signed difference and the transition, trimming stock decimals', () => {
+    expect(formatSignedDelta('stock', -50000)).toBe('-50')
+    expect(formatSignedDelta('stock', 5000)).toBe('+5')
+    expect(formatSignedDelta('stock', 2500)).toBe('+2.5')
+    expect(describeChange('stock', 50, 5000)).toBe('50 → 55 (diferencia +5)')
     expect(describeChange('price', '1000.00', 50000)).toMatch(/^\$\s1\.000,00 → \$\s1\.500,00 \(diferencia \+\$\s500,00\)$/)
   })
 
-  it('sends prices with two decimals and stock as an integer', () => {
+  it('sends prices with two decimals and stock with three, trimmed by the server side only', () => {
     expect(deltaToApi('price', -20050)).toBe('-200.50')
-    expect(deltaToApi('stock', -3)).toBe(-3)
+    expect(deltaToApi('stock', -3000)).toBe('-3.000')
+    expect(deltaToApi('stock', 2500)).toBe('2.500')
   })
 })
 

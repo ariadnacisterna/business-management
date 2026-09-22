@@ -1,10 +1,15 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.constants.limits import OBSERVATION_MAX_LENGTH
+from app.constants.limits import (
+    OBSERVATION_MAX_LENGTH,
+    STOCK_QUANTITY_PRECISION,
+    STOCK_QUANTITY_SCALE,
+)
 
 if TYPE_CHECKING:
     from app.db.models.variant import Variant
@@ -28,8 +33,12 @@ class StockMovement(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     variant_id: Mapped[int] = mapped_column(ForeignKey("variant.id"), nullable=False)
-    quantity_before: Mapped[int] = mapped_column(Integer, nullable=False)
-    quantity_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    quantity_before: Mapped[Decimal] = mapped_column(
+        Numeric(STOCK_QUANTITY_PRECISION, STOCK_QUANTITY_SCALE), nullable=False
+    )
+    quantity_after: Mapped[Decimal] = mapped_column(
+        Numeric(STOCK_QUANTITY_PRECISION, STOCK_QUANTITY_SCALE), nullable=False
+    )
     observation: Mapped[str | None] = mapped_column(String(OBSERVATION_MAX_LENGTH), nullable=True)
     created_by_account_id: Mapped[int] = mapped_column(ForeignKey("account.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

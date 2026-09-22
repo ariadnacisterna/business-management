@@ -19,6 +19,7 @@ interface InputProps {
   autoFocus?: boolean
   placeholder?: string
   allowSign?: boolean
+  allowDecimals?: boolean
 }
 
 export function SignedDeltaInput({
@@ -32,8 +33,8 @@ export function SignedDeltaInput({
   autoFocus = false,
   placeholder,
   allowSign = true,
+  allowDecimals = kind === 'price',
 }: InputProps) {
-  const allowDecimals = kind === 'price'
   const [showInvalidCharError, setShowInvalidCharError] = useState(false)
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {

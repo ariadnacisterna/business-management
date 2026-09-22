@@ -10,15 +10,23 @@ export interface DeltaEvaluation {
 }
 
 const MAX_STOCK = 2_147_483_647
+const STOCK_SCALE = 1000
+const MAX_STOCK_UNITS = MAX_STOCK * STOCK_SCALE
 const MAX_PRICE_CENTS = 1_000_000_000_000
-const STOCK_PATTERN = /^[+-]?\d+$/
+const STOCK_INTEGER_PATTERN = /^[+-]?\d+$/
+const STOCK_DECIMAL_PATTERN = /^[+-]?(\d+\.?\d{0,3}|\.\d{1,3})$/
 const PRICE_PATTERN = /^[+-]?(\d+\.?\d{0,2}|\.\d{1,2})$/
 const SIGN_PATTERN = /^\s*[+\-−]/
 
 export const PRICE_FLOOR_MESSAGE = 'El precio no puede quedar en cero o menos'
 
+function trimTrailingZeros(text: string): string {
+  if (!text.includes('.')) return text
+  return text.replace(/0+$/, '').replace(/\.$/, '')
+}
+
 export function stockFloorMessage(current: number): string {
-  return `No podés descontar más de lo que hay (${current})`
+  return `No podés descontar más de lo que hay (${formatDeltaValue('stock', current)})`
 }
 
 const EMPTY: DeltaEvaluation = { state: 'empty', error: null, delta: null, result: null }
@@ -29,7 +37,7 @@ function invalid(error: string, delta: number | null = null, result: number | nu
 
 export function toUnits(kind: DeltaKind, value: number | string): number {
   const numeric = typeof value === 'string' ? Number(value) : value
-  return kind === 'price' ? Math.round(numeric * 100) : numeric
+  return kind === 'price' ? Math.round(numeric * 100) : Math.round(numeric * STOCK_SCALE)
 }
 
 export function sanitizeSignedDelta(raw: string, allowDecimals: boolean): string {
@@ -47,20 +55,28 @@ export function hasInvalidDeltaChars(raw: string, allowDecimals: boolean): boole
   return allowDecimals ? /[^\d.,]/.test(unsigned) : /\D/.test(unsigned)
 }
 
-export function evaluateDelta(kind: DeltaKind, current: number | string, text: string): DeltaEvaluation {
+export function evaluateDelta(
+  kind: DeltaKind,
+  current: number | string,
+  text: string,
+  allowDecimals = false,
+): DeltaEvaluation {
   const trimmed = text.trim()
   if (/^[+-]?$/.test(trimmed)) return EMPTY
 
   const currentUnits = toUnits(kind, current)
 
   if (kind === 'stock') {
-    if (!STOCK_PATTERN.test(trimmed)) return invalid('Ingresá un número entero.')
-    const delta = Number(trimmed)
-    if (Math.abs(delta) > MAX_STOCK) return invalid('La cantidad es demasiado grande.')
+    const pattern = allowDecimals ? STOCK_DECIMAL_PATTERN : STOCK_INTEGER_PATTERN
+    if (!pattern.test(trimmed)) {
+      return invalid(allowDecimals ? 'Usá como máximo 3 decimales.' : 'Ingresá un número entero.')
+    }
+    const delta = Math.round(Number(trimmed) * STOCK_SCALE)
+    if (Math.abs(delta) > MAX_STOCK_UNITS) return invalid('La cantidad es demasiado grande.')
     if (delta === 0) return invalid('El ajuste no puede ser cero.', 0, currentUnits)
     const result = currentUnits + delta
     if (result < 0) return invalid(stockFloorMessage(currentUnits), delta, result)
-    if (result > MAX_STOCK) return invalid('La cantidad resultante es demasiado grande.', delta, result)
+    if (result > MAX_STOCK_UNITS) return invalid('La cantidad resultante es demasiado grande.', delta, result)
     return { state: 'ready', error: null, delta, result }
   }
 
@@ -74,14 +90,22 @@ export function evaluateDelta(kind: DeltaKind, current: number | string, text: s
   return { state: 'ready', error: null, delta, result }
 }
 
-export function evaluateTargetStock(current: number, text: string): DeltaEvaluation {
+export function evaluateTargetStock(
+  current: number | string,
+  text: string,
+  allowDecimals = false,
+): DeltaEvaluation {
   const trimmed = text.trim()
   if (trimmed === '') return EMPTY
-  if (!/^\d+$/.test(trimmed)) return invalid('Ingresá un número entero.')
-  const target = Number(trimmed)
-  if (target > MAX_STOCK) return invalid('La cantidad es demasiado grande.')
-  if (target === current) return invalid('La cantidad nueva es igual a la actual.', 0, target)
-  return { state: 'ready', error: null, delta: target - current, result: target }
+  const pattern = allowDecimals ? /^\d+\.?\d{0,3}$/ : /^\d+$/
+  if (!pattern.test(trimmed)) {
+    return invalid(allowDecimals ? 'Usá como máximo 3 decimales.' : 'Ingresá un número entero.')
+  }
+  const target = Math.round(Number(trimmed) * STOCK_SCALE)
+  if (target > MAX_STOCK_UNITS) return invalid('La cantidad es demasiado grande.')
+  const currentUnits = toUnits('stock', current)
+  if (target === currentUnits) return invalid('La cantidad nueva es igual a la actual.', 0, target)
+  return { state: 'ready', error: null, delta: target - currentUnits, result: target }
 }
 
 export function evaluateTargetPrice(current: number | string, text: string): DeltaEvaluation {
@@ -97,7 +121,8 @@ export function evaluateTargetPrice(current: number | string, text: string): Del
 }
 
 export function formatDeltaValue(kind: DeltaKind, units: number): string {
-  return kind === 'price' ? formatPriceExact(units / 100) : String(units)
+  if (kind === 'price') return formatPriceExact(units / 100)
+  return trimTrailingZeros((units / STOCK_SCALE).toFixed(3))
 }
 
 export function formatSignedDelta(kind: DeltaKind, delta: number): string {
@@ -105,8 +130,8 @@ export function formatSignedDelta(kind: DeltaKind, delta: number): string {
   return `${sign}${formatDeltaValue(kind, Math.abs(delta))}`
 }
 
-export function deltaToApi(kind: DeltaKind, delta: number): number | string {
-  return kind === 'price' ? (delta / 100).toFixed(2) : delta
+export function deltaToApi(kind: DeltaKind, delta: number): string {
+  return kind === 'price' ? (delta / 100).toFixed(2) : (delta / STOCK_SCALE).toFixed(3)
 }
 
 export function describeChange(kind: DeltaKind, current: number | string, delta: number): string {

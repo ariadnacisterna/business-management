@@ -272,3 +272,124 @@ def test_font_size_migration_backfills_existing_accounts_and_enforces_the_range(
 
     command.downgrade(config, "c2e6a8f0d4b1")
     command.downgrade(config, "base")
+
+
+def test_decimal_stock_migration_preserves_existing_integer_values(
+    postgres_empty_schema, monkeypatch, request
+):
+    _isolate_from_second_business_env(monkeypatch, request)
+    config = alembic_config()
+
+    command.upgrade(config, "d3f7a1b5c9e2")
+
+    engine = sa.create_engine(postgres_empty_schema)
+    try:
+        with engine.begin() as connection:
+            business_id = connection.execute(
+                sa.text("SELECT id FROM business LIMIT 1")
+            ).scalar_one()
+            account_id = connection.execute(sa.text("SELECT id FROM account LIMIT 1")).scalar_one()
+            category_id = connection.execute(
+                sa.text(
+                    "INSERT INTO category "
+                    "(business_id, name, status, created_by_account_id, created_at, "
+                    "updated_by_account_id, updated_at) "
+                    "VALUES (:business_id, 'Categoria migracion', 'active', :account_id, now(), "
+                    ":account_id, now()) RETURNING id"
+                ),
+                {"business_id": business_id, "account_id": account_id},
+            ).scalar_one()
+            unit_id = connection.execute(
+                sa.text(
+                    "INSERT INTO unit "
+                    "(business_id, name, abbreviation, allows_fraction, status, "
+                    "created_by_account_id, created_at, updated_by_account_id, updated_at) "
+                    "VALUES (:business_id, 'Unidad migracion', 'um', false, 'active', "
+                    ":account_id, now(), :account_id, now()) RETURNING id"
+                ),
+                {"business_id": business_id, "account_id": account_id},
+            ).scalar_one()
+            product_id = connection.execute(
+                sa.text(
+                    "INSERT INTO product "
+                    "(business_id, category_id, unit_id, name, status, "
+                    "created_by_account_id, created_at, updated_by_account_id, updated_at) "
+                    "VALUES (:business_id, :category_id, :unit_id, 'Producto migracion', 'active', "
+                    ":account_id, now(), :account_id, now()) RETURNING id"
+                ),
+                {
+                    "business_id": business_id,
+                    "category_id": category_id,
+                    "unit_id": unit_id,
+                    "account_id": account_id,
+                },
+            ).scalar_one()
+            variant_id = connection.execute(
+                sa.text(
+                    "INSERT INTO variant "
+                    "(product_id, is_implicit, quantity, minimum_quantity, status, "
+                    "created_by_account_id, created_at, updated_by_account_id, updated_at) "
+                    "VALUES (:product_id, true, 42, 7, 'active', :account_id, now(), "
+                    ":account_id, now()) RETURNING id"
+                ),
+                {"product_id": product_id, "account_id": account_id},
+            ).scalar_one()
+            connection.execute(
+                sa.text(
+                    "INSERT INTO stock_movement "
+                    "(variant_id, quantity_before, quantity_after, created_by_account_id, "
+                    "created_at) "
+                    "VALUES (:variant_id, 10, 42, :account_id, now())"
+                ),
+                {"variant_id": variant_id, "account_id": account_id},
+            )
+    finally:
+        engine.dispose()
+
+    command.upgrade(config, "head")
+
+    engine = sa.create_engine(postgres_empty_schema)
+    try:
+        with engine.connect() as connection:
+            variant = connection.execute(
+                sa.text("SELECT quantity, minimum_quantity FROM variant WHERE id = :id"),
+                {"id": variant_id},
+            ).one()
+            assert variant.quantity == 42
+            assert variant.minimum_quantity == 7
+
+            movement = connection.execute(
+                sa.text(
+                    "SELECT quantity_before, quantity_after FROM stock_movement "
+                    "WHERE variant_id = :id"
+                ),
+                {"id": variant_id},
+            ).one()
+            assert movement.quantity_before == 10
+            assert movement.quantity_after == 42
+
+            variant_columns = {
+                column["name"]: column["type"] for column in inspect(engine).get_columns("variant")
+            }
+            assert variant_columns["quantity"].precision == 13
+            assert variant_columns["quantity"].scale == 3
+            assert variant_columns["minimum_quantity"].precision == 13
+            assert variant_columns["minimum_quantity"].scale == 3
+    finally:
+        engine.dispose()
+
+    command.downgrade(config, "d3f7a1b5c9e2")
+
+    engine = sa.create_engine(postgres_empty_schema)
+    try:
+        with engine.connect() as connection:
+            variant = connection.execute(
+                sa.text("SELECT quantity, minimum_quantity FROM variant WHERE id = :id"),
+                {"id": variant_id},
+            ).one()
+            assert variant.quantity == 42
+            assert variant.minimum_quantity == 7
+    finally:
+        engine.dispose()
+
+    command.downgrade(config, "base")

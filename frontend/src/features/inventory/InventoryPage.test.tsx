@@ -26,7 +26,10 @@ const GERENTE_ACCOUNT = {
 const EMPLEADO_ACCOUNT = { ...GERENTE_ACCOUNT, role: 'Empleado' }
 
 const CATEGORIES = [{ id: 1, name: 'Hilados', status: 'active' }]
-const UNITS = [{ id: 1, name: 'Unidad', abbreviation: 'un', allows_fraction: false, status: 'active' }]
+const UNITS = [
+  { id: 1, name: 'Unidad', abbreviation: 'un', allows_fraction: false, status: 'active' },
+  { id: 2, name: 'Metro', abbreviation: 'm', allows_fraction: true, status: 'active' },
+]
 const STOCK_ROW = {
   product_id: 1,
   product_name: 'Hilo blanco',
@@ -35,14 +38,20 @@ const STOCK_ROW = {
   unit_id: 1,
   variant_id: 10,
   variant_label: null,
-  quantity: 2,
-  minimum_quantity: null,
-  effective_minimum_quantity: 5,
+  quantity: '2.000',
+  minimum_quantity: null as string | null,
+  effective_minimum_quantity: '5.000',
   status: 'stock_bajo',
   last_movement_at: '2026-01-01T00:00:00Z' as string | null,
   last_movement_by_account_name: 'Juan Pérez' as string | null,
 }
-const STOCK = { variant_id: 10, quantity: 2, minimum_quantity: null, effective_minimum_quantity: 5, status: 'stock_bajo' }
+const STOCK = {
+  variant_id: 10,
+  quantity: '2.000',
+  minimum_quantity: null as string | null,
+  effective_minimum_quantity: '5.000',
+  status: 'stock_bajo',
+}
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -127,13 +136,13 @@ describe('InventoryPage', () => {
 
   it('shows a banner with a link to the critical filter when there is stock missing', async () => {
     const user = userEvent.setup()
-    renderPage(GERENTE_ACCOUNT, { ...STOCK_ROW, quantity: 0, status: 'sin_stock' })
+    renderPage(GERENTE_ACCOUNT, { ...STOCK_ROW, quantity: '0.000', status: 'sin_stock' })
 
     await screen.findAllByText('Hilo blanco')
     expect(screen.getByText('Hay 1 variante sin stock.')).toBeInTheDocument()
 
     const fetchMock = fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValueOnce(jsonResponse(stockPage([{ ...STOCK_ROW, quantity: 0, status: 'sin_stock' }])))
+    fetchMock.mockResolvedValueOnce(jsonResponse(stockPage([{ ...STOCK_ROW, quantity: '0.000', status: 'sin_stock' }])))
     await user.click(screen.getByRole('button', { name: 'Ver' }))
 
     expect(screen.getByRole('button', { name: 'Filtrar por estado de stock' })).toHaveTextContent('Crítico')
@@ -194,8 +203,8 @@ describe('InventoryPage', () => {
     return jsonResponse({
       id: 99,
       variant_id: 10,
-      quantity_before: before,
-      quantity_after: after,
+      quantity_before: before.toFixed(3),
+      quantity_after: after.toFixed(3),
       observation: null,
       created_at: '2026-01-01T00:00:00Z',
       created_by_account_id: 1,
@@ -222,7 +231,7 @@ describe('InventoryPage', () => {
     expect(screen.queryByRole('button', { name: /Motivo del ajuste/ })).not.toBeInTheDocument()
 
     fetchMock.mockResolvedValueOnce(movementResponse(2, 8))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ...STOCK, quantity: 8, status: 'normal' }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...STOCK, quantity: '8.000', status: 'normal' }))
     fetchMock.mockResolvedValueOnce(jsonResponse(summaryFor([{ status: 'normal' }])))
 
     await user.click(updateButton)
@@ -233,7 +242,7 @@ describe('InventoryPage', () => {
     expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
     expect(screen.getByText('Stock ajustado: 2 → 8.')).toBeInTheDocument()
     const adjustCall = fetchMock.mock.calls.find((call) => call[0] === '/variants/10/stock/adjustments')
-    expect(JSON.parse(adjustCall?.[1]?.body as string)).toEqual({ delta: 6 })
+    expect(JSON.parse(adjustCall?.[1]?.body as string)).toEqual({ delta: '6.000' })
   })
 
   it('subtracts a negative amount typed with the minus sign', async () => {
@@ -249,7 +258,7 @@ describe('InventoryPage', () => {
     expect(within(row).getByTestId('delta-preview')).toHaveTextContent('Stock: 2 → 1')
 
     fetchMock.mockResolvedValueOnce(movementResponse(2, 1))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ...STOCK, quantity: 1 }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...STOCK, quantity: '1.000' }))
     fetchMock.mockResolvedValueOnce(jsonResponse(summaryFor([{ status: 'stock_bajo' }])))
     await user.click(within(row).getByRole('button', { name: 'Actualizar' }))
     expect(screen.getByRole('alertdialog')).toHaveTextContent('2 → 1 (diferencia -1)')
@@ -257,13 +266,13 @@ describe('InventoryPage', () => {
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     const adjustCall = fetchMock.mock.calls.find((call) => call[0] === '/variants/10/stock/adjustments')
-    expect(JSON.parse(adjustCall?.[1]?.body as string)).toEqual({ delta: -1 })
+    expect(JSON.parse(adjustCall?.[1]?.body as string)).toEqual({ delta: '-1.000' })
   })
 
   it('changes the whole quantity when the option is checked, sending the difference to the server', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
-    renderPage(GERENTE_ACCOUNT, { ...STOCK_ROW, quantity: 50, status: 'normal' })
+    renderPage(GERENTE_ACCOUNT, { ...STOCK_ROW, quantity: '50.000', status: 'normal' })
 
     await screen.findAllByText('Hilo blanco')
     const row = screen.getAllByLabelText(SUM_LABEL)[0].closest('[data-testid="stock-editor"]') as HTMLElement
@@ -276,7 +285,7 @@ describe('InventoryPage', () => {
     expect(within(row).getByTestId('delta-preview')).toHaveTextContent('Stock: 50 → 42')
 
     fetchMock.mockResolvedValueOnce(movementResponse(50, 42))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ...STOCK, quantity: 42, status: 'normal' }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...STOCK, quantity: '42.000', status: 'normal' }))
     fetchMock.mockResolvedValueOnce(jsonResponse(summaryFor([{ status: 'normal' }])))
     await user.click(within(row).getByRole('button', { name: 'Actualizar' }))
     expect(screen.getByRole('alertdialog')).toHaveTextContent('50 → 42 (diferencia -8)')
@@ -284,12 +293,12 @@ describe('InventoryPage', () => {
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     const adjustCall = fetchMock.mock.calls.find((call) => call[0] === '/variants/10/stock/adjustments')
-    expect(JSON.parse(adjustCall?.[1]?.body as string)).toEqual({ delta: -8 })
+    expect(JSON.parse(adjustCall?.[1]?.body as string)).toEqual({ delta: '-8.000' })
   })
 
   it('rejects a whole quantity equal to the current one', async () => {
     const user = userEvent.setup()
-    renderPage(GERENTE_ACCOUNT, { ...STOCK_ROW, quantity: 50, status: 'normal' })
+    renderPage(GERENTE_ACCOUNT, { ...STOCK_ROW, quantity: '50.000', status: 'normal' })
 
     await screen.findAllByText('Hilo blanco')
     const row = screen.getAllByLabelText(SUM_LABEL)[0].closest('[data-testid="stock-editor"]') as HTMLElement
@@ -302,7 +311,7 @@ describe('InventoryPage', () => {
 
   it('rejects taking out more than there is and accepts leaving exactly zero', async () => {
     const user = userEvent.setup()
-    renderPage(GERENTE_ACCOUNT, { ...STOCK_ROW, quantity: 50, status: 'normal' })
+    renderPage(GERENTE_ACCOUNT, { ...STOCK_ROW, quantity: '50.000', status: 'normal' })
 
     await screen.findAllByText('Hilo blanco')
 
@@ -333,6 +342,46 @@ describe('InventoryPage', () => {
 
     expect(within(row).getByRole('alert')).toHaveTextContent('El ajuste no puede ser cero.')
     expect(within(row).getByRole('button', { name: 'Actualizar' })).toBeDisabled()
+  })
+
+  it('strips a decimal point typed for a unit that does not allow fractions', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findAllByText('Hilo blanco')
+
+    const deltaInput = screen.getAllByLabelText(SUM_LABEL)[0]
+    await user.type(deltaInput, '1.')
+
+    expect(deltaInput).toHaveValue('1')
+    expect(screen.getByText('Solo se permiten números enteros.')).toBeInTheDocument()
+  })
+
+  it('accepts a decimal adjustment for a unit that allows fractions', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(GERENTE_ACCOUNT, { ...STOCK_ROW, unit_id: 2, quantity: '2.500', status: 'normal' })
+
+    await screen.findAllByText('Hilo blanco')
+
+    const deltaInput = screen.getAllByLabelText(SUM_LABEL)[0]
+    const row = deltaInput.closest('[data-testid="stock-editor"]') as HTMLElement
+    const updateButton = within(row).getByRole('button', { name: 'Actualizar' })
+
+    await user.type(deltaInput, '0.75')
+    expect(within(row).getByTestId('delta-preview')).toHaveTextContent('Stock: 2.5 → 3.25')
+    expect(updateButton).not.toBeDisabled()
+
+    fetchMock.mockResolvedValueOnce(movementResponse(2.5, 3.25))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...STOCK, quantity: '3.250', status: 'normal' }))
+    fetchMock.mockResolvedValueOnce(jsonResponse(summaryFor([{ status: 'normal' }])))
+
+    await user.click(updateButton)
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Ajustar' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    const adjustCall = fetchMock.mock.calls.find((call) => call[0] === '/variants/10/stock/adjustments')
+    expect(JSON.parse(adjustCall?.[1]?.body as string)).toEqual({ delta: '0.750' })
   })
 
   it('treats the adjustment as successful even when the refetch afterward fails', async () => {
@@ -374,7 +423,7 @@ describe('InventoryPage', () => {
   })
 
   it('shows quantity, status and the status filter to an employee, without minimum stock, adjust or history', async () => {
-    renderPage(EMPLEADO_ACCOUNT, { ...STOCK_ROW, minimum_quantity: null, effective_minimum_quantity: null as unknown as number })
+    renderPage(EMPLEADO_ACCOUNT, { ...STOCK_ROW, minimum_quantity: null, effective_minimum_quantity: null as unknown as string })
 
     await screen.findAllByText('Hilo blanco')
     expect(screen.getByText('Estado')).toBeInTheDocument()
@@ -536,8 +585,8 @@ describe('InventoryPage', () => {
         {
           id: 1,
           variant_id: 10,
-          quantity_before: 5,
-          quantity_after: 2,
+          quantity_before: '5.000',
+          quantity_after: '2.000',
           observation: 'Conteo de fin de mes',
           created_at: '2026-01-01T00:00:00Z',
           created_by_account_id: 1,
@@ -607,7 +656,13 @@ describe('InventoryPage', () => {
     await user.type(input, '3')
 
     fetchMock.mockResolvedValueOnce(
-      jsonResponse({ variant_id: 10, quantity: 2, minimum_quantity: 3, effective_minimum_quantity: 3, status: 'normal' }),
+      jsonResponse({
+        variant_id: 10,
+        quantity: '2.000',
+        minimum_quantity: '3.000',
+        effective_minimum_quantity: '3.000',
+        status: 'normal',
+      }),
     )
 
     await user.click(within(dialog).getByRole('button', { name: 'Actualizar' }))
@@ -615,6 +670,51 @@ describe('InventoryPage', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: /Editar stock mínimo de Hilo blanco/ })).not.toBeInTheDocument())
     const lastCall = fetchMock.mock.calls.at(-1)
     expect(String(lastCall?.[0])).toContain('/variants/10/stock/minimum')
+    expect(JSON.parse(lastCall?.[1]?.body as string)).toEqual({ minimum_quantity: '3.000' })
+  })
+
+  it('rejects a decimal minimum stock for a unit that does not allow fractions', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findAllByText('Hilo blanco')
+    await user.click(screen.getAllByLabelText(/Editar stock mínimo de Hilo blanco/)[0])
+
+    const dialog = await screen.findByRole('dialog', { name: /Editar stock mínimo de Hilo blanco/ })
+    const input = within(dialog).getByLabelText(/Nuevo stock mínimo para Hilo blanco/)
+    await user.type(input, '1.5')
+
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('Esta unidad no admite decimales.')
+    expect(within(dialog).getByRole('button', { name: 'Actualizar' })).toBeDisabled()
+  })
+
+  it('accepts a decimal minimum stock for a unit that allows fractions', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(GERENTE_ACCOUNT, { ...STOCK_ROW, unit_id: 2, quantity: '2.500', status: 'normal' })
+
+    await screen.findAllByText('Hilo blanco')
+    await user.click(screen.getAllByLabelText(/Editar stock mínimo de Hilo blanco/)[0])
+
+    const dialog = await screen.findByRole('dialog', { name: /Editar stock mínimo de Hilo blanco/ })
+    const input = within(dialog).getByLabelText(/Nuevo stock mínimo para Hilo blanco/)
+    await user.type(input, '0.5')
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument()
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        variant_id: 10,
+        quantity: '2.500',
+        minimum_quantity: '0.500',
+        effective_minimum_quantity: '0.500',
+        status: 'normal',
+      }),
+    )
+    await user.click(within(dialog).getByRole('button', { name: 'Actualizar' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /Editar stock mínimo de Hilo blanco/ })).not.toBeInTheDocument())
+    const lastCall = fetchMock.mock.calls.at(-1)
+    expect(JSON.parse(lastCall?.[1]?.body as string)).toEqual({ minimum_quantity: '0.500' })
   })
 
   describe('Faltantes tab', () => {

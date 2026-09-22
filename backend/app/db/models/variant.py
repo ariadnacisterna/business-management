@@ -1,9 +1,15 @@
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, String
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.constants.limits import NAME_MAX_LENGTH, STATUS_MAX_LENGTH
+from app.constants.limits import (
+    NAME_MAX_LENGTH,
+    STATUS_MAX_LENGTH,
+    STOCK_QUANTITY_PRECISION,
+    STOCK_QUANTITY_SCALE,
+)
 from app.constants.status import EntityStatus
 from app.db.audit_mixin import AuditedMixin
 from app.db.base import Base
@@ -34,8 +40,12 @@ class Variant(Base, AuditedMixin):
     product_id: Mapped[int] = mapped_column(ForeignKey("product.id"), nullable=False)
     label: Mapped[str | None] = mapped_column(String(NAME_MAX_LENGTH), nullable=True)
     is_implicit: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    minimum_quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    quantity: Mapped[Decimal] = mapped_column(
+        Numeric(STOCK_QUANTITY_PRECISION, STOCK_QUANTITY_SCALE), nullable=False, default=0
+    )
+    minimum_quantity: Mapped[Decimal | None] = mapped_column(
+        Numeric(STOCK_QUANTITY_PRECISION, STOCK_QUANTITY_SCALE), nullable=True
+    )
     status: Mapped[str] = mapped_column(
         String(STATUS_MAX_LENGTH), nullable=False, default=EntityStatus.ACTIVE.value
     )

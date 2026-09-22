@@ -85,7 +85,7 @@ Ejemplo esperado para RF-002 a RF-005: la consulta `cinta bebe 2 roja` debe pode
 | RF-050 | El sistema mostrará el saldo actual de cada cliente, calculado a partir de sus cargos y pagos. | Alta |
 | RF-051 | El sistema mostrará una lista de clientes con saldo pendiente. | Media |
 | RF-051b | El historial de movimientos de un cliente y el dato de cuándo y quién hizo el último cambio solo podrán consultarlos Gerente y superiores; el Empleado sigue viendo el saldo y registrando cargos y pagos (D-061). | Media |
-| RF-052 | Un Usuario autorizado podrá ajustar la cantidad en stock de una variante, indicando cuánto se suma o se resta a la cantidad actual; la cantidad no puede quedar negativa (D-060). | Alta |
+| RF-052 | Un Usuario autorizado podrá ajustar la cantidad en stock de una variante, indicando cuánto se suma o se resta a la cantidad actual; la cantidad no puede quedar negativa (D-060). La diferencia admite hasta 3 decimales si la unidad de venta de la variante los admite (D-065); si no, se exige un número entero. | Alta |
 | RF-053 | El sistema calculará y mostrará el estado de stock de cada variante (Normal, Stock bajo o Sin stock) según su cantidad actual y su stock mínimo. | Alta |
 | RF-054 | El sistema registrará un historial de movimientos de stock por variante: fecha, cantidad, valores antes y después, cuenta que lo hizo, y una observación opcional. | Alta |
 | RF-056 | Un Usuario autorizado podrá definir el stock mínimo de cada variante; el sistema aplicará un valor por defecto si no se define uno. | Media |

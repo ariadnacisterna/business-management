@@ -5,8 +5,9 @@ import type { Product, StockRow, Variant } from '../../api/types'
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { formatQuantity } from '../../shared/formatQuantity'
 import { DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
-import { describeChange, evaluateDelta, evaluateTargetStock } from '../../shared/signedDelta'
+import { deltaToApi, describeChange, evaluateDelta, evaluateTargetStock } from '../../shared/signedDelta'
 import { useToast } from '../../shared/useToast'
 
 const GENERIC_ERROR_MESSAGE = 'No se pudo guardar el ajuste. Intentá de nuevo.'
@@ -20,6 +21,7 @@ interface Props {
   categoryName: string
   variant: Variant
   currentStock: StockRow | undefined
+  allowDecimals: boolean
   onClose: () => void
   onSuccess: () => void
 }
@@ -29,6 +31,7 @@ export function AdjustStockModal({
   categoryName,
   variant,
   currentStock,
+  allowDecimals,
   onClose,
   onSuccess,
 }: Props) {
@@ -39,10 +42,10 @@ export function AdjustStockModal({
   const [confirming, setConfirming] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const currentQuantity = currentStock?.quantity ?? 0
+  const currentQuantity = currentStock?.quantity ?? '0'
   const evaluation = wholeQuantity
-    ? evaluateTargetStock(currentQuantity, delta)
-    : evaluateDelta('stock', currentQuantity, delta)
+    ? evaluateTargetStock(currentQuantity, delta, allowDecimals)
+    : evaluateDelta('stock', currentQuantity, delta, allowDecimals)
   const canSubmit = evaluation.state === 'ready'
 
   function handleSubmit(event: React.FormEvent) {
@@ -55,8 +58,10 @@ export function AdjustStockModal({
     setConfirming(false)
     setSaving(true)
     try {
-      const movement = await adjustStock(variant.id, { delta: evaluation.delta ?? 0 })
-      showSuccess(`Stock actualizado: ${movement.quantity_before} → ${movement.quantity_after}.`)
+      const movement = await adjustStock(variant.id, { delta: deltaToApi('stock', evaluation.delta ?? 0) })
+      showSuccess(
+        `Stock actualizado: ${formatQuantity(movement.quantity_before)} → ${formatQuantity(movement.quantity_after)}.`,
+      )
       onSuccess()
     } catch (error) {
       showError(error instanceof ApiError ? error.message : GENERIC_ERROR_MESSAGE)
@@ -100,7 +105,7 @@ export function AdjustStockModal({
         <div className="flex flex-col gap-1.5 border-t border-line pt-3 text-lg">
           <div className="flex justify-between">
             <span className="opacity-60">Stock actual</span>
-            <span className="font-bold">{currentQuantity}</span>
+            <span className="font-bold">{formatQuantity(currentQuantity)}</span>
           </div>
         </div>
 
@@ -111,6 +116,7 @@ export function AdjustStockModal({
           <div className="mt-1.5">
             <SignedDeltaInput
               kind="stock"
+              allowDecimals={allowDecimals}
               id="adjust-stock-delta"
               value={delta}
               onChange={setDelta}

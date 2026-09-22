@@ -307,6 +307,14 @@ export function ProductFormPage() {
   const nameError = name.trim() === '' ? 'El nombre es obligatorio.' : duplicateNameError
   const categoryError = categoryId === '' ? 'Elegí una categoría.' : null
   const unitError = unitId === '' ? 'Elegí una unidad.' : null
+  const stockUnit = unitId === '' ? null : (units.find((unit) => unit.id === unitId) ?? null)
+  const stockAllowsFraction = stockUnit?.allows_fraction ?? false
+  const stockStep = stockAllowsFraction ? 0.001 : 1
+
+  function stockDecimalError(value: string): string | null {
+    if (stockAllowsFraction || value.trim() === '') return null
+    return value.includes('.') ? 'Esta unidad no admite decimales.' : null
+  }
 
   const showNameError = (touched.name || attemptedContinueStep1) && nameError !== null
   const showCategoryError = (touched.category || attemptedContinueStep1) && categoryError !== null
@@ -405,14 +413,14 @@ export function ProductFormPage() {
         }
         if (stock !== '' && Number(stock) > 0) {
           try {
-            await adjustStock(variant.id, { delta: Number(stock) })
+            await adjustStock(variant.id, { delta: Number(stock).toFixed(3) })
           } catch {
             stockFailed = true
           }
         }
         if (minimum !== '') {
           try {
-            await setMinimumStock(variant.id, Number(minimum))
+            await setMinimumStock(variant.id, Number(minimum).toFixed(3))
           } catch {
             minimumFailed = true
           }
@@ -746,12 +754,18 @@ export function ProductFormPage() {
                       <input
                         type="number"
                         min={0}
-                        step={1}
+                        step={stockStep}
+                        inputMode={stockAllowsFraction ? 'decimal' : 'numeric'}
                         value={singleStock}
                         onChange={(event) => setSingleStock(event.target.value)}
                         aria-label="Stock actual"
                         className={inputClasses}
                       />
+                      {stockDecimalError(singleStock) !== null && (
+                        <span role="alert" className="text-sm text-danger">
+                          {stockDecimalError(singleStock)}
+                        </span>
+                      )}
                     </label>
                     <label className="flex flex-col gap-1">
                       <span className="whitespace-nowrap text-base font-semibold">
@@ -760,12 +774,18 @@ export function ProductFormPage() {
                       <input
                         type="number"
                         min={0}
-                        step={1}
+                        step={stockStep}
+                        inputMode={stockAllowsFraction ? 'decimal' : 'numeric'}
                         value={singleMinimum}
                         onChange={(event) => setSingleMinimum(event.target.value)}
                         aria-label="Stock min."
                         className={inputClasses}
                       />
+                      {stockDecimalError(singleMinimum) !== null && (
+                        <span role="alert" className="text-sm text-danger">
+                          {stockDecimalError(singleMinimum)}
+                        </span>
+                      )}
                     </label>
                   </div>
                 ) : (
@@ -823,7 +843,8 @@ export function ProductFormPage() {
                             <input
                               type="number"
                               min={0}
-                              step={1}
+                              step={stockStep}
+                              inputMode={stockAllowsFraction ? 'decimal' : 'numeric'}
                               value={variantStocks[draft.key] ?? ''}
                               onChange={(event) =>
                                 setVariantStocks((prev) => ({ ...prev, [draft.key]: event.target.value }))
@@ -831,6 +852,11 @@ export function ProductFormPage() {
                               aria-label={`Stock actual de la variante ${index + 1}`}
                               className={inputClasses}
                             />
+                            {stockDecimalError(variantStocks[draft.key] ?? '') !== null && (
+                              <span role="alert" className="text-sm text-danger">
+                                {stockDecimalError(variantStocks[draft.key] ?? '')}
+                              </span>
+                            )}
                           </label>
                           <label className="flex flex-col gap-1">
                             <span className="whitespace-nowrap text-base font-semibold">
@@ -839,7 +865,8 @@ export function ProductFormPage() {
                             <input
                               type="number"
                               min={0}
-                              step={1}
+                              step={stockStep}
+                              inputMode={stockAllowsFraction ? 'decimal' : 'numeric'}
                               value={variantMinimums[draft.key] ?? ''}
                               onChange={(event) =>
                                 setVariantMinimums((prev) => ({ ...prev, [draft.key]: event.target.value }))
@@ -847,6 +874,11 @@ export function ProductFormPage() {
                               aria-label={`Stock min. de la variante ${index + 1}`}
                               className={inputClasses}
                             />
+                            {stockDecimalError(variantMinimums[draft.key] ?? '') !== null && (
+                              <span role="alert" className="text-sm text-danger">
+                                {stockDecimalError(variantMinimums[draft.key] ?? '')}
+                              </span>
+                            )}
                           </label>
                         </div>
                         <label className="flex min-h-12 items-center gap-3 text-lg">

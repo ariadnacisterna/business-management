@@ -169,9 +169,9 @@ export interface CustomerBalanceSummary {
 
 export interface Stock {
   variant_id: number
-  quantity: number
-  minimum_quantity: number | null
-  effective_minimum_quantity: number
+  quantity: string
+  minimum_quantity: string | null
+  effective_minimum_quantity: string
   status: string
 }
 
@@ -183,9 +183,9 @@ export interface StockRow {
   unit_id: number
   variant_id: number
   variant_label: string | null
-  quantity: number
-  minimum_quantity: number | null
-  effective_minimum_quantity: number
+  quantity: string
+  minimum_quantity: string | null
+  effective_minimum_quantity: string
   status: string
   last_movement_at: string | null
   last_movement_by_account_name: string | null
@@ -207,8 +207,8 @@ export interface StockCounts {
 export interface StockMovement {
   id: number
   variant_id: number
-  quantity_before: number
-  quantity_after: number
+  quantity_before: string
+  quantity_after: string
   observation: string | null
   created_at: string
   created_by_account_id: number

@@ -24,7 +24,8 @@ import { Pagination } from '../../shared/Pagination'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
-import { describeChange, evaluateDelta, evaluateTargetStock } from '../../shared/signedDelta'
+import { deltaToApi, describeChange, evaluateDelta, evaluateTargetStock } from '../../shared/signedDelta'
+import { formatQuantity } from '../../shared/formatQuantity'
 import { STOCK_STATUS_LABELS, stockStatusClasses, stockStatusTextColor } from '../../shared/stockStatus'
 import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
@@ -117,7 +118,8 @@ function MinimumStockDisplay({
         </button>
       </div>
       <span className="font-semibold">
-        {row.effective_minimum_quantity} <span className="text-base font-normal opacity-70">{unit}</span>
+        {formatQuantity(row.effective_minimum_quantity)}{' '}
+        <span className="text-base font-normal opacity-70">{unit}</span>
       </span>
     </div>
   )
@@ -125,9 +127,11 @@ function MinimumStockDisplay({
 
 function MinimumStockEditor({
   row,
+  allowDecimals,
   onUpdated,
 }: {
   row: StockRow
+  allowDecimals: boolean
   onUpdated: (variantId: number, stock: Stock) => void
 }) {
   const { showError } = useToast()
@@ -136,15 +140,16 @@ function MinimumStockEditor({
 
   const trimmed = value.trim()
   const parsedQuantity = Number(trimmed)
-  const quantityValid = trimmed !== '' && Number.isInteger(parsedQuantity) && parsedQuantity >= 0
-  const edited = quantityValid && parsedQuantity !== row.effective_minimum_quantity
+  const quantityPattern = allowDecimals ? /^\d+\.?\d{0,3}$/ : /^\d+$/
+  const quantityValid = trimmed !== '' && quantityPattern.test(trimmed) && parsedQuantity >= 0
+  const edited = quantityValid && parsedQuantity !== Number(row.effective_minimum_quantity)
 
   async function save() {
     if (!edited) return
 
     setSaving(true)
     try {
-      const stock = await setMinimumStock(row.variant_id, parsedQuantity)
+      const stock = await setMinimumStock(row.variant_id, parsedQuantity.toFixed(3))
       onUpdated(row.variant_id, stock)
     } catch (error) {
       showError(error instanceof ApiError ? error.message : MINIMUM_SAVE_ERROR_MESSAGE)
@@ -158,9 +163,10 @@ function MinimumStockEditor({
       <input
         type="number"
         min={0}
-        step={1}
+        step={allowDecimals ? 0.001 : 1}
+        inputMode={allowDecimals ? 'decimal' : 'numeric'}
         value={value}
-        placeholder={String(row.effective_minimum_quantity)}
+        placeholder={formatQuantity(row.effective_minimum_quantity)}
         onChange={(event) => setValue(event.target.value)}
         aria-label={`Nuevo stock mínimo para ${variantLabel(row)}`}
         disabled={saving}
@@ -170,6 +176,11 @@ function MinimumStockEditor({
             : 'h-12 w-full rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
         }
       />
+      {!allowDecimals && trimmed !== '' && trimmed.includes('.') && (
+        <span role="alert" className="col-span-2 text-base text-danger">
+          Esta unidad no admite decimales.
+        </span>
+      )}
       <button
         type="button"
         onClick={save}
@@ -184,9 +195,11 @@ function MinimumStockEditor({
 
 function StockRowEditor({
   row,
+  allowDecimals,
   onRequestAdjust,
 }: {
   row: StockRow
+  allowDecimals: boolean
   onRequestAdjust: (delta: number) => void
 }) {
   const [deltaEntry, setDeltaEntry] = useState({ value: '', quantity: row.quantity })
@@ -201,8 +214,8 @@ function StockRowEditor({
   }
 
   const evaluation = wholeQuantity
-    ? evaluateTargetStock(row.quantity, delta)
-    : evaluateDelta('stock', row.quantity, delta)
+    ? evaluateTargetStock(row.quantity, delta, allowDecimals)
+    : evaluateDelta('stock', row.quantity, delta, allowDecimals)
   const edited = evaluation.state === 'ready'
 
   return (
@@ -210,6 +223,7 @@ function StockRowEditor({
       <div className="grid grid-cols-2 items-start gap-2">
         <SignedDeltaInput
           kind="stock"
+          allowDecimals={allowDecimals}
           value={delta}
           onChange={setDelta}
           allowSign={!wholeQuantity}
@@ -368,6 +382,10 @@ function StockTab({
     return units.find((unit) => unit.id === unitId)?.abbreviation ?? ''
   }
 
+  function unitAllowsFraction(unitId: number): boolean {
+    return units.find((unit) => unit.id === unitId)?.allows_fraction ?? false
+  }
+
   function applyRowUpdate(variantId: number, stock: Stock) {
     setData(
       (current) =>
@@ -398,7 +416,7 @@ function StockTab({
     const { row, delta } = confirmState
     let movement: StockMovement
     try {
-      movement = await adjustStock(row.variant_id, { delta })
+      movement = await adjustStock(row.variant_id, { delta: deltaToApi('stock', delta) })
     } catch (error) {
       showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
       setConfirmState(null)
@@ -407,7 +425,9 @@ function StockTab({
     }
 
     setConfirmState(null)
-    showSuccess(`Stock ajustado: ${movement.quantity_before} → ${movement.quantity_after}.`)
+    showSuccess(
+      `Stock ajustado: ${formatQuantity(movement.quantity_before)} → ${formatQuantity(movement.quantity_after)}.`,
+    )
 
     try {
       const stock = await fetchStock(row.variant_id)
@@ -575,7 +595,7 @@ function StockTab({
                     <td className="whitespace-nowrap px-4 py-3">
                       <span className="inline-flex items-center gap-1">
                         <span className="inline-flex min-w-[64px] items-baseline gap-1">
-                          <span className="text-xl font-bold text-brand">{row.quantity}</span>
+                          <span className="text-xl font-bold text-brand">{formatQuantity(row.quantity)}</span>
                           <span className="text-lg opacity-70">{unitAbbreviation(row.unit_id)}</span>
                         </span>
                         {canManage && (
@@ -599,7 +619,7 @@ function StockTab({
                       <td className="whitespace-nowrap px-4 py-3">
                         <span className="inline-flex items-center gap-1">
                           <span className="inline-flex min-w-[64px] items-baseline gap-1 text-lg">
-                            <span className="font-semibold">{row.effective_minimum_quantity}</span>
+                            <span className="font-semibold">{formatQuantity(row.effective_minimum_quantity)}</span>
                             <span className="opacity-70">{unitAbbreviation(row.unit_id)}</span>
                           </span>
                           <button
@@ -666,7 +686,8 @@ function StockTab({
                       <p className="text-xl font-bold leading-tight">{row.product_name}</p>
                     </div>
                     <span className={`whitespace-nowrap text-2xl font-bold ${stockStatusTextColor(row.status)}`}>
-                      {row.quantity} <span className="text-base font-normal opacity-60">{unitAbbreviation(row.unit_id)}</span>
+                      {formatQuantity(row.quantity)}{' '}
+                      <span className="text-base font-normal opacity-60">{unitAbbreviation(row.unit_id)}</span>
                     </span>
                   </div>
 
@@ -692,6 +713,7 @@ function StockTab({
                   {canManage && (
                     <StockRowEditor
                       row={row}
+                      allowDecimals={unitAllowsFraction(row.unit_id)}
                       onRequestAdjust={(delta) => requestAdjust(row, delta)}
                     />
                   )}
@@ -757,6 +779,7 @@ function StockTab({
             </div>
             <StockRowEditor
               row={adjustingRow}
+              allowDecimals={unitAllowsFraction(adjustingRow.unit_id)}
               onRequestAdjust={(delta) => {
                 requestAdjust(adjustingRow, delta)
                 setAdjustingRow(null)
@@ -785,6 +808,7 @@ function StockTab({
             </div>
             <MinimumStockEditor
               row={editingMinimumRow}
+              allowDecimals={unitAllowsFraction(editingMinimumRow.unit_id)}
               onUpdated={(variantId, stock) => {
                 applyRowUpdate(variantId, stock)
                 setEditingMinimumRow(null)
@@ -843,17 +867,17 @@ function StockTab({
                     {[...historyState.movements]
                       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                       .map((movement) => {
-                        const diff = movement.quantity_after - movement.quantity_before
+                        const diff = Number(movement.quantity_after) - Number(movement.quantity_before)
                         return (
                           <li key={movement.id} className="flex flex-col gap-1 rounded-lg border border-line px-4 py-3">
                             <div className="flex items-center justify-between text-lg">
                               <span className={`font-bold ${diff < 0 ? 'text-danger' : diff > 0 ? 'text-success' : ''}`}>
-                                {diff > 0 ? `+${diff}` : diff}
+                                {diff > 0 ? `+${formatQuantity(diff)}` : formatQuantity(diff)}
                               </span>
                               <span className="opacity-60">{formatDateTime(movement.created_at)}</span>
                             </div>
                             <p className="m-0 text-base opacity-70">
-                              {movement.quantity_before} → {movement.quantity_after}
+                              {formatQuantity(movement.quantity_before)} → {formatQuantity(movement.quantity_after)}
                             </p>
                             <p className="m-0 text-base opacity-70">Cambiado por: {firstName(movement.created_by_account_name)}</p>
                             {movement.observation !== null && (

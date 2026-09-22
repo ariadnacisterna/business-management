@@ -231,6 +231,7 @@ Esta historia no es necesaria para la mercería, donde las variantes suelen comp
 - Al ajustar, indico cuánto entró (5, +5) o salió (-3), no la cantidad final.
 - Puedo marcar «Cambiar toda la cantidad» e indicar la cantidad final; la interfaz calcula la diferencia y la envía como cualquier otro ajuste.
 - Antes de confirmar se ve el resultado (por ejemplo, Stock: 50 → 55); si quedaría negativo no se permite y se avisa cuánto hay.
+- Si la unidad de venta de la variante admite decimales (por ejemplo metro o kilo), puedo escribir hasta 3 decimales (2,5; 0,750); si no los admite (por ejemplo unidad o rollo), solo puedo escribir un número entero y se me avisa si intento poner decimales.
 - El sistema calcula y guarda la cantidad anterior y la resultante, junto con quién lo hizo y cuándo.
 - Un Empleado puede ver el stock pero no ajustarlo.
 

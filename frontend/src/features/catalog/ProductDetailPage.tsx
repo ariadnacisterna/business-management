@@ -46,6 +46,7 @@ import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { formatDateTime } from '../../shared/formatDateTime'
 import { firstName } from '../../shared/formatName'
 import { formatPrice } from '../../shared/formatPrice'
+import { formatQuantity } from '../../shared/formatQuantity'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 import { PencilIcon } from '../../shared/icons'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
@@ -228,10 +229,10 @@ export function ProductDetailPage() {
       if (trimmedStock !== '' || trimmedMinimum !== '') {
         let stockResult
         if (trimmedStock !== '' && Number(trimmedStock) > 0) {
-          stockResult = await adjustStock(createdVariant.id, { delta: Number(trimmedStock) })
+          stockResult = await adjustStock(createdVariant.id, { delta: Number(trimmedStock).toFixed(3) })
         }
         if (trimmedMinimum !== '') {
-          stockResult = await setMinimumStock(createdVariant.id, Number(trimmedMinimum))
+          stockResult = await setMinimumStock(createdVariant.id, Number(trimmedMinimum).toFixed(3))
         }
         if (stockResult !== undefined) {
           const [refreshedStock] = await fetchAllStock().then((rows) =>
@@ -359,6 +360,10 @@ export function ProductDetailPage() {
   const providers = detailData?.providers ?? NO_PROVIDERS
   const attributes = detailData?.attributes ?? NO_ATTRIBUTES
   const valuesById = detailData?.valuesById ?? NO_VALUES
+
+  function unitAllowsFraction(unitId: number): boolean {
+    return units.find((unit) => unit.id === unitId)?.allows_fraction ?? false
+  }
 
   const activeAttributes = useMemo(
     () => attributes.filter((attribute) => attribute.status === 'active'),
@@ -1212,7 +1217,7 @@ export function ProductDetailPage() {
                           if (stock === undefined) return <p className="m-0 text-xl font-bold">—</p>
                           return (
                             <p className={`m-0 text-xl font-bold ${stockStatusTextColor(stock.status)}`}>
-                              {stock.quantity} <span className="text-base font-normal opacity-70">({STOCK_STATUS_LABELS[stock.status] ?? stock.status})</span>
+                              {formatQuantity(stock.quantity)} <span className="text-base font-normal opacity-70">({STOCK_STATUS_LABELS[stock.status] ?? stock.status})</span>
                             </p>
                           )
                         })()}
@@ -1421,7 +1426,7 @@ export function ProductDetailPage() {
                                     if (stock === undefined) return <p className="m-0 text-xl font-bold">—</p>
                                     return (
                                       <p className={`m-0 text-xl font-bold ${stockStatusTextColor(stock.status)}`}>
-                                        {stock.quantity}{' '}
+                                        {formatQuantity(stock.quantity)}{' '}
                                         <span className="text-base font-normal opacity-70">
                                           ({STOCK_STATUS_LABELS[stock.status] ?? stock.status})
                                         </span>
@@ -1540,13 +1545,19 @@ export function ProductDetailPage() {
                         <input
                           type="number"
                           min={0}
-                          step={1}
+                          step={unitAllowsFraction(product.unit_id) ? 0.001 : 1}
+                          inputMode={unitAllowsFraction(product.unit_id) ? 'decimal' : 'numeric'}
                           value={newVariantStock}
                           onChange={(event) => setNewVariantStock(event.target.value)}
                           aria-label="Stock actual de la nueva variante"
                           disabled={creatingVariant}
                           className={inputClasses}
                         />
+                        {!unitAllowsFraction(product.unit_id) && newVariantStock.includes('.') && (
+                          <span role="alert" className="text-sm text-danger">
+                            Esta unidad no admite decimales.
+                          </span>
+                        )}
                       </div>
                       <div className="flex flex-col gap-1">
                         <span className="whitespace-nowrap text-sm font-bold">
@@ -1555,13 +1566,19 @@ export function ProductDetailPage() {
                         <input
                           type="number"
                           min={0}
-                          step={1}
+                          step={unitAllowsFraction(product.unit_id) ? 0.001 : 1}
+                          inputMode={unitAllowsFraction(product.unit_id) ? 'decimal' : 'numeric'}
                           value={newVariantMinimum}
                           onChange={(event) => setNewVariantMinimum(event.target.value)}
                           aria-label="Stock mínimo de la nueva variante"
                           disabled={creatingVariant}
                           className={inputClasses}
                         />
+                        {!unitAllowsFraction(product.unit_id) && newVariantMinimum.includes('.') && (
+                          <span role="alert" className="text-sm text-danger">
+                            Esta unidad no admite decimales.
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -1746,6 +1763,7 @@ export function ProductDetailPage() {
           categoryName={categories.find((category) => category.id === product.category_id)?.name ?? '—'}
           variant={adjustingVariant}
           currentStock={stockByVariant.get(adjustingVariant.id)}
+          allowDecimals={units.find((unit) => unit.id === product.unit_id)?.allows_fraction ?? false}
           onClose={() => setAdjustingVariant(null)}
           onSuccess={() => {
             refreshStock()
@@ -1795,17 +1813,17 @@ export function ProductDetailPage() {
                 {[...stockHistoryState.movements]
                   .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                   .map((movement) => {
-                    const diff = movement.quantity_after - movement.quantity_before
+                    const diff = Number(movement.quantity_after) - Number(movement.quantity_before)
                     return (
                       <li key={movement.id} className="flex flex-col gap-1 rounded-lg border border-line px-4 py-3">
                         <div className="flex items-center justify-between text-lg">
                           <span className={`font-bold ${diff < 0 ? 'text-danger' : diff > 0 ? 'text-success' : ''}`}>
-                            {diff > 0 ? `+${diff}` : diff}
+                            {diff > 0 ? `+${formatQuantity(diff)}` : formatQuantity(diff)}
                           </span>
                           <span className="opacity-60">{formatDateTime(movement.created_at)}</span>
                         </div>
                         <p className="m-0 text-base opacity-70">
-                          {movement.quantity_before} → {movement.quantity_after}
+                          {formatQuantity(movement.quantity_before)} → {formatQuantity(movement.quantity_after)}
                         </p>
                         <p className="m-0 text-base opacity-70">
                           Cambiado por: {firstName(movement.created_by_account_name)}

@@ -164,6 +164,56 @@ describe('ProductFormPage', () => {
     )
   })
 
+  it('sends decimal initial stock and minimum for a unit that allows fractions', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(
+        jsonResponse([{ id: 2, name: 'Metro', abbreviation: 'm', allows_fraction: true, status: 'active' }]),
+      )
+      .mockResolvedValueOnce(jsonResponse(ATTRIBUTES))
+      .mockResolvedValueOnce(jsonResponse(PROVIDERS))
+      .mockResolvedValueOnce(jsonResponse(EMPTY_PRODUCT_PAGE))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            product: {
+              id: 6,
+              name: 'Cinta',
+              category_id: 1,
+              unit_id: 2,
+              status: 'active',
+              variants: [
+                { id: 40, product_id: 6, label: null, is_implicit: true, status: 'active', attribute_value_ids: [] },
+              ],
+            },
+            possible_duplicates: [],
+          },
+          201,
+        ),
+      )
+    fetchMock.mockResolvedValue(jsonResponse({}))
+
+    renderPage()
+
+    await user.type(await screen.findByLabelText(/^Nombre \*?$/), 'Cinta')
+    await pickOption(user, 'Categoría', 'Mercería')
+    await pickOption(user, 'Unidad', 'Metro (m)')
+    await user.click(screen.getByRole('button', { name: 'Continuar' }))
+
+    await user.type(screen.getByLabelText('Stock actual'), '2.5')
+    await user.type(screen.getByLabelText('Stock min.'), '0.5')
+    await user.click(screen.getByRole('button', { name: 'Continuar' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Producto creado correctamente.')
+    const adjustCall = fetchMock.mock.calls.find((call) => call[0] === '/variants/40/stock/adjustments')
+    expect(JSON.parse(String((adjustCall?.[1] as RequestInit).body))).toEqual({ delta: '2.500' })
+    const minimumCall = fetchMock.mock.calls.find((call) => call[0] === '/variants/40/stock/minimum')
+    expect(JSON.parse(String((minimumCall?.[1] as RequestInit).body))).toEqual({ minimum_quantity: '0.500' })
+  })
+
   it('shows an error and marks the name field as soon as it is left empty', async () => {
     const user = userEvent.setup()
     mockInitialLoad(fetchMock, ADMIN_ACCOUNT)
@@ -478,12 +528,12 @@ describe('ProductFormPage', () => {
 
       const stockCalls = callsTo(/\/variants\/\d+\/stock\/adjustments$/, 'POST')
       expect(stockCalls.map((call) => [call[0], bodyOf(call).delta])).toEqual([
-        ['/variants/30/stock/adjustments', 5],
-        ['/variants/31/stock/adjustments', 8],
+        ['/variants/30/stock/adjustments', '5.000'],
+        ['/variants/31/stock/adjustments', '8.000'],
       ])
       const minimumCalls = callsTo(/\/variants\/\d+\/stock\/minimum$/, 'PATCH')
       expect(minimumCalls.map((call) => [call[0], bodyOf(call).minimum_quantity])).toEqual([
-        ['/variants/31/stock/minimum', 3],
+        ['/variants/31/stock/minimum', '3.000'],
       ])
     })
 
@@ -498,6 +548,17 @@ describe('ProductFormPage', () => {
       await confirmCreation(user)
 
       expect(callsTo(/\/variants\/\d+\/stock\/adjustments$/, 'POST')).toHaveLength(0)
+    })
+
+    it('warns inline when a decimal is typed for a unit that does not allow fractions', async () => {
+      const user = userEvent.setup()
+      mockTwoVariantCreation()
+      renderPage()
+
+      await openTwoVariants(user)
+      await user.type(screen.getByLabelText('Stock actual de la variante 1'), '2.5')
+
+      expect(screen.getByText('Esta unidad no admite decimales.')).toBeInTheDocument()
     })
 
     it('shows the effective price of each variant in the review step', async () => {

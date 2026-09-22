@@ -24,7 +24,10 @@ const ADMIN_ACCOUNT = {
 }
 
 const CATEGORIES = [{ id: 1, name: 'Cintas', status: 'active' }]
-const UNITS = [{ id: 1, name: 'Unidad', abbreviation: 'un', allows_fraction: false, status: 'active' }]
+const UNITS = [
+  { id: 1, name: 'Unidad', abbreviation: 'un', allows_fraction: false, status: 'active' },
+  { id: 2, name: 'Metro', abbreviation: 'm', allows_fraction: true, status: 'active' },
+]
 
 const PRODUCT = {
   id: 5,
@@ -45,7 +48,10 @@ function jsonResponse(body: unknown, status = 200): Response {
   })
 }
 
-function stockResponse(variantId: number, overrides: Partial<{ quantity: number; status: string }> = {}) {
+function stockResponse(
+  variantId: number,
+  overrides: Partial<{ quantity: string; status: string; unit_id: number }> = {},
+) {
   return jsonResponse({
     items: [
       {
@@ -53,12 +59,12 @@ function stockResponse(variantId: number, overrides: Partial<{ quantity: number;
         product_name: 'Producto',
         image_url: null,
         category_id: 1,
-        unit_id: 1,
+        unit_id: overrides.unit_id ?? 1,
         variant_id: variantId,
         variant_label: null,
-        quantity: overrides.quantity ?? 0,
+        quantity: overrides.quantity ?? '0.000',
         minimum_quantity: null,
-        effective_minimum_quantity: 10,
+        effective_minimum_quantity: '10.000',
         status: overrides.status ?? 'sin_stock',
         last_movement_at: null,
         last_movement_by_account_name: null,
@@ -80,9 +86,9 @@ function multiStockResponse(variantIds: number[]) {
       unit_id: 1,
       variant_id: variantId,
       variant_label: null,
-      quantity: 0,
+      quantity: '0.000',
       minimum_quantity: null,
-      effective_minimum_quantity: 10,
+      effective_minimum_quantity: '10.000',
       status: 'sin_stock',
       last_movement_at: null,
       last_movement_by_account_name: null,
@@ -291,7 +297,7 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse(UNITS))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
-      .mockResolvedValueOnce(stockResponse(20, { quantity: 7, status: 'stock_bajo' }))
+      .mockResolvedValueOnce(stockResponse(20, { quantity: '7.000', status: 'stock_bajo' }))
 
     render(
       <MemoryRouter initialEntries={['/products/6']}>
@@ -340,9 +346,9 @@ describe('ProductDetailPage', () => {
               unit_id: 1,
               variant_id: 20,
               variant_label: null,
-              quantity: 7,
+              quantity: '7.000',
               minimum_quantity: null,
-              effective_minimum_quantity: 10,
+              effective_minimum_quantity: '10.000',
               status: 'stock_bajo',
               last_movement_at: '2026-01-01T00:00:00Z',
               last_movement_by_account_name: 'Ada Lovelace',
@@ -389,7 +395,7 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
-      .mockResolvedValueOnce(stockResponse(20, { quantity: 7, status: 'stock_bajo' }))
+      .mockResolvedValueOnce(stockResponse(20, { quantity: '7.000', status: 'stock_bajo' }))
 
     render(
       <MemoryRouter initialEntries={['/products/6?edit=1']}>
@@ -421,8 +427,8 @@ describe('ProductDetailPage', () => {
       jsonResponse({
         id: 1,
         variant_id: 20,
-        quantity_before: 7,
-        quantity_after: 20,
+        quantity_before: '7.000',
+        quantity_after: '20.000',
         observation: null,
         created_at: new Date().toISOString(),
         created_by_account_id: 1,
@@ -432,13 +438,68 @@ describe('ProductDetailPage', () => {
     await user.click(screen.getByRole('button', { name: 'Confirmar' }))
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
 
-    fetchMock.mockResolvedValueOnce(stockResponse(20, { quantity: 20, status: 'normal' }))
+    fetchMock.mockResolvedValueOnce(stockResponse(20, { quantity: '20.000', status: 'normal' }))
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Confirmar' }))
 
     expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
     expect(
       await screen.findByText((_, element) => element?.tagName === 'P' && element.textContent === '20 (Normal)'),
     ).toBeInTheDocument()
+  })
+
+  it('adjusts stock with a decimal amount when the unit allows fractions', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse({ ...SINGLE_VARIANT_PRODUCT, unit_id: 2 }))
+      .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+      .mockResolvedValueOnce(jsonResponse(UNITS))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
+      .mockResolvedValueOnce(stockResponse(20, { quantity: '2.500', status: 'normal', unit_id: 2 }))
+
+    render(
+      <MemoryRouter initialEntries={['/products/6?edit=1']}>
+        <ToastProvider>
+        <AuthProvider>
+          <ReadyGate>
+            <Routes>
+              <Route path="/products" element={<h1>Productos</h1>} />
+              <Route path="/products/:productId" element={<ProductDetailPage />} />
+            </Routes>
+          </ReadyGate>
+        </AuthProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    )
+
+    expect(
+      await screen.findByText((_, element) => element?.tagName === 'P' && element.textContent === '2.5 (Normal)'),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Actualizar stock' }))
+    await user.type(screen.getByLabelText('Cuánto sumar o restar'), '0.750')
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        id: 1,
+        variant_id: 20,
+        quantity_before: '2.500',
+        quantity_after: '3.250',
+        observation: null,
+        created_at: new Date().toISOString(),
+        created_by_account_id: 1,
+        created_by_account_name: 'Ada Lovelace',
+      }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+
+    fetchMock.mockResolvedValueOnce(stockResponse(20, { quantity: '3.250', status: 'normal', unit_id: 2 }))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Confirmar' }))
+
+    expect(await screen.findByText('Stock actualizado: 2.5 → 3.25.')).toBeInTheDocument()
   })
 
   it('previews the resulting stock and rejects taking out more than there is in the "Actualizar stock" modal', async () => {
@@ -452,7 +513,7 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
-      .mockResolvedValueOnce(stockResponse(20, { quantity: 7, status: 'stock_bajo' }))
+      .mockResolvedValueOnce(stockResponse(20, { quantity: '7.000', status: 'stock_bajo' }))
 
     render(
       <MemoryRouter initialEntries={['/products/6?edit=1']}>
@@ -502,7 +563,7 @@ describe('ProductDetailPage', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ variant_id: 20, price: null }))
-      .mockResolvedValueOnce(stockResponse(20, { quantity: 7, status: 'stock_bajo' }))
+      .mockResolvedValueOnce(stockResponse(20, { quantity: '7.000', status: 'stock_bajo' }))
 
     render(
       <MemoryRouter initialEntries={['/products/6?edit=1']}>
@@ -530,8 +591,8 @@ describe('ProductDetailPage', () => {
       jsonResponse({
         id: 1,
         variant_id: 20,
-        quantity_before: 7,
-        quantity_after: 20,
+        quantity_before: '7.000',
+        quantity_after: '20.000',
         observation: null,
         created_at: new Date().toISOString(),
         created_by_account_id: 1,

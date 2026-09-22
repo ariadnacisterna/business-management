@@ -27,6 +27,7 @@ import { SelectMenu } from '../../shared/SelectMenu'
 import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { formatPrice } from '../../shared/formatPrice'
+import { formatQuantity } from '../../shared/formatQuantity'
 import { NavIconGlyph } from '../../shared/layout/NavIcon'
 import { ProductThumbnail } from '../../shared/ProductThumbnail'
 import { stockStatusTextColor } from '../../shared/stockStatus'
@@ -63,7 +64,7 @@ function productStockInfo(
     .filter((row): row is StockRow => row !== undefined)
   if (rows.length === 0) return null
 
-  const quantity = rows.reduce((sum, row) => sum + row.quantity, 0)
+  const quantity = rows.reduce((sum, row) => sum + Number(row.quantity), 0)
   const status = rows.reduce(
     (worst, row) => (STOCK_STATUS_RANK[row.status] < STOCK_STATUS_RANK[worst] ? row.status : worst),
     rows[0].status,
@@ -496,7 +497,11 @@ export function ProductsPage() {
                           {(() => {
                             const stockInfo = productStockInfo(product, stockByVariant)
                             if (stockInfo === null) return <span className="opacity-40">—</span>
-                            return <span className={stockStatusTextColor(stockInfo.status)}>{stockInfo.quantity}</span>
+                            return (
+                              <span className={stockStatusTextColor(stockInfo.status)}>
+                                {formatQuantity(stockInfo.quantity)}
+                              </span>
+                            )
                           })()}
                         </p>
                       </div>
@@ -598,7 +603,11 @@ export function ProductsPage() {
                         {(() => {
                           const stockInfo = productStockInfo(product, stockByVariant)
                           if (stockInfo === null) return <span className="italic opacity-40">—</span>
-                          return <span className={stockStatusTextColor(stockInfo.status)}>{stockInfo.quantity}</span>
+                          return (
+                            <span className={stockStatusTextColor(stockInfo.status)}>
+                              {formatQuantity(stockInfo.quantity)}
+                            </span>
+                          )
                         })()}
                       </td>
                       <td className="py-3.5 pl-8 pr-4">

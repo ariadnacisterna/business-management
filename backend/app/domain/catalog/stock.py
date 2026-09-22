@@ -1,19 +1,41 @@
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
-from app.constants.limits import DEFAULT_MINIMUM_STOCK, MAX_STOCK_QUANTITY
+from app.constants.limits import DEFAULT_MINIMUM_STOCK, MAX_STOCK_QUANTITY, STOCK_QUANTITY_SCALE
 from app.constants.status import EntityStatus, StockStatus
-from app.db.models import Product, StockMovement, Variant
+from app.db.models import Product, StockMovement, Unit, Variant
 from app.domain.catalog.errors import InvalidStockQuantity
 from app.domain.catalog.products import get_variant, get_variant_for_update
 
+STOCK_STEP = Decimal(1).scaleb(-STOCK_QUANTITY_SCALE)
 
-def effective_minimum_quantity(variant: Variant) -> int:
+
+def _format_quantity(value: Decimal) -> str:
+    text = format(value, "f")
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return text
+
+
+def _validate_quantity_for_unit(value: Decimal, unit: Unit, too_large_message: str) -> Decimal:
+    if not value.is_finite() or abs(value) > MAX_STOCK_QUANTITY:
+        raise InvalidStockQuantity(too_large_message)
+    if unit.allows_fraction:
+        if value != value.quantize(STOCK_STEP):
+            raise InvalidStockQuantity(f"Usá como máximo {STOCK_QUANTITY_SCALE} decimales")
+        return value.quantize(STOCK_STEP)
+    if value != value.to_integral_value():
+        raise InvalidStockQuantity("Esta unidad no admite decimales")
+    return value.quantize(STOCK_STEP)
+
+
+def effective_minimum_quantity(variant: Variant) -> Decimal:
     if variant.minimum_quantity is not None:
         return variant.minimum_quantity
-    return DEFAULT_MINIMUM_STOCK
+    return Decimal(DEFAULT_MINIMUM_STOCK).quantize(STOCK_STEP)
 
 
 def stock_status(variant: Variant) -> str:
@@ -29,11 +51,15 @@ def set_minimum_quantity(
     business_id: int,
     variant_id: int,
     actor_account_id: int,
-    minimum_quantity: int | None,
+    minimum_quantity: Decimal | None,
 ) -> Variant:
     variant = get_variant(db, business_id, variant_id)
-    if minimum_quantity is not None and minimum_quantity < 0:
-        raise InvalidStockQuantity("El stock minimo no puede ser negativo")
+    if minimum_quantity is not None:
+        if minimum_quantity < 0:
+            raise InvalidStockQuantity("El stock minimo no puede ser negativo")
+        minimum_quantity = _validate_quantity_for_unit(
+            minimum_quantity, variant.product.unit, "El stock minimo es demasiado grande"
+        )
 
     variant.minimum_quantity = minimum_quantity
     variant.updated_by_account_id = actor_account_id
@@ -48,21 +74,24 @@ def adjust_stock(
     business_id: int,
     variant_id: int,
     actor_account_id: int,
-    delta: int,
+    delta: Decimal,
     observation: str | None = None,
 ) -> StockMovement:
-    get_variant(db, business_id, variant_id)
+    variant = get_variant(db, business_id, variant_id)
     if delta == 0:
         raise InvalidStockQuantity("El ajuste no puede ser cero: no hay ningún cambio")
-    if abs(delta) > MAX_STOCK_QUANTITY:
-        raise InvalidStockQuantity("La cantidad es demasiado grande")
+    delta = _validate_quantity_for_unit(
+        delta, variant.product.unit, "La cantidad es demasiado grande"
+    )
 
     variant = get_variant_for_update(db, business_id, variant_id)
     quantity_before = variant.quantity
     quantity_after = quantity_before + delta
     if quantity_after < 0:
         db.rollback()
-        raise InvalidStockQuantity(f"No podés descontar más de lo que hay ({quantity_before})")
+        raise InvalidStockQuantity(
+            f"No podés descontar más de lo que hay ({_format_quantity(quantity_before)})"
+        )
     if quantity_after > MAX_STOCK_QUANTITY:
         db.rollback()
         raise InvalidStockQuantity("La cantidad resultante es demasiado grande")

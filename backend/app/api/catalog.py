@@ -319,26 +319,26 @@ class CustomerBalanceSummaryResponse(BaseModel):
 
 class StockResponse(BaseModel):
     variant_id: int
-    quantity: int
-    minimum_quantity: int | None
-    effective_minimum_quantity: int
+    quantity: Decimal
+    minimum_quantity: Decimal | None
+    effective_minimum_quantity: Decimal
     status: str
 
 
 class SetMinimumStockRequest(BaseModel):
-    minimum_quantity: int | None
+    minimum_quantity: Decimal | None
 
 
 class StockAdjustmentRequest(BaseModel):
-    delta: int
+    delta: Decimal
     observation: str | None = None
 
 
 class StockMovementResponse(BaseModel):
     id: int
     variant_id: int
-    quantity_before: int
-    quantity_after: int
+    quantity_before: Decimal
+    quantity_after: Decimal
     observation: str | None
     created_at: str
     created_by_account_id: int
@@ -357,9 +357,9 @@ class StockRowResponse(BaseModel):
     unit_id: int
     variant_id: int
     variant_label: str | None
-    quantity: int | None
-    minimum_quantity: int | None
-    effective_minimum_quantity: int | None
+    quantity: Decimal | None
+    minimum_quantity: Decimal | None
+    effective_minimum_quantity: Decimal | None
     status: str | None
     last_movement_at: str | None
     last_movement_by_account_name: str | None

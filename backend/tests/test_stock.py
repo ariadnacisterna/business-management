@@ -54,10 +54,10 @@ def _create_category(client, cookies, name="Categoria stock"):
     return response.json()
 
 
-def _create_unit(client, cookies, name="Unidad stock", abbreviation="u"):
+def _create_unit(client, cookies, name="Unidad stock", abbreviation="u", allows_fraction=False):
     response = client.post(
         "/units",
-        json={"name": name, "abbreviation": abbreviation, "allows_fraction": False},
+        json={"name": name, "abbreviation": abbreviation, "allows_fraction": allows_fraction},
         cookies=cookies,
         headers=_auth_headers(cookies),
     )
@@ -76,9 +76,9 @@ def _create_product(client, cookies, name, category_id, unit_id):
     return response.json()["product"]
 
 
-def _setup_variant(client, admin_cookies, name="Producto con stock"):
+def _setup_variant(client, admin_cookies, name="Producto con stock", allows_fraction=False):
     category = _create_category(client, admin_cookies, f"Categoria {name}")
-    unit = _create_unit(client, admin_cookies, f"Unidad {name}", "u")
+    unit = _create_unit(client, admin_cookies, f"Unidad {name}", "u", allows_fraction)
     product = _create_product(client, admin_cookies, name, category["id"], unit["id"])
     return product["variants"][0]["id"]
 
@@ -100,9 +100,9 @@ def test_new_variant_starts_with_zero_stock_and_sin_stock_status(client):
 
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["quantity"] == 0
+    assert body["quantity"] == "0.000"
     assert body["minimum_quantity"] is None
-    assert body["effective_minimum_quantity"] == 10
+    assert body["effective_minimum_quantity"] == "10.000"
     assert body["status"] == "sin_stock"
 
 
@@ -145,13 +145,13 @@ def test_gerente_can_adjust_stock(client):
 
     assert response.status_code == 201, response.text
     body = response.json()
-    assert body["quantity_before"] == 0
-    assert body["quantity_after"] == 25
+    assert body["quantity_before"] == "0.000"
+    assert body["quantity_after"] == "25.000"
     assert body["observation"] == "Compra"
     assert body["created_by_account_name"] != ""
 
     stock_response = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies)
-    assert stock_response.json()["quantity"] == 25
+    assert stock_response.json()["quantity"] == "25.000"
     assert stock_response.json()["status"] == "normal"
 
 
@@ -183,8 +183,8 @@ def test_negative_delta_subtracts_from_current_stock(client):
 
     assert response.status_code == 201, response.text
     body = response.json()
-    assert body["quantity_before"] == 50
-    assert body["quantity_after"] == 30
+    assert body["quantity_before"] == "50.000"
+    assert body["quantity_after"] == "30.000"
 
 
 def test_delta_below_zero_is_rejected_with_the_current_stock_and_changes_nothing(client):
@@ -197,7 +197,7 @@ def test_delta_below_zero_is_rejected_with_the_current_stock_and_changes_nothing
     assert response.status_code == 422, response.text
     assert response.json()["detail"] == "No podés descontar más de lo que hay (50)"
     stock = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies).json()
-    assert stock["quantity"] == 50
+    assert stock["quantity"] == "50.000"
     movements = client.get(f"/variants/{variant_id}/stock/movements", cookies=admin_cookies)
     assert len(movements.json()) == 1
 
@@ -210,9 +210,9 @@ def test_delta_that_leaves_stock_exactly_at_zero_is_accepted(client):
     response = _adjust_stock(client, admin_cookies, variant_id, -50)
 
     assert response.status_code == 201, response.text
-    assert response.json()["quantity_after"] == 0
+    assert response.json()["quantity_after"] == "0.000"
     stock = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies).json()
-    assert stock["quantity"] == 0
+    assert stock["quantity"] == "0.000"
     assert stock["status"] == "sin_stock"
 
 
@@ -235,8 +235,8 @@ def test_two_consecutive_deltas_compose(client):
     response = _adjust_stock(client, admin_cookies, variant_id, 12)
 
     assert response.status_code == 201, response.text
-    assert response.json()["quantity_before"] == 30
-    assert response.json()["quantity_after"] == 42
+    assert response.json()["quantity_before"] == "30.000"
+    assert response.json()["quantity_after"] == "42.000"
 
 
 @pytest.mark.parametrize("delta", [2_147_483_648, -2_147_483_648, 10**30])
@@ -258,7 +258,7 @@ def test_delta_that_overflows_the_column_is_rejected(client):
 
     assert response.status_code == 422, response.text
     stock = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies).json()
-    assert stock["quantity"] == 2_000_000_000
+    assert stock["quantity"] == "2000000000.000"
 
 
 def test_stock_status_thresholds(client):
@@ -297,10 +297,10 @@ def test_list_stock_movements_orders_most_recent_first(client):
     assert response.status_code == 200, response.text
     movements = response.json()
     assert len(movements) == 2
-    assert movements[0]["quantity_before"] == 3
-    assert movements[0]["quantity_after"] == 7
-    assert movements[1]["quantity_before"] == 0
-    assert movements[1]["quantity_after"] == 3
+    assert movements[0]["quantity_before"] == "3.000"
+    assert movements[0]["quantity_after"] == "7.000"
+    assert movements[1]["quantity_before"] == "0.000"
+    assert movements[1]["quantity_after"] == "3.000"
     assert movements[0]["created_by_account_name"] != ""
 
 
@@ -337,7 +337,7 @@ def test_list_stock_returns_all_active_variants_in_one_call(client):
     assert len(matching) == 1
     row = matching[0]
     assert row["product_name"] == "Producto listado"
-    assert row["quantity"] == 100
+    assert row["quantity"] == "100.000"
     assert row["status"] == "normal"
 
 
@@ -484,7 +484,7 @@ def test_empleado_list_stock_shows_quantity_and_status_but_not_minimum(client):
     rows = response.json()["items"]
     row = next(row for row in rows if row["variant_id"] == variant_id)
     assert row["product_name"] == "Producto visible para empleado"
-    assert row["quantity"] == 100
+    assert row["quantity"] == "100.000"
     assert row["status"] == "normal"
     assert row["minimum_quantity"] is None
     assert row["effective_minimum_quantity"] is None
@@ -500,7 +500,7 @@ def test_gerente_list_stock_shows_quantity_status_and_minimum(client):
 
     assert response.status_code == 200, response.text
     row = next(row for row in response.json()["items"] if row["variant_id"] == variant_id)
-    assert row["quantity"] == 100
+    assert row["quantity"] == "100.000"
     assert row["status"] == "normal"
     assert row["effective_minimum_quantity"] is not None
 
@@ -611,3 +611,96 @@ def test_movement_reasons_endpoints_no_longer_exist(client):
 
     assert listing.status_code == 404
     assert creation.status_code == 404
+
+
+def test_unit_with_fraction_accepts_decimal_delta_and_composes_with_a_second_one(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(
+        client, admin_cookies, "Producto fraccionable", allows_fraction=True
+    )
+
+    first = _adjust_stock(client, admin_cookies, variant_id, "2.5")
+    assert first.status_code == 201, first.text
+    assert first.json()["quantity_before"] == "0.000"
+    assert first.json()["quantity_after"] == "2.500"
+
+    second = _adjust_stock(client, admin_cookies, variant_id, "0.750")
+    assert second.status_code == 201, second.text
+    assert second.json()["quantity_before"] == "2.500"
+    assert second.json()["quantity_after"] == "3.250"
+
+    stock = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies).json()
+    assert stock["quantity"] == "3.250"
+
+
+def test_unit_with_fraction_accepts_decimal_minimum_stock(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(
+        client, admin_cookies, "Producto minimo decimal", allows_fraction=True
+    )
+
+    response = client.patch(
+        f"/variants/{variant_id}/stock/minimum",
+        json={"minimum_quantity": "1.5"},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["minimum_quantity"] == "1.500"
+    assert response.json()["effective_minimum_quantity"] == "1.500"
+
+
+def test_unit_without_fraction_rejects_decimal_delta(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(client, admin_cookies, "Producto entero ajuste")
+
+    response = _adjust_stock(client, admin_cookies, variant_id, "2.5")
+
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == "Esta unidad no admite decimales"
+
+
+def test_unit_without_fraction_rejects_decimal_minimum_stock(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(client, admin_cookies, "Producto entero minimo")
+
+    response = client.patch(
+        f"/variants/{variant_id}/stock/minimum",
+        json={"minimum_quantity": "2.5"},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == "Esta unidad no admite decimales"
+
+
+def test_more_than_three_decimals_is_rejected_even_when_the_unit_allows_fraction(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(
+        client, admin_cookies, "Producto cuatro decimales", allows_fraction=True
+    )
+
+    response = _adjust_stock(client, admin_cookies, variant_id, "2.5001")
+
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == "Usá como máximo 3 decimales"
+
+
+def test_decimal_stock_floor_rejects_delta_below_zero_and_accepts_delta_to_exactly_zero(client):
+    admin_cookies = _admin_cookies(client)
+    variant_id = _setup_variant(
+        client, admin_cookies, "Producto piso decimal", allows_fraction=True
+    )
+    _adjust_stock(client, admin_cookies, variant_id, "2.5")
+
+    rejected = _adjust_stock(client, admin_cookies, variant_id, "-3")
+    assert rejected.status_code == 422, rejected.text
+    assert rejected.json()["detail"] == "No podés descontar más de lo que hay (2.5)"
+
+    accepted = _adjust_stock(client, admin_cookies, variant_id, "-2.5")
+    assert accepted.status_code == 201, accepted.text
+    assert accepted.json()["quantity_after"] == "0.000"
+    stock = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies).json()
+    assert stock["quantity"] == "0.000"

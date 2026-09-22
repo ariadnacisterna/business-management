@@ -340,7 +340,7 @@ export function fetchStock(variantId: number): Promise<Stock> {
 
 export function adjustStock(
   variantId: number,
-  input: { delta: number; observation?: string },
+  input: { delta: string; observation?: string },
 ): Promise<StockMovement> {
   return apiFetch<StockMovement>(`/variants/${variantId}/stock/adjustments`, {
     method: 'POST',
@@ -352,7 +352,7 @@ export function fetchStockMovements(variantId: number): Promise<StockMovement[]>
   return apiFetch<StockMovement[]>(`/variants/${variantId}/stock/movements`)
 }
 
-export function setMinimumStock(variantId: number, minimumQuantity: number | null): Promise<Stock> {
+export function setMinimumStock(variantId: number, minimumQuantity: string | null): Promise<Stock> {
   return apiFetch<Stock>(`/variants/${variantId}/stock/minimum`, {
     method: 'PATCH',
     body: JSON.stringify({ minimum_quantity: minimumQuantity }),
