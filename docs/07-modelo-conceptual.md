@@ -216,10 +216,10 @@ Movimiento de stock: registro de un ajuste de cantidad sobre una variante. Quien
 
 ## Extensiones futuras previstas (etapas posteriores a la 2)
 
-- Código de identificación de la variante, incluido el código de barras (Etapa 5).
+- Código de identificación de la variante, incluido el código de barras (Etapa 6).
 - Cantidad solicitada de un faltante (más allá del MVP de reposición de la Etapa 2).
 - Estado de reposición y sus transiciones (más allá de Faltante/Pedido/Recibido).
-- Ventas cargadas manualmente que descuenten el stock automáticamente, compras y permisos para información financiera (resto de la Etapa 3, D-052).
+- Ventas cargadas manualmente que descuenten el stock automáticamente, compras y permisos para información financiera (Etapa 4, D-052 y D-070).
 - Movimiento de inventario.
 - Venta, detalle de venta y cobro.
 - Compra, detalle de compra y pago.

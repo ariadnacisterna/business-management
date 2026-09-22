@@ -105,23 +105,27 @@ Estos valores son objetivos iniciales y deberán validarse mediante una prueba r
 
 Proveedores, faltantes, cantidades solicitadas, listas agrupadas por proveedor o categoría, estados de compra y recordatorios. Incluye también fiados a clientes (D-051): quién debe, cuánto, sin desglose de productos por ahora — resuelve el mismo problema que los faltantes (un cuaderno que se pierde), aunque conceptualmente esté más cerca de una venta que de una compra.
 
-### Etapa 3: operación e inventario
+### Etapa 3: inventario y consolidación
 
-Stock exacto por variante y negocio, movimientos, ventas cargadas manualmente, compras, ajustes y permisos para información financiera.
+Stock exacto por variante y negocio, con cantidades decimales para lo que se vende por medida o por peso (D-065), movimientos, ajustes por diferencia (D-060) y stock mínimo por variante. El Responsable decidió (2026-09-11, D-052) arrancar con la parte de inventario sin esperar a ventas: reemplaza el cuaderno físico que ya usa, con el mismo riesgo de desincronización que tiene hoy (un ajuste que alguien se olvida de anotar), no uno nuevo.
 
-Estas dos capacidades se agrupaban originalmente porque un stock exacto solo se mantiene confiable si las ventas lo descuentan: incorporar existencias sin registrar ventas produce un dato que se desincroniza con el tiempo. El Responsable decidió (2026-09-11, D-052) arrancar igual con la parte de inventario (cantidad en stock por variante, ajustada a mano, historial de movimientos) sin esperar a ventas: reemplaza el cuaderno físico que ya usa, con el mismo riesgo de desincronización que ya tiene hoy (un ajuste que alguien se olvida de anotar), no uno nuevo. Ventas cargadas manualmente, compras y permisos para información financiera quedan pendientes dentro de esta misma etapa, sin fecha.
+Esta etapa se cierra cuando todo lo que sostiene a Ventas está firme: copias de seguridad probadas (D-066), acceso de emergencia (D-067), la revisión completa de errores, seguridad y datos del sistema, y el stock con decimales. La consolidación existe para que Ventas, que es lo más importante del sistema, se construya sobre una base sin fallos conocidos (D-070).
 
-### Etapa 4: varios negocios
+### Etapa 4: ventas y compras
+
+Ventas cargadas manualmente que descuentan el stock, compras (órdenes de compra a proveedores, que lo aumentan) y permisos para información financiera (ingresos, egresos y márgenes, exclusivos de Administradores, RN-018). El Panel que muestra ingresos y ventas (D-058) llega con esta etapa. Ventas y compras se diseñan juntas porque ambas mueven el stock y alimentan los ingresos y egresos. Queda por resolver cómo se relacionan dos formas de vender un mismo producto, por ejemplo cinta por metro o por rollo (DP-010).
+
+### Etapa 5: varios negocios
 
 Administración de más de un negocio dentro de una organización, permisos por negocio y vista consolidada para quien acceda a más de uno.
 
-### Etapa 5: identificación por código
+### Etapa 6: identificación por código
 
 Códigos de barras asociados a la variante, lectura mediante escáner o cámara del dispositivo, y alta o consulta de un producto a partir de su código.
 
-Esta etapa es la que vuelve práctico el uso en rubros con productos etiquetados de fábrica, como una despensa. Aparece después del inventario porque su beneficio principal es acelerar la carga de ventas y el recuento de existencias, no la consulta de precios.
+Esta etapa es la que vuelve práctico el uso en rubros con productos etiquetados de fábrica, como una despensa. Aparece después de ventas e inventario porque su beneficio principal es acelerar la carga de ventas y el recuento de existencias, no la consulta de precios.
 
-### Etapa 6: análisis
+### Etapa 7: análisis
 
 Pronóstico de demanda, sugerencias de reposición, costos, márgenes y optimización de compras. Su viabilidad dependerá de contar con datos históricos suficientes y confiables.
 
@@ -129,5 +133,5 @@ Pronóstico de demanda, sugerencias de reposición, costos, márgenes y optimiza
 
 La reposición precede al inventario por dos motivos: resuelve un problema que hoy existe y produce pérdidas —los faltantes anotados en hojas sueltas que se transcriben a cuadernos y a veces se olvidan hasta la compra siguiente— y no exige que se registre toda la operación diaria para seguir siendo útil. El inventario exacto, en cambio, solo se sostiene si el registro es completo.
 
-Las etapas 4 y 5 no dependen entre sí; el Responsable decidió (2026-09-08) darle prioridad a varios negocios (antes Etapa 5) sobre identificación por código (antes Etapa 4), quedando en ese orden.
+Las etapas 5 y 6 no dependen entre sí; el Responsable decidió (2026-09-08) darle prioridad a varios negocios sobre identificación por código, quedando en ese orden. El 2026-09-21 (D-070) Ventas pasó a ser una etapa propia (Etapa 4) y las etapas que la seguían se corrieron un número.
 
