@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createCategory, fetchCategories, fetchProducts, updateCategory } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Category, Product } from '../../api/types'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { useAuth } from '../access/useAuth'
 import { canManageCatalog } from '../access/roles'
 
-type Status = 'loading' | 'success' | 'error'
+const NO_CATEGORIES: Category[] = []
+const NO_PRODUCTS: Product[] = []
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar las categorías.'
 const SAVE_ERROR_MESSAGE = 'No se pudo guardar la categoría. Intentá de nuevo.'
@@ -26,10 +28,12 @@ export function CategoriesPage() {
   const canManage = canManageCatalog(account)
   const { showSuccess, showError } = useToast()
 
-  const [categories, setCategories] = useState<Category[]>([])
-  const [products, setProducts] = useState<Product[]>([])
-  const [status, setStatus] = useState<Status>('loading')
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const { status, data, reload, setData } = useLoad(
+    () => Promise.all([fetchCategories(), fetchProducts()]).then(([categories, products]) => ({ categories, products })),
+    [account?.active_business_id],
+  )
+  const categories = data?.categories ?? NO_CATEGORIES
+  const products = data?.products ?? NO_PRODUCTS
 
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
@@ -41,23 +45,6 @@ export function CategoriesPage() {
 
   const [confirmingCreate, setConfirmingCreate] = useState(false)
   const [confirmingEdit, setConfirmingEdit] = useState<Category | null>(null)
-
-  function load() {
-    setStatus('loading')
-    setLoadError(null)
-    Promise.all([fetchCategories(), fetchProducts()])
-      .then(([categoryResult, productResult]) => {
-        setCategories(categoryResult)
-        setProducts(productResult)
-        setStatus('success')
-      })
-      .catch(() => {
-        setLoadError(LOAD_ERROR_MESSAGE)
-        setStatus('error')
-      })
-  }
-
-  useEffect(load, [account?.active_business_id])
 
   const productCountByCategory = useMemo(() => {
     const counts = new Map<number, number>()
@@ -81,7 +68,7 @@ export function CategoriesPage() {
     setSavingNew(true)
     try {
       const category = await createCategory(trimmed)
-      setCategories((prev) => [...prev, category])
+      setData((prev) => prev && { ...prev, categories: [...prev.categories, category] })
       setNewName('')
       setCreating(false)
       showSuccess('Categoría creada.')
@@ -120,7 +107,13 @@ export function CategoriesPage() {
     setSavingEdit(true)
     try {
       const updated = await updateCategory(editingId, trimmed)
-      setCategories((prev) => prev.map((category) => (category.id === updated.id ? updated : category)))
+      setData(
+        (prev) =>
+          prev && {
+            ...prev,
+            categories: prev.categories.map((category) => (category.id === updated.id ? updated : category)),
+          },
+      )
       cancelEdit()
       showSuccess('Categoría actualizada.')
     } catch (error) {
@@ -176,7 +169,7 @@ export function CategoriesPage() {
 
       {status === 'loading' && <p role="status">Cargando…</p>}
 
-      {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
+      {status === 'error' && <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={reload} />}
 
       {status === 'success' && (
         <div className="max-w-2xl overflow-hidden rounded-xl border border-line bg-surface">

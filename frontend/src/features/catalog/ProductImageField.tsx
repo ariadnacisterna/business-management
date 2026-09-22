@@ -52,24 +52,25 @@ interface NewProductImagePickerProps {
 export function NewProductImagePicker({ file, disabled = false, onChange }: NewProductImagePickerProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [dragActive, setDragActive] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [preview, setPreview] = useState<{ file: File; url: string } | null>(null)
+  const previewUrl = file !== null && preview?.file === file ? preview.url : null
 
   useEffect(() => {
-    if (file === null) {
-      setPreviewUrl(null)
-      return
-    }
-    const url = URL.createObjectURL(file)
-    setPreviewUrl(url)
-    return () => URL.revokeObjectURL(url)
-  }, [file])
+    if (preview === null) return
+    return () => URL.revokeObjectURL(preview.url)
+  }, [preview])
+
+  function choose(next: File | null) {
+    setPreview(next === null ? null : { file: next, url: URL.createObjectURL(next) })
+    onChange(next)
+  }
 
   function handleDrop(event: React.DragEvent<HTMLDivElement>) {
     event.preventDefault()
     setDragActive(false)
     if (disabled) return
     const dropped = event.dataTransfer.files?.[0] ?? null
-    if (dropped !== null) onChange(dropped)
+    if (dropped !== null) choose(dropped)
   }
 
   return (
@@ -84,7 +85,7 @@ export function NewProductImagePicker({ file, disabled = false, onChange }: NewP
         accept={ACCEPTED_TYPES}
         aria-label="Elegir imagen del producto"
         onChange={(event) => {
-          onChange(event.target.files?.[0] ?? null)
+          choose(event.target.files?.[0] ?? null)
           event.target.value = ''
         }}
         disabled={disabled}
@@ -129,7 +130,7 @@ export function NewProductImagePicker({ file, disabled = false, onChange }: NewP
           <p className="m-0 flex-1 truncate text-base">{file.name}</p>
           <button
             type="button"
-            onClick={() => onChange(null)}
+            onClick={() => choose(null)}
             disabled={disabled}
             className="flex h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-sm text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
           >
@@ -165,24 +166,30 @@ export function StagedProductImageField({
 }: StagedProductImageFieldProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [dragActive, setDragActive] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [preview, setPreview] = useState<{ file: File; url: string } | null>(null)
+  const previewUrl = pendingFile !== null && preview?.file === pendingFile ? preview.url : null
 
   useEffect(() => {
-    if (pendingFile === null) {
-      setPreviewUrl(null)
-      return
-    }
-    const url = URL.createObjectURL(pendingFile)
-    setPreviewUrl(url)
-    return () => URL.revokeObjectURL(url)
-  }, [pendingFile])
+    if (preview === null) return
+    return () => URL.revokeObjectURL(preview.url)
+  }, [preview])
+
+  function selectFile(next: File) {
+    setPreview({ file: next, url: URL.createObjectURL(next) })
+    onSelectFile(next)
+  }
+
+  function undo() {
+    setPreview(null)
+    onUndo()
+  }
 
   function handleDrop(event: React.DragEvent<HTMLDivElement>) {
     event.preventDefault()
     setDragActive(false)
     if (disabled) return
     const dropped = event.dataTransfer.files?.[0] ?? null
-    if (dropped !== null) onSelectFile(dropped)
+    if (dropped !== null) selectFile(dropped)
   }
 
   const showsExistingOrPending = pendingFile !== null || (imageUrl !== null && !removed)
@@ -200,7 +207,7 @@ export function StagedProductImageField({
         aria-label="Elegir imagen del producto"
         onChange={(event) => {
           const file = event.target.files?.[0] ?? null
-          if (file !== null) onSelectFile(file)
+          if (file !== null) selectFile(file)
           event.target.value = ''
         }}
         disabled={disabled}
@@ -241,7 +248,7 @@ export function StagedProductImageField({
               type="button"
               onClick={(event) => {
                 event.stopPropagation()
-                onUndo()
+                undo()
               }}
               disabled={disabled}
               className="ml-auto flex h-10 items-center gap-1.5 rounded-lg border border-line px-3 text-base transition-colors hover:bg-surface-brand disabled:opacity-40"
@@ -279,7 +286,7 @@ export function StagedProductImageField({
               </button>
               <button
                 type="button"
-                onClick={pendingFile !== null ? onUndo : onRemove}
+                onClick={pendingFile !== null ? undo : onRemove}
                 disabled={disabled}
                 className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-line px-3 text-base text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
               >

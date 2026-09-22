@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import {
   changeProductPrice,
   changeVariantPrice,
@@ -33,6 +33,7 @@ import {
   evaluateTargetPrice,
   formatSignedDelta,
 } from '../../shared/signedDelta'
+import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { firstName } from '../../shared/formatName'
 import { formatPrice, formatPriceExact } from '../../shared/formatPrice'
@@ -43,7 +44,9 @@ import { useTableScrollbar } from '../../shared/useTableScrollbar'
 import type { ViewMode } from '../../shared/ViewToggle'
 import { ViewToggle } from '../../shared/ViewToggle'
 
-type Status = 'loading' | 'success' | 'error'
+const NO_PRODUCTS: Product[] = []
+const NO_PRICES: Map<number, Price | null> = new Map()
+const NO_DRAFTS: Map<number, string> = new Map()
 
 const LOAD_ERROR_MESSAGE = 'No se pudo cargar la lista de precios.'
 const SEARCH_DEBOUNCE_MS = 300
@@ -240,20 +243,14 @@ export function PricingPage() {
   const canManage = canManageCatalog(account)
   const { showSuccess, showError } = useToast()
 
-  const [products, setProducts] = useState<Product[]>([])
-  const [total, setTotal] = useState(0)
   const [categories, setCategories] = useState<Category[]>([])
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
-  const [status, setStatus] = useState<Status>('loading')
-  const [loadError, setLoadError] = useState<string | null>(null)
 
   const [searchInput, setSearchInput] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
   const [categoryId, setCategoryId] = useState<number | 'all'>('all')
 
-  const [pricesByVariant, setPricesByVariant] = useState<Map<number, Price | null>>(new Map())
-  const [drafts, setDrafts] = useState<Map<number, string>>(new Map())
   const [productDrafts, setProductDrafts] = useState<Map<number, string>>(new Map())
 
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null)
@@ -261,6 +258,44 @@ export function PricingPage() {
   const [historyState, setHistoryState] = useState<HistoryState | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
   const [filtersOpen, setFiltersOpen] = useState(false)
+
+  useEffect(() => {
+    fetchCategories().then(setCategories).catch(() => {})
+  }, [account?.active_business_id])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedSearch(searchInput)
+      setPage(1)
+    }, SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
+  const { status, data, reload, setData } = useLoad(
+    async () => {
+      const result = await fetchProductsPage({
+        page,
+        pageSize,
+        categoryId: categoryId === 'all' ? undefined : categoryId,
+        search: appliedSearch.trim() === '' ? undefined : appliedSearch.trim(),
+      })
+      const activeVariants = result.items.flatMap((product) =>
+        product.variants.filter((variant) => variant.status === 'active'),
+      )
+      const priceResults = await Promise.all(activeVariants.map((variant) => fetchVariantCurrentPrice(variant.id)))
+      return {
+        products: result.items,
+        total: result.total,
+        pricesByVariant: new Map<number, Price | null>(priceResults.map((entry) => [entry.variant_id, entry.price])),
+        drafts: new Map<number, string>(),
+      }
+    },
+    [page, pageSize, categoryId, appliedSearch, account?.active_business_id],
+  )
+  const products = data?.products ?? NO_PRODUCTS
+  const total = data?.total ?? 0
+  const pricesByVariant = data?.pricesByVariant ?? NO_PRICES
+  const drafts = data?.drafts ?? NO_DRAFTS
 
   const { tableScrollRef, theadRef, scrollbar, updateScrollbar, handleThumbPointerDown } = useTableScrollbar([
     products,
@@ -279,56 +314,6 @@ export function PricingPage() {
     handleThumbPointerDown: handleHistoryThumbPointerDown,
   } = useScrollbar([historyState])
 
-  useEffect(() => {
-    fetchCategories().then(setCategories).catch(() => {})
-  }, [account?.active_business_id])
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setAppliedSearch(searchInput)
-      setPage(1)
-    }, SEARCH_DEBOUNCE_MS)
-    return () => clearTimeout(timer)
-  }, [searchInput])
-
-  const requestIdRef = useRef(0)
-
-  function load() {
-    const requestId = ++requestIdRef.current
-    setStatus('loading')
-    setLoadError(null)
-    fetchProductsPage({
-      page,
-      pageSize,
-      categoryId: categoryId === 'all' ? undefined : categoryId,
-      search: appliedSearch.trim() === '' ? undefined : appliedSearch.trim(),
-    })
-      .then(async (result) => {
-        if (requestId !== requestIdRef.current) return
-        setProducts(result.items)
-        setTotal(result.total)
-
-        const activeVariants = result.items.flatMap((product) =>
-          product.variants.filter((variant) => variant.status === 'active'),
-        )
-        const priceResults = await Promise.all(
-          activeVariants.map((variant) => fetchVariantCurrentPrice(variant.id)),
-        )
-        if (requestId !== requestIdRef.current) return
-        setPricesByVariant(new Map(priceResults.map((entry) => [entry.variant_id, entry.price])))
-        setDrafts(new Map())
-
-        setStatus('success')
-      })
-      .catch(() => {
-        if (requestId !== requestIdRef.current) return
-        setLoadError(LOAD_ERROR_MESSAGE)
-        setStatus('error')
-      })
-  }
-
-  useEffect(load, [page, pageSize, categoryId, appliedSearch, account?.active_business_id])
-
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   function categoryName(categoryId: number): string {
@@ -340,11 +325,7 @@ export function PricingPage() {
   }
 
   function setDraft(variantId: number, value: string) {
-    setDrafts((prev) => {
-      const next = new Map(prev)
-      next.set(variantId, value)
-      return next
-    })
+    setData((prev) => prev && { ...prev, drafts: new Map(prev.drafts).set(variantId, value) })
   }
 
   function lastChangeLabel(variantId: number): string {
@@ -391,11 +372,11 @@ export function PricingPage() {
                 confirmState.variant.id,
                 String(deltaToApi('price', confirmState.delta ?? 0)),
               )
-        setPricesByVariant((prev) => new Map(prev).set(price.variant_id, price))
-        setDrafts((prev) => {
-          const next = new Map(prev)
-          next.delete(price.variant_id)
-          return next
+        setData((prev) => {
+          if (prev === undefined) return prev
+          const nextDrafts = new Map(prev.drafts)
+          nextDrafts.delete(price.variant_id)
+          return { ...prev, pricesByVariant: new Map(prev.pricesByVariant).set(price.variant_id, price), drafts: nextDrafts }
         })
         setConfirmState(null)
         showSuccess(
@@ -408,15 +389,15 @@ export function PricingPage() {
           confirmState.product.id,
           String(deltaToApi('price', confirmState.delta)),
         )
-        setPricesByVariant((prev) => {
-          const next = new Map(prev)
-          for (const price of result.prices) next.set(price.variant_id, price)
-          return next
-        })
-        setDrafts((prev) => {
-          const next = new Map(prev)
-          for (const price of result.prices) next.delete(price.variant_id)
-          return next
+        setData((prev) => {
+          if (prev === undefined) return prev
+          const nextPrices = new Map(prev.pricesByVariant)
+          const nextDrafts = new Map(prev.drafts)
+          for (const price of result.prices) {
+            nextPrices.set(price.variant_id, price)
+            nextDrafts.delete(price.variant_id)
+          }
+          return { ...prev, pricesByVariant: nextPrices, drafts: nextDrafts }
         })
         setProductDrafts((prev) => {
           const next = new Map(prev)
@@ -561,7 +542,7 @@ export function PricingPage() {
         </div>
       )}
 
-      {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
+      {status === 'error' && <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={reload} />}
 
       {status === 'success' && total === 0 && hasActiveFilters && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">

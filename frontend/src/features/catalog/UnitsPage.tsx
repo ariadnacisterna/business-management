@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createUnit, fetchProducts, fetchUnits, updateUnit } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Product, Unit } from '../../api/types'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { useAuth } from '../access/useAuth'
 import { canManageCatalog } from '../access/roles'
 
-type Status = 'loading' | 'success' | 'error'
+const NO_UNITS: Unit[] = []
+const NO_PRODUCTS: Product[] = []
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar las unidades.'
 const SAVE_ERROR_MESSAGE = 'No se pudo guardar la unidad. Intentá de nuevo.'
@@ -34,10 +36,12 @@ export function UnitsPage() {
   const canManage = canManageCatalog(account)
   const { showSuccess, showError } = useToast()
 
-  const [units, setUnits] = useState<Unit[]>([])
-  const [products, setProducts] = useState<Product[]>([])
-  const [status, setStatus] = useState<Status>('loading')
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const { status, data, reload, setData } = useLoad(
+    () => Promise.all([fetchUnits(), fetchProducts()]).then(([units, products]) => ({ units, products })),
+    [account?.active_business_id],
+  )
+  const units = data?.units ?? NO_UNITS
+  const products = data?.products ?? NO_PRODUCTS
 
   const [creating, setCreating] = useState(false)
   const [draft, setDraft] = useState<UnitDraft>(EMPTY_DRAFT)
@@ -49,23 +53,6 @@ export function UnitsPage() {
 
   const [confirmingCreate, setConfirmingCreate] = useState(false)
   const [confirmingEdit, setConfirmingEdit] = useState<Unit | null>(null)
-
-  function load() {
-    setStatus('loading')
-    setLoadError(null)
-    Promise.all([fetchUnits(), fetchProducts()])
-      .then(([unitResult, productResult]) => {
-        setUnits(unitResult)
-        setProducts(productResult)
-        setStatus('success')
-      })
-      .catch(() => {
-        setLoadError(LOAD_ERROR_MESSAGE)
-        setStatus('error')
-      })
-  }
-
-  useEffect(load, [account?.active_business_id])
 
   const productCountByUnit = useMemo(() => {
     const counts = new Map<number, number>()
@@ -90,7 +77,7 @@ export function UnitsPage() {
     setSavingNew(true)
     try {
       const unit = await createUnit({ name, abbreviation, allows_fraction: draft.allowsFraction })
-      setUnits((prev) => [...prev, unit])
+      setData((prev) => prev && { ...prev, units: [...prev.units, unit] })
       setDraft(EMPTY_DRAFT)
       setCreating(false)
       showSuccess('Unidad creada.')
@@ -134,7 +121,9 @@ export function UnitsPage() {
         abbreviation,
         allows_fraction: editingDraft.allowsFraction,
       })
-      setUnits((prev) => prev.map((unit) => (unit.id === updated.id ? updated : unit)))
+      setData(
+        (prev) => prev && { ...prev, units: prev.units.map((unit) => (unit.id === updated.id ? updated : unit)) },
+      )
       cancelEdit()
       showSuccess('Unidad actualizada.')
     } catch (error) {
@@ -214,7 +203,7 @@ export function UnitsPage() {
 
       {status === 'loading' && <p role="status">Cargando…</p>}
 
-      {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
+      {status === 'error' && <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={reload} />}
 
       {status === 'success' && (
         <div className="max-w-3xl overflow-x-auto rounded-xl border border-line bg-surface">

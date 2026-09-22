@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   createCredit,
   createCustomer,
@@ -26,6 +26,7 @@ import { PriceInput } from '../../shared/PriceInput'
 import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { NavIconGlyph } from '../../shared/layout/NavIcon'
@@ -34,7 +35,10 @@ import { ViewToggle } from '../../shared/ViewToggle'
 import { useAuth } from '../access/useAuth'
 import { canManageCustomers, canViewCustomerHistory } from '../access/roles'
 
-type Status = 'loading' | 'success' | 'error'
+const NO_CREDITS: Credit[] = []
+const NO_CUSTOMERS: Customer[] = []
+const NO_BALANCES: Record<number, string> = {}
+const NO_LAST_MOVEMENTS: Record<number, LastMovement> = {}
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los clientes.'
 const SAVE_ERROR_MESSAGE = 'No se pudo guardar el cliente. Intentá de nuevo.'
@@ -314,26 +318,9 @@ function CustomerPaymentModal({
 }
 
 function CustomerHistoryModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
-  const [status, setStatus] = useState<Status>('loading')
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [credits, setCredits] = useState<Credit[]>([])
+  const { status, data, reload } = useLoad(() => fetchCustomerCredits(customer.id), [customer.id])
+  const credits = data ?? NO_CREDITS
   const { scrollRef, scrollbar, updateScrollbar, handleThumbPointerDown } = useScrollbar([credits])
-
-  function load() {
-    setStatus('loading')
-    setLoadError(null)
-    fetchCustomerCredits(customer.id)
-      .then((result) => {
-        setCredits(result)
-        setStatus('success')
-      })
-      .catch(() => {
-        setLoadError('No se pudieron cargar los movimientos.')
-        setStatus('error')
-      })
-  }
-
-  useEffect(load, [customer.id])
 
   const withBalance = credits.reduce<{ credit: Credit; before: number; after: number }[]>((entries, credit) => {
     const before = entries.at(-1)?.after ?? 0
@@ -362,7 +349,7 @@ function CustomerHistoryModal({ customer, onClose }: { customer: Customer; onClo
         </div>
 
         {status === 'loading' && <p role="status">Cargando…</p>}
-        {status === 'error' && <LoadErrorCard message={loadError ?? 'Error'} onRetry={load} />}
+        {status === 'error' && <LoadErrorCard message="No se pudieron cargar los movimientos." onRetry={reload} />}
         {status === 'success' && credits.length === 0 && (
           <p className="text-lg opacity-60">No hay movimientos registrados.</p>
         )}
@@ -521,13 +508,23 @@ function CustomerBalanceEditor({
   )
 }
 
-export function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [balances, setBalances] = useState<Record<number, string>>({})
-  const [lastMovements, setLastMovements] = useState<Record<number, LastMovement>>({})
-  const [status, setStatus] = useState<Status>('loading')
-  const [loadError, setLoadError] = useState<string | null>(null)
+async function loadCustomersData() {
+  const [customers, balanceEntries] = await Promise.all([fetchCustomers(), fetchCustomerBalances()])
+  const balances: Record<number, string> = {}
+  const lastMovements: Record<number, LastMovement> = {}
+  for (const entry of balanceEntries) {
+    balances[entry.customer_id] = entry.balance
+    if (entry.last_movement_at !== null && entry.last_movement_by_account_name !== null) {
+      lastMovements[entry.customer_id] = {
+        at: entry.last_movement_at,
+        byAccountName: entry.last_movement_by_account_name,
+      }
+    }
+  }
+  return { customers, balances, lastMovements }
+}
 
+export function CustomersPage() {
   const [searchInput, setSearchInput] = useState('')
   const [page, setPageState] = useState(1)
   const [pageSize, setPageSize] = useState(25)
@@ -544,37 +541,16 @@ export function CustomersPage() {
   const canManage = canManageCustomers(account)
   const canViewHistory = canViewCustomerHistory(account)
 
-  function load() {
-    setStatus('loading')
-    setLoadError(null)
-    Promise.all([fetchCustomers(), fetchCustomerBalances()])
-      .then(([customerResult, balanceResult]) => {
-        setCustomers(customerResult)
-        const balanceMap: Record<number, string> = {}
-        const lastMovementMap: Record<number, LastMovement> = {}
-        for (const entry of balanceResult) {
-          balanceMap[entry.customer_id] = entry.balance
-          if (entry.last_movement_at !== null && entry.last_movement_by_account_name !== null) {
-            lastMovementMap[entry.customer_id] = {
-              at: entry.last_movement_at,
-              byAccountName: entry.last_movement_by_account_name,
-            }
-          }
-        }
-        setBalances(balanceMap)
-        setLastMovements(lastMovementMap)
-        setStatus('success')
-      })
-      .catch(() => {
-        setLoadError(LOAD_ERROR_MESSAGE)
-        setStatus('error')
-      })
-  }
-
-  useEffect(load, [])
+  const { status, data, reload, setData } = useLoad(loadCustomersData, [])
+  const customers = data?.customers ?? NO_CUSTOMERS
+  const balances = data?.balances ?? NO_BALANCES
+  const lastMovements = data?.lastMovements ?? NO_LAST_MOVEMENTS
 
   function applyCustomerUpdate(updated: Customer) {
-    setCustomers((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+    setData(
+      (current) =>
+        current && { ...current, customers: current.customers.map((item) => (item.id === updated.id ? updated : item)) },
+    )
   }
 
   function balanceFor(customerId: number): string {
@@ -587,7 +563,7 @@ export function CustomersPage() {
       phone: values.phone.trim() || undefined,
       address: values.address.trim() || undefined,
     })
-    setCustomers((current) => [...current, created])
+    setData((current) => current && { ...current, customers: [...current.customers, created] })
     setCreating(false)
   }
 
@@ -603,15 +579,19 @@ export function CustomersPage() {
   }
 
   function handleMovementRegistered(credit: Credit) {
-    setBalances((current) => {
-      const previous = Number(current[credit.customer_id] ?? '0')
+    setData((current) => {
+      if (current === undefined) return current
+      const previous = Number(current.balances[credit.customer_id] ?? '0')
       const delta = credit.type === 'cargo' ? Number(credit.amount) : -Number(credit.amount)
-      return { ...current, [credit.customer_id]: String(previous + delta) }
+      return {
+        ...current,
+        balances: { ...current.balances, [credit.customer_id]: String(previous + delta) },
+        lastMovements: {
+          ...current.lastMovements,
+          [credit.customer_id]: { at: credit.created_at, byAccountName: credit.created_by_account_name },
+        },
+      }
     })
-    setLastMovements((current) => ({
-      ...current,
-      [credit.customer_id]: { at: credit.created_at, byAccountName: credit.created_by_account_name },
-    }))
   }
 
   function confirmToggleActive() {
@@ -668,9 +648,15 @@ export function CustomersPage() {
     [filteredCustomers, currentPage, pageSize],
   )
 
-  useEffect(() => {
+  function changeSearch(value: string) {
+    setSearchInput(value)
     setPageState(1)
-  }, [searchInput, pageSize])
+  }
+
+  function changePageSize(value: number) {
+    setPageSize(value)
+    setPageState(1)
+  }
 
   return (
     <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
@@ -710,7 +696,7 @@ export function CustomersPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <SearchInput
             value={searchInput}
-            onChange={setSearchInput}
+            onChange={changeSearch}
             placeholder="Buscar por nombre…"
             ariaLabel="Buscar clientes"
             className="sm:min-w-64 sm:flex-1"
@@ -718,7 +704,7 @@ export function CustomersPage() {
           {filteredCustomers.length > 10 && (
             <SelectMenu
               value={String(pageSize)}
-              onChange={(value) => setPageSize(Number(value))}
+              onChange={(value) => changePageSize(Number(value))}
               ariaLabel="Cantidad por página"
               className="w-full sm:w-56"
               options={[
@@ -738,7 +724,7 @@ export function CustomersPage() {
         </div>
       )}
 
-      {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
+      {status === 'error' && <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={reload} />}
 
       {status === 'success' && customers.length === 0 && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-16 text-center">

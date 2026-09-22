@@ -25,6 +25,7 @@ import { SelectMenu } from '../../shared/SelectMenu'
 import { DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
 import { describeChange, evaluateDelta, evaluateTargetStock } from '../../shared/signedDelta'
 import { STOCK_STATUS_LABELS, stockStatusClasses, stockStatusTextColor } from '../../shared/stockStatus'
+import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { firstName } from '../../shared/formatName'
 import { formatDateTime } from '../../shared/formatDateTime'
@@ -37,7 +38,10 @@ import { useAuth } from '../access/useAuth'
 import { canManageCatalog } from '../access/roles'
 import { fetchStockSummary, type StockRow, type StockSummary } from './stockRows'
 
-type LoadStatus = 'loading' | 'success' | 'error'
+const NO_STOCK_ROWS: StockRow[] = []
+const NO_SHORTAGES: Shortage[] = []
+const NO_CATEGORIES: Category[] = []
+const NO_UNITS: Unit[] = []
 type QuickFilter = 'all' | 'normal' | 'stock_bajo' | 'sin_stock'
 const EMPTY_SUMMARY: StockSummary = { total: 0, stockBajo: 0, sinStock: 0 }
 
@@ -192,12 +196,16 @@ function StockRowEditor({
   row: StockRow
   onRequestAdjust: (delta: number) => void
 }) {
-  const [delta, setDelta] = useState('')
+  const [deltaEntry, setDeltaEntry] = useState({ value: '', quantity: row.quantity })
   const [wholeQuantity, setWholeQuantity] = useState(false)
+  if (deltaEntry.quantity !== row.quantity) {
+    setDeltaEntry({ value: '', quantity: row.quantity })
+  }
+  const delta = deltaEntry.value
 
-  useEffect(() => {
-    setDelta('')
-  }, [row.quantity])
+  function setDelta(value: string) {
+    setDeltaEntry({ value, quantity: row.quantity })
+  }
 
   const evaluation = wholeQuantity
     ? evaluateTargetStock(row.quantity, delta)
@@ -289,13 +297,28 @@ function StockTab({
   onAdjusted: () => void
 }) {
   const { showSuccess, showError } = useToast()
-  const [items, setItems] = useState<StockRow[]>([])
-  const [total, setTotal] = useState(0)
-  const [status, setStatus] = useState<LoadStatus>('loading')
-  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
-  const [filters, setFilters] = useState<StockFilters>(DEFAULT_STOCK_FILTERS)
+  const [filterState, setFilterState] = useState({ value: DEFAULT_STOCK_FILTERS, signal: criticalSignal })
+  const signalRef = useRef(criticalSignal)
+  const filters: StockFilters =
+    filterState.signal === criticalSignal
+      ? filterState.value
+      : { ...filterState.value, quickFilter: 'sin_stock', page: 1 }
+
+  useEffect(() => {
+    signalRef.current = criticalSignal
+  })
+
+  function setFilters(update: StockFilters | ((current: StockFilters) => StockFilters)) {
+    setFilterState((previous) => {
+      const base: StockFilters =
+        previous.signal === signalRef.current
+          ? previous.value
+          : { ...previous.value, quickFilter: 'sin_stock', page: 1 }
+      return { value: typeof update === 'function' ? update(base) : update, signal: signalRef.current }
+    })
+  }
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [confirmState, setConfirmState] = useState<AdjustConfirmState | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -303,7 +326,19 @@ function StockTab({
   const [adjustingRow, setAdjustingRow] = useState<StockRow | null>(null)
   const [editingMinimumRow, setEditingMinimumRow] = useState<StockRow | null>(null)
 
-  const lastCriticalSignal = useRef(criticalSignal)
+  const { status, data, reload, setData } = useLoad(
+    () =>
+      fetchStockPage({
+        page: filters.page,
+        pageSize: filters.pageSize,
+        categoryId: filters.categoryId === 'all' ? undefined : filters.categoryId,
+        search: appliedSearch.trim() === '' ? undefined : appliedSearch.trim(),
+        quickFilter: filters.quickFilter === 'all' ? undefined : filters.quickFilter,
+      }),
+    [filters.page, filters.pageSize, filters.categoryId, filters.quickFilter, appliedSearch],
+  )
+  const items = data?.items ?? NO_STOCK_ROWS
+  const total = data?.total ?? 0
 
   const { tableScrollRef, theadRef, scrollbar, updateScrollbar, handleThumbPointerDown } = useTableScrollbar([
     items,
@@ -323,46 +358,12 @@ function StockTab({
   } = useScrollbar([historyState])
 
   useEffect(() => {
-    if (criticalSignal === lastCriticalSignal.current) return
-    lastCriticalSignal.current = criticalSignal
-    setFilters((current) => ({ ...current, quickFilter: 'sin_stock', page: 1 }))
-  }, [criticalSignal])
-
-  useEffect(() => {
     const timer = setTimeout(() => {
       setAppliedSearch(searchInput)
       setFilters((current) => (current.page === 1 ? current : { ...current, page: 1 }))
     }, STOCK_SEARCH_DEBOUNCE_MS)
     return () => clearTimeout(timer)
   }, [searchInput])
-
-  const requestIdRef = useRef(0)
-
-  function load() {
-    const requestId = ++requestIdRef.current
-    setStatus('loading')
-    setLoadError(null)
-    fetchStockPage({
-      page: filters.page,
-      pageSize: filters.pageSize,
-      categoryId: filters.categoryId === 'all' ? undefined : filters.categoryId,
-      search: appliedSearch.trim() === '' ? undefined : appliedSearch.trim(),
-      quickFilter: filters.quickFilter === 'all' ? undefined : filters.quickFilter,
-    })
-      .then((result) => {
-        if (requestId !== requestIdRef.current) return
-        setItems(result.items)
-        setTotal(result.total)
-        setStatus('success')
-      })
-      .catch(() => {
-        if (requestId !== requestIdRef.current) return
-        setLoadError(LOAD_ERROR_MESSAGE)
-        setStatus('error')
-      })
-  }
-
-  useEffect(load, [filters.page, filters.pageSize, filters.categoryId, filters.quickFilter, appliedSearch])
 
   const totalPages = Math.max(1, Math.ceil(total / filters.pageSize))
 
@@ -375,18 +376,22 @@ function StockTab({
   }
 
   function applyRowUpdate(variantId: number, stock: Stock) {
-    setItems((current) =>
-      current.map((row) =>
-        row.variant_id === variantId
-          ? {
-              ...row,
-              quantity: stock.quantity,
-              minimum_quantity: stock.minimum_quantity,
-              effective_minimum_quantity: stock.effective_minimum_quantity,
-              status: stock.status,
-            }
-          : row,
-      ),
+    setData(
+      (current) =>
+        current && {
+          ...current,
+          items: current.items.map((row) =>
+            row.variant_id === variantId
+              ? {
+                  ...row,
+                  quantity: stock.quantity,
+                  minimum_quantity: stock.minimum_quantity,
+                  effective_minimum_quantity: stock.effective_minimum_quantity,
+                  status: stock.status,
+                }
+              : row,
+          ),
+        },
     )
   }
 
@@ -518,7 +523,7 @@ function StockTab({
         </div>
       )}
 
-      {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
+      {status === 'error' && <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={reload} />}
 
       {status === 'success' && items.length === 0 && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
@@ -917,9 +922,6 @@ interface ShortageActionState {
 
 function ShortagesTab({ categories }: { categories: Category[] }) {
   const { showSuccess, showError } = useToast()
-  const [items, setItems] = useState<Shortage[]>([])
-  const [status, setStatus] = useState<LoadStatus>('loading')
-  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState('')
   const [statusFilter, setStatusFilter] = useState<ShortageStatusFilter>('pending')
   const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all')
@@ -929,21 +931,11 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
   const [actionState, setActionState] = useState<ShortageActionState | null>(null)
   const [saving, setSaving] = useState(false)
 
-  function load() {
-    setStatus('loading')
-    setLoadError(null)
-    fetchShortages(statusFilter === 'pending' ? {} : { status: statusFilter })
-      .then((result) => {
-        setItems(result)
-        setStatus('success')
-      })
-      .catch(() => {
-        setLoadError(SHORTAGES_LOAD_ERROR_MESSAGE)
-        setStatus('error')
-      })
-  }
-
-  useEffect(load, [statusFilter])
+  const { status, data, reload } = useLoad(
+    () => fetchShortages(statusFilter === 'pending' ? {} : { status: statusFilter }),
+    [statusFilter],
+  )
+  const items = data ?? NO_SHORTAGES
 
   function categoryName(categoryId: number): string {
     return categories.find((category) => category.id === categoryId)?.name ?? '—'
@@ -1033,7 +1025,7 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
       await changeShortageStatus(actionState.shortage.id, actionState.nextStatus)
       setActionState(null)
       showSuccess('Faltante actualizado.')
-      load()
+      reload()
       window.dispatchEvent(new Event('shortages-updated'))
     } catch (error) {
       showError(error instanceof ApiError ? error.message : SHORTAGE_STATUS_ERROR_MESSAGE)
@@ -1135,7 +1127,7 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
         </div>
       )}
 
-      {status === 'error' && <LoadErrorCard message={loadError ?? SHORTAGES_LOAD_ERROR_MESSAGE} onRetry={load} />}
+      {status === 'error' && <LoadErrorCard message={SHORTAGES_LOAD_ERROR_MESSAGE} onRetry={reload} />}
 
       {status === 'success' && filteredItems.length === 0 && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
@@ -1239,42 +1231,28 @@ export function InventoryPage() {
   const { account } = useAuth()
   const canManage = canManageCatalog(account)
 
-  const [categories, setCategories] = useState<Category[]>([])
-  const [units, setUnits] = useState<Unit[]>([])
-  const [summary, setSummary] = useState<StockSummary>(EMPTY_SUMMARY)
-  const [status, setStatus] = useState<LoadStatus>('loading')
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const { status, data, reload, setData } = useLoad(
+    () =>
+      Promise.all([fetchCategories(), fetchUnits(), fetchStockSummary()]).then(([categories, units, summary]) => ({
+        categories,
+        units,
+        summary,
+      })),
+    [account?.active_business_id],
+  )
+  const categories = data?.categories ?? NO_CATEGORIES
+  const units = data?.units ?? NO_UNITS
+  const summary = data?.summary ?? EMPTY_SUMMARY
 
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
   const [criticalSignal, setCriticalSignal] = useState(0)
-  const [bannerDismissed, setBannerDismissed] = useState(false)
+  const [dismissedSinStock, setDismissedSinStock] = useState<number | null>(null)
+  const bannerDismissed = dismissedSinStock === summary.sinStock
   const [tab, setTab] = useState<InventoryTab>('stock')
-
-  useEffect(() => {
-    setBannerDismissed(false)
-  }, [summary.sinStock])
-
-  function load() {
-    setStatus('loading')
-    setLoadError(null)
-    Promise.all([fetchCategories(), fetchUnits(), fetchStockSummary()])
-      .then(([categoryResult, unitResult, summaryResult]) => {
-        setCategories(categoryResult)
-        setUnits(unitResult)
-        setSummary(summaryResult)
-        setStatus('success')
-      })
-      .catch(() => {
-        setLoadError(LOAD_ERROR_MESSAGE)
-        setStatus('error')
-      })
-  }
-
-  useEffect(load, [account?.active_business_id])
 
   function refreshSummary() {
     fetchStockSummary()
-      .then(setSummary)
+      .then((next) => setData((current) => current && { ...current, summary: next }))
       .catch(() => {})
     window.dispatchEvent(new Event('stock-updated'))
   }
@@ -1314,7 +1292,7 @@ export function InventoryPage() {
             </button>
             <button
               type="button"
-              onClick={() => setBannerDismissed(true)}
+              onClick={() => setDismissedSinStock(summary.sinStock)}
               aria-label="Cerrar aviso"
               className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-danger/100 outline-none transition-colors hover:text-danger focus-visible:ring-2 focus-visible:ring-danger/30"
             >
@@ -1343,7 +1321,7 @@ export function InventoryPage() {
         </div>
       )}
 
-      {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
+      {status === 'error' && <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={reload} />}
 
       {tab === 'stock' && status === 'success' && summary.total === 0 && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-16 text-center">

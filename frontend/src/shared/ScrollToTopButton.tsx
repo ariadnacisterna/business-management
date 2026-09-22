@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 const SCROLL_THRESHOLD = 400
 
 export function ScrollToTopButton() {
-  const [visible, setVisible] = useState(false)
+  const [visible, setVisible] = useState(() => window.scrollY > SCROLL_THRESHOLD)
   const scrollTargetRef = useRef<Window | Element | null>(null)
 
   useEffect(() => {
@@ -23,7 +23,6 @@ export function ScrollToTopButton() {
 
     if (window.scrollY > SCROLL_THRESHOLD) {
       scrollTargetRef.current = window
-      setVisible(true)
     }
 
     window.addEventListener('scroll', handleScroll, { capture: true, passive: true })

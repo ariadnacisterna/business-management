@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import {
   adjustStock,
@@ -22,6 +22,7 @@ import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { normalizeForComparison } from '../../shared/normalizeForComparison'
 import { PriceInput } from '../../shared/PriceInput'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { useAuth } from '../access/useAuth'
@@ -104,6 +105,11 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
   )
 }
 
+const NO_CATEGORIES: Category[] = []
+const NO_UNITS: Unit[] = []
+const NO_ATTRIBUTES: Attribute[] = []
+const NO_PROVIDERS: Provider[] = []
+
 export function ProductFormPage() {
   const navigate = useNavigate()
   const { showSuccess, showError } = useToast()
@@ -117,11 +123,30 @@ export function ProductFormPage() {
     handleThumbPointerDown: handleModalThumbPointerDown,
   } = useScrollbar([])
 
-  const [categories, setCategories] = useState<Category[]>([])
-  const [units, setUnits] = useState<Unit[]>([])
-  const [attributes, setAttributes] = useState<Attribute[]>([])
-  const [providers, setProviders] = useState<Provider[]>([])
-  const [loadStatus, setLoadStatus] = useState<'loading' | 'success' | 'error'>('loading')
+  const {
+    status: loadStatus,
+    data: formData,
+    reload: loadFormData,
+    setData: setFormData,
+  } = useLoad(
+    () =>
+      Promise.all([
+        fetchCategories(),
+        fetchUnits(),
+        fetchAttributes(),
+        canViewProviders ? fetchProviders() : Promise.resolve([]),
+      ]).then(([categoryList, unitList, attributeList, providerList]) => ({
+        categories: categoryList.filter((category) => category.status === 'active'),
+        units: unitList.filter((unit) => unit.status === 'active'),
+        attributes: attributeList.filter((attribute) => attribute.status === 'active'),
+        providers: providerList.filter((provider) => provider.status === 'active'),
+      })),
+    [canViewProviders],
+  )
+  const categories = formData?.categories ?? NO_CATEGORIES
+  const units = formData?.units ?? NO_UNITS
+  const attributes = formData?.attributes ?? NO_ATTRIBUTES
+  const providers = formData?.providers ?? NO_PROVIDERS
 
   const [step, setStep] = useState<1 | 2 | 3>(1)
 
@@ -161,26 +186,6 @@ export function ProductFormPage() {
   const [createdProductId, setCreatedProductId] = useState<number | null>(null)
   const [duplicatesFound, setDuplicatesFound] = useState<Variant[] | null>(null)
 
-  const loadFormData = useCallback(() => {
-    setLoadStatus('loading')
-    Promise.all([
-      fetchCategories(),
-      fetchUnits(),
-      fetchAttributes(),
-      canViewProviders ? fetchProviders() : Promise.resolve([]),
-    ])
-      .then(([categoryList, unitList, attributeList, providerList]) => {
-        setCategories(categoryList.filter((category) => category.status === 'active'))
-        setUnits(unitList.filter((unit) => unit.status === 'active'))
-        setAttributes(attributeList.filter((attribute) => attribute.status === 'active'))
-        setProviders(providerList.filter((provider) => provider.status === 'active'))
-        setLoadStatus('success')
-      })
-      .catch(() => setLoadStatus('error'))
-  }, [canViewProviders])
-
-  useEffect(loadFormData, [loadFormData])
-
   function close() {
     navigate('/products')
   }
@@ -193,7 +198,7 @@ export function ProductFormPage() {
     setNewCategoryError(null)
     try {
       const created = await createCategory(trimmed)
-      setCategories((prev) => [...prev, created])
+      setFormData((prev) => prev && { ...prev, categories: [...prev.categories, created] })
       setCategoryId(created.id)
       setCreatingCategory(false)
       setNewCategoryName('')
@@ -217,7 +222,7 @@ export function ProductFormPage() {
         abbreviation: trimmedAbbreviation,
         allows_fraction: newUnit.allows_fraction,
       })
-      setUnits((prev) => [...prev, created])
+      setFormData((prev) => prev && { ...prev, units: [...prev.units, created] })
       setUnitId(created.id)
       setCreatingUnit(false)
       setNewUnit({ name: '', abbreviation: '', allows_fraction: false })
@@ -809,7 +814,9 @@ export function ProductFormPage() {
                           selectedValues={draft.values}
                           onAdd={(value) => addVariantValue(draft.key, value)}
                           onRemove={(valueId) => removeVariantValue(draft.key, valueId)}
-                          onAttributeCreated={(attribute) => setAttributes((prev) => [...prev, attribute])}
+                          onAttributeCreated={(attribute) =>
+                            setFormData((prev) => prev && { ...prev, attributes: [...prev.attributes, attribute] })
+                          }
                         />
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <label className="flex flex-col gap-1">

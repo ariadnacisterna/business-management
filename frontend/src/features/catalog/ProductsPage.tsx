@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, Outlet, useNavigate } from 'react-router-dom'
 import {
   createShortage,
@@ -24,6 +24,7 @@ import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { formatPrice } from '../../shared/formatPrice'
 import { NavIconGlyph } from '../../shared/layout/NavIcon'
@@ -34,7 +35,7 @@ import { useTableScrollbar } from '../../shared/useTableScrollbar'
 import type { ViewMode } from '../../shared/ViewToggle'
 import { ViewToggle } from '../../shared/ViewToggle'
 
-type Status = 'loading' | 'success' | 'error'
+const NO_PRODUCTS: Product[] = []
 type StatusFilter = 'all' | 'active' | 'inactive'
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los productos.'
@@ -86,13 +87,9 @@ export function ProductsPage() {
   const navigate = useNavigate()
   const { showSuccess, showError } = useToast()
 
-  const [products, setProducts] = useState<Product[]>([])
-  const [total, setTotal] = useState(0)
   const [categories, setCategories] = useState<Category[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [stockByVariant, setStockByVariant] = useState<Map<number, StockRow>>(new Map())
-  const [status, setStatus] = useState<Status>('loading')
-  const [loadError, setLoadError] = useState<string | null>(null)
   const [confirmingProduct, setConfirmingProduct] = useState<Product | null>(null)
   const [pickingVariantForShortage, setPickingVariantForShortage] = useState<Product | null>(null)
   const [confirmingShortage, setConfirmingShortage] = useState<{ product: Product; variant: Variant } | null>(null)
@@ -103,18 +100,6 @@ export function ProductsPage() {
   const [appliedSearch, setAppliedSearch] = useState('')
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-
-  const { tableScrollRef, theadRef, scrollbar, updateScrollbar, handleThumbPointerDown } = useTableScrollbar([
-    products,
-    filters.pageSize,
-    viewMode,
-  ])
-  const {
-    scrollRef: cardScrollRef,
-    scrollbar: cardScrollbar,
-    updateScrollbar: updateCardScrollbar,
-    handleThumbPointerDown: handleCardThumbPointerDown,
-  } = useScrollbar([products, filters.pageSize, viewMode])
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {})
@@ -132,40 +117,31 @@ export function ProductsPage() {
     return () => clearTimeout(timer)
   }, [searchInput])
 
-  const requestIdRef = useRef(0)
+  const { status, data, reload, setData } = useLoad(
+    () =>
+      fetchProductsPage({
+        page: filters.page,
+        pageSize: filters.pageSize,
+        categoryId: filters.categoryId === 'all' ? undefined : filters.categoryId,
+        status: filters.status === 'all' ? undefined : filters.status,
+        search: appliedSearch.trim() === '' ? undefined : appliedSearch.trim(),
+      }),
+    [filters.page, filters.pageSize, filters.categoryId, filters.status, appliedSearch, account?.active_business_id],
+  )
+  const products = data?.items ?? NO_PRODUCTS
+  const total = data?.total ?? 0
 
-  function load() {
-    const requestId = ++requestIdRef.current
-    setStatus('loading')
-    setLoadError(null)
-    fetchProductsPage({
-      page: filters.page,
-      pageSize: filters.pageSize,
-      categoryId: filters.categoryId === 'all' ? undefined : filters.categoryId,
-      status: filters.status === 'all' ? undefined : filters.status,
-      search: appliedSearch.trim() === '' ? undefined : appliedSearch.trim(),
-    })
-      .then((result) => {
-        if (requestId !== requestIdRef.current) return
-        setProducts(result.items)
-        setTotal(result.total)
-        setStatus('success')
-      })
-      .catch(() => {
-        if (requestId !== requestIdRef.current) return
-        setLoadError(LOAD_ERROR_MESSAGE)
-        setStatus('error')
-      })
-  }
-
-  useEffect(load, [
-    filters.page,
+  const { tableScrollRef, theadRef, scrollbar, updateScrollbar, handleThumbPointerDown } = useTableScrollbar([
+    products,
     filters.pageSize,
-    filters.categoryId,
-    filters.status,
-    appliedSearch,
-    account?.active_business_id,
+    viewMode,
   ])
+  const {
+    scrollRef: cardScrollRef,
+    scrollbar: cardScrollbar,
+    updateScrollbar: updateCardScrollbar,
+    handleThumbPointerDown: handleCardThumbPointerDown,
+  } = useScrollbar([products, filters.pageSize, viewMode])
 
   const totalPages = Math.max(1, Math.ceil(total / filters.pageSize))
 
@@ -178,7 +154,10 @@ export function ProductsPage() {
   }
 
   function applyProductUpdate(updated: Product) {
-    setProducts((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+    setData(
+      (current) =>
+        current && { ...current, items: current.items.map((item) => (item.id === updated.id ? updated : item)) },
+    )
   }
 
   function toggleActive(product: Product) {
@@ -427,7 +406,7 @@ export function ProductsPage() {
         </div>
       )}
 
-      {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
+      {status === 'error' && <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={reload} />}
 
       {status === 'success' && total === 0 && hasActiveFilters && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">

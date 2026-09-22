@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   activateAccount,
   createAccount,
@@ -26,13 +26,14 @@ import { Pagination } from '../../shared/Pagination'
 import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { useTableScrollbar } from '../../shared/useTableScrollbar'
 import type { ViewMode } from '../../shared/ViewToggle'
 import { ViewToggle } from '../../shared/ViewToggle'
 
-type Status = 'loading' | 'success' | 'error'
+const NO_ACCOUNTS: ManagedAccount[] = []
 type RoleFilter = Role | 'all'
 type BusinessFilter = number | 'all'
 type StatusFilter = 'all' | 'active' | 'inactive'
@@ -387,9 +388,8 @@ function ResetPasswordModal({
 
 export function AccountsPage() {
   const { showSuccess, showError } = useToast()
-  const [accounts, setAccounts] = useState<ManagedAccount[]>([])
-  const [status, setStatus] = useState<Status>('loading')
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const { status, data, reload, setData } = useLoad(() => fetchAccounts(), [])
+  const accounts = data ?? NO_ACCOUNTS
 
   const [searchInput, setSearchInput] = useState('')
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
@@ -415,22 +415,6 @@ export function AccountsPage() {
     updateScrollbar: updateCardScrollbar,
     handleThumbPointerDown: handleCardThumbPointerDown,
   } = useScrollbar([accounts, viewMode])
-
-  function load() {
-    setStatus('loading')
-    setLoadError(null)
-    fetchAccounts()
-      .then((result) => {
-        setAccounts(result)
-        setStatus('success')
-      })
-      .catch(() => {
-        setLoadError(LOAD_ERROR_MESSAGE)
-        setStatus('error')
-      })
-  }
-
-  useEffect(load, [])
 
   const businessOptions = useMemo(() => {
     const byId = new Map<number, string>()
@@ -488,12 +472,33 @@ export function AccountsPage() {
     [sorted, currentPage, pageSize],
   )
 
-  useEffect(() => {
+  function changeSearch(value: string) {
+    setSearchInput(value)
     setPage(1)
-  }, [searchInput, roleFilter, businessFilter, statusFilter, pageSize])
+  }
+
+  function changeRoleFilter(value: RoleFilter) {
+    setRoleFilter(value)
+    setPage(1)
+  }
+
+  function changeBusinessFilter(value: BusinessFilter) {
+    setBusinessFilter(value)
+    setPage(1)
+  }
+
+  function changeStatusFilter(value: StatusFilter) {
+    setStatusFilter(value)
+    setPage(1)
+  }
+
+  function changePageSize(value: number) {
+    setPageSize(value)
+    setPage(1)
+  }
 
   function applyAccountUpdate(updated: ManagedAccount) {
-    setAccounts((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+    setData((current) => current?.map((item) => (item.id === updated.id ? updated : item)))
   }
 
   async function handleCreate(values: AccountFormValues & { initial_password?: string }) {
@@ -503,7 +508,7 @@ export function AccountsPage() {
       role: values.role,
       initial_password: values.initial_password ?? '',
     })
-    setAccounts((current) => [...current, created])
+    setData((current) => current && [...current, created])
     setCreating(false)
   }
 
@@ -592,7 +597,7 @@ export function AccountsPage() {
           <>
             <SelectMenu
               value={roleFilter}
-              onChange={(value: RoleFilter) => setRoleFilter(value)}
+              onChange={(value: RoleFilter) => changeRoleFilter(value)}
               ariaLabel="Filtrar por rol"
               className="w-full lg:w-56"
               options={[
@@ -602,7 +607,7 @@ export function AccountsPage() {
             />
             <SelectMenu
               value={businessFilter === 'all' ? 'all' : String(businessFilter)}
-              onChange={(value) => setBusinessFilter(value === 'all' ? 'all' : Number(value))}
+              onChange={(value) => changeBusinessFilter(value === 'all' ? 'all' : Number(value))}
               ariaLabel="Filtrar por negocio"
               className="w-full lg:w-56"
               options={[
@@ -612,7 +617,7 @@ export function AccountsPage() {
             />
             <SelectMenu
               value={statusFilter}
-              onChange={(value: StatusFilter) => setStatusFilter(value)}
+              onChange={(value: StatusFilter) => changeStatusFilter(value)}
               ariaLabel="Filtrar por estado"
               className="w-full lg:w-56"
               options={[
@@ -624,7 +629,7 @@ export function AccountsPage() {
             {sorted.length > 10 && (
               <SelectMenu
                 value={String(pageSize)}
-                onChange={(value) => setPageSize(Number(value))}
+                onChange={(value) => changePageSize(Number(value))}
                 ariaLabel="Cantidad por página"
                 className="w-full lg:w-56"
                 options={[
@@ -653,7 +658,7 @@ export function AccountsPage() {
             <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
               <SearchInput
                 value={searchInput}
-                onChange={setSearchInput}
+                onChange={changeSearch}
                 placeholder="Buscar nombre o usuario…"
                 ariaLabel="Buscar cuentas"
                 className="lg:min-w-48 lg:flex-1"
@@ -698,7 +703,7 @@ export function AccountsPage() {
         </div>
       )}
 
-      {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
+      {status === 'error' && <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={reload} />}
 
       {status === 'success' && sorted.length === 0 && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">

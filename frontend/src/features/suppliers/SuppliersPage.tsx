@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   createCategory,
   createProvider,
@@ -25,6 +25,7 @@ import { Pagination } from '../../shared/Pagination'
 import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { NavIconGlyph } from '../../shared/layout/NavIcon'
 import type { ViewMode } from '../../shared/ViewToggle'
@@ -32,7 +33,8 @@ import { ViewToggle } from '../../shared/ViewToggle'
 import { useAuth } from '../access/useAuth'
 import { canManageSuppliers } from '../access/roles'
 
-type Status = 'loading' | 'success' | 'error'
+const NO_PROVIDERS: Provider[] = []
+const NO_CATEGORIES: Category[] = []
 type Tab = 'providers' | 'purchase-orders'
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los proveedores.'
@@ -376,10 +378,12 @@ export function SuppliersPage() {
   const { showSuccess, showError } = useToast()
 
   const [tab, setTab] = useState<Tab>('providers')
-  const [providers, setProviders] = useState<Provider[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [status, setStatus] = useState<Status>('loading')
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const { status, data, reload, setData } = useLoad(
+    () => Promise.all([fetchProviders(), fetchCategories()]).then(([providers, categories]) => ({ providers, categories })),
+    [account?.active_business_id],
+  )
+  const providers = data?.providers ?? NO_PROVIDERS
+  const categories = data?.categories ?? NO_CATEGORIES
 
   const [searchInput, setSearchInput] = useState('')
   const [page, setPage] = useState(1)
@@ -390,25 +394,11 @@ export function SuppliersPage() {
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null)
   const [confirmingProvider, setConfirmingProvider] = useState<Provider | null>(null)
 
-  function load() {
-    setStatus('loading')
-    setLoadError(null)
-    Promise.all([fetchProviders(), fetchCategories()])
-      .then(([providerResult, categoryResult]) => {
-        setProviders(providerResult)
-        setCategories(categoryResult)
-        setStatus('success')
-      })
-      .catch(() => {
-        setLoadError(LOAD_ERROR_MESSAGE)
-        setStatus('error')
-      })
-  }
-
-  useEffect(load, [account?.active_business_id])
-
   function applyProviderUpdate(updated: Provider) {
-    setProviders((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+    setData(
+      (current) =>
+        current && { ...current, providers: current.providers.map((item) => (item.id === updated.id ? updated : item)) },
+    )
   }
 
   async function handleCreate(values: ProviderFormValues) {
@@ -420,7 +410,7 @@ export function SuppliersPage() {
       last_purchase_at: values.last_purchase_at === '' ? undefined : values.last_purchase_at,
       category_ids: values.category_ids,
     })
-    setProviders((current) => [...current, created])
+    setData((current) => current && { ...current, providers: [...current.providers, created] })
     setCreating(false)
   }
 
@@ -467,9 +457,15 @@ export function SuppliersPage() {
     [filteredProviders, currentPage, pageSize],
   )
 
-  useEffect(() => {
+  function changeSearch(value: string) {
+    setSearchInput(value)
     setPage(1)
-  }, [searchInput, pageSize])
+  }
+
+  function changePageSize(value: number) {
+    setPageSize(value)
+    setPage(1)
+  }
 
   function providerRowMenuItems(provider: Provider) {
     if (!canManage) return []
@@ -556,7 +552,7 @@ export function SuppliersPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <SearchInput
                 value={searchInput}
-                onChange={setSearchInput}
+                onChange={changeSearch}
                 placeholder="Buscar por nombre…"
                 ariaLabel="Buscar proveedores"
                 className="sm:min-w-64 sm:flex-1"
@@ -564,7 +560,7 @@ export function SuppliersPage() {
               {filteredProviders.length > 10 && (
                 <SelectMenu
                   value={String(pageSize)}
-                  onChange={(value) => setPageSize(Number(value))}
+                  onChange={(value) => changePageSize(Number(value))}
                   ariaLabel="Cantidad por página"
                   className="w-full sm:w-56"
                   options={[
@@ -584,7 +580,7 @@ export function SuppliersPage() {
             </div>
           )}
 
-          {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={load} />}
+          {status === 'error' && <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={reload} />}
 
           {status === 'success' && providers.length === 0 && (
             <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-16 text-center">
@@ -745,7 +741,9 @@ export function SuppliersPage() {
           title="Nuevo proveedor"
           initialValues={EMPTY_FORM}
           categories={categories}
-          onCategoryCreated={(category) => setCategories((prev) => [...prev, category])}
+          onCategoryCreated={(category) =>
+            setData((prev) => prev && { ...prev, categories: [...prev.categories, category] })
+          }
           onSubmit={handleCreate}
           onCancel={() => setCreating(false)}
         />
@@ -763,7 +761,9 @@ export function SuppliersPage() {
             category_ids: editingProvider.category_ids,
           }}
           categories={categories}
-          onCategoryCreated={(category) => setCategories((prev) => [...prev, category])}
+          onCategoryCreated={(category) =>
+            setData((prev) => prev && { ...prev, categories: [...prev.categories, category] })
+          }
           onSubmit={handleEdit}
           onCancel={() => setEditingProvider(null)}
         />

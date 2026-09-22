@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import {
   addVariant,
@@ -53,6 +53,7 @@ import { PriceInput } from '../../shared/PriceInput'
 import { RowMenu } from '../../shared/RowMenu'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { STOCK_STATUS_LABELS, stockStatusTextColor } from '../../shared/stockStatus'
+import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { useAuth } from '../access/useAuth'
@@ -127,6 +128,14 @@ function sameIdSet(a: number[], b: number[]): boolean {
   return sortedA.every((value, index) => value === sortedB[index])
 }
 
+const NO_CATEGORIES: Category[] = []
+const NO_UNITS: Unit[] = []
+const NO_PROVIDERS: Provider[] = []
+const NO_ATTRIBUTES: Attribute[] = []
+const NO_VALUES: Map<number, ValueInfo> = new Map()
+const NO_PRICES: Map<number, Price | null> = new Map()
+const NO_STOCK: Map<number, StockRow> = new Map()
+
 export function ProductDetailPage() {
   const { productId } = useParams()
   const id = Number(productId)
@@ -144,14 +153,7 @@ export function ProductDetailPage() {
     handleThumbPointerDown: handleModalThumbPointerDown,
   } = useScrollbar([id])
 
-  const [product, setProduct] = useState<Product | null>(null)
-  const [categories, setCategories] = useState<Category[]>([])
-  const [units, setUnits] = useState<Unit[]>([])
-  const [providers, setProviders] = useState<Provider[]>([])
   const [providerDraft, setProviderDraft] = useState<number | null>(null)
-  const [attributes, setAttributes] = useState<Attribute[]>([])
-  const [valuesById, setValuesById] = useState<Map<number, ValueInfo>>(new Map())
-  const [loadStatus, setLoadStatus] = useState<'loading' | 'success' | 'error'>('loading')
 
   const [editingProduct, setEditingProduct] = useState(false)
   const [productDraft, setProductDraft] = useState({ name: '', categoryId: 0, unitId: 0, status: 'active' })
@@ -269,8 +271,6 @@ export function ProductDetailPage() {
   const [confirmingVariantStatusChange, setConfirmingVariantStatusChange] = useState<Variant | null>(null)
   const [variantStatusError, setVariantStatusError] = useState<string | null>(null)
 
-  const [pricesByVariant, setPricesByVariant] = useState<Map<number, Price | null>>(new Map())
-  const [stockByVariant, setStockByVariant] = useState<Map<number, StockRow>>(new Map())
   const [adjustingVariant, setAdjustingVariant] = useState<Variant | null>(null)
   const [stockHistoryState, setStockHistoryState] = useState<
     { variant: Variant; status: 'loading' | 'success' | 'error'; movements: StockMovement[] } | null
@@ -288,82 +288,108 @@ export function ProductDetailPage() {
     handleThumbPointerDown: handleHistoryThumbPointerDown,
   } = useScrollbar([historyState])
 
+  const [pricesByVariant, setPricesByVariant] = useState<Map<number, Price | null>>(NO_PRICES)
+  const [stockByVariant, setStockByVariant] = useState<Map<number, StockRow>>(NO_STOCK)
+  const [extrasFailed, setExtrasFailed] = useState(false)
+  const loadedRef = useRef<object | null>(null)
+
+  const detail = useLoad(
+    async () => {
+      const [product, categories, units, attributes, providers] = await Promise.all([
+        fetchProduct(id),
+        fetchCategories(),
+        fetchUnits(),
+        fetchAttributes(),
+        canViewProviders ? fetchProviders() : Promise.resolve([]),
+      ])
+      const valueLists = await Promise.all(attributes.map((attribute) => fetchAttributeValues(attribute.id)))
+      const valuesById = new Map<number, ValueInfo>()
+      attributes.forEach((attribute, index) => {
+        for (const value of valueLists[index]) {
+          valuesById.set(value.id, { attribute_name: attribute.name, value: value.value })
+        }
+      })
+      return { product, categories, units, attributes, providers, valuesById }
+    },
+    [id, account?.active_business_id],
+    (loaded) => {
+      setProviderDraft(loaded.product.provider_id)
+      loadedRef.current = loaded
+      setExtrasFailed(false)
+      Promise.all(loaded.product.variants.map((variant) => fetchVariantCurrentPrice(variant.id)))
+        .then(async (priceResults) => {
+          if (loadedRef.current !== loaded) return
+          setPricesByVariant(new Map(priceResults.map((result) => [result.variant_id, result.price])))
+
+          const stockRows = await fetchAllStock()
+          if (loadedRef.current !== loaded) return
+          setStockByVariant(new Map(stockRows.map((row) => [row.variant_id, row])))
+
+          const loadedProduct = loaded.product
+          if (searchParams.get('edit') === '1' && canManage) {
+            setProductDraft({
+              name: loadedProduct.name,
+              categoryId: loadedProduct.category_id,
+              unitId: loadedProduct.unit_id,
+              status: loadedProduct.status,
+            })
+            setPendingImageFile(null)
+            setImageRemoved(false)
+            setEditingProduct(true)
+          }
+
+          if (searchParams.get('changePrice') === '1' && canManage && loadedProduct.variants.length === 1) {
+            setPriceModalOpenedDirectly(true)
+            setPriceModalVariant(loadedProduct.variants[0])
+          } else if (searchParams.get('changePrice') === '1' && canManage && loadedProduct.variants.length > 1) {
+            setPickingVariantForPrice(true)
+          }
+        })
+        .catch(() => {
+          if (loadedRef.current !== loaded) return
+          setExtrasFailed(true)
+        })
+    },
+  )
+  const detailData = detail.data
+  const product = detailData?.product ?? null
+  const categories = detailData?.categories ?? NO_CATEGORIES
+  const units = detailData?.units ?? NO_UNITS
+  const providers = detailData?.providers ?? NO_PROVIDERS
+  const attributes = detailData?.attributes ?? NO_ATTRIBUTES
+  const valuesById = detailData?.valuesById ?? NO_VALUES
+
   const activeAttributes = useMemo(
     () => attributes.filter((attribute) => attribute.status === 'active'),
     [attributes],
   )
 
-  const requestIdRef = useRef(0)
+  let loadStatus = detail.status
+  if (detail.status === 'success' && extrasFailed) loadStatus = 'error'
 
-  function load() {
-    const requestId = ++requestIdRef.current
-    setLoadStatus('loading')
-    Promise.all([
-      fetchProduct(id),
-      fetchCategories(),
-      fetchUnits(),
-      fetchAttributes(),
-      canViewProviders ? fetchProviders() : Promise.resolve([]),
-    ])
-      .then(async ([productResult, categoryList, unitList, attributeList, providerList]) => {
-        if (requestId !== requestIdRef.current) return
-        setProduct(productResult)
-        setCategories(categoryList)
-        setUnits(unitList)
-        setAttributes(attributeList)
-        setProviders(providerList)
-        setProviderDraft(productResult.provider_id)
-
-        const valueLists = await Promise.all(
-          attributeList.map((attribute) => fetchAttributeValues(attribute.id)),
-        )
-        if (requestId !== requestIdRef.current) return
-        const map = new Map<number, ValueInfo>()
-        attributeList.forEach((attribute, index) => {
-          for (const value of valueLists[index]) {
-            map.set(value.id, { attribute_name: attribute.name, value: value.value })
-          }
-        })
-        setValuesById(map)
-        setLoadStatus('success')
-
-        const priceResults = await Promise.all(
-          productResult.variants.map((variant) => fetchVariantCurrentPrice(variant.id)),
-        )
-        if (requestId !== requestIdRef.current) return
-        setPricesByVariant(new Map(priceResults.map((result) => [result.variant_id, result.price])))
-
-        const stockRows = await fetchAllStock()
-        if (requestId !== requestIdRef.current) return
-        setStockByVariant(new Map(stockRows.map((row) => [row.variant_id, row])))
-
-        if (searchParams.get('edit') === '1' && canManage) {
-          setProductDraft({
-            name: productResult.name,
-            categoryId: productResult.category_id,
-            unitId: productResult.unit_id,
-            status: productResult.status,
-          })
-          setPendingImageFile(null)
-          setImageRemoved(false)
-          setEditingProduct(true)
-        }
-
-        if (searchParams.get('changePrice') === '1' && canManage && productResult.variants.length === 1) {
-          setPriceModalOpenedDirectly(true)
-          setPriceModalVariant(productResult.variants[0])
-        } else if (searchParams.get('changePrice') === '1' && canManage && productResult.variants.length > 1) {
-          setPickingVariantForPrice(true)
-        }
-      })
-      .catch(() => {
-        if (requestId !== requestIdRef.current) return
-        setLoadStatus('error')
-      })
+  function loadAgain() {
+    detail.reload()
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(load, [id, account?.active_business_id])
+  function setProduct(update: Product | null | ((previous: Product | null) => Product | null)) {
+    detail.setData((previous) => {
+      if (previous === undefined) return previous
+      const next = typeof update === 'function' ? update(previous.product) : update
+      return next === null ? previous : { ...previous, product: next }
+    })
+  }
+
+  function setCategories(update: (previous: Category[]) => Category[]) {
+    detail.setData((previous) => previous && { ...previous, categories: update(previous.categories) })
+  }
+
+  function setUnits(update: (previous: Unit[]) => Unit[]) {
+    detail.setData((previous) => previous && { ...previous, units: update(previous.units) })
+  }
+
+  function setAttributes(update: (previous: Attribute[]) => Attribute[]) {
+    detail.setData((previous) => previous && { ...previous, attributes: update(previous.attributes) })
+  }
 
   function close() {
     navigate('/products')
@@ -620,7 +646,7 @@ export function ProductDetailPage() {
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
       <div className="relative w-full max-w-md">
         <CloseButton onClose={close} className="absolute right-0 top-8 z-10" />
-        <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={load} />
+        <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={loadAgain} />
       </div>
     </div>
     )}

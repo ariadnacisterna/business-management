@@ -131,7 +131,10 @@ Antes de aprobar una tarea, la conversación madre confirma:
    configuración del despliegue.
 3. Que ninguna regla de negocio ya implementada en otro módulo se haya
    reescrito en vez de reutilizarse.
-4. Que `npm run lint` (frontend) no muestre errores ni avisos nuevos. Los
-   avisos `react(set-state-in-effect)` (patrón `useEffect(load, [...])` donde
-   `load()` empieza con `setStatus('loading')`) quedan como patrón aceptado
-   hasta una tarea específica que reescriba la carga de datos de las pantallas.
+4. Que `npm run lint` (frontend) no muestre errores ni avisos. La carga de
+   datos de una pantalla usa el hook `shared/useLoad.ts`
+   (`const { status, data, reload, setData } = useLoad(fetcher, deps)`) en vez
+   de `useEffect(load, [...])` con `setStatus('loading')` dentro; el
+   reinicio de estado derivado (página, importe, aviso) se hace en los
+   manejadores o derivándolo, nunca con `setState` síncrono dentro de un
+   `useEffect`.

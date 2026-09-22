@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   createAttribute,
   createAttributeValue,
@@ -14,9 +14,12 @@ import { useAuth } from '../access/useAuth'
 import { canManageCatalog } from '../access/roles'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 
 type Status = 'loading' | 'success' | 'error'
+
+const NO_ATTRIBUTES: Attribute[] = []
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los atributos.'
 const LOAD_VALUES_ERROR_MESSAGE = 'No se pudieron cargar los valores.'
@@ -30,12 +33,21 @@ const secondaryButtonClasses = 'h-11 rounded-lg border border-line px-3 text-bas
 
 export function AttributesPage() {
   const { account } = useAuth()
+  return <AttributesContent key={account?.active_business_id} />
+}
+
+function AttributesContent() {
+  const { account } = useAuth()
   const canManage = canManageCatalog(account)
   const { showSuccess, showError } = useToast()
 
-  const [attributes, setAttributes] = useState<Attribute[]>([])
-  const [status, setStatus] = useState<Status>('loading')
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const {
+    status,
+    data,
+    reload: loadAttributes,
+    setData,
+  } = useLoad(() => fetchAttributes(), [account?.active_business_id])
+  const attributes = data ?? NO_ATTRIBUTES
 
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [values, setValues] = useState<AttributeValue[]>([])
@@ -59,26 +71,6 @@ export function AttributesPage() {
   const [confirmingCreateAttribute, setConfirmingCreateAttribute] = useState(false)
   const [confirmingCreateValue, setConfirmingCreateValue] = useState(false)
   const [confirmingEditValue, setConfirmingEditValue] = useState<AttributeValue | null>(null)
-
-  function loadAttributes() {
-    setStatus('loading')
-    setLoadError(null)
-    fetchAttributes()
-      .then((result) => {
-        setAttributes(result)
-        setStatus('success')
-      })
-      .catch(() => {
-        setLoadError(LOAD_ERROR_MESSAGE)
-        setStatus('error')
-      })
-  }
-
-  useEffect(() => {
-    setSelectedId(null)
-    setValues([])
-    loadAttributes()
-  }, [account?.active_business_id])
 
   function loadValues(attributeId: number) {
     setValuesStatus('loading')
@@ -114,7 +106,7 @@ export function AttributesPage() {
     setSavingAttribute(true)
     try {
       const attribute = await createAttribute(trimmed)
-      setAttributes((prev) => [...prev, attribute])
+      setData((prev) => prev && [...prev, attribute])
       setNewAttributeName('')
       setCreatingAttribute(false)
       showSuccess('Atributo creado.')
@@ -257,7 +249,7 @@ export function AttributesPage() {
 
       {status === 'loading' && <p role="status">Cargando…</p>}
 
-      {status === 'error' && <LoadErrorCard message={loadError ?? LOAD_ERROR_MESSAGE} onRetry={loadAttributes} />}
+      {status === 'error' && <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={loadAttributes} />}
 
       {status === 'success' && (
         <div className="max-w-3xl overflow-hidden rounded-xl border border-line bg-surface">
