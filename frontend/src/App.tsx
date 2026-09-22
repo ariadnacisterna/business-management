@@ -1,24 +1,27 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './features/access/AuthContext'
 import { useAuth } from './features/access/useAuth'
-import { LoginPage } from './features/access/LoginPage'
 import { ProtectedRoute } from './features/access/ProtectedRoute'
 import { canManageAccounts, canManageSuppliers, canViewDashboard } from './features/access/roles'
-import { AccountsPage } from './features/accounts/AccountsPage'
-import { AttributesPage } from './features/catalog/AttributesPage'
-import { CategoriesPage } from './features/catalog/CategoriesPage'
-import { ProductDetailPage } from './features/catalog/ProductDetailPage'
-import { ProductFormPage } from './features/catalog/ProductFormPage'
-import { ProductsPage } from './features/catalog/ProductsPage'
-import { UnitsPage } from './features/catalog/UnitsPage'
-import { CustomersPage } from './features/customers/CustomersPage'
-import { DashboardPage } from './features/dashboard/DashboardPage'
-import { InventoryPage } from './features/inventory/InventoryPage'
-import { PricingPage } from './features/pricing/PricingPage'
-import { SettingsPage } from './features/settings/SettingsPage'
-import { SuppliersPage } from './features/suppliers/SuppliersPage'
 import { AppLayout } from './shared/layout/AppLayout'
+import { lazyWithReload } from './shared/lazyWithReload'
+import { Loadable } from './shared/Loadable'
 import { ToastProvider } from './shared/Toast'
+
+const LoginPage = lazyWithReload(() => import('./features/access/LoginPage').then((m) => ({ default: m.LoginPage })))
+const AccountsPage = lazyWithReload(() => import('./features/accounts/AccountsPage').then((m) => ({ default: m.AccountsPage })))
+const AttributesPage = lazyWithReload(() => import('./features/catalog/AttributesPage').then((m) => ({ default: m.AttributesPage })))
+const CategoriesPage = lazyWithReload(() => import('./features/catalog/CategoriesPage').then((m) => ({ default: m.CategoriesPage })))
+const ProductDetailPage = lazyWithReload(() => import('./features/catalog/ProductDetailPage').then((m) => ({ default: m.ProductDetailPage })))
+const ProductFormPage = lazyWithReload(() => import('./features/catalog/ProductFormPage').then((m) => ({ default: m.ProductFormPage })))
+const ProductsPage = lazyWithReload(() => import('./features/catalog/ProductsPage').then((m) => ({ default: m.ProductsPage })))
+const UnitsPage = lazyWithReload(() => import('./features/catalog/UnitsPage').then((m) => ({ default: m.UnitsPage })))
+const CustomersPage = lazyWithReload(() => import('./features/customers/CustomersPage').then((m) => ({ default: m.CustomersPage })))
+const DashboardPage = lazyWithReload(() => import('./features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })))
+const InventoryPage = lazyWithReload(() => import('./features/inventory/InventoryPage').then((m) => ({ default: m.InventoryPage })))
+const PricingPage = lazyWithReload(() => import('./features/pricing/PricingPage').then((m) => ({ default: m.PricingPage })))
+const SettingsPage = lazyWithReload(() => import('./features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
+const SuppliersPage = lazyWithReload(() => import('./features/suppliers/SuppliersPage').then((m) => ({ default: m.SuppliersPage })))
 
 function HomeRoute() {
   const { account } = useAuth()
@@ -27,7 +30,11 @@ function HomeRoute() {
     return <Navigate to="/products" replace />
   }
 
-  return <DashboardPage />
+  return (
+    <Loadable>
+      <DashboardPage />
+    </Loadable>
+  )
 }
 
 function AccountsRoute() {
@@ -37,7 +44,11 @@ function AccountsRoute() {
     return <Navigate to="/products" replace />
   }
 
-  return <AccountsPage />
+  return (
+    <Loadable>
+      <AccountsPage />
+    </Loadable>
+  )
 }
 
 function SuppliersRoute() {
@@ -47,7 +58,11 @@ function SuppliersRoute() {
     return <Navigate to="/products" replace />
   }
 
-  return <SuppliersPage />
+  return (
+    <Loadable>
+      <SuppliersPage />
+    </Loadable>
+  )
 }
 
 export function App() {
@@ -55,23 +70,23 @@ export function App() {
     <ToastProvider>
       <AuthProvider>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/login" element={<Loadable><LoginPage /></Loadable>} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<HomeRoute />} />
-              <Route path="/categories" element={<CategoriesPage />} />
-              <Route path="/units" element={<UnitsPage />} />
-              <Route path="/attributes" element={<AttributesPage />} />
-              <Route path="/products" element={<ProductsPage />}>
-                <Route path="new" element={<ProductFormPage />} />
-                <Route path=":productId" element={<ProductDetailPage />} />
+              <Route path="/categories" element={<Loadable><CategoriesPage /></Loadable>} />
+              <Route path="/units" element={<Loadable><UnitsPage /></Loadable>} />
+              <Route path="/attributes" element={<Loadable><AttributesPage /></Loadable>} />
+              <Route path="/products" element={<Loadable><ProductsPage /></Loadable>}>
+                <Route path="new" element={<Loadable><ProductFormPage /></Loadable>} />
+                <Route path=":productId" element={<Loadable><ProductDetailPage /></Loadable>} />
               </Route>
-              <Route path="/precios" element={<PricingPage />} />
-              <Route path="/inventario" element={<InventoryPage />} />
+              <Route path="/precios" element={<Loadable><PricingPage /></Loadable>} />
+              <Route path="/inventario" element={<Loadable><InventoryPage /></Loadable>} />
               <Route path="/proveedores" element={<SuppliersRoute />} />
-              <Route path="/clientes" element={<CustomersPage />} />
+              <Route path="/clientes" element={<Loadable><CustomersPage /></Loadable>} />
               <Route path="/cuentas" element={<AccountsRoute />} />
-              <Route path="/configuraciones" element={<SettingsPage />} />
+              <Route path="/configuraciones" element={<Loadable><SettingsPage /></Loadable>} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

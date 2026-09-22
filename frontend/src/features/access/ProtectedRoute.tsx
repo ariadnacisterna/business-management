@@ -1,8 +1,13 @@
 import { useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
-import { BusinessSelectorPage } from './BusinessSelectorPage'
+import { lazyWithReload } from '../../shared/lazyWithReload'
+import { Loadable } from '../../shared/Loadable'
 import { useAuth } from './useAuth'
 import { isDueno } from './roles'
+
+const BusinessSelectorPage = lazyWithReload(() =>
+  import('./BusinessSelectorPage').then((m) => ({ default: m.BusinessSelectorPage })),
+)
 
 export function ProtectedRoute() {
   const { account, status, justLoggedIn } = useAuth()
@@ -22,7 +27,11 @@ export function ProtectedRoute() {
     isDueno(account) &&
     account.businesses.length > 1
   ) {
-    return <BusinessSelectorPage onSelected={() => setBusinessConfirmed(true)} />
+    return (
+      <Loadable>
+        <BusinessSelectorPage onSelected={() => setBusinessConfirmed(true)} />
+      </Loadable>
+    )
   }
 
   return <Outlet />
