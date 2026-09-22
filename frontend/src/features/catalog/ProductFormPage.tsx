@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import {
   adjustStock,
   createCategory,
@@ -17,6 +17,7 @@ import {
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Attribute, Category, Provider, Unit, Variant } from '../../api/types'
+import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { normalizeForComparison } from '../../shared/normalizeForComparison'
@@ -453,12 +454,9 @@ export function ProductFormPage() {
 
         <div className="mb-4 flex items-center justify-between gap-3">
           {loadStatus === 'success' ? (
-            <p className="m-0 text-base opacity-60">
-              <Link to="/products" className="hover:text-brand">
-                Catálogo
-              </Link>{' '}
-              › <span className="text-brand">Nuevo producto</span>
-            </p>
+            <div className="min-w-0">
+              <Breadcrumb segments={['Productos', 'Nuevo producto']} />
+            </div>
           ) : (
             <span />
           )}
@@ -489,7 +487,6 @@ export function ProductFormPage() {
 
         {loadStatus === 'success' && duplicatesFound === null && (
           <div className="flex flex-col gap-4">
-            <h1 className="m-0 text-2xl font-bold">Nuevo producto</h1>
             <StepIndicator step={step} />
 
             {step === 1 && (

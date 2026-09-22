@@ -12,6 +12,7 @@ import { ApiError } from '../../api/client'
 import type { Category, Price, Product, Variant } from '../../api/types'
 import { useAuth } from '../access/useAuth'
 import { canManageCatalog } from '../access/roles'
+import { Breadcrumb } from '../../shared/Breadcrumb'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { CloseButton } from '../../shared/CloseButton'
 import { FieldRow } from '../../shared/FieldRow'
@@ -513,7 +514,7 @@ export function PricingPage() {
         )
         return (
           <>
-            <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen} section="Precios">
               {filterControls}
             </FiltersSheet>
             <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
@@ -842,6 +843,7 @@ export function PricingPage() {
           title="Confirmar cambio de precio"
           description={confirmDescription}
           confirmLabel={confirming ? 'Guardando…' : 'Confirmar'}
+          breadcrumb={['Precios', confirmState.product.name, 'Confirmar cambio de precio']}
           onConfirm={confirmChange}
           onCancel={cancelChange}
         />
@@ -855,14 +857,19 @@ export function PricingPage() {
             aria-label={`Historial de precios de ${historyState.product.name}`}
             className="relative grid max-h-[80vh] w-full max-w-lg grid-rows-[auto_1fr] gap-4 overflow-hidden rounded-2xl bg-surface p-6 shadow-2xl"
           >
-            <div className="flex items-start justify-between">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <Breadcrumb segments={['Precios', historyState.product.name, 'Historial de precios']} />
+                </div>
+                <CloseButton onClose={() => setHistoryState(null)} />
+              </div>
               <div>
                 <h2 className="m-0 text-2xl font-bold">Historial de precios</h2>
                 <p className="m-0 text-lg opacity-60">
                   {historyState.product.name} — {variantLabel(historyState.variant)}
                 </p>
               </div>
-              <CloseButton onClose={() => setHistoryState(null)} />
             </div>
 
             {historyState.status === 'loading' && <p role="status">Cargando…</p>}

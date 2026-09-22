@@ -140,6 +140,10 @@ describe('ProductDetailPage', () => {
     renderPage('/products/5')
 
     expect(await screen.findByRole('heading', { name: 'Cinta bebé' })).toBeInTheDocument()
+    const breadcrumb = screen.getByText('Ver detalle')
+    expect(breadcrumb).toHaveClass('text-brand')
+    expect(breadcrumb.parentElement).toHaveTextContent('Productos › Cinta bebé › Ver detalle')
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Cerrar' }))
 
@@ -150,6 +154,21 @@ describe('ProductDetailPage', () => {
     renderPage('/products/5?edit=1')
 
     expect(await screen.findByLabelText(/^Nombre\s?\*?$/)).toHaveValue('Cinta bebé')
+  })
+
+  it('shows the breadcrumb for the nested new category and new unit modals', async () => {
+    const user = userEvent.setup()
+    renderPage('/products/5?edit=1')
+
+    await screen.findByLabelText(/^Nombre\s?\*?$/)
+    await user.click(screen.getAllByRole('button', { name: '+ Nueva' })[0])
+    const categoryDialog = screen.getByRole('dialog', { name: 'Nueva categoría' })
+    expect(categoryDialog.querySelector('p.opacity-60')).toHaveTextContent('Productos › Nueva categoría')
+    await user.click(within(categoryDialog).getByRole('button', { name: 'Cancelar' }))
+
+    await user.click(screen.getAllByRole('button', { name: '+ Nueva' })[1])
+    const unitDialog = screen.getByRole('dialog', { name: 'Nueva unidad' })
+    expect(unitDialog.querySelector('p.opacity-60')).toHaveTextContent('Productos › Nueva unidad')
   })
 
   it('changes a variant price through the modal', async () => {
@@ -175,6 +194,10 @@ describe('ProductDetailPage', () => {
     )
 
     await user.click(screen.getByRole('button', { name: 'Cambiar precio' }))
+
+    const priceBreadcrumb = screen.getByText('Cambiar precio', { selector: 'span' })
+    expect(priceBreadcrumb).toHaveClass('text-brand')
+    expect(priceBreadcrumb.parentElement).toHaveTextContent('Productos › Cinta bebé › Cambiar precio')
 
     await user.type(screen.getByLabelText('Precio inicial (ARS)'), '45.50')
     await user.click(screen.getByRole('button', { name: 'Confirmar' }))
@@ -208,8 +231,23 @@ describe('ProductDetailPage', () => {
 
     await user.click(screen.getAllByRole('button', { name: 'Ver historial' })[0])
 
-    expect(await screen.findByRole('dialog', { name: /Historial de precios/ })).toBeInTheDocument()
+    const dialog = await screen.findByRole('dialog', { name: /Historial de precios/ })
     expect(await screen.findByText(/45,50/)).toBeInTheDocument()
+    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Productos › Cinta bebé › Historial de precios')
+  })
+
+  it('opens the stock history dialog for a variant', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage('/products/5')
+
+    expect(await screen.findByRole('heading', { name: 'Cinta bebé' })).toBeInTheDocument()
+
+    fetchMock.mockResolvedValueOnce(jsonResponse([]))
+    await user.click(screen.getAllByRole('button', { name: 'Ver historial' })[1])
+
+    const dialog = await screen.findByRole('dialog', { name: /Historial de stock/ })
+    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Productos › Cinta bebé › Historial de stock')
   })
 
   it('shows a single price with a "Cambiar precio" action for a product without real variants', async () => {
@@ -372,6 +410,10 @@ describe('ProductDetailPage', () => {
       await screen.findByText((_, element) => element?.tagName === 'P' && element.textContent === '7 (Stock bajo)'),
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Actualizar stock' }))
+
+    const stockBreadcrumb = screen.getByText('Actualizar stock', { selector: 'span' })
+    expect(stockBreadcrumb).toHaveClass('text-brand')
+    expect(stockBreadcrumb.parentElement).toHaveTextContent('Productos › Tijera › Actualizar stock')
 
     await user.type(screen.getByLabelText('Cuánto sumar o restar'), '13')
 

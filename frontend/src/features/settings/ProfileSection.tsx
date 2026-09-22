@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError } from '../../api/client'
+import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { PencilIcon } from '../../shared/icons'
@@ -52,11 +53,13 @@ function EditNameModal({
       <form
         onSubmit={handleSubmit}
         role="dialog"
-        aria-label="Editar nombre"
+        aria-label="Cambiar nombre"
         className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
       >
-        <div className="flex items-start justify-between">
-          <h2 className="m-0 text-2xl font-bold">Editar nombre</h2>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <Breadcrumb segments={['Configuración', 'Cambiar nombre']} />
+          </div>
           <CloseButton onClose={onClose} />
         </div>
 
@@ -96,6 +99,7 @@ function EditNameModal({
           title="Cambiar nombre"
           description={`¿Cambiar tu nombre a "${trimmedName}"?`}
           confirmLabel="Confirmar"
+          breadcrumb={['Configuración', 'Cambiar nombre']}
           onConfirm={handleConfirm}
           onCancel={() => setConfirming(false)}
         />

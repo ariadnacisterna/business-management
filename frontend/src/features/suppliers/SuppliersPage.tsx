@@ -11,6 +11,7 @@ import {
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Category, Provider } from '../../api/types'
+import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { DatePicker } from '../../shared/DatePicker'
@@ -92,6 +93,8 @@ function ProviderFormModal({
   const [savingNewCategory, setSavingNewCategory] = useState(false)
   const [newCategoryError, setNewCategoryError] = useState<string | null>(null)
 
+  const isCreate = initialValues.name === ''
+
   const nameError = values.name.trim() === '' ? 'El nombre es obligatorio.' : null
   const emailError =
     values.email.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())
@@ -161,9 +164,18 @@ function ProviderFormModal({
         aria-label={title}
         className="relative flex max-h-[90vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
       >
-        <div className="flex items-start justify-between">
-          <h2 className="m-0 text-2xl font-bold">{title}</h2>
-          <CloseButton onClose={onCancel} />
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <Breadcrumb
+                segments={
+                  isCreate ? ['Proveedores', 'Nuevo proveedor'] : ['Proveedores', initialValues.name, 'Editar proveedor']
+                }
+              />
+            </div>
+            <CloseButton onClose={onCancel} />
+          </div>
+          {!isCreate && <h2 className="m-0 text-2xl font-bold">{initialValues.name}</h2>}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -265,9 +277,14 @@ function ProviderFormModal({
                 aria-label="Nueva categoría"
                 className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
               >
-                <div className="flex items-start justify-between">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <Breadcrumb segments={['Proveedores', 'Nueva categoría']} />
+                    </div>
+                    <CloseButton onClose={cancelCreateCategory} />
+                  </div>
                   <h2 className="m-0 text-2xl font-bold">Nueva categoría</h2>
-                  <CloseButton onClose={cancelCreateCategory} />
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -343,6 +360,9 @@ function ProviderFormModal({
               : `Se van a guardar los cambios de "${initialValues.name}".`
           }
           confirmLabel="Guardar"
+          breadcrumb={
+            isCreate ? ['Proveedores', 'Nuevo proveedor'] : ['Proveedores', initialValues.name, 'Editar proveedor']
+          }
           onConfirm={confirmSubmit}
           onCancel={() => setConfirming(false)}
         />
@@ -779,6 +799,11 @@ export function SuppliersPage() {
           }
           confirmLabel={confirmingProvider.status === 'active' ? 'Desactivar' : 'Activar'}
           danger={confirmingProvider.status === 'active'}
+          breadcrumb={[
+            'Proveedores',
+            confirmingProvider.name,
+            confirmingProvider.status === 'active' ? 'Desactivar proveedor' : 'Activar proveedor',
+          ]}
           onConfirm={confirmToggleActive}
           onCancel={() => setConfirmingProvider(null)}
         />

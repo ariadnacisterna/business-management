@@ -393,6 +393,11 @@ function AttributesContent() {
           }
           confirmLabel={confirmingStatusChange.status === 'active' ? 'Desactivar' : 'Activar'}
           danger={confirmingStatusChange.status === 'active'}
+          breadcrumb={[
+            'Atributos',
+            selectedAttribute?.name ?? '',
+            confirmingStatusChange.status === 'active' ? 'Desactivar valor' : 'Activar valor',
+          ]}
           onConfirm={confirmStatusChange}
           onCancel={() => setConfirmingStatusChange(null)}
         />
@@ -403,6 +408,7 @@ function AttributesContent() {
           title="Crear atributo"
           description={`Se va a crear el atributo "${newAttributeName.trim()}".`}
           confirmLabel="Crear"
+          breadcrumb={['Atributos', 'Crear atributo']}
           onConfirm={createAttributeNow}
           onCancel={() => setConfirmingCreateAttribute(false)}
         />
@@ -413,6 +419,7 @@ function AttributesContent() {
           title="Crear valor"
           description={`Se va a crear el valor "${newValue.trim()}" para ${selectedAttribute?.name ?? ''}.`}
           confirmLabel="Crear"
+          breadcrumb={['Atributos', selectedAttribute?.name ?? '', 'Crear valor']}
           onConfirm={createValueNow}
           onCancel={() => setConfirmingCreateValue(false)}
         />
@@ -423,6 +430,7 @@ function AttributesContent() {
           title="Guardar valor"
           description={`"${confirmingEditValue.value}" va a pasar a ser "${editingValue.trim()}".`}
           confirmLabel="Guardar"
+          breadcrumb={['Atributos', confirmingEditValue.value, 'Guardar valor']}
           onConfirm={saveValueNow}
           onCancel={() => setConfirmingEditValue(null)}
         />

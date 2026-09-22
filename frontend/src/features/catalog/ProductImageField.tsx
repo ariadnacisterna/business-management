@@ -439,6 +439,7 @@ export function ProductImageField({ product, disabled = false, onUpdated }: Prop
           title="Cambiar imagen"
           description={`Se va a subir "${pendingFile.name}" como imagen de "${product.name}".`}
           confirmLabel="Subir"
+          breadcrumb={['Productos', product.name, 'Cambiar imagen']}
           onConfirm={confirmUpload}
           onCancel={() => setPendingFile(null)}
         />
@@ -450,6 +451,7 @@ export function ProductImageField({ product, disabled = false, onUpdated }: Prop
           description={`Se va a quitar la imagen de "${product.name}".`}
           confirmLabel="Quitar"
           danger
+          breadcrumb={['Productos', product.name, 'Quitar imagen']}
           onConfirm={confirmRemove}
           onCancel={() => setConfirmingRemove(false)}
         />

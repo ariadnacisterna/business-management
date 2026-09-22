@@ -489,6 +489,7 @@ describe('InventoryPage', () => {
     await user.click(screen.getByRole('button', { name: 'Filtros' }))
 
     const dialog = await screen.findByRole('dialog', { name: 'Filtros' })
+    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Inventario › Filtros')
     fetchMock.mockResolvedValueOnce(jsonResponse(stockPage([])))
     await user.click(within(dialog).getByRole('button', { name: 'Filtrar por estado de stock' }))
     await user.click(await screen.findByRole('option', { name: 'Con stock' }))

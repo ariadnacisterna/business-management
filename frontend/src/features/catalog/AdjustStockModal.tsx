@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { adjustStock } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Product, StockRow, Variant } from '../../api/types'
+import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
@@ -71,9 +72,14 @@ export function AdjustStockModal({
         onSubmit={handleSubmit}
         className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
       >
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <Breadcrumb segments={['Productos', product.name, 'Actualizar stock']} />
+            </div>
+            <CloseButton onClose={onClose} />
+          </div>
           <h2 className="text-2xl font-bold">Actualizar stock</h2>
-          <CloseButton onClose={onClose} />
         </div>
 
         <div className="flex flex-col gap-1.5 text-lg">
@@ -156,6 +162,7 @@ export function AdjustStockModal({
           title="Actualizar stock"
           description={`El stock de "${product.name}" (${describeVariantLabel(variant)}) cambia: ${describeChange('stock', currentQuantity, evaluation.delta ?? 0)}.`}
           confirmLabel="Confirmar"
+          breadcrumb={['Productos', product.name, 'Actualizar stock']}
           onConfirm={confirmSubmit}
           onCancel={() => setConfirming(false)}
         />

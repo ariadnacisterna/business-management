@@ -242,6 +242,7 @@ export function CategoriesPage() {
           title="Crear categoría"
           description={`Se va a crear la categoría "${newName.trim()}".`}
           confirmLabel="Crear"
+          breadcrumb={['Categorías', 'Crear categoría']}
           onConfirm={createCategoryNow}
           onCancel={() => setConfirmingCreate(false)}
         />
@@ -252,6 +253,7 @@ export function CategoriesPage() {
           title="Guardar categoría"
           description={`"${confirmingEdit.name}" va a pasar a llamarse "${editingName.trim()}".`}
           confirmLabel="Guardar"
+          breadcrumb={['Categorías', confirmingEdit.name, 'Guardar categoría']}
           onConfirm={saveEditNow}
           onCancel={() => setConfirmingEdit(null)}
         />

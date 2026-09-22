@@ -252,6 +252,17 @@ describe('AccountsPage', () => {
     expect(clearButton).toBeDisabled()
   })
 
+  it('shows the breadcrumb for the mobile filters sheet', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Ada Lovelace')
+    await user.click(screen.getByRole('button', { name: 'Filtros' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Filtros' })
+    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Cuentas › Filtros')
+  })
+
   it('creates a new account', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
@@ -259,6 +270,9 @@ describe('AccountsPage', () => {
 
     await screen.findByText('Ada Lovelace')
     await user.click(screen.getAllByRole('button', { name: /nueva cuenta/i })[0])
+
+    const createDialog = screen.getByRole('dialog', { name: /nueva cuenta/i })
+    expect(createDialog.querySelector('p.opacity-60')).toHaveTextContent('Cuentas › Nueva cuenta')
 
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Nuevo Empleado')
     await user.type(screen.getByLabelText(/^Usuario \*?$/), 'nuevo')
@@ -392,6 +406,9 @@ describe('AccountsPage', () => {
     await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[1])
     await user.click(screen.getByRole('button', { name: 'Editar cuenta' }))
 
+    const editDialog = screen.getByRole('dialog', { name: 'Editar cuenta' })
+    expect(editDialog.querySelector('p.opacity-60')).toHaveTextContent('Cuentas › Grace Hopper › Editar cuenta')
+
     const nameInput = await screen.findByLabelText(/^Nombre \*?$/)
     await user.clear(nameInput)
     await user.type(nameInput, 'Grace Hopper Rear Admiral')
@@ -452,6 +469,9 @@ describe('AccountsPage', () => {
     await screen.findByText('Grace Hopper')
     await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[1])
     await user.click(screen.getByRole('button', { name: 'Restablecer contraseña' }))
+
+    const resetDialog = screen.getByRole('dialog', { name: 'Restablecer contraseña' })
+    expect(resetDialog.querySelector('p.opacity-60')).toHaveTextContent('Cuentas › Grace Hopper › Restablecer contraseña')
 
     await user.type(screen.getByLabelText(/^Contraseña nueva \*?$/), 'nuevaClave1')
     await user.type(screen.getByLabelText(/^Repetir contraseña \*?$/), 'otraClave2')

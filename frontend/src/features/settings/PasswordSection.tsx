@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { changeOwnPassword } from '../../api/auth'
 import { ApiError } from '../../api/client'
+import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { EyeIcon } from '../../shared/icons'
@@ -83,9 +84,14 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
         aria-label="Cambiar contraseña"
         className="relative my-auto flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
       >
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <Breadcrumb segments={['Configuración', 'Cambiar contraseña']} />
+            </div>
+            <CloseButton onClose={onClose} />
+          </div>
           <h2 className="m-0 text-2xl font-bold">Cambiar contraseña</h2>
-          <CloseButton onClose={onClose} />
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -184,6 +190,7 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
           title="Cambiar contraseña"
           description="¿Cambiar tu contraseña? Se van a cerrar las demás sesiones abiertas de tu cuenta."
           confirmLabel="Confirmar"
+          breadcrumb={['Configuración', 'Cambiar contraseña']}
           onConfirm={handleConfirm}
           onCancel={() => setConfirming(false)}
         />

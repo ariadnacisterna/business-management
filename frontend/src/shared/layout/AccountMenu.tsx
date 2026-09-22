@@ -124,6 +124,7 @@ export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {
           title="Cambiar de negocio"
           description={`Vas a pasar a trabajar sobre ${pendingBusiness.name}. Todo lo que veas y hagas de acá en adelante va a ser sobre ese negocio.`}
           confirmLabel="Cambiar"
+          breadcrumb={['Configuración', 'Cambiar de negocio']}
           onConfirm={confirmSwitchBusiness}
           onCancel={() => setPendingBusiness(null)}
         />

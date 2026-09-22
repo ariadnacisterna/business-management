@@ -211,6 +211,23 @@ describe('CustomersPage', () => {
     expect(screen.queryByText('Carla Díaz')).not.toBeInTheDocument()
   })
 
+  it('shows the breadcrumb for the customer form modal', async () => {
+    const user = userEvent.setup()
+    renderPage(CUSTOMERS, BALANCES, GERENTE_ACCOUNT)
+
+    await screen.findAllByText('Ana Gómez')
+    await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }))
+    const createDialog = screen.getByRole('dialog', { name: 'Nuevo cliente' })
+    expect(createDialog.querySelector('p.opacity-60')).toHaveTextContent('Clientes › Nuevo cliente')
+
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+    const actionButtons = screen.getAllByRole('button', { name: /Acciones para Ana Gómez/ })
+    await user.click(actionButtons[0])
+    await user.click(screen.getByRole('button', { name: 'Editar cliente' }))
+    const editDialog = screen.getByRole('dialog', { name: 'Editar cliente' })
+    expect(editDialog.querySelector('p.opacity-60')).toHaveTextContent('Clientes › Ana Gómez › Editar cliente')
+  })
+
   it('edits an existing customer after confirmation', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
@@ -250,7 +267,7 @@ describe('CustomersPage', () => {
     await user.click(screen.getByRole('button', { name: /Acciones para Ana Gómez/ }))
     await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
 
-    await screen.findByText('Registrar movimiento')
+    await screen.findByText('Registrar movimiento', { selector: 'h3' })
     await user.type(screen.getByLabelText('Importe'), '50')
 
     fetchMock.mockResolvedValueOnce(
@@ -267,6 +284,19 @@ describe('CustomersPage', () => {
     expect(lastCall?.[0]).toBe('/customers/1/credits')
   })
 
+  it('shows the breadcrumb for the payment modal', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findAllByText('Ana Gómez')
+    await user.click(screen.getByLabelText('Ver como tabla'))
+    await user.click(screen.getByRole('button', { name: /Acciones para Ana Gómez/ }))
+    await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Registrar pago de Ana Gómez' })
+    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Clientes › Ana Gómez › Registrar movimiento')
+  })
+
   it('registers a payment (pago) after confirmation', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
@@ -277,7 +307,7 @@ describe('CustomersPage', () => {
     await user.click(screen.getByRole('button', { name: /Acciones para Ana Gómez/ }))
     await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
 
-    await screen.findByText('Registrar movimiento')
+    await screen.findByText('Registrar movimiento', { selector: 'h3' })
     await user.click(screen.getByRole('button', { name: 'Tipo de movimiento' }))
     await user.click(screen.getByRole('option', { name: 'Pago' }))
     await user.type(screen.getByLabelText('Importe'), '30')
@@ -303,6 +333,9 @@ describe('CustomersPage', () => {
     const actionButtons = screen.getAllByRole('button', { name: /Acciones para Ana Gómez/ })
     await user.click(actionButtons[0])
     await user.click(screen.getByRole('button', { name: /^Desactivar$/ }))
+
+    const confirmDialog = screen.getByRole('alertdialog', { name: 'Desactivar cliente' })
+    expect(confirmDialog.querySelector('p.opacity-60')).toHaveTextContent('Clientes › Ana Gómez › Desactivar cliente')
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({ id: 1, name: 'Ana Gómez', phone: '111-2222', address: 'Calle Falsa 123', status: 'inactive' }),
@@ -359,6 +392,9 @@ describe('CustomersPage', () => {
     expect(await screen.findByText('Tipo: Fiado')).toBeInTheDocument()
     expect(screen.getByText('+$150,00')).toBeInTheDocument()
     expect(screen.getByText('Cambiado por: Empleada')).toBeInTheDocument()
+
+    const dialog = screen.getByRole('dialog', { name: 'Historial de Ana Gómez' })
+    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Clientes › Ana Gómez › Historial')
   })
 
   it('hides create/edit/deactivate controls for Empleado but keeps payment', async () => {

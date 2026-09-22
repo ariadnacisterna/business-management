@@ -544,7 +544,7 @@ describe('ProductFormPage', () => {
     renderPage()
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/auth/me', expect.anything()))
-    expect(screen.queryByRole('heading', { name: 'Nuevo producto' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/^Nombre \*?$/)).not.toBeInTheDocument()
   })
 
   it('loads the form for a Gerente account even if /providers responds 403', async () => {
@@ -561,9 +561,22 @@ describe('ProductFormPage', () => {
 
     renderPage()
 
-    expect(await screen.findByRole('heading', { name: 'Nuevo producto' })).toBeInTheDocument()
+    expect(await screen.findByLabelText(/^Nombre \*?$/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Proveedor' })).not.toBeInTheDocument()
     expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('/providers'))).toBe(false)
+  })
+
+  it('shows the breadcrumb without a link to the catalog', async () => {
+    mockInitialLoad(fetchMock, ADMIN_ACCOUNT)
+    fetchMock.mockResolvedValueOnce(jsonResponse(EMPTY_PRODUCT_PAGE))
+
+    renderPage()
+
+    expect(await screen.findByLabelText(/^Nombre \*?$/)).toBeInTheDocument()
+    const breadcrumb = screen.getByText('Nuevo producto', { selector: 'span' })
+    expect(breadcrumb).toHaveClass('text-brand')
+    expect(breadcrumb.parentElement).toHaveTextContent('Productos › Nuevo producto')
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 
   it('lets the user create a missing category and unit inline while creating a product', async () => {

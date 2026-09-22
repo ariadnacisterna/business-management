@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import {
   addVariant,
   adjustStock,
@@ -40,6 +40,7 @@ import type {
   Unit,
   Variant,
 } from '../../api/types'
+import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { formatDateTime } from '../../shared/formatDateTime'
@@ -659,13 +660,11 @@ export function ProductDetailPage() {
 
         <div className="mb-4 flex items-center justify-between gap-3">
           {loadStatus === 'success' && product !== null ? (
-            <p className="m-0 text-base opacity-60">
-              <Link to="/products" className="hover:text-brand">
-                Catálogo
-              </Link>{' '}
-              › {product.name} ›{' '}
-              <span className="text-brand">{editingProduct ? 'Editar producto' : 'Ver detalle'}</span>
-            </p>
+            <div className="min-w-0">
+              <Breadcrumb
+                segments={['Productos', product.name, editingProduct ? 'Editar producto' : 'Ver detalle']}
+              />
+            </div>
           ) : (
             <span />
           )}
@@ -680,12 +679,7 @@ export function ProductDetailPage() {
 
         {loadStatus === 'success' && product !== null && (
           <div className="flex flex-col gap-4">
-            {editingProduct && (
-              <div>
-                <h1 className="m-0 text-2xl font-bold">Editar producto</h1>
-                <p className="m-0 mt-1 font-mono text-base italic opacity-40">Próximamente</p>
-              </div>
-            )}
+            {editingProduct && <h1 className="m-0 text-2xl font-bold">{product.name}</h1>}
 
             <DuplicateWarning duplicates={duplicates} />
 
@@ -863,9 +857,14 @@ export function ProductDetailPage() {
                         aria-label="Nueva categoría"
                         className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
                       >
-                        <div className="flex items-start justify-between">
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <Breadcrumb segments={['Productos', 'Nueva categoría']} />
+                            </div>
+                            <CloseButton onClose={cancelCreateCategory} />
+                          </div>
                           <h2 className="m-0 text-2xl font-bold">Nueva categoría</h2>
-                          <CloseButton onClose={cancelCreateCategory} />
                         </div>
 
                         <div className="flex flex-col gap-2">
@@ -930,9 +929,14 @@ export function ProductDetailPage() {
                         aria-label="Nueva unidad"
                         className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
                       >
-                        <div className="flex items-start justify-between">
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <Breadcrumb segments={['Productos', 'Nueva unidad']} />
+                            </div>
+                            <CloseButton onClose={cancelCreateUnit} />
+                          </div>
                           <h2 className="m-0 text-2xl font-bold">Nueva unidad</h2>
-                          <CloseButton onClose={cancelCreateUnit} />
                         </div>
 
                         <div className="grid grid-cols-[1fr_6rem] gap-3">
@@ -1762,14 +1766,19 @@ export function ProductDetailPage() {
             aria-label={`Historial de stock de ${product.name}`}
             className="relative flex max-h-[80vh] w-full max-w-lg flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
           >
-            <div className="flex items-start justify-between">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <Breadcrumb segments={['Productos', product.name, 'Historial de stock']} />
+                </div>
+                <CloseButton onClose={() => setStockHistoryState(null)} />
+              </div>
               <div>
                 <h2 className="m-0 text-2xl font-bold">Historial de stock</h2>
                 <p className="m-0 text-lg opacity-60">
                   {product.name} — {describeVariant(stockHistoryState.variant, valuesById)}
                 </p>
               </div>
-              <CloseButton onClose={() => setStockHistoryState(null)} />
             </div>
 
             {stockHistoryState.status === 'loading' && <p role="status">Cargando…</p>}
@@ -1822,14 +1831,19 @@ export function ProductDetailPage() {
             aria-label={`Historial de precios de ${product?.name ?? ''}`}
             className="relative flex max-h-[80vh] w-full max-w-lg flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
           >
-            <div className="flex items-start justify-between">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <Breadcrumb segments={['Productos', product?.name ?? '', 'Historial de precios']} />
+                </div>
+                <CloseButton onClose={() => setHistoryState(null)} />
+              </div>
               <div>
                 <h2 className="m-0 text-2xl font-bold">Historial de precios</h2>
                 <p className="m-0 text-lg opacity-60">
                   {product?.name} — {describeVariant(historyState.variant, valuesById)}
                 </p>
               </div>
-              <CloseButton onClose={() => setHistoryState(null)} />
             </div>
 
             {historyState.status === 'loading' && <p role="status">Cargando…</p>}
@@ -1899,6 +1913,11 @@ export function ProductDetailPage() {
           }
           confirmLabel={confirmingVariantStatusChange.status === 'active' ? 'Desactivar' : 'Activar'}
           danger={confirmingVariantStatusChange.status === 'active'}
+          breadcrumb={[
+            'Productos',
+            product?.name ?? '',
+            confirmingVariantStatusChange.status === 'active' ? 'Desactivar variante' : 'Activar variante',
+          ]}
           onConfirm={confirmVariantStatusChange}
           onCancel={() => setConfirmingVariantStatusChange(null)}
         />
@@ -1914,6 +1933,11 @@ export function ProductDetailPage() {
           }
           confirmLabel={productDraft.status === 'active' ? 'Activar' : 'Desactivar'}
           danger={productDraft.status !== 'active'}
+          breadcrumb={[
+            'Productos',
+            product.name,
+            productDraft.status === 'active' ? 'Activar producto' : 'Desactivar producto',
+          ]}
           onConfirm={confirmStatusChangeAndSave}
           onCancel={() => setConfirmingStatusChange(false)}
         />
@@ -1924,6 +1948,7 @@ export function ProductDetailPage() {
           title="Guardar cambios"
           description={`Se van a guardar los cambios en "${product.name}" (nombre, categoría, unidad o precio).`}
           confirmLabel="Guardar"
+          breadcrumb={['Productos', product.name, 'Guardar cambios']}
           onConfirm={confirmProductEditAndSave}
           onCancel={() => setConfirmingProductEdit(false)}
         />
@@ -1934,6 +1959,7 @@ export function ProductDetailPage() {
           title="Guardar variante"
           description={`Se van a guardar los cambios en la variante "${variantLabel.trim() === '' ? 'sin nombre' : variantLabel.trim()}".`}
           confirmLabel="Guardar"
+          breadcrumb={['Productos', product?.name ?? '', 'Guardar variante']}
           onConfirm={saveVariantNow}
           onCancel={() => setConfirmingVariantEdit(false)}
         />

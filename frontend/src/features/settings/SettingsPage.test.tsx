@@ -165,7 +165,9 @@ describe('SettingsPage', () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ ...ACCOUNT, name: 'Grace Hopper' }))
 
     await user.click(screen.getByRole('button', { name: 'Editar nombre' }))
-    const dialog = within(screen.getByRole('dialog', { name: 'Editar nombre' }))
+    const nameDialog = screen.getByRole('dialog', { name: 'Cambiar nombre' })
+    expect(nameDialog.querySelector('p.opacity-60')).toHaveTextContent('Configuración › Cambiar nombre')
+    const dialog = within(nameDialog)
     expect(dialog.getByRole('button', { name: 'Guardar' })).toBeDisabled()
 
     await user.clear(dialog.getByLabelText('Nombre'))
@@ -183,7 +185,7 @@ describe('SettingsPage', () => {
     expect(init.method).toBe('PATCH')
     expect(JSON.parse(init.body as string)).toEqual({ name: 'Grace Hopper' })
     expect(await screen.findByText('Nombre cambiado.')).toBeInTheDocument()
-    expect(screen.queryByRole('dialog', { name: 'Editar nombre' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Cambiar nombre' })).not.toBeInTheDocument()
     expect(screen.getByText('Grace Hopper')).toBeInTheDocument()
     expect(screen.getByText('Grace')).toBeInTheDocument()
   })
@@ -195,7 +197,7 @@ describe('SettingsPage', () => {
     const fetchMock = fetch as ReturnType<typeof vi.fn>
 
     await user.click(screen.getByRole('button', { name: 'Editar nombre' }))
-    const dialog = within(screen.getByRole('dialog', { name: 'Editar nombre' }))
+    const dialog = within(screen.getByRole('dialog', { name: 'Cambiar nombre' }))
     await user.clear(dialog.getByLabelText('Nombre'))
     await user.type(dialog.getByLabelText('Nombre'), 'Otra Persona')
     await user.click(dialog.getByRole('button', { name: 'Guardar' }))
@@ -204,7 +206,7 @@ describe('SettingsPage', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('dialog', { name: 'Editar nombre' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Cambiar nombre' })).toBeInTheDocument()
   })
 
   it('does not send the new name when the popup is cancelled', async () => {
@@ -214,13 +216,13 @@ describe('SettingsPage', () => {
     const fetchMock = fetch as ReturnType<typeof vi.fn>
 
     await user.click(screen.getByRole('button', { name: 'Editar nombre' }))
-    const dialog = within(screen.getByRole('dialog', { name: 'Editar nombre' }))
+    const dialog = within(screen.getByRole('dialog', { name: 'Cambiar nombre' }))
     await user.clear(dialog.getByLabelText('Nombre'))
     await user.type(dialog.getByLabelText('Nombre'), 'Otra Persona')
     await user.click(dialog.getByRole('button', { name: 'Cancelar' }))
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(screen.queryByRole('dialog', { name: 'Editar nombre' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Cambiar nombre' })).not.toBeInTheDocument()
     expect(screen.getByText('Ada Lovelace')).toBeInTheDocument()
   })
 
@@ -230,7 +232,7 @@ describe('SettingsPage', () => {
     await waitForPage()
 
     await user.click(screen.getByRole('button', { name: 'Editar nombre' }))
-    const dialog = within(screen.getByRole('dialog', { name: 'Editar nombre' }))
+    const dialog = within(screen.getByRole('dialog', { name: 'Cambiar nombre' }))
     await user.clear(dialog.getByLabelText('Nombre'))
 
     expect(dialog.getByRole('button', { name: 'Guardar' })).toBeDisabled()
@@ -264,6 +266,9 @@ describe('SettingsPage', () => {
     expect(dialog.getByLabelText(/^Contraseña nueva/)).toBeInTheDocument()
     expect(dialog.getByLabelText(/^Repetir contraseña/)).toBeInTheDocument()
     expect(dialog.getByText('Al menos 4 caracteres')).toBeInTheDocument()
+
+    const rawDialog = screen.getByRole('dialog', { name: 'Cambiar contraseña' })
+    expect(rawDialog.querySelector('p.opacity-60')).toHaveTextContent('Configuración › Cambiar contraseña')
   })
 
   it('lets an empleado change their own password in the popup', async () => {

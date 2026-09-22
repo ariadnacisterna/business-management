@@ -300,6 +300,7 @@ export function UnitsPage() {
           title="Crear unidad"
           description={`Se va a crear la unidad "${draft.name.trim()}" (${draft.abbreviation.trim()}).`}
           confirmLabel="Crear"
+          breadcrumb={['Unidades', 'Crear unidad']}
           onConfirm={createUnitNow}
           onCancel={() => setConfirmingCreate(false)}
         />
@@ -310,6 +311,7 @@ export function UnitsPage() {
           title="Guardar unidad"
           description={`"${confirmingEdit.name}" (${confirmingEdit.abbreviation}) va a pasar a ser "${editingDraft.name.trim()}" (${editingDraft.abbreviation.trim()}).`}
           confirmLabel="Guardar"
+          breadcrumb={['Unidades', confirmingEdit.name, 'Guardar unidad']}
           onConfirm={saveEditNow}
           onCancel={() => setConfirmingEdit(null)}
         />

@@ -10,6 +10,7 @@ import {
 import { ApiError } from '../../api/client'
 import type { ManagedAccount } from '../../api/types'
 import { ROLE_BADGE_CLASSES, ROLES, type Role } from '../access/roles'
+import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { FieldRow } from '../../shared/FieldRow'
@@ -156,9 +157,16 @@ function AccountFormModal({
         aria-label={title}
         className="relative flex w-full max-w-md flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
       >
-        <div className="flex items-start justify-between">
-          <h2 className="m-0 text-2xl font-bold">{title}</h2>
-          <CloseButton onClose={onCancel} />
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <Breadcrumb
+                segments={isCreate ? ['Cuentas', 'Nueva cuenta'] : ['Cuentas', initialValues.name, 'Editar cuenta']}
+              />
+            </div>
+            <CloseButton onClose={onCancel} />
+          </div>
+          {!isCreate && <h2 className="m-0 text-2xl font-bold">{initialValues.name}</h2>}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -256,6 +264,7 @@ function AccountFormModal({
                 : `Se van a guardar los datos de "${initialValues.name}" sin cambios.`
           }
           confirmLabel="Guardar"
+          breadcrumb={isCreate ? ['Cuentas', 'Nueva cuenta'] : ['Cuentas', initialValues.name, 'Editar cuenta']}
           onConfirm={confirmSubmit}
           onCancel={() => setConfirming(false)}
         />
@@ -325,9 +334,14 @@ function ResetPasswordModal({
         aria-label="Restablecer contraseña"
         className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
       >
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <Breadcrumb segments={['Cuentas', accountName, 'Restablecer contraseña']} />
+            </div>
+            <CloseButton onClose={onCancel} />
+          </div>
           <h2 className="m-0 text-2xl font-bold">Restablecer contraseña</h2>
-          <CloseButton onClose={onCancel} />
         </div>
         <p className="m-0 text-lg opacity-70">Nueva contraseña para "{accountName}".</p>
 
@@ -652,7 +666,7 @@ export function AccountsPage() {
         if (status !== 'success') return null
         return (
           <>
-            <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen} section="Cuentas">
               {filterControls}
             </FiltersSheet>
             <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
@@ -964,6 +978,11 @@ export function AccountsPage() {
           }
           confirmLabel={confirmingAccount.status === 'active' ? 'Desactivar' : 'Activar'}
           danger={confirmingAccount.status === 'active'}
+          breadcrumb={[
+            'Cuentas',
+            confirmingAccount.name,
+            confirmingAccount.status === 'active' ? 'Desactivar cuenta' : 'Activar cuenta',
+          ]}
           onConfirm={confirmToggleActive}
           onCancel={() => setConfirmingAccount(null)}
         />

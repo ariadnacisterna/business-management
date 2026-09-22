@@ -11,6 +11,7 @@ import {
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Credit, Customer } from '../../api/types'
+import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { FieldRow } from '../../shared/FieldRow'
@@ -128,9 +129,20 @@ function CustomerFormModal({
         aria-label={title}
         className="relative flex max-h-[90vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
       >
-        <div className="flex items-start justify-between">
-          <h2 className="m-0 text-2xl font-bold">{title}</h2>
-          <CloseButton onClose={onCancel} />
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <Breadcrumb
+                segments={
+                  isCreate
+                    ? ['Clientes', 'Nuevo cliente']
+                    : ['Clientes', initialValues.name, 'Editar cliente']
+                }
+              />
+            </div>
+            <CloseButton onClose={onCancel} />
+          </div>
+          {!isCreate && <h2 className="m-0 text-2xl font-bold">{initialValues.name}</h2>}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -191,6 +203,11 @@ function CustomerFormModal({
               : `Se van a guardar los cambios de "${initialValues.name}".`
           }
           confirmLabel="Guardar"
+          breadcrumb={
+            isCreate
+              ? ['Clientes', 'Nuevo cliente']
+              : ['Clientes', initialValues.name, 'Editar cliente']
+          }
           onConfirm={confirmSubmit}
           onCancel={() => setConfirming(false)}
         />
@@ -255,9 +272,14 @@ function CustomerPaymentModal({
         aria-label={`Registrar pago de ${customer.name}`}
         className="relative flex max-h-[90vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <Breadcrumb segments={['Clientes', customer.name, 'Registrar movimiento']} />
+            </div>
+            <CloseButton onClose={onClose} />
+          </div>
           <h2 className="m-0 text-2xl font-bold">{customer.name}</h2>
-          <CloseButton onClose={onClose} />
         </div>
 
         <div className="rounded-xl border border-line bg-surface-brand/40 px-4 py-3">
@@ -309,6 +331,7 @@ function CustomerPaymentModal({
           title={movementType === 'cargo' ? 'Registrar fiado' : 'Registrar pago'}
           description={`Se va a registrar un ${movementType === 'cargo' ? 'fiado' : 'pago'} de $${amount.trim()} para "${customer.name}".`}
           confirmLabel="Registrar"
+          breadcrumb={['Clientes', customer.name, movementType === 'cargo' ? 'Registrar fiado' : 'Registrar pago']}
           onConfirm={confirmSubmit}
           onCancel={() => setConfirming(false)}
         />
@@ -338,14 +361,14 @@ function CustomerHistoryModal({ customer, onClose }: { customer: Customer; onClo
         aria-label={`Historial de ${customer.name}`}
         className="relative grid max-h-[80vh] w-full max-w-lg grid-rows-[auto_1fr] gap-4 overflow-hidden rounded-2xl bg-surface p-6 shadow-2xl"
       >
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="m-0 text-base opacity-60">
-              Clientes › {customer.name} › <span className="text-brand">Historial</span>
-            </p>
-            <h2 className="m-0 text-2xl font-bold">Historial</h2>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <Breadcrumb segments={['Clientes', customer.name, 'Historial']} />
+            </div>
+            <CloseButton onClose={onClose} />
           </div>
-          <CloseButton onClose={onClose} />
+          <h2 className="m-0 text-2xl font-bold">Historial</h2>
         </div>
 
         {status === 'loading' && <p role="status">Cargando…</p>}
@@ -500,6 +523,7 @@ function CustomerBalanceEditor({
           title={movementType === 'cargo' ? 'Registrar fiado' : 'Registrar pago'}
           description={`Se va a registrar un ${movementType === 'cargo' ? 'fiado' : 'pago'} de $${trimmedAmount} para "${customer.name}".`}
           confirmLabel="Actualizar"
+          breadcrumb={['Clientes', customer.name, movementType === 'cargo' ? 'Registrar fiado' : 'Registrar pago']}
           onConfirm={confirmUpdate}
           onCancel={() => setConfirming(false)}
         />
@@ -895,6 +919,11 @@ export function CustomersPage() {
           }
           confirmLabel={confirmingCustomer.status === 'active' ? 'Desactivar' : 'Activar'}
           danger={confirmingCustomer.status === 'active'}
+          breadcrumb={[
+            'Clientes',
+            confirmingCustomer.name,
+            confirmingCustomer.status === 'active' ? 'Desactivar cliente' : 'Activar cliente',
+          ]}
           onConfirm={confirmToggleActive}
           onCancel={() => setConfirmingCustomer(null)}
         />

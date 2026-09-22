@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { Breadcrumb } from './Breadcrumb'
 import { CloseButton } from './CloseButton'
 import { CLOSE_FLOATING_MENUS_EVENT } from './floatingMenuEvents'
 
@@ -7,11 +8,20 @@ interface Props {
   description: string
   confirmLabel: string
   danger?: boolean
+  breadcrumb: string[]
   onConfirm: () => void
   onCancel: () => void
 }
 
-export function ConfirmDialog({ title, description, confirmLabel, danger = false, onConfirm, onCancel }: Props) {
+export function ConfirmDialog({
+  title,
+  description,
+  confirmLabel,
+  danger = false,
+  breadcrumb,
+  onConfirm,
+  onCancel,
+}: Props) {
   useEffect(() => {
     window.dispatchEvent(new Event(CLOSE_FLOATING_MENUS_EVENT))
   }, [])
@@ -25,9 +35,14 @@ export function ConfirmDialog({ title, description, confirmLabel, danger = false
         aria-label={title}
         className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
       >
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <Breadcrumb segments={breadcrumb} />
+            </div>
+            <CloseButton onClose={onCancel} />
+          </div>
           <h2 className="m-0 text-2xl font-bold">{title}</h2>
-          <CloseButton onClose={onCancel} />
         </div>
         <p className="m-0 text-lg opacity-70">{description}</p>
 

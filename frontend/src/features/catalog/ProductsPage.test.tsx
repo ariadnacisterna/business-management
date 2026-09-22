@@ -319,6 +319,17 @@ describe('ProductsPage', () => {
     expect(lastCall).toContain('category_id=2')
   })
 
+  it('shows the breadcrumb for the mobile filters sheet', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    await user.click(screen.getByRole('button', { name: 'Filtros' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Filtros' })
+    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Productos › Filtros')
+  })
+
   it('discards a stale list response that resolves after a newer one', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>

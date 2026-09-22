@@ -266,6 +266,17 @@ describe('PricingPage', () => {
     expect(productCalls.at(-1)?.[0]).toContain('category_id=1')
   })
 
+  it('shows the breadcrumb for the mobile filters sheet', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    await user.click(screen.getByRole('button', { name: 'Filtros' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Filtros' })
+    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Precios › Filtros')
+  })
+
   it('changes the page size and clears the search with the clear-filters button', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
@@ -596,6 +607,7 @@ describe('PricingPage', () => {
     await user.click(screen.getByRole('button', { name: 'Ver historial de precios de Cinta bebé Estándar' }))
 
     const dialog = await screen.findByRole('dialog', { name: 'Historial de precios de Cinta bebé' })
+    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Precios › Cinta bebé › Historial de precios')
     const [newestEntry, oldestEntry] = within(dialog).getAllByRole('listitem')
     expect(within(newestEntry).getByText('$ 150')).toBeInTheDocument()
     expect(within(newestEntry).getByText('$ 100 → $ 150')).toBeInTheDocument()

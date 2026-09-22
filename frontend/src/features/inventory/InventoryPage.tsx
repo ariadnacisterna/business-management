@@ -12,6 +12,7 @@ import {
 } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Category, Shortage, Stock, StockMovement, Unit } from '../../api/types'
+import { Breadcrumb } from '../../shared/Breadcrumb'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { CloseButton } from '../../shared/CloseButton'
 import { FieldRow } from '../../shared/FieldRow'
@@ -88,14 +89,6 @@ function HistoryIcon() {
       <circle cx="12" cy="12" r="9" />
       <polyline points="12 7 12 12 15.5 14" />
     </svg>
-  )
-}
-
-function ModalBreadcrumb({ row, action }: { row: StockRow; action: string }) {
-  return (
-    <p className="m-0 text-base opacity-60">
-      Inventario › {variantLabel(row)} › <span className="text-brand">{action}</span>
-    </p>
   )
 }
 
@@ -499,7 +492,7 @@ function StockTab({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+      <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen} section="Inventario">
         {filterControls}
       </FiltersSheet>
       <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
@@ -753,12 +746,14 @@ function StockTab({
             aria-label={`Ajustar stock de ${variantLabel(adjustingRow)}`}
             className="relative flex w-full max-w-md flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
           >
-            <div className="flex items-start justify-between">
-              <div>
-                <ModalBreadcrumb row={adjustingRow} action="Editar stock actual" />
-                <h2 className="m-0 text-2xl font-bold">Ajustar stock</h2>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <Breadcrumb segments={['Inventario', variantLabel(adjustingRow), 'Editar stock actual']} />
+                </div>
+                <CloseButton onClose={() => setAdjustingRow(null)} />
               </div>
-              <CloseButton onClose={() => setAdjustingRow(null)} />
+              <h2 className="m-0 text-2xl font-bold">Ajustar stock</h2>
             </div>
             <StockRowEditor
               row={adjustingRow}
@@ -779,12 +774,14 @@ function StockTab({
             aria-label={`Editar stock mínimo de ${variantLabel(editingMinimumRow)}`}
             className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
           >
-            <div className="flex items-start justify-between">
-              <div>
-                <ModalBreadcrumb row={editingMinimumRow} action="Editar stock mínimo" />
-                <h2 className="m-0 text-2xl font-bold">Stock mínimo</h2>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <Breadcrumb segments={['Inventario', variantLabel(editingMinimumRow), 'Editar stock mínimo']} />
+                </div>
+                <CloseButton onClose={() => setEditingMinimumRow(null)} />
               </div>
-              <CloseButton onClose={() => setEditingMinimumRow(null)} />
+              <h2 className="m-0 text-2xl font-bold">Stock mínimo</h2>
             </div>
             <MinimumStockEditor
               row={editingMinimumRow}
@@ -802,6 +799,7 @@ function StockTab({
           title="Ajustar stock"
           description={`El stock de "${variantLabel(confirmState.row)}" cambia: ${describeChange('stock', confirmState.row.quantity, confirmState.delta)}.`}
           confirmLabel={confirming ? 'Guardando…' : 'Ajustar'}
+          breadcrumb={['Inventario', variantLabel(confirmState.row), 'Ajustar stock']}
           onConfirm={confirmAdjust}
           onCancel={() => setConfirmState(null)}
         />
@@ -815,12 +813,14 @@ function StockTab({
             aria-label={`Historial de stock de ${variantLabel(historyState.row)}`}
             className="relative grid max-h-[80vh] w-full max-w-lg grid-rows-[auto_1fr] gap-4 overflow-hidden rounded-2xl bg-surface p-6 shadow-2xl"
           >
-            <div className="flex items-start justify-between">
-              <div>
-                <ModalBreadcrumb row={historyState.row} action="Historial de stock" />
-                <h2 className="m-0 text-2xl font-bold">Historial de stock</h2>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <Breadcrumb segments={['Inventario', variantLabel(historyState.row), 'Historial de stock']} />
+                </div>
+                <CloseButton onClose={() => setHistoryState(null)} />
               </div>
-              <CloseButton onClose={() => setHistoryState(null)} />
+              <h2 className="m-0 text-2xl font-bold">Historial de stock</h2>
             </div>
 
             {historyState.status === 'loading' && <p role="status">Cargando…</p>}
@@ -1103,7 +1103,7 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+      <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen} section="Inventario">
         {filterControls}
       </FiltersSheet>
       <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
@@ -1194,6 +1194,7 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
           title={actionState.title}
           description={actionState.description}
           confirmLabel={saving ? 'Guardando…' : 'Confirmar'}
+          breadcrumb={['Inventario', actionState.shortage.product_name, actionState.title]}
           onConfirm={confirmAction}
           onCancel={() => setActionState(null)}
         />

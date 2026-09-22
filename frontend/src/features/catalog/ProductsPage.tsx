@@ -370,7 +370,7 @@ export function ProductsPage() {
           <>
             {total > 0 || hasActiveFilters ? (
               <>
-                <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+                <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen} section="Productos">
                   {filterControls}
                 </FiltersSheet>
                 <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
@@ -691,6 +691,7 @@ export function ProductsPage() {
           title="Marcar como faltante"
           description={`"${confirmingShortage.product.name}" va a figurar como faltante hasta que se marque como recibido.`}
           confirmLabel="Aceptar"
+          breadcrumb={['Productos', confirmingShortage.product.name, 'Marcar como faltante']}
           onConfirm={confirmMarkAsShortage}
           onCancel={() => setConfirmingShortage(null)}
         />
@@ -706,6 +707,11 @@ export function ProductsPage() {
           }
           confirmLabel={confirmingProduct.status === 'active' ? 'Desactivar' : 'Activar'}
           danger={confirmingProduct.status === 'active'}
+          breadcrumb={[
+            'Productos',
+            confirmingProduct.name,
+            confirmingProduct.status === 'active' ? 'Desactivar producto' : 'Activar producto',
+          ]}
           onConfirm={confirmToggleActive}
           onCancel={() => setConfirmingProduct(null)}
         />

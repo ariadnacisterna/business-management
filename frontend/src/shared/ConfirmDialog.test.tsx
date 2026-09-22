@@ -14,10 +14,15 @@ describe('ConfirmDialog', () => {
         title="Título"
         description="Descripción"
         confirmLabel="Aceptar"
+        breadcrumb={['Sección', 'Título']}
         onConfirm={onConfirm}
         onCancel={onCancel}
       />,
     )
+
+    const breadcrumb = screen.getByText('Título', { selector: 'span' })
+    expect(breadcrumb).toHaveClass('text-brand')
+    expect(breadcrumb.parentElement).toHaveTextContent('Sección › Título')
 
     await user.click(screen.getByRole('button', { name: 'Aceptar' }))
     expect(onConfirm).toHaveBeenCalledTimes(1)
@@ -35,6 +40,7 @@ describe('ConfirmDialog', () => {
         title="Título"
         description="Descripción"
         confirmLabel="Aceptar"
+        breadcrumb={['Sección', 'Título']}
         onConfirm={vi.fn()}
         onCancel={onCancel}
       />,

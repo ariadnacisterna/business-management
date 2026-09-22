@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { changeProductPrice, changeVariantPrice, setInitialVariantPrice } from '../../api/catalog'
 import { ApiError } from '../../api/client'
 import type { Price, Product, Variant } from '../../api/types'
+import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { PriceInput } from '../../shared/PriceInput'
 import { AllVariantsPreview, DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
@@ -113,9 +114,14 @@ export function ChangePriceModal({
         onSubmit={handleSubmit}
         className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
       >
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <Breadcrumb segments={['Productos', product.name, 'Cambiar precio']} />
+            </div>
+            <CloseButton onClose={onClose} />
+          </div>
           <h2 className="text-2xl font-bold">Cambiar Precio</h2>
-          <CloseButton onClose={onClose} />
         </div>
 
         <div className="flex flex-col gap-1.5 text-lg">
