@@ -159,6 +159,33 @@ Para cada tarea en estado `Lista para revisión`:
   más capaz para tareas ambiguas o de alto riesgo: transacciones de precio,
   permisos, migraciones.
 
+## Traspaso de madre (2026-10-07)
+
+La conversación madre que llevó el proyecto desde T-056 (auditoría de seguridad
+inicial) hasta T-076 (stock decimal) se volvió muy larga y el rol pasa a una
+conversación nueva, mismo criterio que el traspaso del 2026-09-10. Este
+documento tiene el estado real; no hace falta releer la conversación anterior.
+
+Estado al traspasar: repositorio limpio, en `main`, sin ramas sin mergear.
+Quedan pendientes, en este orden, para cerrar la Etapa 3 (inventario y
+consolidación, D-070) antes de empezar la Etapa 4 (ventas y compras):
+
+1. **T-074** — copia de seguridad semanal automática de la base (D-066).
+2. **T-075** — script local de emergencia para recuperar el acceso (D-067).
+3. **T-077** — auditoría completa de control de acceso (matriz de rol por
+   endpoint) y endurecimiento.
+4. **T-078** — integridad de datos y concurrencia.
+5. **T-079** — segunda auditoría de pantallas de frontend.
+6. **T-080** — pruebas de punta a punta de los flujos críticos. Puede
+   arrancar en paralelo como prueba manual del Responsable, sin esperar a
+   las anteriores.
+7. **T-081** — registro de errores en producción, health check y lista de
+   despliegue.
+
+Decisiones recientes a tener presentes: D-060 (ajustes de stock y precio por
+diferencia, con piso), D-063 (tamaño de letra por cuenta, 5 pasos), D-065
+(stock decimal, ya implementado en T-076), D-070 (reordenamiento de etapas).
+
 ## Registro de tareas
 
 Tabla viva. Cada conversación de tarea agrega o actualiza su propia fila; la
