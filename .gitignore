@@ -18,6 +18,7 @@ secrets/
 *.sqlite3
 *.dump
 *.backup
+*.gpg
 
 # Python (backend)
 __pycache__/

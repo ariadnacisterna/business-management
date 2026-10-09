@@ -1,0 +1,68 @@
+name: Copia de seguridad semanal
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-backup
+  cancel-in-progress: false
+
+env:
+  POSTGRES_CLIENT_VERSION: "17"
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Instalar herramientas
+        run: |
+          set -euo pipefail
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-common gnupg
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -q "postgresql-client-${POSTGRES_CLIENT_VERSION}"
+          echo "/usr/lib/postgresql/${POSTGRES_CLIENT_VERSION}/bin" >> "$GITHUB_PATH"
+          python -m pip install --quiet "httpx>=0.27"
+
+      - name: Volcar y cifrar la base
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+        run: |
+          set -euo pipefail
+          : "${BACKUP_DATABASE_URL:?Falta el secreto BACKUP_DATABASE_URL}"
+          : "${BACKUP_ENCRYPTION_KEY:?Falta el secreto BACKUP_ENCRYPTION_KEY}"
+          pg_dump --version
+          backup_path="${RUNNER_TEMP}/$(python -m scripts.backup.new_backup_name)"
+          pg_dump --format=custom --dbname="$BACKUP_DATABASE_URL" \
+            | gpg --batch --yes --pinentry-mode loopback --symmetric --cipher-algo AES256 \
+                --compress-algo none --passphrase-fd 3 --output "$backup_path" \
+                3< <(printf '%s' "$BACKUP_ENCRYPTION_KEY")
+          gpg --batch --quiet --pinentry-mode loopback --passphrase-fd 3 --decrypt "$backup_path" \
+              3< <(printf '%s' "$BACKUP_ENCRYPTION_KEY") \
+            | pg_restore --list > /dev/null
+          echo "BACKUP_PATH=$backup_path" >> "$GITHUB_ENV"
+
+      - name: Subir a Google Drive y borrar copias de más de 8 semanas
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        run: python -m scripts.backup.upload "$BACKUP_PATH"

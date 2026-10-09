@@ -55,7 +55,7 @@ ya escrito.
 | Sesiones con vencimiento | RNF-015, D-005 | Vencen solas según una política configurable y se pueden cerrar antes a mano. |
 | Acceso acotado por negocio | D-017, RNF-018 | Ninguna consulta expone información de un negocio al que la cuenta activa no tenga acceso. |
 | Migraciones controladas, sin ejecución automática de esquema | Sección "Migraciones con Alembic" en 09 | Evita cambios de estructura no revisados en un entorno con datos reales. |
-| Copia de seguridad antes de datos reales | DP-005 | Pendiente de elegir el servicio; debe incluir cifrado y acceso restringido a esas copias. |
+| Copia de seguridad antes de datos reales | D-066, D-071 | Copia semanal automática desde GitHub Actions, cifrada antes de salir del workflow y guardada en una carpeta privada del Google Drive del Responsable; todos los secretos como secretos de GitHub. Procedimiento y prueba de restauración en [14-despliegue.md](14-despliegue.md#copia-de-seguridad-semanal-t-074-d-066-d-071). |
 
 ## Responsabilidades que no dependen del código
 
