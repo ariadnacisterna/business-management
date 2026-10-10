@@ -1,3 +1,5 @@
+import { useId } from 'react'
+
 interface Props {
   value: string
   onChange: (value: string) => void
@@ -7,6 +9,7 @@ interface Props {
 }
 
 export function SearchInput({ value, onChange, placeholder, ariaLabel, className = '' }: Props) {
+  const inputId = useId()
   return (
     <div className={`relative ${className}`}>
       <svg
@@ -23,6 +26,7 @@ export function SearchInput({ value, onChange, placeholder, ariaLabel, className
         <line x1="21" y1="21" x2="16.65" y2="16.65" />
       </svg>
       <input
+        id={inputId}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}

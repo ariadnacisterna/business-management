@@ -177,6 +177,7 @@ function AccountFormModal({
               Nombre <span className="text-danger">*</span>
             </span>
             <input
+              name="account-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
               onBlur={() => markTouched('name')}
@@ -199,6 +200,7 @@ function AccountFormModal({
               Usuario <span className="text-danger">*</span>
             </span>
             <input
+              name="account-user-name"
               value={userName}
               onChange={(event) => setUserName(event.target.value)}
               onBlur={() => markTouched('userName')}
@@ -224,6 +226,7 @@ function AccountFormModal({
                 Contraseña inicial <span className="text-danger">*</span>
               </span>
               <input
+                name="account-password"
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -363,6 +366,7 @@ function ResetPasswordModal({
               Contraseña nueva <span className="text-danger">*</span>
             </span>
             <input
+              name="account-new-password"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -386,6 +390,7 @@ function ResetPasswordModal({
             Repetir contraseña <span className="text-danger">*</span>
           </span>
           <input
+            name="account-new-password-confirmation"
             type="password"
             value={confirmation}
             onChange={(event) => setConfirmation(event.target.value)}
@@ -773,7 +778,7 @@ export function AccountsPage() {
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-bold text-brand-contrast">
                       {initials(account.name)}
                     </span>
-                    <span className="truncate text-xl font-bold">
+                    <span className="min-w-0 text-xl font-bold [overflow-wrap:anywhere]">
                       <HighlightedText text={account.name} query={searchInput} />
                     </span>
                   </div>
@@ -879,17 +884,17 @@ export function AccountsPage() {
               <tbody>
                 {paginated.map((account) => (
                   <tr key={account.id} className="border-t border-line transition-colors hover:bg-surface-brand/60">
-                    <td className="max-w-xs px-4 py-3.5">
+                    <td className="max-w-xs px-4 py-3.5 [overflow-wrap:anywhere]">
                       <div className="flex items-center gap-3">
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-bold text-brand-contrast">
                           {initials(account.name)}
                         </span>
-                        <span className="text-lg font-semibold">
+                        <span className="min-w-0 text-lg font-semibold">
                           <HighlightedText text={account.name} query={searchInput} />
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 text-lg opacity-70">
+                    <td className="max-w-xs px-4 py-3.5 text-lg opacity-70 [overflow-wrap:anywhere]">
                       <HighlightedText text={account.user_name} query={searchInput} />
                     </td>
                     <td className="px-4 py-3.5">

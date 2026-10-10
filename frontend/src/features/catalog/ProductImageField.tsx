@@ -80,6 +80,7 @@ export function NewProductImagePicker({ file, disabled = false, onChange }: NewP
       </span>
 
       <input
+        name="product-image-new"
         ref={fileInputRef}
         type="file"
         accept={ACCEPTED_TYPES}
@@ -201,6 +202,7 @@ export function StagedProductImageField({
       </span>
 
       <input
+        name="product-image-pending"
         ref={fileInputRef}
         type="file"
         accept={ACCEPTED_TYPES}
@@ -365,6 +367,7 @@ export function ProductImageField({ product, disabled = false, onUpdated }: Prop
       <span className="text-base font-bold uppercase tracking-wide opacity-60">Imagen</span>
 
       <input
+        name="product-image"
         ref={fileInputRef}
         type="file"
         accept={ACCEPTED_TYPES}

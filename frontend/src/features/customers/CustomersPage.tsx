@@ -154,6 +154,7 @@ function CustomerFormModal({
               Nombre <span className="text-danger">*</span>
             </span>
             <input
+              name="customer-name"
               value={values.name}
               onChange={(event) => setValues((prev) => ({ ...prev, name: event.target.value }))}
               onBlur={() => setNameTouched(true)}
@@ -173,6 +174,7 @@ function CustomerFormModal({
         <label className="flex flex-col gap-1.5">
           <span className="text-base font-semibold">Teléfono</span>
           <input
+            name="customer-phone"
             value={values.phone}
             onChange={(event) => setValues((prev) => ({ ...prev, phone: event.target.value }))}
             disabled={saving}
@@ -183,6 +185,7 @@ function CustomerFormModal({
         <label className="flex flex-col gap-1.5">
           <span className="text-base font-semibold">Dirección</span>
           <input
+            name="customer-address"
             value={values.address}
             onChange={(event) => setValues((prev) => ({ ...prev, address: event.target.value }))}
             disabled={saving}
@@ -799,9 +802,9 @@ export function CustomersPage() {
               <tbody>
                 {paginatedCustomers.map((customer) => (
                   <tr key={customer.id} className="border-t border-line">
-                    <td className="px-4 py-3 text-base font-medium">{customer.name}</td>
-                    <td className="px-4 py-3 text-base opacity-70">{customer.phone ?? '—'}</td>
-                    <td className="px-4 py-3 text-base opacity-70">{customer.address ?? '—'}</td>
+                    <td className="max-w-xs px-4 py-3 text-base font-medium [overflow-wrap:anywhere]">{customer.name}</td>
+                    <td className="max-w-xs px-4 py-3 text-base opacity-70 [overflow-wrap:anywhere]">{customer.phone ?? '—'}</td>
+                    <td className="max-w-xs px-4 py-3 text-base opacity-70 [overflow-wrap:anywhere]">{customer.address ?? '—'}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`text-base font-semibold ${Number(balanceFor(customer.id)) > 0 ? 'text-danger' : 'opacity-60'}`}
@@ -837,7 +840,7 @@ export function CustomersPage() {
                     {initials(customer.name)}
                   </span>
                   <div className="min-w-32 flex-1">
-                    <p className="truncate text-xl font-bold leading-tight">{customer.name}</p>
+                    <p className="min-w-0 text-xl font-bold leading-tight [overflow-wrap:anywhere]">{customer.name}</p>
                   </div>
                   <div className="ml-auto flex items-center gap-2">
                     <span

@@ -173,6 +173,7 @@ export function UnitsPage() {
             className={inputClasses}
           />
           <input
+            name="unit-abbreviation"
             aria-label="Abreviatura"
             type="text"
             placeholder="Abreviatura"
@@ -183,6 +184,7 @@ export function UnitsPage() {
           />
           <label className="flex items-center gap-1.5 text-base">
             <input
+              name="unit-allows-fraction"
               type="checkbox"
               checked={draft.allowsFraction}
               onChange={(event) => setDraft((prev) => ({ ...prev, allowsFraction: event.target.checked }))}
@@ -245,6 +247,7 @@ export function UnitsPage() {
                     <td colSpan={canManage ? 6 : 5} className={STACKED_FULL_CELL_CLASSES}>
                       <form onSubmit={handleSaveEdit} className="flex flex-wrap items-center gap-2">
                         <input
+                          name="unit-name-edit"
                           type="text"
                           aria-label="Nombre de la unidad"
                           value={editingDraft.name}
@@ -253,6 +256,7 @@ export function UnitsPage() {
                           className={inputClasses}
                         />
                         <input
+                          name="unit-abbreviation-edit"
                           type="text"
                           aria-label="Abreviatura"
                           value={editingDraft.abbreviation}
@@ -264,6 +268,7 @@ export function UnitsPage() {
                         />
                         <label className="flex items-center gap-1.5 text-base">
                           <input
+                            name="unit-allows-fraction-edit"
                             type="checkbox"
                             checked={editingDraft.allowsFraction}
                             onChange={(event) =>

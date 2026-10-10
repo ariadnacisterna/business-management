@@ -38,6 +38,7 @@ export function PriceInput({
 }: Props) {
   const [showInvalidCharError, setShowInvalidCharError] = useState(false)
   const invalidCharErrorId = useId()
+  const generatedInputId = useId()
   const describedBy = [ariaDescribedBy, showInvalidCharError ? invalidCharErrorId : undefined]
     .filter((value): value is string => value !== undefined)
     .join(' ')
@@ -54,7 +55,7 @@ export function PriceInput({
       <div className="relative">
         <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-lg font-bold opacity-60">$</span>
         <input
-          id={id}
+          id={id ?? generatedInputId}
           value={value}
           placeholder={placeholder}
           onChange={handleChange}

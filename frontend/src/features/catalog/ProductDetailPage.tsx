@@ -718,7 +718,7 @@ export function ProductDetailPage() {
 
         {loadStatus === 'success' && product !== null && (
           <div className="flex flex-col gap-4">
-            {editingProduct && <h1 className="m-0 text-2xl font-bold">{product.name}</h1>}
+            {editingProduct && <h1 className="m-0 text-2xl font-bold [overflow-wrap:anywhere]">{product.name}</h1>}
 
             <DuplicateWarning duplicates={duplicates} />
 
@@ -1022,6 +1022,7 @@ export function ProductDetailPage() {
 
                         <label className="flex items-center gap-2 text-base">
                           <input
+                            name="new-unit-allows-fraction"
                             type="checkbox"
                             checked={newUnit.allows_fraction}
                             onChange={(event) =>
@@ -1131,8 +1132,8 @@ export function ProductDetailPage() {
                       </svg>
                     </div>
                   )}
-                  <div className="flex flex-col gap-1">
-                    <h1 className="m-0 text-2xl font-bold">{product.name}</h1>
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <h1 className="m-0 text-2xl font-bold [overflow-wrap:anywhere]">{product.name}</h1>
                     <div className="flex items-center gap-2 text-base">
                       <span
                         className={`flex items-center gap-1.5 font-semibold ${
@@ -1151,13 +1152,13 @@ export function ProductDetailPage() {
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
                       <p className="m-0 text-base uppercase tracking-wide opacity-60">Categoría</p>
-                      <p className="m-0 font-bold">
+                      <p className="m-0 font-bold [overflow-wrap:anywhere]">
                         {categories.find((category) => category.id === product.category_id)?.name ?? '—'}
                       </p>
                     </div>
                     <div>
                       <p className="m-0 text-base uppercase tracking-wide opacity-60">Unidad</p>
-                      <p className="m-0 font-bold">
+                      <p className="m-0 font-bold [overflow-wrap:anywhere]">
                         {units.find((unit) => unit.id === product.unit_id)?.name ?? '—'}
                       </p>
                     </div>
@@ -1169,7 +1170,7 @@ export function ProductDetailPage() {
                   {canViewProviders && (
                     <div className="border-t border-line pt-4">
                       <p className="m-0 text-base uppercase tracking-wide opacity-60">Proveedor</p>
-                      <p className="m-0 mt-1 font-bold">
+                      <p className="m-0 mt-1 font-bold [overflow-wrap:anywhere]">
                         {providers.find((provider) => provider.id === product.provider_id)?.name ??
                           'Sin proveedor asignado'}
                       </p>
@@ -1355,9 +1356,9 @@ export function ProductDetailPage() {
                       ) : (
                         <div className="flex w-full flex-col gap-3">
                           <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
+                            <div className="flex min-w-0 items-center gap-2">
                               <span
-                                className={`text-lg font-bold ${variant.status !== 'active' ? 'opacity-50 line-through' : ''}`}
+                                className={`min-w-0 text-lg font-bold [overflow-wrap:anywhere] ${variant.status !== 'active' ? 'opacity-50 line-through' : ''}`}
                               >
                                 {describeVariant(variant, valuesById)}
                               </span>
@@ -1579,6 +1580,7 @@ export function ProductDetailPage() {
                           Stock actual <span className="font-normal opacity-70">(opcional)</span>
                         </span>
                         <input
+                          name="new-variant-stock"
                           type="number"
                           min={0}
                           step={unitAllowsFraction(product.unit_id) ? 0.001 : 1}
@@ -1606,6 +1608,7 @@ export function ProductDetailPage() {
                           Stock min. <span className="font-normal opacity-70">(opcional)</span>
                         </span>
                         <input
+                          name="new-variant-minimum"
                           type="number"
                           min={0}
                           step={unitAllowsFraction(product.unit_id) ? 0.001 : 1}

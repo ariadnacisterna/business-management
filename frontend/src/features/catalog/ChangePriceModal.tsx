@@ -205,6 +205,7 @@ export function ChangePriceModal({
             {!applyToAll && (
               <label className="mt-3 flex items-center gap-2 text-lg text-ink/60">
                 <input
+                  name="change-price-whole-price"
                   type="checkbox"
                   checked={wholePrice}
                   onChange={(event) => {
@@ -234,6 +235,7 @@ export function ChangePriceModal({
         {activeVariantCount > 1 && (
           <label className="flex items-center gap-2 text-lg">
             <input
+              name="change-price-apply-to-all"
               type="checkbox"
               checked={applyToAll}
               onChange={(event) => {

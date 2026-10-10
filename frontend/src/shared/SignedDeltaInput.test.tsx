@@ -73,4 +73,13 @@ describe('SignedDeltaInput', () => {
     expect(screen.getByLabelText('Diferencia')).toHaveValue('0.75')
     expect(screen.getByTestId('delta-preview')).toHaveTextContent('Stock: 2.5 → 3.25')
   })
+
+  it('shows the peso sign only for prices, not for stock with decimals', () => {
+    const { container, unmount } = render(<Harness kind="stock" current="2.5" allowDecimals />)
+    expect(container.querySelector('input')?.parentElement).not.toHaveTextContent('$')
+    unmount()
+
+    const price = render(<Harness kind="price" current="1000.00" />)
+    expect(price.container.querySelector('input')?.parentElement).toHaveTextContent('$')
+  })
 })

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { formatPriceExact } from './formatPrice'
 import {
   formatDeltaValue,
@@ -36,6 +36,7 @@ export function SignedDeltaInput({
   allowDecimals = kind === 'price',
 }: InputProps) {
   const [showInvalidCharError, setShowInvalidCharError] = useState(false)
+  const generatedInputId = useId()
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const raw = event.target.value
@@ -51,13 +52,13 @@ export function SignedDeltaInput({
   return (
     <div className="flex w-full flex-col gap-2">
       <div className="relative">
-        {allowDecimals && (
+        {kind === 'price' && allowDecimals && (
           <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-lg font-bold opacity-60">
             $
           </span>
         )}
         <input
-          id={id}
+          id={id ?? generatedInputId}
           type="text"
           inputMode={allowDecimals ? 'decimal' : 'numeric'}
           autoComplete="off"

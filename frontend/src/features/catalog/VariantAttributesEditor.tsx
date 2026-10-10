@@ -226,6 +226,7 @@ export function VariantAttributesEditor({
           {showNewAttributeInput && (
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <input
+                name="new-attribute-name"
                 type="text"
                 aria-label="Nombre del atributo nuevo"
                 placeholder="Nombre del atributo (ej. Talle)"
@@ -256,6 +257,7 @@ export function VariantAttributesEditor({
           {showNewValueInput && (
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <input
+                name="new-attribute-value"
                 type="text"
                 aria-label="Nuevo valor"
                 value={newValueText}

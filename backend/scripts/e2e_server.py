@@ -53,6 +53,12 @@ PRODUCTS = (
     ("Boligrafo azul", "unit", Decimal("450"), Decimal("30")),
     ("Tijera escolar", "unit", Decimal("1500"), Decimal("6")),
     ("Compas metalico", "unit", Decimal("2200"), Decimal("2")),
+    (
+        "PERCAL COLOR: ROJO_ORO_CELESTE_BLANCO_ROSA_VERDE_AZUL (Blanco y oro hay cantidad)",
+        "meter",
+        Decimal("4200"),
+        Decimal("15"),
+    ),
 )
 
 PRODUCTS_WITH_SHORTAGE = ("Compas metalico",)

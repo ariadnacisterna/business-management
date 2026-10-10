@@ -188,6 +188,7 @@ function ProviderFormModal({
               Nombre <span className="text-danger">*</span>
             </span>
             <input
+              name="supplier-name"
               value={values.name}
               onChange={(event) => setValues((prev) => ({ ...prev, name: event.target.value }))}
               onBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
@@ -207,6 +208,7 @@ function ProviderFormModal({
         <label className="flex flex-col gap-1.5">
           <span className="text-base font-semibold">Contacto</span>
           <input
+            name="supplier-contact-name"
             value={values.contact_name}
             onChange={(event) => setValues((prev) => ({ ...prev, contact_name: event.target.value }))}
             disabled={saving}
@@ -218,6 +220,7 @@ function ProviderFormModal({
           <label className="flex flex-col gap-1.5">
             <span className="text-base font-semibold">Email</span>
             <input
+              name="supplier-email"
               type="text"
               inputMode="email"
               value={values.email}
@@ -239,6 +242,7 @@ function ProviderFormModal({
         <label className="flex flex-col gap-1.5">
           <span className="text-base font-semibold">Teléfono</span>
           <input
+            name="supplier-phone"
             value={values.phone}
             onChange={(event) => setValues((prev) => ({ ...prev, phone: event.target.value }))}
             disabled={saving}
@@ -655,13 +659,13 @@ export function SuppliersPage() {
                   <tbody>
                     {paginatedProviders.map((provider) => (
                       <tr key={provider.id} className="border-t border-line">
-                        <td className="px-4 py-3 text-base font-medium">{provider.name}</td>
-                        <td className="px-4 py-3 text-base opacity-70">
+                        <td className="max-w-xs px-4 py-3 text-base font-medium [overflow-wrap:anywhere]">{provider.name}</td>
+                        <td className="max-w-xs px-4 py-3 text-base opacity-70 [overflow-wrap:anywhere]">
                           {provider.contact_name ?? '—'}
                           {provider.email !== null && <div className="text-sm opacity-60">{provider.email}</div>}
                           {provider.phone !== null && <div className="text-sm opacity-60">{provider.phone}</div>}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="max-w-xs px-4 py-3 [overflow-wrap:anywhere]">
                           {provider.category_ids.length > 0 ? (
                             <div className="flex flex-wrap gap-1.5">
                               {provider.category_ids.map((id) => {
@@ -669,7 +673,7 @@ export function SuppliersPage() {
                                 return (
                                   <span
                                     key={id}
-                                    className="rounded-full border border-brand bg-surface-brand px-2.5 py-0.5 text-sm font-semibold text-brand"
+                                    className="max-w-full rounded-full border border-brand bg-surface-brand px-2.5 py-0.5 text-sm font-semibold text-brand [overflow-wrap:anywhere]"
                                   >
                                     {categoryName ?? `#${id}`}
                                   </span>
@@ -713,8 +717,8 @@ export function SuppliersPage() {
                         {initials(provider.name)}
                       </span>
                       <div className="min-w-32 flex-1">
-                        <p className="truncate text-xl font-bold leading-tight">{provider.name}</p>
-                        <p className="m-0 truncate text-lg opacity-60">{provider.contact_name ?? '—'}</p>
+                        <p className="min-w-0 text-xl font-bold leading-tight [overflow-wrap:anywhere]">{provider.name}</p>
+                        <p className="m-0 min-w-0 text-lg opacity-60 [overflow-wrap:anywhere]">{provider.contact_name ?? '—'}</p>
                       </div>
                       <div className="ml-auto flex items-center gap-2">
                         <span
@@ -735,7 +739,7 @@ export function SuppliersPage() {
                           return (
                             <span
                               key={id}
-                              className="rounded-full border border-brand bg-surface-brand px-3 py-1 text-base font-semibold text-brand"
+                              className="max-w-full rounded-full border border-brand bg-surface-brand px-3 py-1 text-base font-semibold text-brand [overflow-wrap:anywhere]"
                             >
                               {categoryName ?? `#${id}`}
                             </span>

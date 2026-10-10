@@ -98,14 +98,14 @@ function productPage(items: typeof PRODUCTS, overrides: Partial<{ total: number;
   return jsonResponse({ items, total: overrides.total ?? items.length, page: overrides.page ?? 1, page_size: overrides.page_size ?? 25 })
 }
 
-function renderPage(account: unknown, initialPath = '/products') {
+function renderPage(account: unknown, initialPath = '/products', products: Product[] = PRODUCTS) {
   const fetchMock = fetch as ReturnType<typeof vi.fn>
   fetchMock
     .mockResolvedValueOnce(jsonResponse(account))
     .mockResolvedValueOnce(jsonResponse(CATEGORIES))
     .mockResolvedValueOnce(jsonResponse(UNITS))
   fetchMock.mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 25 }))
-  fetchMock.mockResolvedValueOnce(productPage(PRODUCTS))
+  fetchMock.mockResolvedValueOnce(productPage(products))
 
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
@@ -488,14 +488,56 @@ describe('ProductsPage', () => {
     expect(fetchMock.mock.calls.length).toBe(callsBeforeCancel)
   })
 
-  it('disables "Marcar como faltante" as a not-yet-available action', async () => {
+  it.each([
+    ['Administrador', ADMIN_ACCOUNT],
+    ['Empleado', EMPLOYEE_ACCOUNT],
+  ])('lets %s mark a single-variant product as a shortage', async (_role, account) => {
     const user = userEvent.setup()
-    renderPage(ADMIN_ACCOUNT)
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(account)
 
     await screen.findByText('Cinta bebé')
     await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[0])
+    const markButton = screen.getByRole('button', { name: /^Marcar como faltante/ })
+    expect(markButton).toBeEnabled()
+    await user.click(markButton)
 
-    expect(screen.getByRole('button', { name: /^Marcar como faltante/ })).toBeDisabled()
+    const dialog = await screen.findByRole('alertdialog', { name: 'Marcar como faltante' })
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 1, variant_id: 10, status: 'faltante' }, 201))
+    await user.click(within(dialog).getByRole('button', { name: 'Aceptar' }))
+
+    expect(await screen.findByText('La variante ahora figura como faltante.')).toBeInTheDocument()
+    const shortageCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/shortages'))
+    expect(shortageCall?.[1]?.method).toBe('POST')
+    expect(JSON.parse(String(shortageCall?.[1]?.body))).toEqual({ variant_id: 10 })
+  })
+
+  it('asks which variant to mark as a shortage when the product has several', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    const productWithVariants: Product = {
+      ...PRODUCTS[1],
+      variants: [
+        PRODUCTS[1].variants[0],
+        { ...PRODUCTS[1].variants[0], id: 12, label: 'Crudo' },
+      ],
+    }
+    renderPage(ADMIN_ACCOUNT, '/products', [PRODUCTS[0], productWithVariants])
+
+    await screen.findByText('Tela de lino')
+    await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[1])
+    await user.click(screen.getByRole('button', { name: /^Marcar como faltante/ }))
+
+    const picker = await screen.findByRole('dialog', { name: 'Elegir variante' })
+    await user.click(within(picker).getByRole('button', { name: 'Crudo' }))
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Marcar como faltante' })
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 2, variant_id: 12, status: 'faltante' }, 201))
+    await user.click(within(dialog).getByRole('button', { name: 'Aceptar' }))
+
+    expect(await screen.findByText('La variante ahora figura como faltante.')).toBeInTheDocument()
+    const shortageCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/shortages'))
+    expect(JSON.parse(String(shortageCall?.[1]?.body))).toEqual({ variant_id: 12 })
   })
 
   it('reflects a product edited from the detail modal in the table, without a full reload', async () => {

@@ -177,6 +177,7 @@ function VariantPriceEditor({
       </div>
       <label className="flex items-center gap-2 text-lg text-ink/60">
         <input
+          name="whole-price"
           type="checkbox"
           checked={wholePrice}
           onChange={(event) => toggleWholePrice(event.target.checked)}
@@ -602,7 +603,7 @@ export function PricingPage() {
                   <Fragment key={product.id}>
                     {showApplyAll && (
                       <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface-brand/40 p-4">
-                        <p className="text-lg font-semibold">
+                        <p className="text-lg font-semibold [overflow-wrap:anywhere]">
                           <HighlightedText text={product.name} query={appliedSearch} />
                           <span className="ml-2 text-base font-normal opacity-60">
                             aplicar a las {activeVariants.length} variantes
@@ -734,7 +735,7 @@ export function PricingPage() {
                       <Fragment key={product.id}>
                         {showApplyAll && (
                           <tr key={`${product.id}-apply-all`} className="border-t border-line bg-surface-brand/40">
-                            <td colSpan={4} className="px-4 py-3 text-lg font-semibold">
+                            <td colSpan={4} className="px-4 py-3 text-lg font-semibold [overflow-wrap:anywhere]">
                               <HighlightedText text={product.name} query={appliedSearch} />
                               <span className="ml-2 text-base font-normal opacity-60">
                                 aplicar a las {activeVariants.length} variantes
@@ -764,11 +765,11 @@ export function PricingPage() {
                               <td className="px-4 py-3.5">
                                 <ProductThumbnail imageUrl={product.image_url} name={product.name} sizeClassName="h-12 w-12" />
                               </td>
-                              <td className="max-w-xs px-4 py-3.5 text-lg font-semibold">
+                              <td className="max-w-xs px-4 py-3.5 text-lg font-semibold [overflow-wrap:anywhere]">
                                 <HighlightedText text={product.name} query={appliedSearch} />
                               </td>
-                              <td className="px-4 py-3.5 text-lg opacity-70">{categoryName(product.category_id)}</td>
-                              <td className="px-4 py-3.5 text-lg opacity-70">{variantLabel(variant)}</td>
+                              <td className="max-w-xs px-4 py-3.5 text-lg opacity-70 [overflow-wrap:anywhere]">{categoryName(product.category_id)}</td>
+                              <td className="max-w-xs px-4 py-3.5 text-lg opacity-70 [overflow-wrap:anywhere]">{variantLabel(variant)}</td>
                               <td className="whitespace-nowrap px-4 py-3.5 text-lg">
                                 {currentPrice !== null ? (
                                   <span className="font-bold text-brand">{formatPrice(currentPrice.amount)}</span>
@@ -791,7 +792,7 @@ export function PricingPage() {
                                 </td>
                               )}
                               {canManage && (
-                                <td className="px-4 py-3.5 text-lg opacity-70">{lastChangeLabel(variant.id)}</td>
+                                <td className="max-w-xs px-4 py-3.5 text-lg opacity-70 [overflow-wrap:anywhere]">{lastChangeLabel(variant.id)}</td>
                               )}
                               <td className="px-4 py-3.5 text-center">
                                 <button
@@ -875,7 +876,7 @@ export function PricingPage() {
               </div>
               <div>
                 <h2 className="m-0 text-2xl font-bold">Historial de precios</h2>
-                <p className="m-0 text-lg opacity-60">
+                <p className="m-0 text-lg opacity-60 [overflow-wrap:anywhere]">
                   {historyState.product.name} — {variantLabel(historyState.variant)}
                 </p>
               </div>

@@ -215,6 +215,7 @@ export function CategoriesPage() {
                     <td colSpan={canManage ? 4 : 3} className={STACKED_FULL_CELL_CLASSES}>
                       <form onSubmit={handleSaveEdit} className="flex flex-wrap items-center gap-2">
                         <input
+                          name="category-name-edit"
                           type="text"
                           aria-label="Nombre de la categoría"
                           value={editingName}

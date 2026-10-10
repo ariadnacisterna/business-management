@@ -562,6 +562,7 @@ export function ProductFormPage() {
                 {creatingCategory && (
                   <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3">
                     <input
+                      name="new-category-name"
                       type="text"
                       aria-label="Nombre de la categoría nueva"
                       placeholder="Nombre de la categoría"
@@ -630,6 +631,7 @@ export function ProductFormPage() {
                 {creatingUnit && (
                   <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3">
                     <input
+                      name="new-unit-name"
                       type="text"
                       aria-label="Nombre de la unidad nueva"
                       placeholder="Nombre (ej. Kilogramo)"
@@ -639,6 +641,7 @@ export function ProductFormPage() {
                       className={inputClasses}
                     />
                     <input
+                      name="new-unit-abbreviation"
                       type="text"
                       aria-label="Abreviatura de la unidad nueva"
                       placeholder="Abreviatura (ej. kg)"
@@ -649,6 +652,7 @@ export function ProductFormPage() {
                     />
                     <label className="flex items-center gap-2 text-base">
                       <input
+                        name="new-unit-allows-fraction"
                         type="checkbox"
                         checked={newUnit.allows_fraction}
                         onChange={(event) =>
@@ -761,6 +765,7 @@ export function ProductFormPage() {
                         Stock actual <span className="font-normal opacity-70">(opcional)</span>
                       </span>
                       <input
+                        name="product-stock"
                         type="number"
                         min={0}
                         step={stockStep}
@@ -783,6 +788,7 @@ export function ProductFormPage() {
                         Stock min. <span className="font-normal opacity-70">(opcional)</span>
                       </span>
                       <input
+                        name="product-minimum"
                         type="number"
                         min={0}
                         step={stockStep}
@@ -854,6 +860,7 @@ export function ProductFormPage() {
                               Stock actual <span className="font-normal opacity-70">(opcional)</span>
                             </span>
                             <input
+                              name={`variant-stock-${draft.key}`}
                               type="number"
                               min={0}
                               step={stockStep}
@@ -882,6 +889,7 @@ export function ProductFormPage() {
                               Stock min. <span className="font-normal opacity-70">(opcional)</span>
                             </span>
                             <input
+                              name={`variant-minimum-${draft.key}`}
                               type="number"
                               min={0}
                               step={stockStep}
@@ -908,6 +916,7 @@ export function ProductFormPage() {
                         </div>
                         <label className="flex min-h-12 items-center gap-3 text-lg">
                           <input
+                            name={`variant-custom-price-${draft.key}`}
                             type="checkbox"
                             checked={variantCustomPrice[draft.key] === true}
                             onChange={(event) =>

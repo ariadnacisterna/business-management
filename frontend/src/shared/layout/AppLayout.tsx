@@ -25,7 +25,7 @@ export function AppLayout() {
       <Sidebar isOpen={sidebarOpen} onNavigate={() => setSidebarOpen(false)} account={account} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="relative flex h-16 items-center gap-4 border-b border-line px-4 md:px-6">
+        <header className="sticky top-0 z-20 flex min-h-16 items-center gap-4 border-b border-line bg-surface px-4 py-2 md:relative md:z-auto md:px-6">
           <button
             type="button"
             onClick={() => setSidebarOpen((open) => !open)}
@@ -52,12 +52,12 @@ export function AppLayout() {
           <HeaderClock />
 
           {activeBusinessName !== undefined && (
-            <p className="absolute left-1/2 hidden -translate-x-1/2 text-2xl font-bold uppercase tracking-wide text-ink sm:block">
+            <p className="m-0 hidden min-w-0 flex-1 text-center text-2xl font-bold uppercase leading-tight tracking-wide text-ink [overflow-wrap:break-word] sm:block">
               {activeBusinessName}
             </p>
           )}
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex shrink-0 items-center gap-3">
             <AccountMenu account={account} onLogout={logout} onSwitchBusiness={switchBusiness} />
           </div>
         </header>

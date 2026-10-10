@@ -155,13 +155,13 @@ export function SelectMenu<T extends string>({
         aria-label={ariaLabel}
         aria-invalid={hasError || undefined}
         aria-describedby={ariaDescribedBy}
-        className={`flex h-12 w-full items-center justify-between gap-2 rounded-lg border bg-surface px-3 text-left text-lg transition-colors focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+        className={`flex min-h-12 w-full items-center justify-between gap-2 rounded-lg border bg-surface px-3 py-2 text-left text-lg transition-colors focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${
           hasError
             ? 'border-danger focus:border-danger focus:ring-danger/10'
             : 'border-line focus:border-brand focus:ring-brand/10'
         }`}
       >
-        <span className="truncate">{selected?.label ?? ''}</span>
+        <span className="min-w-0 [overflow-wrap:anywhere]">{selected?.label ?? ''}</span>
         <svg
           aria-hidden="true"
           viewBox="0 0 24 24"
@@ -214,7 +214,7 @@ export function SelectMenu<T extends string>({
                       triggerRef.current?.focus()
                     }}
                     onKeyDown={(event) => handleOptionKeyDown(event, index)}
-                    className={`w-full px-4 py-2.5 text-left text-lg transition-colors hover:bg-surface-brand focus:bg-surface-brand focus:outline-none ${
+                    className={`w-full px-4 py-2.5 text-left text-lg [overflow-wrap:anywhere] transition-colors hover:bg-surface-brand focus:bg-surface-brand focus:outline-none ${
                       option.value === value ? 'bg-surface-brand font-semibold text-brand' : ''
                     }`}
                   >

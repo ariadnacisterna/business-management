@@ -1437,7 +1437,7 @@ def set_product_provider(
     product_id: int,
     payload: SetProductProviderRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(GERENTE)),
+    _actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
 ) -> ProductResponse:
     try:

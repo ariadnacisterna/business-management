@@ -101,6 +101,7 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
               Contraseña actual <span className="text-danger">*</span>
             </span>
             <input
+              name="current-password"
               type={inputType}
               value={currentPassword}
               onChange={(event) => setCurrentPassword(event.target.value)}
@@ -125,6 +126,7 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
               Contraseña nueva <span className="text-danger">*</span>
             </span>
             <input
+              name="new-password"
               type={inputType}
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
@@ -149,6 +151,7 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
               Repetir contraseña <span className="text-danger">*</span>
             </span>
             <input
+              name="new-password-confirmation"
               type={inputType}
               value={confirmation}
               onChange={(event) => setConfirmation(event.target.value)}

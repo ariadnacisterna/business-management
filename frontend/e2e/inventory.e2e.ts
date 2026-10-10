@@ -80,7 +80,6 @@ test('doble clic en Ajustar registra el ajuste una sola vez', async ({ page }) =
 })
 
 test('el campo de stock en metros no muestra el signo de pesos', async ({ page }) => {
-  test.fail(true, 'Hallazgo H-2 de T-080 (docs/10): el ajuste de stock de una unidad con decimales muestra "$"')
   await searchInventory(page, 'Cinta de raso')
   const field = page.getByRole('textbox', { name: 'Cuánto sumar o restar a Cinta de raso' })
   await expect(field.locator('xpath=..')).not.toContainText('$')
@@ -101,8 +100,9 @@ test('avanzar el estado de un faltante', async ({ page }) => {
 })
 
 test('marcar un producto como faltante desde Productos', async ({ page }) => {
-  test.fail(true, 'Hallazgo H-1 de T-080 (docs/10): "Marcar como faltante" está deshabilitado en Productos y no hay otra pantalla para hacerlo')
   await page.goto('/products')
+  await page.getByRole('textbox', { name: 'Buscar productos', exact: true }).fill('Tijera escolar')
+  await expect(page.getByRole('button', { name: /^Acciones para / })).toHaveCount(1)
   await page.getByRole('button', { name: 'Acciones para Tijera escolar' }).click()
   const markButton = page.getByRole('button', { name: /^Marcar como faltante/ })
   await expect(markButton).toBeEnabled()

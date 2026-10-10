@@ -165,6 +165,7 @@ function MinimumStockEditor({
   return (
     <div className="grid grid-cols-[1fr_auto] gap-2">
       <input
+        name={`minimum-stock-${row.variant_id}`}
         type="number"
         min={0}
         step={allowDecimals ? 0.001 : 1}
@@ -255,6 +256,7 @@ function StockRowEditor({
       </div>
       <label className="flex items-center gap-2 text-lg text-ink/60">
         <input
+          name={`whole-quantity-${row.variant_id}`}
           type="checkbox"
           checked={wholeQuantity}
           onChange={(event) => {
@@ -606,9 +608,9 @@ function StockTab({
                     <td className="px-4 py-3">
                       <ProductThumbnail imageUrl={row.image_url} name={row.product_name} sizeClassName="h-12 w-12" />
                     </td>
-                    <td className="w-64 px-4 py-3 text-lg font-medium">{row.product_name}</td>
-                    <td className="px-4 py-3 text-lg opacity-70">{categoryName(row.category_id)}</td>
-                    <td className="px-4 py-3 text-lg opacity-70">{variantDisplayLabel(row)}</td>
+                    <td className="w-64 max-w-xs px-4 py-3 text-lg font-medium [overflow-wrap:anywhere]">{row.product_name}</td>
+                    <td className="max-w-xs px-4 py-3 text-lg opacity-70 [overflow-wrap:anywhere]">{categoryName(row.category_id)}</td>
+                    <td className="max-w-xs px-4 py-3 text-lg opacity-70 [overflow-wrap:anywhere]">{variantDisplayLabel(row)}</td>
                     <td className="whitespace-nowrap px-4 py-3">
                       <span className="inline-flex items-center gap-1">
                         <span className="inline-flex min-w-[64px] items-baseline gap-1">
@@ -651,7 +653,7 @@ function StockTab({
                       </td>
                     )}
                     {canManage && (
-                      <td className="px-4 py-3 text-lg opacity-70">{lastChangeLabel(row)}</td>
+                      <td className="max-w-xs px-4 py-3 text-lg opacity-70 [overflow-wrap:anywhere]">{lastChangeLabel(row)}</td>
                     )}
                     {canManage && (
                       <td className="px-4 py-3 text-center">

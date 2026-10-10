@@ -118,9 +118,9 @@ export function RowMenu({ title, subtitle, items }: Props) {
               className="fixed z-50 max-h-[calc(100vh-1rem)] w-64 overflow-y-auto rounded-2xl border border-line bg-surface shadow-xl"
             >
               <div className="border-b border-line bg-ink/5 px-4 py-3">
-                <p className="truncate text-base font-semibold">{title}</p>
+                <p className="[overflow-wrap:anywhere] text-base font-semibold">{title}</p>
                 {subtitle !== undefined && (
-                  <p className="mt-0.5 truncate font-mono text-xs uppercase tracking-wide opacity-50">{subtitle}</p>
+                  <p className="mt-0.5 [overflow-wrap:anywhere] font-mono text-xs uppercase tracking-wide opacity-50">{subtitle}</p>
                 )}
               </div>
               <div className="py-1.5">

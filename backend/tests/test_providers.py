@@ -333,7 +333,7 @@ def test_deactivate_and_reactivate_provider(client):
     assert reactivate_response.json()["status"] == "active"
 
 
-def test_gerente_can_set_product_habitual_provider(client):
+def test_admin_can_set_product_habitual_provider(client):
     admin_cookies = _admin_cookies(client)
     category = _create_category(client, admin_cookies)
     unit = _create_unit(client, admin_cookies)
@@ -349,6 +349,24 @@ def test_gerente_can_set_product_habitual_provider(client):
 
     assert response.status_code == 200
     assert response.json()["provider_id"] == provider["id"]
+
+
+def test_gerente_cannot_set_product_habitual_provider(client):
+    admin_cookies = _admin_cookies(client)
+    category = _create_category(client, admin_cookies)
+    unit = _create_unit(client, admin_cookies)
+    product = _create_product(client, admin_cookies, "Producto D", category["id"], unit["id"])
+    provider = _create_provider(client, admin_cookies)
+    gerente_cookies = _gerente_cookies(client, admin_cookies)
+
+    response = client.put(
+        f"/products/{product['id']}/provider",
+        json={"provider_id": provider["id"]},
+        cookies=gerente_cookies,
+        headers=_auth_headers(gerente_cookies),
+    )
+
+    assert response.status_code == 403
 
 
 def test_empleado_cannot_set_product_habitual_provider(client):

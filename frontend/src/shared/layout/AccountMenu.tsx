@@ -81,7 +81,7 @@ export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {
           <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} aria-hidden="true" />
           <div className="absolute right-0 top-full z-30 mt-1.5 w-60 overflow-hidden rounded-xl border border-line bg-surface shadow-xl">
             <div className="border-b border-line px-4 py-3">
-              <p className="text-base font-semibold">{account.name}</p>
+              <p className="text-base font-semibold [overflow-wrap:anywhere]">{account.name}</p>
               {account.role !== null && <p className="mt-0.5 text-sm opacity-60">{account.role}</p>}
             </div>
             {canSwitchBusiness && (
@@ -98,7 +98,7 @@ export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {
                       onClick={() => setPendingBusiness(business)}
                       disabled={isActive || switchingId !== null}
                       aria-current={isActive}
-                      className={`flex min-h-12 w-full items-center px-4 text-base transition-colors disabled:cursor-default ${
+                      className={`flex min-h-12 w-full items-center px-4 text-left text-base [overflow-wrap:anywhere] transition-colors disabled:cursor-default ${
                         isActive ? 'bg-brand/10 font-semibold text-brand' : 'hover:bg-surface-brand'
                       }`}
                     >

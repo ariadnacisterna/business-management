@@ -344,6 +344,7 @@ function AttributesContent() {
                   {editingValueId === value.id ? (
                     <form onSubmit={handleSaveValue} className="flex w-full flex-wrap items-center gap-2">
                       <input
+                        name="attribute-value-edit"
                         type="text"
                         aria-label="Valor"
                         value={editingValue}

@@ -103,7 +103,7 @@ ENDPOINT_ACCESS_MATRIX: dict[tuple[str, str], EndpointAccess] = {
         GERENTE, "docs/02: modificar productos (D-049)"
     ),
     ("PUT", "/products/{product_id}/provider"): EndpointAccess(
-        GERENTE, "docs/02: asignar el proveedor habitual de un producto"
+        ADMINISTRADOR, "D-074: asignar el proveedor habitual de un producto"
     ),
     ("PUT", "/products/{product_id}/price"): EndpointAccess(GERENTE, "docs/02: cambiar precios"),
     ("PATCH", "/variants/{variant_id}"): EndpointAccess(

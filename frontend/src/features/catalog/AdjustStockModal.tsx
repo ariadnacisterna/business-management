@@ -132,6 +132,7 @@ export function AdjustStockModal({
           </div>
           <label className="mt-3 flex items-center gap-2 text-lg text-ink/60">
             <input
+              name="adjust-stock-whole-quantity"
               type="checkbox"
               checked={wholeQuantity}
               onChange={(event) => {

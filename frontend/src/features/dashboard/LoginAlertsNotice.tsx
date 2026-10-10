@@ -11,7 +11,7 @@ function describeTimes(count: number): string {
 
 function AlertItem({ alert }: { alert: LoginAlert }) {
   return (
-    <li className="text-lg">
+    <li className="text-lg [overflow-wrap:anywhere]">
       <span className="font-bold">{alert.name}</span> (usuario <span className="font-semibold">{alert.user_name}</span>):{' '}
       se bloqueó la entrada {describeTimes(alert.blocked_attempts)} por poner mal la contraseña muchas veces seguidas.
       {' '}Última vez: {formatDateTime(alert.last_blocked_at)}.

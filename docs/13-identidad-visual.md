@@ -115,6 +115,26 @@ var(--border)`, `padding: 8px 12px` por celda. En pantallas angostas
 (menos de 640px), preferir una lista de tarjetas en vez de una tabla con
 scroll horizontal forzado — es más legible en un teléfono.
 
+### Textos largos (T-083)
+
+Todo nombre que carga el usuario (producto, variante, categoría, unidad,
+cliente, proveedor, cuenta) se parte dentro de su espacio con
+`[overflow-wrap:anywhere]`, y el contenedor flex que lo rodea lleva
+`min-w-0`; nunca se corta con `truncate` ni se oculta. En una tabla, la
+celda con texto lleva además `max-w-xs`, para que un nombre con una
+palabra muy larga se parta dentro de su columna sin pisar la siguiente.
+Precios, importes y cantidades van con `whitespace-nowrap` para que no
+se partan al medio.
+
+### Barra superior y menú (T-083)
+
+El acceso al menú siempre está a mano. En celular, la barra superior
+(botón del menú, fecha y cuenta) queda fija arriba al hacer scroll
+(`sticky`, `z-20`, con fondo), sin tapar el título de la pantalla; los
+modales, el menú desplegado y los avisos van por encima de ella (`z-40`
+o más). En computadora, el menú lateral queda fijo a la altura de la
+ventana y, si no entra, tiene scroll propio.
+
 ### Formularios e inputs
 
 `border: 1px solid var(--border)`, `border-radius: 6px`, `padding: 10px

@@ -210,7 +210,7 @@ export function ProductsPage() {
   function productRowMenuItems(product: Product) {
     return [
       { label: 'Ver detalle', icon: <EyeIcon />, onClick: () => navigate(`/products/${product.id}`) },
-      { label: 'Marcar como faltante', icon: '⚠', onClick: () => openMarkAsShortage(product), disabled: true },
+      { label: 'Marcar como faltante', icon: '⚠', onClick: () => openMarkAsShortage(product) },
       ...(canManage
         ? [
             {
@@ -471,11 +471,11 @@ export function ProductsPage() {
                     <div className="min-h-20">
                       <Link
                         to={`/products/${product.id}`}
-                        className="text-xl font-bold leading-tight hover:text-brand"
+                        className="text-xl font-bold leading-tight [overflow-wrap:anywhere] hover:text-brand"
                       >
                         <HighlightedText text={product.name} query={appliedSearch} />
                       </Link>
-                      <p className="mt-0.5 text-lg opacity-60">{categoryName(product.category_id)}</p>
+                      <p className="mt-0.5 text-lg opacity-60 [overflow-wrap:anywhere]">{categoryName(product.category_id)}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-3 border-t border-line pt-3 sm:grid-cols-4">
                       <div>
@@ -509,7 +509,7 @@ export function ProductsPage() {
                       </div>
                       <div>
                         <p className="text-sm font-bold uppercase tracking-wide opacity-50">Unidad</p>
-                        <p className="mt-0.5 text-lg font-bold">{unitName(product.unit_id)}</p>
+                        <p className="mt-0.5 text-lg font-bold [overflow-wrap:anywhere]">{unitName(product.unit_id)}</p>
                       </div>
                       <div>
                         <p className="text-sm font-bold uppercase tracking-wide opacity-50">Variantes</p>
@@ -583,16 +583,16 @@ export function ProductsPage() {
                         <ProductThumbnail imageUrl={product.image_url} name={product.name} sizeClassName="h-12 w-12" />
                       </td>
                       <td className="whitespace-nowrap px-4 py-3.5 text-lg italic opacity-40">Próximamente</td>
-                      <td className="max-w-xs px-4 py-3.5">
+                      <td className="max-w-xs px-4 py-3.5 [overflow-wrap:anywhere]">
                         <Link to={`/products/${product.id}`} className="text-lg font-semibold hover:text-brand">
                           <HighlightedText text={product.name} query={appliedSearch} />
                         </Link>
                       </td>
-                      <td className="py-3.5 pl-8 pr-4 text-lg opacity-70">{categoryName(product.category_id)}</td>
+                      <td className="max-w-xs py-3.5 pl-8 pr-4 text-lg opacity-70 [overflow-wrap:anywhere]">{categoryName(product.category_id)}</td>
                       <td className="px-4 py-3.5 text-lg opacity-70">
                         {isUndifferentiated ? '—' : product.variants.length}
                       </td>
-                      <td className="px-4 py-3.5 text-lg opacity-70">{unitName(product.unit_id)}</td>
+                      <td className="max-w-xs px-4 py-3.5 text-lg opacity-70 [overflow-wrap:anywhere]">{unitName(product.unit_id)}</td>
                       <td className="whitespace-nowrap px-4 py-3.5 text-lg">
                         {(() => {
                           const priceInfo = productPriceInfo(product)

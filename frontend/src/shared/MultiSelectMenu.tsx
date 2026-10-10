@@ -158,13 +158,13 @@ export function MultiSelectMenu<T extends string>({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
-        className={`flex h-12 w-full items-center justify-between gap-2 rounded-lg border bg-surface px-3 text-left text-lg transition-colors focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+        className={`flex min-h-12 w-full items-center justify-between gap-2 rounded-lg border bg-surface px-3 py-2 text-left text-lg transition-colors focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${
           hasError
             ? 'border-danger focus:border-danger focus:ring-danger/10'
             : 'border-line focus:border-brand focus:ring-brand/10'
         }`}
       >
-        <span className={`truncate ${selectedLabels.length === 0 ? 'opacity-50' : ''}`}>
+        <span className={`min-w-0 [overflow-wrap:anywhere] ${selectedLabels.length === 0 ? 'opacity-50' : ''}`}>
           {selectedLabels.length > 0 ? selectedLabels.join(', ') : placeholder}
         </span>
         <svg
@@ -234,7 +234,7 @@ export function MultiSelectMenu<T extends string>({
                           </svg>
                         )}
                       </span>
-                      {option.label}
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{option.label}</span>
                     </button>
                   </li>
                 )
