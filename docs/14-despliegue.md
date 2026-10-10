@@ -78,7 +78,7 @@ Se usa tu propia cuenta de Google, con un permiso que solo deja ver y tocar los 
 2. Arriba, en el selector de proyectos, tocá **Proyecto nuevo**, ponele un nombre (por ejemplo "copias-base") y crealo. Asegurate de que quede seleccionado.
 3. Menú → **APIs y servicios** → **Biblioteca**. Buscá **Google Drive API** y tocá **Habilitar**.
 4. Menú → **APIs y servicios** → **Pantalla de consentimiento de OAuth** (puede aparecer como **Google Auth Platform**). Tocá **Comenzar** y completá: nombre de la aplicación (por ejemplo "Copias de la base"), tu correo como correo de asistencia, público **Externo**, y tu correo como contacto. Aceptá y creá.
-5. En **Público** (o **Audience**), tocá **Publicar aplicación** para que quede **En producción**. Es importante: si queda "En prueba", la autorización vence a los 7 días y las copias empiezan a fallar. Con el permiso `drive.file` Google no pide revisar la aplicación.
+5. En **Información de la marca**, en "Dominio de la app", poné la dirección de la aplicación en Render (por ejemplo `https://casa-diaco.onrender.com`) como **Página principal de la aplicación** y también como **Vínculo a la Política de Privacidad**, y guardá: Google no deja publicar sin esos dos datos. Después, en **Público** (o **Audience**), tocá **Publicar app** para que quede **En producción**. Es importante: si queda "En prueba", la autorización vence a los 7 días y las copias empiezan a fallar. Con el permiso `drive.file` Google no pide revisar la aplicación.
 6. En **Clientes**, tocá **Crear cliente**, elegí el tipo **App de escritorio**, ponele un nombre y crealo. Copiá el **ID de cliente** y el **Secreto del cliente** que aparecen (los vas a usar en el paso siguiente y en GitHub).
 7. En tu computadora, abrí una terminal en la carpeta `backend` del proyecto, activá el entorno virtual (`.venv\Scripts\activate`) y escribí:
 
@@ -139,7 +139,8 @@ Después de instalarlos, cerrá y volvé a abrir la terminal.
 
 1. En Google Drive, abrí la carpeta "Copias de seguridad de la base" y descargá la copia que quieras (normalmente la más reciente, según la fecha del nombre). Guardala en Descargas, **no** dentro de la carpeta del proyecto.
 2. Prepará una base **vacía** donde restaurar:
-   - Para una prueba, una base nueva en tu PostgreSQL local. En una terminal: `createdb -U postgres prueba_restauracion` (pide la contraseña de tu PostgreSQL local). Su conexión es `postgresql://postgres:TU_CONTRASEÑA@localhost:5432/prueba_restauracion`.
+   - Tiene que ser PostgreSQL de la **misma versión que Supabase (hoy, 17) o más nueva**: en una más vieja la restauración falla (por ejemplo con `unrecognized configuration parameter "transaction_timeout"`).
+   - Para una prueba, una base descartable con Docker. En una terminal: `docker run -d --name prueba-restauracion -p 55433:5432 -e POSTGRES_PASSWORD=prueba postgres:17`, esperá unos segundos, y su conexión es `postgresql://postgres:prueba@localhost:55433/postgres`.
    - En un desastre real (se perdió la base de Supabase), un proyecto nuevo de Supabase, y su conexión del **Session pooler** como en el paso 2 de la preparación.
 3. Abrí una terminal en la carpeta `backend` del proyecto, activá el entorno virtual (`.venv\Scripts\activate`) y escribí, con la ruta del archivo descargado:
 
@@ -162,13 +163,14 @@ Hay que hacerla **antes de empezar a usar datos reales**, y repetirla después d
 
 1. Lanzá una copia a mano (ver arriba) y esperá la tilde verde.
 2. Descargala de Drive.
-3. Restaurala en una base local vacía `prueba_restauracion`, siguiendo "Restaurar una copia".
+3. Restaurala en una base descartable con Docker (`prueba-restauracion`), siguiendo "Restaurar una copia".
 4. Compará lo que muestra el script con la aplicación: por ejemplo, que la cantidad de filas de `product` coincida con la cantidad de productos, y la de `account` con la cantidad de cuentas. Tiene que aparecer la tabla `alembic_version` con 1 fila.
-5. Borrá la base de prueba: `dropdb -U postgres prueba_restauracion`. Borrá el archivo descargado.
+5. Borrá la base de prueba: `docker rm -f prueba-restauracion`. Borrá el archivo descargado.
 6. Anotá la prueba en la tabla de abajo.
 
 | Fecha | Copia probada | Resultado |
 |---|---|---|
+| 2026-10-09 | `copia-base-2026-10-10-0023.dump.gpg` | Restaurada en PostgreSQL 17 vacío (Docker): 22 tablas, `alembic_version` con 1 fila, 445 productos y 445 variantes. |
 
 ## Pendiente
 
