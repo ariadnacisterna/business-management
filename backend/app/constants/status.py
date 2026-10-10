@@ -24,3 +24,9 @@ class StockStatus(enum.StrEnum):
     SIN_STOCK = "sin_stock"
     STOCK_BAJO = "stock_bajo"
     NORMAL = "normal"
+
+
+class LoginOutcome(enum.StrEnum):
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    BLOCKED = "blocked"

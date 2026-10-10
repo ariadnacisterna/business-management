@@ -1139,10 +1139,9 @@ def upload_product_image(
     business: Business = Depends(get_active_business),
 ) -> ProductResponse:
     content = file.file.read()
-    content_type = file.content_type or ""
 
     try:
-        product = set_product_image(db, business.id, product_id, _actor.id, content, content_type)
+        product = set_product_image(db, business.id, product_id, _actor.id, content)
     except ProductNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
     except (InvalidImageType, ImageTooLarge) as exc:

@@ -14,3 +14,15 @@ PERMISSION_DENIED_DETAIL = "Permiso denegado"
 INVALID_CSRF_DETAIL = "Token CSRF invalido"
 NO_BUSINESS_ACCESS_DETAIL = "La cuenta no tiene acceso a ningun negocio"
 BUSINESS_NOT_ACCESSIBLE_DETAIL = "La cuenta no tiene acceso a ese negocio"
+
+LOGIN_MAX_FAILURES_PER_USER = 5
+LOGIN_MAX_FAILURES_PER_IP = 20
+LOGIN_FAILURE_WINDOW_MINUTES = 15
+LOGIN_ATTEMPT_RETENTION_DAYS = 90
+LOGIN_OUTCOME_MAX_LENGTH = 20
+IP_ADDRESS_MAX_LENGTH = 45
+UNKNOWN_CLIENT_IP = "unknown"
+RENDER_CLIENT_IP_HEADER = "CF-Connecting-IP"
+
+INVALID_CREDENTIALS_DETAIL = "Usuario o contrasena incorrectos"
+LOGIN_LOCKED_DETAIL = "Demasiados intentos fallidos. Espera unos minutos y volve a intentar"

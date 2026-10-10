@@ -232,6 +232,43 @@ En todos los casos de error termina con "No se cambió nada".
 
 Las cuentas no guardan quién hizo cada cambio sobre ellas, así que este uso del script no queda anotado dentro del sistema. Si querés registro, anotá la fecha y el motivo por tu cuenta.
 
+## Endurecimiento de seguridad (T-082, D-072)
+
+### Variables de entorno
+
+| Variable | En Render | En tu computadora (`backend/.env`) | Qué hace |
+|---|---|---|---|
+| `ENABLE_API_DOCS` | `false` (ya está en `render.yaml`) | `true` | Con `true` se abren `/docs`, `/redoc` y `/openapi.json` (la documentación automática de la API). Sin la variable, o con `false`, esas direcciones no existen. En Render tienen que quedar cerradas: le muestran a cualquiera la lista completa de funciones del sistema. |
+| `RENDER` | La pone Render sola (`true`), no hay que cargarla | No va | Con `RENDER=true` la cookie de sesión siempre es `Secure` (solo viaja por HTTPS), aunque `COOKIE_SECURE` quede en `false` por error, y la dirección IP de cada visita se toma del encabezado `CF-Connecting-IP`. |
+| `COOKIE_SECURE` | `true` | `false` si probás la aplicación con `http://localhost` | En tu computadora sin HTTPS, con `true` el navegador no guarda la cookie de sesión. |
+| `CLIENT_IP_HEADER` | No hace falta | No va | Solo si algún día la aplicación se mueve a otro servicio que no sea Render: el nombre del encabezado que pone ese servicio con la IP real de la visita. Nunca poner uno que el navegador pueda mandar por su cuenta, como `X-Forwarded-For`. |
+
+### Límite de intentos en el inicio de sesión
+
+- Tras **5 intentos fallidos seguidos para un mismo usuario** en 15 minutos, ese usuario queda bloqueado. Un inicio de sesión correcto vuelve el conteo a cero.
+- Tras **20 intentos fallidos desde una misma dirección IP** en 15 minutos, esa dirección queda bloqueada para cualquier usuario.
+- El bloqueo dura hasta que el más viejo de esos intentos fallidos cumple 15 minutos; los intentos hechos mientras está bloqueado no lo alargan. Siempre se termina solo: nadie puede dejar afuera al Dueño para siempre, solo hacerlo esperar.
+- La pantalla de inicio de sesión dice, en grande, cuántos minutos esperar. El mensaje es el mismo exista o no el usuario.
+- Cada intento queda guardado en la tabla `login_attempt` (usuario escrito, IP, fecha y hora, y si salió bien, salió mal o estaba bloqueado), para que T-081 pueda avisar de accesos sospechosos. Los intentos de más de 90 días se borran solos.
+- Los números están en `backend/app/constants/access.py` (`LOGIN_MAX_FAILURES_PER_USER`, `LOGIN_MAX_FAILURES_PER_IP`, `LOGIN_FAILURE_WINDOW_MINUTES`, `LOGIN_ATTEMPT_RETENTION_DAYS`).
+- Si alguien queda bloqueado y no puede esperar: un Administrador no puede saltear el bloqueo desde la aplicación. Se puede borrar a mano desde el panel de Supabase (Table Editor → `login_attempt` → borrar las filas `failed` de ese usuario), o esperar los 15 minutos.
+
+### Archivos subidos
+
+- Las imágenes de producto se aceptan solo si su contenido empieza como un JPG, PNG o WEBP de verdad (los primeros bytes del archivo); lo que diga el navegador sobre el tipo no cuenta. Límite: 5 MB.
+- Los archivos de importación `.xlsx` tienen que ser un Excel de verdad, y los `.csv` tienen que ser texto. Límite: 10 MB.
+
+### Qué revisar a mano después del despliegue
+
+1. **Cabeceras**: abrí la aplicación en Chrome o Edge, apretá F12, pestaña **Red** (Network), recargá la página con F5 y tocá la primera fila (el nombre de la página). En **Encabezados de respuesta** tienen que aparecer `strict-transport-security`, `x-content-type-options: nosniff`, `x-frame-options: DENY`, `referrer-policy: same-origin` y `content-security-policy`. Tocá también un archivo `.js` de la lista: tiene que tener las mismas.
+2. **La aplicación no se rompió**: con F12 abierto, en la pestaña **Consola**, recorré inicio de sesión, productos (con alguna foto de producto visible), una importación de prueba y cerrar sesión. No tiene que aparecer ningún error rojo que diga `Content Security Policy` o `Refused to load`. Si aparece, copiá el mensaje completo para una conversación de tarea.
+3. **Fotos de producto**: que se vean las fotos ya cargadas y que se pueda subir una nueva y ver la vista previa.
+4. **Documentación cerrada**: abrí `https://TU-APP.onrender.com/openapi.json`: no tiene que mostrar una lista de funciones (aparece la aplicación o un error "Not Found").
+5. **Límite de intentos**: con un usuario de prueba, poné mal la contraseña 5 veces: al sexto intento tiene que aparecer el aviso grande con los minutos de espera.
+6. **IP real**: en el panel de Supabase → Table Editor → `login_attempt`, en las filas de la prueba anterior, la columna `ip_address` tiene que ser la IP pública de tu conexión (la que aparece si buscás "cuál es mi IP" en Google) y no siempre la misma dirección interna para todos. Si fuera siempre igual para todos, avisá en una conversación de tarea.
+7. **Cookie segura**: F12 → pestaña **Aplicación** (Application) → **Cookies** → la dirección de la aplicación: la cookie `session_id` tiene que tener tildada la columna **Secure** y **HttpOnly**.
+8. **No se puede meter dentro de otra página**: es lo que bloquea `x-frame-options` del punto 1; alcanza con verlo ahí.
+
 ## Pendiente
 
 - Dominio propio: por ahora se usa el subdominio gratuito de Render. Migrar a un dominio propio más adelante no requiere cambios de código, solo configurar el dominio en Render.

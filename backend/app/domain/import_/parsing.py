@@ -1,17 +1,22 @@
 import csv
 import io
+import zipfile
 from dataclasses import dataclass
 
 from openpyxl import load_workbook
+from openpyxl.utils.exceptions import InvalidFileException
+from openpyxl.workbook.workbook import Workbook
 
 from app.constants.import_ import (
     ALL_COLUMNS,
     CSV_EXTENSION,
     EXCEL_EXTENSION,
+    EXCEL_FILE_SIGNATURE,
     FIRST_DATA_ROW_NUMBER,
     MAX_DATA_ROWS,
     MAX_FILE_SIZE_BYTES,
     REQUIRED_COLUMNS,
+    TEXT_FILE_FORBIDDEN_BYTE,
 )
 from app.domain.import_.errors import (
     EmptyFile,
@@ -44,6 +49,11 @@ def _decode_csv(content: bytes) -> str:
 
 
 def _parse_csv(content: bytes) -> tuple[list[dict[str, str | None]], list[str]]:
+    if content.startswith(EXCEL_FILE_SIGNATURE) or TEXT_FILE_FORBIDDEN_BYTE in content:
+        raise UnsupportedFileType(
+            "El archivo no es un CSV de texto. Volve a guardarlo como 'CSV UTF-8' "
+            "desde la planilla de calculo."
+        )
     text = _decode_csv(content)
     reader = csv.DictReader(io.StringIO(text))
     return list(reader), list(reader.fieldnames or [])
@@ -57,8 +67,21 @@ def _cell_to_text(value: object) -> str:
     return str(value)
 
 
+def _open_workbook(content: bytes) -> Workbook:
+    unreadable_excel = UnsupportedFileType(
+        "El archivo no es un Excel (.xlsx) valido. Abrilo en la planilla de calculo y "
+        "volve a guardarlo como 'Libro de Excel (.xlsx)'."
+    )
+    if not content.startswith(EXCEL_FILE_SIGNATURE):
+        raise unreadable_excel
+    try:
+        return load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    except (zipfile.BadZipFile, InvalidFileException, KeyError, ValueError, OSError) as exc:
+        raise unreadable_excel from exc
+
+
 def _parse_excel(content: bytes) -> tuple[list[dict[str, str | None]], list[str]]:
-    workbook = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    workbook = _open_workbook(content)
     sheet = workbook.worksheets[0]
     rows_iter = sheet.iter_rows(values_only=True)
 

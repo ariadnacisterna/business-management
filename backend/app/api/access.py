@@ -1,14 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.constants.access import (
     BUSINESS_NOT_ACCESSIBLE_DETAIL,
     CSRF_COOKIE_NAME,
+    INVALID_CREDENTIALS_DETAIL,
+    LOGIN_LOCKED_DETAIL,
     NO_BUSINESS_ACCESS_DETAIL,
     SESSION_COOKIE_NAME,
 )
 from app.constants.roles import ADMINISTRADOR, DUENO
+from app.core.client_ip import get_client_ip
 from app.core.config import get_settings
 from app.db.models import Account, AccountSession, Business
 from app.db.session import get_db
@@ -30,6 +33,7 @@ from app.domain.access.errors import (
     InvalidPassword,
     InvalidRole,
     InvalidUsername,
+    LoginLocked,
     NoBusinessAccess,
     PasswordUnchanged,
     SelfActionForbidden,
@@ -50,6 +54,11 @@ router = APIRouter()
 class LoginRequest(BaseModel):
     user_name: str
     password: str
+
+
+class LoginLockedDetail(BaseModel):
+    message: str
+    retry_after_seconds: int
 
 
 class BusinessSummary(BaseModel):
@@ -162,7 +171,7 @@ def _set_session_cookies(response: Response, issued_session: IssuedSession) -> N
         key=SESSION_COOKIE_NAME,
         value=issued_session.session_token,
         httponly=True,
-        secure=settings.cookie_secure,
+        secure=settings.session_cookie_secure,
         samesite="lax",
         max_age=max_age,
         path="/",
@@ -171,7 +180,7 @@ def _set_session_cookies(response: Response, issued_session: IssuedSession) -> N
         key=CSRF_COOKIE_NAME,
         value=issued_session.csrf_token,
         httponly=False,
-        secure=settings.cookie_secure,
+        secure=settings.session_cookie_secure,
         samesite="lax",
         max_age=max_age,
         path="/",
@@ -185,14 +194,22 @@ def _clear_session_cookies(response: Response) -> None:
 
 @router.post("/auth/login", response_model=SessionInfoResponse)
 def login(
-    payload: LoginRequest, response: Response, db: Session = Depends(get_db)
+    payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)
 ) -> SessionInfoResponse:
     try:
-        account, issued_session = auth.login(db, payload.user_name, payload.password)
-    except (InvalidCredentials, InactiveAccount) as exc:
+        account, issued_session = auth.login(
+            db, payload.user_name, payload.password, get_client_ip(request)
+        )
+    except LoginLocked as exc:
         raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED, "Usuario o contrasena incorrectos"
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            LoginLockedDetail(
+                message=LOGIN_LOCKED_DETAIL, retry_after_seconds=exc.retry_after_seconds
+            ).model_dump(),
+            headers={"Retry-After": str(exc.retry_after_seconds)},
         ) from exc
+    except (InvalidCredentials, InactiveAccount) as exc:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, INVALID_CREDENTIALS_DETAIL) from exc
 
     try:
         business = resolve_active_business(

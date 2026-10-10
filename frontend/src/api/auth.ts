@@ -1,7 +1,26 @@
 import { ApiError, apiFetch } from './client'
 import type { Account } from './types'
 
+const DEFAULT_LOCK_SECONDS = 15 * 60
+
 export class InvalidCredentialsError extends Error {}
+
+export class LoginLockedError extends Error {
+  readonly retryAfterSeconds: number
+
+  constructor(retryAfterSeconds: number) {
+    super('Login locked')
+    this.retryAfterSeconds = retryAfterSeconds
+  }
+}
+
+function readRetryAfterSeconds(detail: unknown): number | null {
+  if (detail !== null && typeof detail === 'object' && 'retry_after_seconds' in detail) {
+    const value = (detail as { retry_after_seconds: unknown }).retry_after_seconds
+    if (typeof value === 'number' && value > 0) return value
+  }
+  return null
+}
 
 interface LoginPayload {
   user_name: string
@@ -17,6 +36,9 @@ export async function login(userName: string, password: string): Promise<Account
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       throw new InvalidCredentialsError()
+    }
+    if (error instanceof ApiError && error.status === 429) {
+      throw new LoginLockedError(readRetryAfterSeconds(error.body) ?? DEFAULT_LOCK_SECONDS)
     }
     throw error
   }

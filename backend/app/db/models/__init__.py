@@ -8,6 +8,7 @@ from app.db.models.category import Category
 from app.db.models.credit import Credit
 from app.db.models.customer import Customer
 from app.db.models.import_run import ImportRun
+from app.db.models.login_attempt import LoginAttempt
 from app.db.models.organization import Organization
 from app.db.models.price import Price
 from app.db.models.product import Product
@@ -31,6 +32,7 @@ __all__ = [
     "Credit",
     "Customer",
     "ImportRun",
+    "LoginAttempt",
     "Organization",
     "Price",
     "Product",

@@ -26,6 +26,8 @@ services:
         value: Despensa
       - key: COOKIE_SECURE
         value: "true"
+      - key: ENABLE_API_DOCS
+        value: "false"
       - key: SESSION_TTL_MINUTES
         value: "300"
       - key: SUPABASE_URL

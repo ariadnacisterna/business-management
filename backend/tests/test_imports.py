@@ -529,3 +529,28 @@ def test_excel_file_is_accepted_and_imported(client):
     assert confirm.status_code == 201, confirm.text
     products = client.get("/products", cookies=admin_cookies).json()["items"]
     assert {p["name"] for p in products} == {"Tornillo", "Tuerca"}
+
+
+def test_xlsx_file_whose_content_is_not_excel_is_rejected(client):
+    admin_cookies = _admin_cookies(client)
+    csv_content = (BASIC_HEADER + "Cintas,Cinta,Metro,,,150.50\n").encode("utf-8")
+
+    for content in (csv_content, b"%PDF-1.7", b"PK\x03\x04archivo-roto"):
+        response = _preview(
+            client,
+            admin_cookies,
+            {"file": ("catalogo.xlsx", content, "application/vnd.ms-excel")},
+        )
+        assert response.status_code == 422, response.text
+        assert "Excel" in response.json()["detail"]
+
+
+def test_csv_file_whose_content_is_binary_is_rejected(client):
+    admin_cookies = _admin_cookies(client)
+    excel_content = _xlsx_file([["category", "product_name", "unit", "price"]])["file"][1]
+    text_with_null = (BASIC_HEADER + "Cintas,Cinta\x00,Metro,,,150.50\n").encode("utf-8")
+
+    for content in (excel_content, text_with_null):
+        response = _preview(client, admin_cookies, {"file": ("catalogo.csv", content, "text/csv")})
+        assert response.status_code == 422, response.text
+        assert "CSV" in response.json()["detail"]

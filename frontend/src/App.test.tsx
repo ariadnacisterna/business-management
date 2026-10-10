@@ -120,6 +120,29 @@ describe('App', () => {
     )
   })
 
+  it('tells how long to wait when the login is locked after many failed attempts', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ detail: 'Sesion invalida' }, 401))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          { detail: { message: 'Demasiados intentos fallidos', retry_after_seconds: 530 } },
+          429,
+        ),
+      )
+
+    renderApp()
+
+    await screen.findByRole('heading', { name: 'Iniciar sesión' })
+    await user.type(screen.getByLabelText('Usuario'), 'ada')
+    await user.type(screen.getByLabelText('Contraseña'), 'secreta')
+    await user.click(screen.getByRole('button', { name: 'Iniciar Sesión' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Ingreso bloqueado por seguridad')
+    expect(alert).toHaveTextContent('Esperá 9 minutos y volvé a intentar.')
+  })
+
   it('shows a full-screen business selector for a dueño with more than one business', async () => {
     const user = userEvent.setup()
     fetchMock

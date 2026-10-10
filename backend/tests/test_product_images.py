@@ -89,7 +89,12 @@ def _mock_httpx(monkeypatch, put_status=200, delete_status=200):
     return calls
 
 
-def _image_file(content=b"fake-image-bytes", content_type="image/png", filename="photo.png"):
+PNG_CONTENT = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+JPEG_CONTENT = b"\xff\xd8\xff\xe0" + b"\x00" * 32
+WEBP_CONTENT = b"RIFF$\x00\x00\x00WEBPVP8 " + b"\x00" * 32
+
+
+def _image_file(content=PNG_CONTENT, content_type="image/png", filename="photo.png"):
     return {"file": (filename, content, content_type)}
 
 
@@ -116,16 +121,58 @@ def test_reject_invalid_file_type(client, monkeypatch):
     admin_cookies = _admin_cookies(client)
     product = _setup_product(client, admin_cookies)
     _configure_supabase(monkeypatch)
-    _mock_httpx(monkeypatch)
+    calls = _mock_httpx(monkeypatch)
 
     response = client.post(
         f"/products/{product['id']}/image",
-        files=_image_file(content_type="application/pdf", filename="doc.pdf"),
+        files=_image_file(content=b"%PDF-1.7", content_type="application/pdf", filename="d.pdf"),
         cookies=admin_cookies,
         headers=_auth_headers(admin_cookies),
     )
 
     assert response.status_code == 422, response.text
+    assert calls["put"] == []
+
+
+def test_reject_a_file_that_only_claims_to_be_an_image(client, monkeypatch):
+    admin_cookies = _admin_cookies(client)
+    product = _setup_product(client, admin_cookies)
+    _configure_supabase(monkeypatch)
+    calls = _mock_httpx(monkeypatch)
+
+    for disguised_content in (b"<script>alert(1)</script>", b"<svg onload=alert(1)>", b"MZ\x90"):
+        response = client.post(
+            f"/products/{product['id']}/image",
+            files=_image_file(content=disguised_content, content_type="image/png"),
+            cookies=admin_cookies,
+            headers=_auth_headers(admin_cookies),
+        )
+        assert response.status_code == 422, response.text
+
+    assert calls["put"] == []
+
+
+def test_image_type_comes_from_the_content_not_from_the_browser(client, monkeypatch):
+    admin_cookies = _admin_cookies(client)
+    product = _setup_product(client, admin_cookies)
+    _configure_supabase(monkeypatch)
+    calls = _mock_httpx(monkeypatch)
+
+    for content, extension, content_type in (
+        (JPEG_CONTENT, "jpg", "image/jpeg"),
+        (WEBP_CONTENT, "webp", "image/webp"),
+        (PNG_CONTENT, "png", "image/png"),
+    ):
+        response = client.post(
+            f"/products/{product['id']}/image",
+            files=_image_file(content=content, content_type="application/octet-stream"),
+            cookies=admin_cookies,
+            headers=_auth_headers(admin_cookies),
+        )
+        assert response.status_code == 200, response.text
+        url, _, headers = calls["put"][-1]
+        assert url.endswith(f"/products/{product['id']}.{extension}")
+        assert headers["Content-Type"] == content_type
 
 
 def test_reject_file_too_large(client, monkeypatch):
@@ -134,7 +181,7 @@ def test_reject_file_too_large(client, monkeypatch):
     _configure_supabase(monkeypatch)
     _mock_httpx(monkeypatch)
 
-    oversized_content = b"0" * (5 * 1024 * 1024 + 1)
+    oversized_content = PNG_CONTENT + b"0" * (5 * 1024 * 1024)
     response = client.post(
         f"/products/{product['id']}/image",
         files=_image_file(content=oversized_content),
