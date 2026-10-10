@@ -354,6 +354,51 @@ Render guarda los logs por un tiempo limitado, así que conviene buscar el error
 - Un Administrador ve solo las cuentas del negocio con el que está trabajando; el Dueño, las de todos sus negocios. Los nombres escritos que no son de ninguna cuenta no aparecen en el aviso (sí en la tabla `login_attempt` y en los logs).
 - Los datos salen de `GET /accounts/login-alerts` (solo lectura, rol mínimo Administrador). Las 24 horas están en `SUSPICIOUS_LOGIN_LOOKBACK_HOURS` (`backend/app/constants/access.py`).
 
+## Pruebas de punta a punta (T-080)
+
+### Qué cubren
+
+Un programa (Playwright) abre un navegador Chromium invisible y usa la aplicación como lo haría una persona, contra el sistema real: el servidor de verdad, la aplicación ya construida y una base PostgreSQL propia de las pruebas. Recorre:
+
+- Inicio y cierre de sesión con cada rol (Empleado, Gerente, Administrador y Dueño, que además elige el negocio), y usuario o contraseña incorrectos.
+- Alta de un producto con una variante, precio inicial y stock inicial.
+- Ajuste de stock por diferencia, el rechazo de dejarlo negativo, decimales en una unidad que los admite (metros) y su rechazo en una que no.
+- Cambio de precio por diferencia y el rechazo de dejarlo en cero.
+- Clientes: alta (Gerente), fiado y pago (Empleado) con el saldo correcto.
+- Faltantes: avanzar el estado de Faltante a Pedido y a Recibido, y marcar un producto como faltante.
+- Permisos: lo que un Empleado no ve ni puede hacer (Panel, Cuentas, Proveedores, ajustar stock, cambiar precios, crear productos o clientes), y el selector de negocio solo para el Dueño.
+- Que un doble clic al guardar un ajuste de stock o un fiado lo registre una sola vez.
+- Celular con letra Enorme: inicio de sesión y las listas de Productos, Clientes e Inventario sin correrse de costado, y el menú.
+
+Las pruebas usan datos inventados y una base aparte, `abuela_e2e`, en el mismo PostgreSQL de Docker de tu computadora. Esa base se borra y se vuelve a armar en cada corrida. El programa se niega a arrancar si la base no está en tu computadora o si su nombre no termina en `_e2e`: nunca toca producción ni tu base de desarrollo.
+
+### Antes de la primera vez (una sola vez)
+
+1. Tienen que estar instalados el entorno virtual del backend (`backend\.venv`) y las dependencias del frontend (`npm install` en `frontend`), como para trabajar en el proyecto.
+2. Abrí una terminal en la carpeta `frontend` y escribí:
+
+   ```
+   npx playwright install chromium
+   ```
+
+   Descarga el navegador que usan las pruebas (unos 120 MB). Si alguna vez una actualización de dependencias cambia la versión de Playwright, al correr las pruebas aparece un aviso que pide repetir este paso.
+
+### Cómo correrlas
+
+1. Abrí Docker Desktop y fijate que el contenedor `abuela-dev-postgres` esté prendido (el mismo que usás para desarrollar).
+2. Cerrá cualquier servidor de la aplicación que tengas abierto en el puerto 8010 (el de desarrollo usa el 8000 y no molesta).
+3. Abrí una terminal en la carpeta `frontend`, con el proyecto en la rama que vas a desplegar, y escribí:
+
+   ```
+   npm run e2e
+   ```
+
+4. Esperá unos dos minutos. Primero construye la aplicación, después arma la base y levanta el servidor solo, y al final muestra una línea por prueba.
+5. Tiene que terminar con `passed` y ningún `failed`. Las pruebas marcadas con `x` en vez de `ok` son **errores ya conocidos** de la aplicación, anotados en `docs/10-flujo-de-trabajo.md` (fila de T-080); no frenan el despliegue. Cuando alguien corrija uno de esos errores, esa prueba pasa a fallar a propósito con el aviso "Expected to fail, but passed" para que se le quite la marca.
+6. Si alguna dice `failed`, no despliegues. Copiá el texto de esa prueba y pasalo a una conversación de tarea. El detalle (una foto de la pantalla y un registro paso a paso) queda en la carpeta `frontend\e2e-results`; también se puede ver con `npx playwright show-report e2e-report`.
+
+Al terminar, el servidor de las pruebas se cierra solo. La base `abuela_e2e` queda guardada en Docker sin uso hasta la próxima corrida, que la vuelve a armar.
+
 ## Lista antes de cada despliegue
 
 Seguila en orden cada vez que se vaya a subir una versión nueva a Render. Si un paso sale mal, **no sigas**: pasá lo que viste a una conversación de tarea.
@@ -392,11 +437,15 @@ Corré `python -m scripts.check_integrity` contra producción (ver "Verificació
 - Backend: en `backend`, con el entorno virtual activado, `pip-audit`. Tiene que decir "No known vulnerabilities found".
 - Frontend: en `frontend`, `npm audit`. Tiene que decir "found 0 vulnerabilities".
 
-### 6. Desplegar
+### 6. Correr las pruebas de punta a punta
+
+Con el proyecto en la rama que vas a desplegar, corré `npm run e2e` (ver "Pruebas de punta a punta"). No tiene que aparecer ningún `failed`.
+
+### 7. Desplegar
 
 Integrá la rama en `main` y subila a GitHub. Render construye y despliega solo; en el servicio, pestaña **Events**, se ve el despliegue en curso. Tarda unos minutos. Al arrancar, el servidor corre las migraciones nuevas.
 
-### 7. Revisar que quedó bien
+### 8. Revisar que quedó bien
 
 1. En **Events**, el despliegue tiene que terminar como **Live** (en línea). Si dice **Failed**, Render sigue con la versión anterior: ver "Si algo sale mal".
 2. Abrí `https://TU-APP.onrender.com/health`: tiene que decir `{"status":"ok"}`.
