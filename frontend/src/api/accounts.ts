@@ -1,8 +1,12 @@
 import { apiFetch } from './client'
-import type { ManagedAccount } from './types'
+import type { LoginAlert, ManagedAccount } from './types'
 
 export function fetchAccounts(): Promise<ManagedAccount[]> {
   return apiFetch<ManagedAccount[]>('/accounts')
+}
+
+export function fetchLoginAlerts(): Promise<LoginAlert[]> {
+  return apiFetch<LoginAlert[]>('/accounts/login-alerts')
 }
 
 export function createAccount(input: {

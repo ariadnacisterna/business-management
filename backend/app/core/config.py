@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     database_url: str
     db_pool_size: int = 5
     db_max_overflow: int = 10
+    db_connect_timeout_seconds: int = 10
 
     initial_organization_name: str = "Organizacion principal"
     initial_business_name: str = "Negocio principal"

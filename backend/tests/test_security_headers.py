@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from app.constants.security_headers import UNEXPECTED_ERROR_DETAIL
 from app.core.client_ip import get_client_ip
 from app.core.config import get_settings
+from app.db.session import get_db
 from app.main import create_app
 
 STORAGE_URL = "https://proyecto.supabase.co"
@@ -32,6 +33,17 @@ def settings(monkeypatch):
     return current
 
 
+class AnsweringDatabase:
+    def execute(self, *_args, **_kwargs) -> None:
+        return None
+
+
+def _app_without_database(static_dir):
+    application = create_app(static_dir)
+    application.dependency_overrides[get_db] = AnsweringDatabase
+    return application
+
+
 def _assert_security_headers(response):
     assert response.headers["strict-transport-security"].startswith("max-age=")
     assert response.headers["x-content-type-options"] == "nosniff"
@@ -49,7 +61,7 @@ def _assert_security_headers(response):
 
 
 def test_api_responses_carry_the_security_headers(settings, static_dir):
-    client = TestClient(create_app(static_dir))
+    client = TestClient(_app_without_database(static_dir))
 
     _assert_security_headers(client.get("/health"))
 
@@ -80,7 +92,7 @@ def test_image_policy_has_no_storage_origin_when_storage_is_not_configured(
     settings, static_dir, monkeypatch
 ):
     monkeypatch.setattr(settings, "supabase_url", None)
-    client = TestClient(create_app(static_dir))
+    client = TestClient(_app_without_database(static_dir))
 
     policy = client.get("/health").headers["content-security-policy"]
 
@@ -119,7 +131,7 @@ def test_unexpected_errors_do_not_reveal_internal_details(settings, tmp_path):
     response = client.get("/falla-interna", headers={"Accept": "application/json"})
 
     assert response.status_code == 500
-    assert response.json() == {"detail": UNEXPECTED_ERROR_DETAIL}
+    assert response.json()["detail"].startswith(UNEXPECTED_ERROR_DETAIL)
     assert "SELECT" not in response.text
     assert "secreto.py" not in response.text
     assert "Traceback" not in response.text

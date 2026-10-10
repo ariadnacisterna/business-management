@@ -1,4 +1,7 @@
 import contextlib
+import io
+import json
+import logging
 import os
 import uuid
 from collections.abc import Generator
@@ -13,8 +16,10 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, sessionmaker
 
 from alembic import command
+from app.constants.observability import APP_LOGGER_NAME
 from app.constants.submission import SUBMISSION_KEY_HEADER_NAME
 from app.core.config import get_settings
+from app.core.structured_logging import JsonLogFormatter
 from app.db.session import get_db
 from app.main import app
 
@@ -137,3 +142,29 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
         yield TestClient(app)
     finally:
         app.dependency_overrides.clear()
+
+
+class CapturedLogs:
+    def __init__(self) -> None:
+        self.stream = io.StringIO()
+
+    @property
+    def text(self) -> str:
+        return self.stream.getvalue()
+
+    @property
+    def entries(self) -> list[dict]:
+        return [json.loads(line) for line in self.text.splitlines() if line]
+
+
+@pytest.fixture
+def captured_logs() -> Generator[CapturedLogs, None, None]:
+    captured = CapturedLogs()
+    handler = logging.StreamHandler(captured.stream)
+    handler.setFormatter(JsonLogFormatter())
+    logger = logging.getLogger(APP_LOGGER_NAME)
+    logger.addHandler(handler)
+    try:
+        yield captured
+    finally:
+        logger.removeHandler(handler)

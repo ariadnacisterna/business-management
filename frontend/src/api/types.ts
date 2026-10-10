@@ -215,6 +215,14 @@ export interface StockMovement {
   created_by_account_name: string
 }
 
+export interface LoginAlert {
+  account_id: number
+  name: string
+  user_name: string
+  blocked_attempts: number
+  last_blocked_at: string
+}
+
 export interface ManagedAccount {
   id: number
   name: string

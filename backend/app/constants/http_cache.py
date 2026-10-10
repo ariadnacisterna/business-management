@@ -1,0 +1,5 @@
+HASHED_ASSETS_PATH_PREFIX = "/assets/"
+HASHED_ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable"
+HTML_CACHE_CONTROL = "no-cache"
+HTML_MEDIA_TYPE = "text/html"
+CACHEABLE_STATUS = 200

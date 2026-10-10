@@ -6,6 +6,7 @@ import { formatAmount } from '../../shared/formatAmount'
 import { NavIconGlyph } from '../../shared/layout/NavIcon'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { useLoad } from '../../shared/useLoad'
+import { LoginAlertsNotice } from './LoginAlertsNotice'
 
 const EMPTY_SUMMARY: StockSummary = { total: 0, stockBajo: 0, sinStock: 0 }
 const STOCK_LOAD_ERROR_MESSAGE = 'No se pudo cargar el resumen del inventario.'
@@ -33,6 +34,8 @@ export function DashboardPage() {
         <h1 className="text-3xl font-bold">Panel</h1>
         <p className="mt-1 text-base opacity-60 lg:text-lg">Resumen general del negocio</p>
       </div>
+
+      <LoginAlertsNotice key={businessId} />
 
       <div className="rounded-xl border border-line bg-surface p-5">
         <p className="text-sm font-bold uppercase tracking-wide opacity-50">Fiado pendiente</p>

@@ -11,3 +11,4 @@ BLOB_SOURCE = "blob:"
 API_DOC_PATHS = frozenset({"/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"})
 
 UNEXPECTED_ERROR_DETAIL = "Ocurrio un error inesperado. Intenta de nuevo en unos minutos"
+UNEXPECTED_ERROR_WITH_CODE_DETAIL = UNEXPECTED_ERROR_DETAIL + ". Codigo del error: {request_id}"

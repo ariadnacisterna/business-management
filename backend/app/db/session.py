@@ -12,6 +12,8 @@ def build_engine() -> Engine:
         settings.database_url,
         pool_size=settings.db_pool_size,
         max_overflow=settings.db_max_overflow,
+        connect_args={"connect_timeout": settings.db_connect_timeout_seconds},
+        hide_parameters=True,
     )
 
 
