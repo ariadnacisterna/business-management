@@ -113,7 +113,20 @@ def _business_summaries(db: Session, account_id: int) -> list[BusinessSummary]:
     ]
 
 
-def _account_response(db: Session, account: Account, business: Business) -> AccountResponse:
+def _business_summaries_visible_to_actor(
+    db: Session, account_id: int, actor_id: int
+) -> list[BusinessSummary]:
+    visible_business_ids = {item.id for item in list_accessible_businesses(db, actor_id)}
+    return [
+        summary
+        for summary in _business_summaries(db, account_id)
+        if summary.id in visible_business_ids
+    ]
+
+
+def _account_response(
+    db: Session, account: Account, business: Business, actor: Account
+) -> AccountResponse:
     role = accounts.get_primary_role_name(db, account.id, business.id)
     return AccountResponse(
         id=account.id,
@@ -122,7 +135,7 @@ def _account_response(db: Session, account: Account, business: Business) -> Acco
         status=account.status,
         font_size=account.font_size,
         role=role,
-        businesses=_business_summaries(db, account.id),
+        businesses=_business_summaries_visible_to_actor(db, account.id, actor.id),
     )
 
 
@@ -318,7 +331,7 @@ def create_account(
     except InsufficientRoleRank as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
 
-    return _account_response(db, account, business)
+    return _account_response(db, account, business, actor)
 
 
 @router.get("/accounts", response_model=list[AccountResponse])
@@ -334,14 +347,14 @@ def list_accounts(
     else:
         account_list = accounts.list_accounts(db, business.id)
 
-    return [_account_response(db, account, business) for account in account_list]
+    return [_account_response(db, account, business, actor) for account in account_list]
 
 
 @router.get("/accounts/{account_id}", response_model=AccountResponse)
 def get_account(
     account_id: int,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR)),
+    actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
@@ -349,7 +362,7 @@ def get_account(
     except AccountNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cuenta no encontrada") from exc
 
-    return _account_response(db, account, business)
+    return _account_response(db, account, business, actor)
 
 
 @router.patch(
@@ -385,7 +398,7 @@ def update_account(
     except (InsufficientRoleRank, SelfActionForbidden) as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
 
-    return _account_response(db, account, business)
+    return _account_response(db, account, business, actor)
 
 
 @router.post(
@@ -406,7 +419,7 @@ def deactivate_account(
     except SelfActionForbidden as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
 
-    return _account_response(db, account, business)
+    return _account_response(db, account, business, actor)
 
 
 @router.post(
@@ -417,7 +430,7 @@ def deactivate_account(
 def activate_account(
     account_id: int,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR)),
+    actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
@@ -425,7 +438,7 @@ def activate_account(
     except AccountNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cuenta no encontrada") from exc
 
-    return _account_response(db, account, business)
+    return _account_response(db, account, business, actor)
 
 
 @router.post(
@@ -437,7 +450,7 @@ def reset_password(
     account_id: int,
     payload: ResetPasswordRequest,
     db: Session = Depends(get_db),
-    _actor: Account = Depends(require_role(ADMINISTRADOR)),
+    actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
@@ -447,4 +460,4 @@ def reset_password(
     except InvalidPassword as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
-    return _account_response(db, account, business)
+    return _account_response(db, account, business, actor)

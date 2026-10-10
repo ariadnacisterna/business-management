@@ -68,7 +68,9 @@ def _get_unit(db: Session, unit_id: int, business_id: int) -> Unit:
     return unit
 
 
-def _resolve_attribute_values(db: Session, attribute_value_ids: list[int]) -> list[AttributeValue]:
+def _resolve_attribute_values(
+    db: Session, business_id: int, attribute_value_ids: list[int]
+) -> list[AttributeValue]:
     if not attribute_value_ids:
         return []
 
@@ -76,7 +78,11 @@ def _resolve_attribute_values(db: Session, attribute_value_ids: list[int]) -> li
     seen_attribute_ids: set[int] = set()
     for value_id in attribute_value_ids:
         value = db.get(AttributeValue, value_id)
-        if value is None or value.status != EntityStatus.ACTIVE.value:
+        if (
+            value is None
+            or value.status != EntityStatus.ACTIVE.value
+            or value.attribute.business_id != business_id
+        ):
             raise InvalidAttributeValue(f"Valor de atributo invalido: {value_id}")
         if value.attribute_id in seen_attribute_ids:
             raise InvalidAttributeValue(
@@ -133,7 +139,9 @@ def _build_variant(
     total_active_variants: int,
 ) -> Variant:
     label = _normalize_label(variant_input.label)
-    attribute_values = _resolve_attribute_values(db, variant_input.attribute_value_ids)
+    attribute_values = _resolve_attribute_values(
+        db, product.business_id, variant_input.attribute_value_ids
+    )
     attribute_value_ids = {value.id for value in attribute_values}
 
     _check_variant_identity(db, product.id, label, attribute_value_ids, total_active_variants)
@@ -392,7 +400,9 @@ def update_variant(
     if label is not None or attribute_value_ids is not None:
         prospective_label = _normalize_label(label) if label is not None else variant.label
         if attribute_value_ids is not None:
-            prospective_attribute_values = _resolve_attribute_values(db, attribute_value_ids)
+            prospective_attribute_values = _resolve_attribute_values(
+                db, business_id, attribute_value_ids
+            )
         else:
             prospective_attribute_values = variant.attribute_values
         prospective_attribute_value_ids = {value.id for value in prospective_attribute_values}
@@ -412,7 +422,7 @@ def update_variant(
             variant.is_implicit = False
 
     if attribute_value_ids is not None:
-        variant.attribute_values = _resolve_attribute_values(db, attribute_value_ids)
+        variant.attribute_values = _resolve_attribute_values(db, business_id, attribute_value_ids)
 
     variant.updated_by_account_id = actor_account_id
     variant.updated_at = datetime.now(UTC)

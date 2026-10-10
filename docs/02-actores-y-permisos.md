@@ -70,9 +70,9 @@ Una contraseña se recupera mediante un restablecimiento realizado por un Admini
 | Marcar una variante como faltante | Sí | Sí | Sí | Sí |
 | Consultar la lista de faltantes pendientes | Sí | Sí | Sí | Sí |
 | Avanzar o cancelar el estado de un faltante | Sí | Sí | Sí | Sí |
-| Administrar proveedores | No | Sí | Sí | Sí |
+| Administrar y ver proveedores (D-055) | No | No | Sí | Sí |
 | Asignar el proveedor habitual de un producto | No | Sí | Sí | Sí |
-| Crear y modificar clientes | Sí | Sí | Sí | Sí |
+| Crear, modificar, dar de baja y reactivar clientes (D-051 revisada) | No | Sí | Sí | Sí |
 | Registrar un cargo o un pago de un cliente | Sí | Sí | Sí | Sí |
 | Consultar el saldo de los clientes | Sí | Sí | Sí | Sí |
 | Ver el historial de movimientos y el último cambio de un cliente | No | Sí | Sí | Sí |

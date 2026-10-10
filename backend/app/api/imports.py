@@ -173,7 +173,7 @@ def _read_upload(file: UploadFile) -> tuple[str, bytes]:
     return filename, content
 
 
-@router.post("/preview", response_model=ImportPreviewResponse)
+@router.post("/preview", response_model=ImportPreviewResponse, dependencies=[Depends(require_csrf)])
 def preview_import(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),

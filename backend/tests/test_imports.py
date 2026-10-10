@@ -100,7 +100,9 @@ def _xlsx_file(rows, filename="catalogo.xlsx"):
 
 
 def _preview(client, cookies, files):
-    return client.post("/imports/preview", files=files, cookies=cookies)
+    return client.post(
+        "/imports/preview", files=files, cookies=cookies, headers=_auth_headers(cookies)
+    )
 
 
 def _confirm(client, cookies, files):
