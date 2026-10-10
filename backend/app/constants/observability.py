@@ -1,0 +1,19 @@
+APP_LOGGER_NAME = "app"
+REQUEST_ID_HEADER_NAME = "X-Request-ID"
+REQUEST_ID_BYTES = 4
+NO_REQUEST_ID = "-"
+REDACTED_TEXT = "[oculto]"
+MILLISECONDS_PER_SECOND = 1000
+
+QUIET_LOG_PATHS = frozenset({"/health"})
+FIRST_SERVER_ERROR_STATUS = 500
+
+HEALTH_STATUS_OK = "ok"
+HEALTH_STATUS_UNAVAILABLE = "unavailable"
+HEALTH_DATABASE_PROBE = "SELECT 1"
+
+REQUEST_FINISHED_MESSAGE = "Pedido atendido"
+UNEXPECTED_ERROR_MESSAGE = "Error inesperado"
+DATABASE_UNAVAILABLE_MESSAGE = "La base de datos no responde"
+LOGIN_FAILED_MESSAGE = "Inicio de sesion fallido"
+LOGIN_BLOCKED_MESSAGE = "Inicio de sesion bloqueado por exceso de intentos"

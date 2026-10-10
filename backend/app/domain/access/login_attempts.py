@@ -1,4 +1,5 @@
 import math
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from sqlalchemy import ColumnElement, delete, func, select
@@ -9,13 +10,22 @@ from app.constants.access import (
     LOGIN_FAILURE_WINDOW_MINUTES,
     LOGIN_MAX_FAILURES_PER_IP,
     LOGIN_MAX_FAILURES_PER_USER,
+    SUSPICIOUS_LOGIN_LOOKBACK_HOURS,
 )
 from app.constants.limits import USERNAME_MAX_LENGTH
 from app.constants.status import LoginOutcome
-from app.db.models import LoginAttempt
+from app.db.models import Account, LoginAttempt
 from app.domain.access.errors import LoginLocked
 
 FAILURE_WINDOW = timedelta(minutes=LOGIN_FAILURE_WINDOW_MINUTES)
+SUSPICIOUS_LOGIN_LOOKBACK = timedelta(hours=SUSPICIOUS_LOGIN_LOOKBACK_HOURS)
+
+
+@dataclass(frozen=True)
+class BlockedLoginSummary:
+    account: Account
+    blocked_attempts: int
+    last_blocked_at: datetime
 
 
 def normalize_attempted_user_name(user_name: str) -> str:
@@ -94,3 +104,37 @@ def record_login_attempt(
 def delete_old_login_attempts(db: Session, now: datetime) -> None:
     cutoff = now - timedelta(days=LOGIN_ATTEMPT_RETENTION_DAYS)
     db.execute(delete(LoginAttempt).where(LoginAttempt.attempted_at < cutoff))
+
+
+def summarize_recent_blocked_logins(
+    db: Session, accounts: list[Account], now: datetime
+) -> list[BlockedLoginSummary]:
+    accounts_by_user_name = {
+        normalize_attempted_user_name(account.user_name): account for account in accounts
+    }
+    if not accounts_by_user_name:
+        return []
+
+    rows = db.execute(
+        select(
+            LoginAttempt.user_name,
+            func.count(LoginAttempt.id),
+            func.max(LoginAttempt.attempted_at),
+        )
+        .where(
+            LoginAttempt.user_name.in_(accounts_by_user_name),
+            LoginAttempt.outcome == LoginOutcome.BLOCKED.value,
+            LoginAttempt.attempted_at > now - SUSPICIOUS_LOGIN_LOOKBACK,
+        )
+        .group_by(LoginAttempt.user_name)
+    ).all()
+
+    summaries = [
+        BlockedLoginSummary(
+            account=accounts_by_user_name[user_name],
+            blocked_attempts=blocked_attempts,
+            last_blocked_at=last_blocked_at,
+        )
+        for user_name, blocked_attempts, last_blocked_at in rows
+    ]
+    return sorted(summaries, key=lambda summary: summary.last_blocked_at, reverse=True)

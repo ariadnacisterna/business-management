@@ -13,11 +13,22 @@ function balance(customerId: number, amount: string) {
   return { customer_id: customerId, balance: amount, last_movement_at: null, last_movement_by_account_name: null }
 }
 
-function mockApi(stock: unknown, balances: unknown) {
+function loginAlert(accountId: number, name: string, userName: string, blockedAttempts: number) {
+  return {
+    account_id: accountId,
+    name,
+    user_name: userName,
+    blocked_attempts: blockedAttempts,
+    last_blocked_at: '2026-10-10T03:15:00Z',
+  }
+}
+
+function mockApi(stock: unknown, balances: unknown, loginAlerts: unknown = []) {
   const fetchMock = fetch as ReturnType<typeof vi.fn>
   fetchMock.mockImplementation((input: RequestInfo | URL) => {
     const url = String(input)
     if (url.includes('/customers/balances')) return Promise.resolve(jsonResponse(balances))
+    if (url.includes('/accounts/login-alerts')) return Promise.resolve(jsonResponse(loginAlerts))
     return Promise.resolve(jsonResponse(stock))
   })
 }
@@ -113,6 +124,7 @@ describe('DashboardPage', () => {
       if (String(input).includes('/customers/balances')) {
         return Promise.resolve(new Response('{}', { status: 500 }))
       }
+      if (String(input).includes('/accounts/login-alerts')) return Promise.resolve(jsonResponse([]))
       return Promise.resolve(jsonResponse(STOCK_COUNTS))
     })
 
@@ -120,5 +132,42 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByText('No se pudo cargar')).toBeInTheDocument()
     expect(await screen.findByText('Variantes')).toBeInTheDocument()
+  })
+
+  it('shows no access alert when nobody was blocked', async () => {
+    mockApi(STOCK_COUNTS, [], [])
+
+    render(<DashboardPage />)
+
+    expect(await screen.findByText('Variantes')).toBeInTheDocument()
+    expect(screen.queryByText(/intentos de entrar sin permiso/)).not.toBeInTheDocument()
+  })
+
+  it('shows a large alert naming each blocked account, how many times and what to do', async () => {
+    mockApi(STOCK_COUNTS, [], [loginAlert(7, 'Ana Pérez', 'ana', 3), loginAlert(8, 'Beto Gómez', 'beto', 1)])
+
+    render(<DashboardPage />)
+
+    const title = await screen.findByText('Atención: posibles intentos de entrar sin permiso')
+    const alert = title.closest('[role="alert"]')
+    expect(alert).toHaveTextContent('Ana Pérez (usuario ana): se bloqueó la entrada 3 veces')
+    expect(alert).toHaveTextContent('Beto Gómez (usuario beto): se bloqueó la entrada 1 vez')
+    expect(alert).toHaveTextContent('En las últimas 24 horas')
+    expect(alert).toHaveTextContent('cambiale la contraseña desde Cuentas')
+  })
+
+  it('keeps the rest of the panel working when the access alert cannot be loaded', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/accounts/login-alerts')) return Promise.resolve(new Response('{}', { status: 403 }))
+      if (url.includes('/customers/balances')) return Promise.resolve(jsonResponse([]))
+      return Promise.resolve(jsonResponse(STOCK_COUNTS))
+    })
+
+    render(<DashboardPage />)
+
+    expect(await screen.findByText('Variantes')).toBeInTheDocument()
+    expect(screen.queryByText(/intentos de entrar sin permiso/)).not.toBeInTheDocument()
   })
 })

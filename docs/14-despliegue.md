@@ -13,7 +13,7 @@ El repositorio se mantiene privado; Render construye la imagen leyendo directame
 
 - `Dockerfile` (raíz del repo): build en dos etapas. Primero compila la SPA (`frontend/`), después instala el backend e incluye el build de la SPA en `backend/static`.
 - `backend/app/main.py`: sirve la API y, para cualquier pedido de navegador (`Accept: text/html`), devuelve `index.html` en vez de la respuesta de la API — así `/products`, `/categories`, etc. funcionan tanto como ruta de la SPA como endpoint de la API, sin pisarse (mismo problema que resolvió T-018 en el proxy de desarrollo, acá resuelto para producción).
-- `render.yaml`: describe el servicio para Render (build con Docker, health check en `/health`, variables de entorno).
+- `render.yaml`: describe el servicio para Render (build con Docker, health check en `/health`, que también comprueba la conexión a la base, y variables de entorno).
 - Al arrancar, el contenedor corre `alembic upgrade head` antes de levantar el servidor, así la base de datos siempre queda al día con la última migración.
 
 ## Pasos para desplegar (los hace el Responsable del proyecto)
@@ -313,7 +313,103 @@ La conexión no queda guardada en ningún archivo ni en el historial de la termi
 
 ### Antes de cada despliegue
 
-Corré `python -m scripts.check_integrity` contra producción antes de desplegar una versión nueva, sobre todo si trae una migración. Si muestra problemas, no despliegues: pasá la lista a una conversación de tarea. T-081 va a sumar este paso a la lista completa de cosas para revisar antes de cada despliegue.
+Corré `python -m scripts.check_integrity` contra producción antes de desplegar una versión nueva, sobre todo si trae una migración. Si muestra problemas, no despliegues: pasá la lista a una conversación de tarea. Es el paso 3 de la "Lista antes de cada despliegue".
+
+## Registro de errores, chequeo de salud y avisos (T-081)
+
+### Registro de errores (logs)
+
+- La aplicación escribe una línea de registro (log) por cada pedido que atiende, en la salida estándar. Render las junta solas y las muestra en la pestaña **Logs** del servicio; no hay que configurar nada.
+- Cada línea es un texto en formato JSON con: fecha y hora (UTC), nivel (`INFO`, `WARNING` o `ERROR`), mensaje, el **código del pedido** (`request_id`, 8 letras y números, por ejemplo `4F09A2C1`) y, según el caso, el método, la dirección sin los parámetros de búsqueda (`path`), el resultado (`status`) y cuánto tardó en milisegundos (`duration_ms`).
+- Cada respuesta del sistema lleva ese mismo código en el encabezado `X-Request-ID`. Cuando ocurre un error inesperado, la pantalla muestra el mensaje genérico de siempre seguido de "Codigo del error: XXXXXXXX": con ese código se encuentra en los logs la traza completa del error, que nunca se manda al navegador.
+- Lo que **nunca** queda en los logs: contraseñas, cookies, tokens de sesión o CSRF, la clave de envío de imágenes (`SUPABASE_SERVICE_ROLE_KEY`), cadenas de conexión a la base ni el contenido (cuerpo) de los pedidos. Además, antes de escribir cada línea se tapan con `[oculto]` los valores de las variables secretas y cualquier usuario y contraseña dentro de una dirección del tipo `postgresql://usuario:clave@...`, y los errores de la base se registran sin los valores que se estaban guardando.
+- Los pedidos a `/health` que salen bien no se registran, para no llenar los logs con los chequeos de Render.
+- Cada inicio de sesión fallido deja una línea `INFO` ("Inicio de sesion fallido") y cada intento rechazado por el límite de intentos una línea `WARNING` ("Inicio de sesion bloqueado por exceso de intentos"), las dos con el usuario escrito y la IP.
+
+### Cómo buscar un error en los logs de Render
+
+1. Anotá el código que mostró la pantalla (lo que sigue a "Codigo del error:"). Si la persona no lo anotó, sirve la hora aproximada.
+2. Entrá a <https://dashboard.render.com>, abrí el servicio **abuela** y tocá **Logs** a la izquierda.
+3. En el buscador de arriba pegá el código (por ejemplo `4F09A2C1`) y apretá Enter. Si no aparece nada, ampliá el período de tiempo del filtro.
+4. Aparecen las líneas de ese pedido. La que dice `"level": "ERROR"` tiene un campo `traceback` con el detalle técnico. Copiá esa línea completa y pasala a una conversación de tarea.
+5. Para ver solo los problemas, buscá `ERROR` o `WARNING`.
+
+Render guarda los logs por un tiempo limitado, así que conviene buscar el error el mismo día.
+
+### Chequeo de salud (`/health`)
+
+- `https://TU-APP.onrender.com/health` responde `{"status":"ok"}` si la aplicación anda **y** la base de datos contesta. Si la base no contesta, responde con el código 503 y `{"status":"unavailable"}`, sin ningún detalle interno; el detalle queda en los logs como `ERROR` ("La base de datos no responde").
+- Render lo usa como chequeo de salud (`healthCheckPath: /health` en `render.yaml`): si un despliegue nuevo no pasa el chequeo, Render no lo pone en línea y sigue atendiendo con el anterior. Si el servicio se creó a mano y no desde `render.yaml`, revisá en Render → el servicio → **Settings** → **Health Check Path** que diga `/health`.
+- Si la base tarda más de 10 segundos en aceptar la conexión, se la da por caída (variable opcional `DB_CONNECT_TIMEOUT_SECONDS`; no hace falta cargarla).
+
+### Caché del navegador
+
+- `index.html` (la página principal) se manda con `Cache-Control: no-cache`: el navegador puede guardarla, pero cada vez que se abre la aplicación tiene que preguntar si cambió.
+- Los archivos de `/assets/` llevan en el nombre un código que cambia en cada versión (por ejemplo `index-a1b2c3.js`), así que se guardan por un año (`public, max-age=31536000, immutable`).
+- Así, después de un despliegue nadie queda con una página vieja que pide archivos que ya no existen.
+
+### Aviso de accesos sospechosos
+
+- En el **Panel**, que solo ven Dueño y Administrador, aparece un aviso grande en rojo cuando alguna cuenta tuvo intentos de entrada rechazados por el límite de intentos en las últimas 24 horas. Dice el nombre de la persona, su usuario, cuántas veces y cuándo fue la última, y qué hacer: preguntarle si fue ella y, si no, cambiarle la contraseña desde Cuentas.
+- Un Administrador ve solo las cuentas del negocio con el que está trabajando; el Dueño, las de todos sus negocios. Los nombres escritos que no son de ninguna cuenta no aparecen en el aviso (sí en la tabla `login_attempt` y en los logs).
+- Los datos salen de `GET /accounts/login-alerts` (solo lectura, rol mínimo Administrador). Las 24 horas están en `SUSPICIOUS_LOGIN_LOOKBACK_HOURS` (`backend/app/constants/access.py`).
+
+## Lista antes de cada despliegue
+
+Seguila en orden cada vez que se vaya a subir una versión nueva a Render. Si un paso sale mal, **no sigas**: pasá lo que viste a una conversación de tarea.
+
+### 1. Saber qué trae la versión
+
+En la fila de la tarea en `docs/10-flujo-de-trabajo.md` (o preguntándole a la conversación madre), fijate dos cosas:
+
+- si trae una **migración** (archivos nuevos en `backend/alembic/versions/`);
+- si cambió alguna **dependencia** (`backend/pyproject.toml`, `frontend/package.json` o `frontend/package-lock.json`).
+
+### 2. Hacer una copia reciente
+
+Lanzá una copia a mano (ver "Lanzar una copia a mano" en "Copia de seguridad semanal") y esperá la tilde verde. Anotá el nombre del archivo nuevo en Drive: es el punto al que se vuelve si algo sale muy mal.
+
+### 3. Revisar la integridad de los datos de producción
+
+Corré `python -m scripts.check_integrity` contra producción (ver "Verificación de integridad de los datos"). Tiene que decir "Sin problemas.". Si muestra una lista, no despliegues.
+
+### 4. Si trae una migración: probarla sobre una copia de producción
+
+1. Descargá de Drive la copia del paso 2 y restaurala en una base descartable con Docker (`prueba-restauracion`, puerto 55433), siguiendo "Restaurar una copia".
+2. En tu computadora, con el proyecto en la rama de la versión nueva, abrí una terminal en `backend`, activá el entorno virtual (`.venv\Scripts\activate`) y escribí, de a una línea:
+
+   ```
+   $env:DATABASE_URL = "postgresql+psycopg://postgres:prueba@localhost:55433/postgres"
+   alembic upgrade head
+   ```
+
+   Tiene que terminar sin ninguna línea que diga `Error`. Las líneas `Running upgrade ...` son las migraciones nuevas que se aplicaron.
+3. En la misma terminal, corré `python -m scripts.check_integrity` y, cuando pida la conexión, pegá `postgresql://postgres:prueba@localhost:55433/postgres`. Tiene que decir "Sin problemas.".
+4. Cerrá la terminal (así se borra el `DATABASE_URL` de prueba), borrá la base de prueba con `docker rm -f prueba-restauracion` y borrá el archivo descargado.
+
+### 5. Si cambiaron dependencias: revisarlas
+
+- Backend: en `backend`, con el entorno virtual activado, `pip-audit`. Tiene que decir "No known vulnerabilities found".
+- Frontend: en `frontend`, `npm audit`. Tiene que decir "found 0 vulnerabilities".
+
+### 6. Desplegar
+
+Integrá la rama en `main` y subila a GitHub. Render construye y despliega solo; en el servicio, pestaña **Events**, se ve el despliegue en curso. Tarda unos minutos. Al arrancar, el servidor corre las migraciones nuevas.
+
+### 7. Revisar que quedó bien
+
+1. En **Events**, el despliegue tiene que terminar como **Live** (en línea). Si dice **Failed**, Render sigue con la versión anterior: ver "Si algo sale mal".
+2. Abrí `https://TU-APP.onrender.com/health`: tiene que decir `{"status":"ok"}`.
+3. En **Logs**, buscá `ERROR` en los minutos posteriores al despliegue: no tiene que aparecer ninguno.
+4. Entrá a la aplicación y recorré lo que trajo la versión nueva, más inicio de sesión, productos y cerrar sesión. Si la versión tocó la seguridad, repetí "Qué revisar a mano después del despliegue".
+
+### Si algo sale mal: volver atrás
+
+- **El despliegue falló (Failed) o no pasó el chequeo de salud**: Render sigue con la versión anterior y no hay que hacer nada urgente. Si traía una migración y falló en el medio, la base vuelve sola a como estaba (las migraciones se aplican todas o ninguna). Copiá los logs del despliegue para una conversación de tarea.
+- **La versión nueva está en línea, anda mal y no trajo migración**: en Render, el servicio → **Events** → buscá el último despliegue que funcionaba → **Rollback**. La versión anterior vuelve en unos minutos. Después revisá en **Settings** si quedaron desactivados los despliegues automáticos y, cuando el arreglo esté listo, volvé a activarlos.
+- **La versión nueva está en línea, anda mal y sí trajo una migración**: el Rollback de Render solo **no alcanza**, porque la versión anterior no reconoce la base ya migrada y no arranca. Hay dos caminos, a elegir con la conversación madre:
+  - Si el problema no daña datos: dejar la versión nueva y pedir un arreglo urgente a una conversación de tarea.
+  - Si se están dañando datos: restaurar la copia del paso 2 en un proyecto nuevo de Supabase ("Restaurar una copia", caso de desastre real), cambiar `DATABASE_URL` en Render y `BACKUP_DATABASE_URL` en GitHub, y hacer el Rollback al despliegue anterior. **Se pierde todo lo que se cargó después de la copia del paso 2**; por eso la copia se hace justo antes de desplegar.
 
 ## Pendiente
 

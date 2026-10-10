@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -42,6 +44,7 @@ from app.domain.access.errors import (
     SelfActionForbidden,
     WrongCurrentPassword,
 )
+from app.domain.access.login_attempts import summarize_recent_blocked_logins
 from app.domain.access.permissions import (
     get_active_business,
     get_current_session,
@@ -116,6 +119,14 @@ class UpdateAccountRequest(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     new_password: str
+
+
+class BlockedLoginAlertResponse(BaseModel):
+    account_id: int
+    name: str
+    user_name: str
+    blocked_attempts: int
+    last_blocked_at: datetime
 
 
 def _business_summaries(db: Session, account_id: int) -> list[BusinessSummary]:
@@ -193,6 +204,14 @@ def _set_session_cookies(response: Response, issued_session: IssuedSession) -> N
 def _clear_session_cookies(response: Response) -> None:
     response.delete_cookie(SESSION_COOKIE_NAME, path="/")
     response.delete_cookie(CSRF_COOKIE_NAME, path="/")
+
+
+def _accounts_visible_to_actor(db: Session, actor: Account, business: Business) -> list[Account]:
+    actor_role = accounts.get_role_name(db, actor.id, business.id)
+    if actor_role == DUENO:
+        business_ids = [item.id for item in list_accessible_businesses(db, actor.id)]
+        return accounts.list_accounts_for_businesses(db, business_ids)
+    return accounts.list_accounts(db, business.id)
 
 
 @router.post("/auth/login", response_model=SessionInfoResponse)
@@ -373,14 +392,31 @@ def list_accounts(
     actor: Account = Depends(require_role(ACCOUNT_MANAGER_ROLE)),
     business: Business = Depends(get_active_business),
 ) -> list[AccountResponse]:
-    actor_role = accounts.get_role_name(db, actor.id, business.id)
-    if actor_role == DUENO:
-        business_ids = [item.id for item in list_accessible_businesses(db, actor.id)]
-        account_list = accounts.list_accounts_for_businesses(db, business_ids)
-    else:
-        account_list = accounts.list_accounts(db, business.id)
+    return [
+        _account_response(db, account, business, actor)
+        for account in _accounts_visible_to_actor(db, actor, business)
+    ]
 
-    return [_account_response(db, account, business, actor) for account in account_list]
+
+@router.get("/accounts/login-alerts", response_model=list[BlockedLoginAlertResponse])
+def list_login_alerts(
+    db: Session = Depends(get_db),
+    actor: Account = Depends(require_role(ACCOUNT_MANAGER_ROLE)),
+    business: Business = Depends(get_active_business),
+) -> list[BlockedLoginAlertResponse]:
+    summaries = summarize_recent_blocked_logins(
+        db, _accounts_visible_to_actor(db, actor, business), datetime.now(UTC)
+    )
+    return [
+        BlockedLoginAlertResponse(
+            account_id=summary.account.id,
+            name=summary.account.name,
+            user_name=summary.account.user_name,
+            blocked_attempts=summary.blocked_attempts,
+            last_blocked_at=summary.last_blocked_at,
+        )
+        for summary in summaries
+    ]
 
 
 @router.get("/accounts/{account_id}", response_model=AccountResponse)

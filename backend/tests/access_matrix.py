@@ -29,6 +29,9 @@ ENDPOINT_ACCESS_MATRIX: dict[tuple[str, str], EndpointAccess] = {
     ),
     ("POST", "/accounts"): EndpointAccess(ADMINISTRADOR, "docs/02: administrar cuentas y roles"),
     ("GET", "/accounts"): EndpointAccess(ADMINISTRADOR, "docs/02: administrar cuentas y roles"),
+    ("GET", "/accounts/login-alerts"): EndpointAccess(
+        ADMINISTRADOR, "T-081: aviso de accesos sospechosos en el Panel"
+    ),
     ("GET", "/accounts/{account_id}"): EndpointAccess(
         ADMINISTRADOR, "docs/02: administrar cuentas y roles"
     ),

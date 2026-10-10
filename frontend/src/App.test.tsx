@@ -244,6 +244,7 @@ describe('App', () => {
     const user = userEvent.setup()
     fetchMock
       .mockResolvedValueOnce(jsonResponse(DUENO_TWO_BUSINESS_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ count: 0 }))
       .mockResolvedValueOnce(jsonResponse({ count: 0 }))
       .mockResolvedValueOnce(jsonResponse({ count: 0 }))
@@ -334,6 +335,7 @@ describe('App', () => {
     const user = userEvent.setup()
     fetchMock
       .mockResolvedValueOnce(jsonResponse(ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
