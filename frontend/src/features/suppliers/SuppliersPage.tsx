@@ -9,12 +9,13 @@ import {
   setProviderCategories,
   updateProvider,
 } from '../../api/catalog'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import type { Category, Provider } from '../../api/types'
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { DatePicker } from '../../shared/DatePicker'
+import { Dialog } from '../../shared/Dialog'
 import { formatISODateDisplay } from '../../shared/dateDisplay'
 import { FieldRow } from '../../shared/FieldRow'
 import { initials } from '../../shared/formatName'
@@ -87,6 +88,7 @@ function ProviderFormModal({
   const [saving, setSaving] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [attemptedSubmit, setAttemptedSubmit] = useState(false)
+  const [touched, setTouched] = useState({ name: false, email: false })
 
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -101,6 +103,8 @@ function ProviderFormModal({
       ? 'Ingresá un email válido.'
       : null
   const canSubmit = nameError === null && emailError === null
+  const showNameError = (attemptedSubmit || touched.name) && nameError !== null
+  const showEmailError = (attemptedSubmit || touched.email) && emailError !== null
 
   async function handleCreateCategory() {
     const trimmed = newCategoryName.trim()
@@ -115,7 +119,7 @@ function ProviderFormModal({
       setCreatingCategory(false)
       setNewCategoryName('')
     } catch (error) {
-      setNewCategoryError(error instanceof ApiError ? error.message : CREATE_CATEGORY_ERROR_MESSAGE)
+      setNewCategoryError(errorMessage(error, CREATE_CATEGORY_ERROR_MESSAGE))
     } finally {
       setSavingNewCategory(false)
     }
@@ -150,7 +154,7 @@ function ProviderFormModal({
       await onSubmit(values)
       showSuccess(initialValues.name === '' ? 'Proveedor creado.' : 'Proveedor actualizado.')
     } catch (submitError) {
-      showError(submitError instanceof ApiError ? submitError.message : SAVE_ERROR_MESSAGE)
+      showError(errorMessage(submitError, SAVE_ERROR_MESSAGE))
       setSaving(false)
     }
   }
@@ -158,10 +162,10 @@ function ProviderFormModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={onCancel} aria-hidden="true" />
-      <form
+      <Dialog
+        label={title}
+        onClose={onCancel}
         onSubmit={handleSubmit}
-        role="dialog"
-        aria-label={title}
         className="relative flex max-h-[90vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
       >
         <div className="flex flex-col gap-2">
@@ -186,12 +190,15 @@ function ProviderFormModal({
             <input
               value={values.name}
               onChange={(event) => setValues((prev) => ({ ...prev, name: event.target.value }))}
+              onBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
               disabled={saving}
+              aria-invalid={showNameError || undefined}
+              aria-describedby={showNameError ? 'provider-name-error' : undefined}
               className={inputClasses}
             />
           </label>
-          {attemptedSubmit && nameError !== null && (
-            <span role="alert" className="text-sm text-danger">
+          {showNameError && (
+            <span id="provider-name-error" role="alert" className="text-sm text-danger">
               {nameError}
             </span>
           )}
@@ -215,12 +222,15 @@ function ProviderFormModal({
               inputMode="email"
               value={values.email}
               onChange={(event) => setValues((prev) => ({ ...prev, email: event.target.value }))}
+              onBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
               disabled={saving}
+              aria-invalid={showEmailError || undefined}
+              aria-describedby={showEmailError ? 'provider-email-error' : undefined}
               className={inputClasses}
             />
           </label>
-          {attemptedSubmit && emailError !== null && (
-            <span role="alert" className="text-sm text-danger">
+          {showEmailError && (
+            <span id="provider-email-error" role="alert" className="text-sm text-danger">
               {emailError}
             </span>
           )}
@@ -254,7 +264,7 @@ function ProviderFormModal({
               type="button"
               onClick={() => setCreatingCategory(true)}
               disabled={saving}
-              className="text-base font-semibold text-danger hover:underline"
+              className="min-h-11 rounded-lg px-3 text-base font-semibold text-danger hover:underline"
             >
               + Nueva
             </button>
@@ -272,10 +282,10 @@ function ProviderFormModal({
           {creatingCategory && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
               <div className="absolute inset-0 bg-ink/20" onClick={cancelCreateCategory} aria-hidden="true" />
-              <div
-                role="dialog"
-                aria-label="Nueva categoría"
-                className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
+              <Dialog
+                label="Nueva categoría"
+                onClose={cancelCreateCategory}
+                className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
               >
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between gap-3">
@@ -336,7 +346,7 @@ function ProviderFormModal({
                     Cancelar
                   </button>
                 </div>
-              </div>
+              </Dialog>
             </div>
           )}
         </div>
@@ -349,7 +359,7 @@ function ProviderFormModal({
             Cancelar
           </button>
         </div>
-      </form>
+      </Dialog>
 
       {confirming && (
         <ConfirmDialog
@@ -448,20 +458,19 @@ export function SuppliersPage() {
     setEditingProvider(null)
   }
 
-  function confirmToggleActive() {
+  async function confirmToggleActive() {
     if (confirmingProvider === null) return
     const provider = confirmingProvider
-    setConfirmingProvider(null)
     const activating = provider.status !== 'active'
-    const request = provider.status === 'active' ? deactivateProvider(provider.id) : reactivateProvider(provider.id)
-    request
-      .then((updated) => {
-        applyProviderUpdate(updated)
-        showSuccess(activating ? 'Proveedor activado.' : 'Proveedor desactivado.')
-      })
-      .catch(() => {
-        showError(activating ? 'No se pudo activar el proveedor.' : 'No se pudo desactivar el proveedor.')
-      })
+    try {
+      const updated = activating ? await reactivateProvider(provider.id) : await deactivateProvider(provider.id)
+      applyProviderUpdate(updated)
+      showSuccess(activating ? 'Proveedor activado.' : 'Proveedor desactivado.')
+    } catch (error) {
+      showError(errorMessage(error, activating ? 'No se pudo activar el proveedor.' : 'No se pudo desactivar el proveedor.'))
+    } finally {
+      setConfirmingProvider(null)
+    }
   }
 
   const filteredProviders = useMemo(() => {
@@ -507,12 +516,12 @@ export function SuppliersPage() {
 
   return (
     <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Proveedores</h1>
           <p className="mt-1 text-base opacity-60 lg:text-lg">{providers.length} proveedores registrados</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {status === 'success' && tab === 'providers' && providers.length > 0 && (
             <ViewToggle mode={viewMode} onChange={setViewMode} />
           )}
@@ -546,6 +555,7 @@ export function SuppliersPage() {
           <button
             type="button"
             onClick={() => setTab('providers')}
+            aria-pressed={tab === 'providers'}
             className={`min-h-12 px-4 text-lg font-semibold transition-colors ${
               tab === 'providers' ? 'border-b-2 border-brand text-brand' : 'text-ink/50 hover:text-ink'
             }`}
@@ -555,6 +565,7 @@ export function SuppliersPage() {
           <button
             type="button"
             onClick={() => setTab('purchase-orders')}
+            aria-pressed={tab === 'purchase-orders'}
             className={`min-h-12 px-4 text-lg font-semibold transition-colors ${
               tab === 'purchase-orders' ? 'border-b-2 border-brand text-brand' : 'text-ink/50 hover:text-ink'
             }`}
@@ -619,8 +630,8 @@ export function SuppliersPage() {
           {status === 'success' && filteredProviders.length > 0 && (
             <>
               {viewMode === 'table' && (
-              <div className="overflow-hidden rounded-xl border border-line bg-surface">
-                <table className="w-full">
+              <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+                <table className="w-full min-w-[760px]">
                   <thead>
                     <tr className="border-b border-line bg-surface-brand/40">
                       <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
@@ -697,15 +708,15 @@ export function SuppliersPage() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {paginatedProviders.map((provider) => (
                   <div key={provider.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
-                    <div className="flex items-center gap-3 border-b border-line pb-3">
+                    <div className="flex flex-wrap items-center gap-3 border-b border-line pb-3">
                       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand text-lg font-bold text-brand-contrast">
                         {initials(provider.name)}
                       </span>
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-32 flex-1">
                         <p className="truncate text-xl font-bold leading-tight">{provider.name}</p>
                         <p className="m-0 truncate text-lg opacity-60">{provider.contact_name ?? '—'}</p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="ml-auto flex items-center gap-2">
                         <span
                           className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
                             provider.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'

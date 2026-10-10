@@ -5,7 +5,7 @@ import { CLOSE_FLOATING_MENUS_EVENT } from './floatingMenuEvents'
 
 const DATE_PICKER_OPEN_EVENT = 'date-picker-open'
 const WEEKDAY_LABELS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do']
-const CALENDAR_WIDTH = 320
+const CALENDAR_WIDTH = 'min(20rem, calc(100vw - 16px))'
 const VIEWPORT_MARGIN = 8
 
 interface Props {
@@ -111,7 +111,7 @@ export function DatePicker({
         ? triggerRect.bottom + 6
         : triggerRect.top - panelHeight - 6
 
-    const maxLeft = window.innerWidth - CALENDAR_WIDTH - VIEWPORT_MARGIN
+    const maxLeft = window.innerWidth - panelRef.current.offsetWidth - VIEWPORT_MARGIN
     const left = Math.min(Math.max(triggerRect.left, VIEWPORT_MARGIN), Math.max(maxLeft, VIEWPORT_MARGIN))
 
     setPosition({ top, left })
@@ -133,6 +133,27 @@ export function DatePicker({
       return
     }
     openPicker()
+  }
+
+  function closeAndReturnFocus() {
+    setOpen(false)
+    triggerRef.current?.focus()
+  }
+
+  function handlePanelKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== 'Escape') return
+    event.preventDefault()
+    closeAndReturnFocus()
+  }
+
+  function previousLabel(): string {
+    if (pickerView === 'years') return 'Años anteriores'
+    return pickerView === 'months' ? 'Año anterior' : 'Mes anterior'
+  }
+
+  function nextLabel(): string {
+    if (pickerView === 'years') return 'Años siguientes'
+    return pickerView === 'months' ? 'Año siguiente' : 'Mes siguiente'
   }
 
   function goToPreviousMonth() {
@@ -216,6 +237,7 @@ export function DatePicker({
               ref={panelRef}
               role="dialog"
               aria-label={ariaLabel}
+              onKeyDown={handlePanelKeyDown}
               style={{
                 top: position.top,
                 left: position.left,
@@ -234,7 +256,7 @@ export function DatePicker({
                         ? () => setViewYear((year) => year - 1)
                         : () => setYearPageStart((start) => start - YEARS_PER_PAGE)
                   }
-                  aria-label={pickerView === 'years' ? 'Años anteriores' : 'Año anterior'}
+                  aria-label={previousLabel()}
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-ink/60 transition-colors hover:bg-surface-brand"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
@@ -285,7 +307,7 @@ export function DatePicker({
                         ? nextYearInMonthsViewDisabled
                         : nextYearPageDisabled
                   }
-                  aria-label={pickerView === 'years' ? 'Años siguientes' : 'Año siguiente'}
+                  aria-label={nextLabel()}
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-ink/60 transition-colors hover:bg-surface-brand disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
@@ -357,7 +379,7 @@ export function DatePicker({
                           aria-label={formatDisplayDate(day)}
                           onClick={() => onChange(toISODate(day))}
                           disabled={isFuture}
-                          className={`flex h-9 w-9 items-center justify-center rounded-full text-base font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent ${
+                          className={`flex h-9 w-full items-center justify-center rounded-full text-base font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent ${
                             isSelected
                               ? 'bg-brand text-brand-contrast'
                               : isToday

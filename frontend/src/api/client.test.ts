@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { apiFetch, forgetPendingSubmissions } from './client'
+import { apiFetch, errorMessage, forgetPendingSubmissions } from './client'
 
 const SUBMISSION_KEY_HEADER_NAME = 'Idempotency-Key'
 
@@ -126,5 +126,43 @@ describe('apiFetch submission key', () => {
 
     expect(sentKey(fetchMock, 0)).not.toBeNull()
     expect(sentKey(fetchMock, 1)).toBe(sentKey(fetchMock, 0))
+  })
+})
+
+describe('errorMessage', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('shows the text the server sent as the reason', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValueOnce(jsonResponse({ detail: 'Ya existe una categoría con ese nombre.' }, 409))
+
+    const error = await apiFetch('/categories').catch((caught: unknown) => caught)
+
+    expect(errorMessage(error, 'No se pudo guardar.')).toBe('Ya existe una categoría con ese nombre.')
+  })
+
+  it('falls back to the screen message instead of a technical one when the server gives no text', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ detail: [{ loc: ['body', 'name'], msg: 'field required' }] }), {
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    fetchMock.mockResolvedValueOnce(new Response('<html>Bad Gateway</html>', { status: 502, statusText: 'Bad Gateway' }))
+
+    const validationError = await apiFetch('/categories').catch((caught: unknown) => caught)
+    const gatewayError = await apiFetch('/categories').catch((caught: unknown) => caught)
+
+    expect(errorMessage(validationError, 'No se pudo guardar.')).toBe('No se pudo guardar.')
+    expect(errorMessage(gatewayError, 'No se pudo guardar.')).toBe('No se pudo guardar.')
+    expect(errorMessage(new TypeError('Failed to fetch'), 'No se pudo guardar.')).toBe('No se pudo guardar.')
   })
 })

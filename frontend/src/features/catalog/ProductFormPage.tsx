@@ -15,10 +15,11 @@ import {
   setProductProvider,
   uploadProductImage,
 } from '../../api/catalog'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import type { Attribute, Category, Provider, Unit, Variant } from '../../api/types'
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
+import { Dialog } from '../../shared/Dialog'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { normalizeForComparison } from '../../shared/normalizeForComparison'
 import { PriceInput } from '../../shared/PriceInput'
@@ -142,7 +143,7 @@ export function ProductFormPage() {
         attributes: attributeList.filter((attribute) => attribute.status === 'active'),
         providers: providerList.filter((provider) => provider.status === 'active'),
       })),
-    [canViewProviders],
+    [canViewProviders, account?.active_business_id],
   )
   const categories = formData?.categories ?? NO_CATEGORIES
   const units = formData?.units ?? NO_UNITS
@@ -204,7 +205,7 @@ export function ProductFormPage() {
       setCreatingCategory(false)
       setNewCategoryName('')
     } catch (error) {
-      setNewCategoryError(error instanceof ApiError ? error.message : CREATE_CATEGORY_ERROR_MESSAGE)
+      setNewCategoryError(errorMessage(error, CREATE_CATEGORY_ERROR_MESSAGE))
     } finally {
       setSavingNewCategory(false)
     }
@@ -228,7 +229,7 @@ export function ProductFormPage() {
       setCreatingUnit(false)
       setNewUnit({ name: '', abbreviation: '', allows_fraction: false })
     } catch (error) {
-      setNewUnitError(error instanceof ApiError ? error.message : CREATE_UNIT_ERROR_MESSAGE)
+      setNewUnitError(errorMessage(error, CREATE_UNIT_ERROR_MESSAGE))
     } finally {
       setSavingNewUnit(false)
     }
@@ -439,7 +440,7 @@ export function ProductFormPage() {
         navigate(`/products/${product.id}`)
       }
     } catch (error) {
-      setCreateError(error instanceof ApiError ? error.message : CREATE_ERROR_MESSAGE)
+      setCreateError(errorMessage(error, CREATE_ERROR_MESSAGE))
     } finally {
       setCreating(false)
     }
@@ -457,8 +458,12 @@ export function ProductFormPage() {
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
 
-      <div className="relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl">
-        <div ref={modalScrollRef} onScroll={updateModalScrollbar} className="scrollbar-hidden min-h-0 flex-1 overflow-auto px-6 py-6">
+      <Dialog
+        label="Nuevo producto"
+        onClose={close}
+        className="relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl"
+      >
+        <div ref={modalScrollRef} onScroll={updateModalScrollbar} className="scrollbar-hidden min-h-0 flex-1 overflow-auto px-4 py-6 sm:px-6">
 
         <div className="mb-4 flex items-center justify-between gap-3">
           {loadStatus === 'success' ? (
@@ -512,10 +517,12 @@ export function ProductFormPage() {
                   }}
                   onBlur={() => markTouched('name')}
                   disabled={checkingName}
+                  aria-invalid={showNameError || undefined}
+                  aria-describedby={showNameError ? 'product-name-error' : undefined}
                   className={fieldClasses(showNameError)}
                 />
                 {showNameError && (
-                  <span role="alert" className="-mt-2 text-sm text-danger">
+                  <span id="product-name-error" role="alert" className="-mt-2 text-sm text-danger">
                     {nameError}
                   </span>
                 )}
@@ -530,6 +537,7 @@ export function ProductFormPage() {
                   ariaLabel="Categoría"
                   disabled={checkingName}
                   hasError={showCategoryError}
+                  ariaDescribedBy={showCategoryError ? 'product-category-error' : undefined}
                   onBlur={() => markTouched('category')}
                   value={categoryId === '' ? '' : String(categoryId)}
                   onChange={(value) => {
@@ -546,7 +554,7 @@ export function ProductFormPage() {
                   ]}
                 />
                 {showCategoryError && (
-                  <span role="alert" className="-mt-2 text-sm text-danger">
+                  <span id="product-category-error" role="alert" className="-mt-2 text-sm text-danger">
                     {categoryError}
                   </span>
                 )}
@@ -597,6 +605,7 @@ export function ProductFormPage() {
                   ariaLabel="Unidad"
                   disabled={checkingName}
                   hasError={showUnitError}
+                  ariaDescribedBy={showUnitError ? 'product-unit-error' : undefined}
                   onBlur={() => markTouched('unit')}
                   value={unitId === '' ? '' : String(unitId)}
                   onChange={(value) => {
@@ -613,7 +622,7 @@ export function ProductFormPage() {
                   ]}
                 />
                 {showUnitError && (
-                  <span role="alert" className="-mt-2 text-sm text-danger">
+                  <span id="product-unit-error" role="alert" className="-mt-2 text-sm text-danger">
                     {unitError}
                   </span>
                 )}
@@ -636,7 +645,7 @@ export function ProductFormPage() {
                       value={newUnit.abbreviation}
                       onChange={(event) => setNewUnit((prev) => ({ ...prev, abbreviation: event.target.value }))}
                       disabled={savingNewUnit}
-                      className={`${inputClasses} w-40`}
+                      className={`${inputClasses} w-full sm:w-40`}
                     />
                     <label className="flex items-center gap-2 text-base">
                       <input
@@ -736,7 +745,7 @@ export function ProductFormPage() {
                 {!addVariants ? (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <label className="flex flex-col gap-1">
-                      <span className="whitespace-nowrap text-base font-semibold">
+                      <span className="text-base font-semibold">
                         Precio <span className="font-normal opacity-70">(opcional)</span>
                       </span>
                       <PriceInput
@@ -748,7 +757,7 @@ export function ProductFormPage() {
                       />
                     </label>
                     <label className="flex flex-col gap-1">
-                      <span className="whitespace-nowrap text-base font-semibold">
+                      <span className="text-base font-semibold">
                         Stock actual <span className="font-normal opacity-70">(opcional)</span>
                       </span>
                       <input
@@ -759,16 +768,18 @@ export function ProductFormPage() {
                         value={singleStock}
                         onChange={(event) => setSingleStock(event.target.value)}
                         aria-label="Stock actual"
+                        aria-invalid={stockDecimalError(singleStock) !== null || undefined}
+                        aria-describedby={stockDecimalError(singleStock) !== null ? 'single-stock-error' : undefined}
                         className={inputClasses}
                       />
                       {stockDecimalError(singleStock) !== null && (
-                        <span role="alert" className="text-sm text-danger">
+                        <span id="single-stock-error" role="alert" className="text-sm text-danger">
                           {stockDecimalError(singleStock)}
                         </span>
                       )}
                     </label>
                     <label className="flex flex-col gap-1">
-                      <span className="whitespace-nowrap text-base font-semibold">
+                      <span className="text-base font-semibold">
                         Stock min. <span className="font-normal opacity-70">(opcional)</span>
                       </span>
                       <input
@@ -779,10 +790,12 @@ export function ProductFormPage() {
                         value={singleMinimum}
                         onChange={(event) => setSingleMinimum(event.target.value)}
                         aria-label="Stock min."
+                        aria-invalid={stockDecimalError(singleMinimum) !== null || undefined}
+                        aria-describedby={stockDecimalError(singleMinimum) !== null ? 'single-minimum-error' : undefined}
                         className={inputClasses}
                       />
                       {stockDecimalError(singleMinimum) !== null && (
-                        <span role="alert" className="text-sm text-danger">
+                        <span id="single-minimum-error" role="alert" className="text-sm text-danger">
                           {stockDecimalError(singleMinimum)}
                         </span>
                       )}
@@ -837,7 +850,7 @@ export function ProductFormPage() {
                         />
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <label className="flex flex-col gap-1">
-                            <span className="whitespace-nowrap text-base font-semibold">
+                            <span className="text-base font-semibold">
                               Stock actual <span className="font-normal opacity-70">(opcional)</span>
                             </span>
                             <input
@@ -850,16 +863,22 @@ export function ProductFormPage() {
                                 setVariantStocks((prev) => ({ ...prev, [draft.key]: event.target.value }))
                               }
                               aria-label={`Stock actual de la variante ${index + 1}`}
+                              aria-invalid={stockDecimalError(variantStocks[draft.key] ?? '') !== null || undefined}
+                              aria-describedby={
+                                stockDecimalError(variantStocks[draft.key] ?? '') !== null
+                                  ? `variant-stock-error-${draft.key}`
+                                  : undefined
+                              }
                               className={inputClasses}
                             />
                             {stockDecimalError(variantStocks[draft.key] ?? '') !== null && (
-                              <span role="alert" className="text-sm text-danger">
+                              <span id={`variant-stock-error-${draft.key}`} role="alert" className="text-sm text-danger">
                                 {stockDecimalError(variantStocks[draft.key] ?? '')}
                               </span>
                             )}
                           </label>
                           <label className="flex flex-col gap-1">
-                            <span className="whitespace-nowrap text-base font-semibold">
+                            <span className="text-base font-semibold">
                               Stock min. <span className="font-normal opacity-70">(opcional)</span>
                             </span>
                             <input
@@ -872,10 +891,16 @@ export function ProductFormPage() {
                                 setVariantMinimums((prev) => ({ ...prev, [draft.key]: event.target.value }))
                               }
                               aria-label={`Stock min. de la variante ${index + 1}`}
+                              aria-invalid={stockDecimalError(variantMinimums[draft.key] ?? '') !== null || undefined}
+                              aria-describedby={
+                                stockDecimalError(variantMinimums[draft.key] ?? '') !== null
+                                  ? `variant-minimum-error-${draft.key}`
+                                  : undefined
+                              }
                               className={inputClasses}
                             />
                             {stockDecimalError(variantMinimums[draft.key] ?? '') !== null && (
-                              <span role="alert" className="text-sm text-danger">
+                              <span id={`variant-minimum-error-${draft.key}`} role="alert" className="text-sm text-danger">
                                 {stockDecimalError(variantMinimums[draft.key] ?? '')}
                               </span>
                             )}
@@ -1048,7 +1073,7 @@ export function ProductFormPage() {
             />
           </div>
         )}
-      </div>
+      </Dialog>
     </div>
   )
 }

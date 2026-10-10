@@ -8,12 +8,23 @@ import {
   reactivateAttributeValue,
   updateAttributeValue,
 } from '../../api/catalog'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import type { Attribute, AttributeValue } from '../../api/types'
 import { useAuth } from '../access/useAuth'
 import { canManageCatalog } from '../access/roles'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { PageLoading } from '../../shared/PageLoading'
+import { useLatestRequest } from '../../shared/useLatestRequest'
+import {
+  STACKED_ACTION_CELL_CLASSES,
+  STACKED_BODY_CLASSES,
+  STACKED_CELL_CLASSES,
+  STACKED_FULL_CELL_CLASSES,
+  STACKED_HEAD_CLASSES,
+  STACKED_ROW_CLASSES,
+  STACKED_TABLE_CLASSES,
+} from '../../shared/stackedTable'
 import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 
@@ -71,16 +82,20 @@ function AttributesContent() {
   const [confirmingCreateAttribute, setConfirmingCreateAttribute] = useState(false)
   const [confirmingCreateValue, setConfirmingCreateValue] = useState(false)
   const [confirmingEditValue, setConfirmingEditValue] = useState<AttributeValue | null>(null)
+  const startValuesRequest = useLatestRequest()
 
   function loadValues(attributeId: number) {
+    const isLatest = startValuesRequest()
     setValuesStatus('loading')
     setValuesError(null)
     fetchAttributeValues(attributeId)
       .then((result) => {
+        if (!isLatest()) return
         setValues(result)
         setValuesStatus('success')
       })
       .catch(() => {
+        if (!isLatest()) return
         setValuesError(LOAD_VALUES_ERROR_MESSAGE)
         setValuesStatus('error')
       })
@@ -111,7 +126,7 @@ function AttributesContent() {
       setCreatingAttribute(false)
       showSuccess('Atributo creado.')
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(errorMessage(error, SAVE_ERROR_MESSAGE))
     } finally {
       setSavingAttribute(false)
     }
@@ -137,7 +152,7 @@ function AttributesContent() {
       setNewValue('')
       showSuccess('Valor agregado.')
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(errorMessage(error, SAVE_ERROR_MESSAGE))
     } finally {
       setCreatingValue(false)
     }
@@ -175,7 +190,7 @@ function AttributesContent() {
       cancelEditValue()
       showSuccess('Valor actualizado.')
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(errorMessage(error, SAVE_ERROR_MESSAGE))
     } finally {
       setSavingValue(false)
     }
@@ -193,7 +208,7 @@ function AttributesContent() {
       setConfirmingStatusChange(null)
       showSuccess(updated.status === 'active' ? 'Valor activado.' : 'Valor desactivado.')
     } catch (error) {
-      setStatusChangeError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      setStatusChangeError(errorMessage(error, SAVE_ERROR_MESSAGE))
     }
   }
 
@@ -247,14 +262,23 @@ function AttributesContent() {
         </form>
       )}
 
-      {status === 'loading' && <p role="status">Cargando…</p>}
+      {status === 'loading' && <PageLoading />}
 
       {status === 'error' && <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={loadAttributes} />}
 
-      {status === 'success' && (
+      {status === 'success' && attributes.length === 0 && (
+        <div className="flex max-w-3xl flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
+          <p className="text-xl font-semibold opacity-70">No hay atributos cargados</p>
+          <p className="text-lg opacity-50">
+            {canManage ? 'Usá "+ Nuevo atributo" para crear el primero.' : 'Cuando se carguen atributos, van a aparecer acá.'}
+          </p>
+        </div>
+      )}
+
+      {status === 'success' && attributes.length > 0 && (
         <div className="max-w-3xl overflow-hidden rounded-xl border border-line bg-surface">
-          <table className="w-full">
-            <thead>
+          <table className={STACKED_TABLE_CLASSES}>
+            <thead className={STACKED_HEAD_CLASSES}>
               <tr className="border-b border-line bg-surface-brand/40">
                 <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
                   Nombre
@@ -265,19 +289,22 @@ function AttributesContent() {
                 <th className="px-4 py-2.5" />
               </tr>
             </thead>
-            <tbody>
+            <tbody className={STACKED_BODY_CLASSES}>
               {attributes.map((attribute) => (
-                <tr key={attribute.id} className="border-t border-line">
-                  <td className="px-4 py-3 text-base font-medium">{attribute.name}</td>
-                  <td className="px-4 py-3">
+                <tr key={attribute.id} className={STACKED_ROW_CLASSES}>
+                  <td className={`${STACKED_FULL_CELL_CLASSES} text-base font-medium [overflow-wrap:anywhere]`}>
+                    {attribute.name}
+                  </td>
+                  <td className={STACKED_CELL_CLASSES}>
                     <span className={`text-sm font-semibold ${attribute.status === 'active' ? 'text-success' : 'opacity-50'}`}>
                       ● {attribute.status === 'active' ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className={STACKED_ACTION_CELL_CLASSES}>
                     <button
                       type="button"
                       onClick={() => selectAttribute(attribute.id)}
+                      aria-label={`Ver valores de ${attribute.name}`}
                       className="min-h-11 rounded-lg border border-line px-2.5 text-sm transition-colors hover:bg-surface-brand"
                     >
                       Ver valores
@@ -294,7 +321,7 @@ function AttributesContent() {
         <div className="flex max-w-3xl flex-col gap-3 rounded-xl border border-line bg-surface p-4">
           <h2 className="text-base font-semibold">Valores de {selectedAttribute.name}</h2>
 
-          {valuesStatus === 'loading' && <p role="status">Cargando…</p>}
+          {valuesStatus === 'loading' && <PageLoading />}
 
           {valuesStatus === 'error' && (
             <LoadErrorCard
@@ -303,12 +330,16 @@ function AttributesContent() {
             />
           )}
 
-          {valuesStatus === 'success' && (
+          {valuesStatus === 'success' && values.length === 0 && (
+            <p className="m-0 text-lg opacity-60">Este atributo todavía no tiene valores.</p>
+          )}
+
+          {valuesStatus === 'success' && values.length > 0 && (
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
               {values.map((value) => (
                 <li
                   key={value.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line px-3 py-2"
                 >
                   {editingValueId === value.id ? (
                     <form onSubmit={handleSaveValue} className="flex w-full flex-wrap items-center gap-2">
@@ -329,7 +360,9 @@ function AttributesContent() {
                     </form>
                   ) : (
                     <>
-                      <span className={`text-base ${value.status !== 'active' ? 'opacity-50 line-through' : ''}`}>
+                      <span
+                        className={`min-w-0 text-base [overflow-wrap:anywhere] ${value.status !== 'active' ? 'opacity-50 line-through' : ''}`}
+                      >
                         {value.value}
                       </span>
                       {canManage && (

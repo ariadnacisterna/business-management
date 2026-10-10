@@ -268,14 +268,13 @@ describe('ProductsPage', () => {
   })
 
   it('asks the server to filter by search text, debouncing the request', async () => {
-    const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
     renderPage(ADMIN_ACCOUNT)
 
     await screen.findByText('Cinta bebé')
     fetchMock.mockResolvedValueOnce(productPage([PRODUCTS[1]], { total: 1 }))
 
-    await user.type(screen.getByLabelText('Buscar productos'), 'lino')
+    fireEvent.change(screen.getByLabelText('Buscar productos'), { target: { value: 'lino' } })
 
     await waitFor(() => expect(screen.getByText('lino').closest('a')).toHaveTextContent('Tela de lino'), {
       timeout: 2000,
@@ -287,14 +286,13 @@ describe('ProductsPage', () => {
   })
 
   it('highlights the matching search text within the product name', async () => {
-    const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
     renderPage(ADMIN_ACCOUNT)
 
     await screen.findByText('Cinta bebé')
     fetchMock.mockResolvedValueOnce(productPage([PRODUCTS[1]], { total: 1 }))
 
-    await user.type(screen.getByLabelText('Buscar productos'), 'lino')
+    fireEvent.change(screen.getByLabelText('Buscar productos'), { target: { value: 'lino' } })
 
     const highlighted = await screen.findByText('lino', {}, { timeout: 2000 })
     expect(highlighted).toHaveClass('text-brand')
@@ -572,5 +570,62 @@ describe('ProductsPage', () => {
 
     expect(await screen.findByText('Cinta bebé XL')).toBeInTheDocument()
     expect(screen.queryByText('Cinta bebé', { exact: true })).not.toBeInTheDocument()
+  })
+
+  it('keeps the deactivate confirmation disabled while the request is in flight, so it cannot be sent twice', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    const pending = deferred<Response>()
+    fetchMock.mockImplementationOnce(() => pending.promise)
+
+    await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[0])
+    await user.click(screen.getByRole('button', { name: /^Desactivar$/ }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: /^Desactivar$/ }))
+
+    expect(within(dialog).getByRole('button', { name: /^Desactivar$/ })).toBeDisabled()
+    await user.click(within(dialog).getByRole('button', { name: /^Desactivar$/ }))
+    const deactivateCalls = fetchMock.mock.calls.filter((call) => String(call[0]).includes('/deactivate'))
+    expect(deactivateCalls).toHaveLength(1)
+
+    pending.resolve(jsonResponse({ ...PRODUCTS[0], status: 'inactive' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(await screen.findAllByText(/Inactivo/)).not.toHaveLength(0)
+  })
+
+  it('moves focus into a confirmation and closes it with the Escape key', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[0])
+    await user.click(screen.getByRole('button', { name: /^Desactivar$/ }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toContainElement(document.activeElement as HTMLElement)
+
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  })
+
+  it('sorts the table by name with a keyboard-reachable button', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    await user.click(screen.getByLabelText('Ver como tabla'))
+    const header = screen.getByRole('columnheader', { name: /Nombre/ })
+    expect(header).toHaveAttribute('aria-sort', 'ascending')
+
+    within(header).getByRole('button', { name: /Nombre/ }).focus()
+    await user.keyboard('{Enter}')
+
+    expect(header).toHaveAttribute('aria-sort', 'descending')
+    const rows = screen.getAllByRole('row').slice(1)
+    expect(rows[0]).toHaveTextContent('Tela de lino')
   })
 })

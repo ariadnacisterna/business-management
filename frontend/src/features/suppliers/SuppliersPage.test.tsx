@@ -364,4 +364,20 @@ describe('SuppliersPage', () => {
     await screen.findAllByText('Distribuidora Norte')
     expect(screen.queryByRole('button', { name: 'Nuevo proveedor' })).not.toBeInTheDocument()
   })
+
+  it('links the email error to its field so a screen reader announces it', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findAllByText('Distribuidora Norte')
+    await user.click(screen.getByRole('button', { name: 'Nuevo proveedor' }))
+    await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Papelera Central')
+    const email = screen.getByLabelText('Email')
+    await user.type(email, 'no-es-un-email')
+    await user.tab()
+
+    expect(email).toHaveAttribute('aria-invalid', 'true')
+    expect(email).toHaveAccessibleDescription('Ingresá un email válido.')
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBeDisabled()
+  })
 })

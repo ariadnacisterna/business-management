@@ -175,6 +175,29 @@ function SidebarContent({
   )
 }
 
+function keepCountUpdated(
+  fetchCount: () => Promise<{ count: number }>,
+  updateEvent: string,
+  setCount: (count: number) => void,
+): () => void {
+  let latestRequest = 0
+  function refresh() {
+    latestRequest += 1
+    const request = latestRequest
+    fetchCount()
+      .then((result) => {
+        if (request === latestRequest) setCount(result.count)
+      })
+      .catch(() => {})
+  }
+  refresh()
+  window.addEventListener(updateEvent, refresh)
+  return () => {
+    latestRequest += 1
+    window.removeEventListener(updateEvent, refresh)
+  }
+}
+
 export function Sidebar({ isOpen, onNavigate, account }: Props) {
   const [collapsed, setCollapsed] = useState(false)
   const [lowStockCount, setLowStockCount] = useState(0)
@@ -182,27 +205,22 @@ export function Sidebar({ isOpen, onNavigate, account }: Props) {
 
   useEffect(() => {
     if (account === null) return
-    function refresh() {
-      fetchLowStockCount()
-        .then((result) => setLowStockCount(result.count))
-        .catch(() => {})
-    }
-    refresh()
-    window.addEventListener('stock-updated', refresh)
-    return () => window.removeEventListener('stock-updated', refresh)
+    return keepCountUpdated(fetchLowStockCount, 'stock-updated', setLowStockCount)
   }, [account])
 
   useEffect(() => {
     if (account === null) return
-    function refresh() {
-      fetchShortageCount()
-        .then((result) => setShortageCount(result.count))
-        .catch(() => {})
-    }
-    refresh()
-    window.addEventListener('shortages-updated', refresh)
-    return () => window.removeEventListener('shortages-updated', refresh)
+    return keepCountUpdated(fetchShortageCount, 'shortages-updated', setShortageCount)
   }, [account])
+
+  useEffect(() => {
+    if (!isOpen) return
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape' && !event.defaultPrevented) onNavigate()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onNavigate])
 
   return (
     <>

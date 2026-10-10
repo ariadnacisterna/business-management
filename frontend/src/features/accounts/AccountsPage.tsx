@@ -7,12 +7,14 @@ import {
   resetAccountPassword,
   updateAccount,
 } from '../../api/accounts'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import type { ManagedAccount } from '../../api/types'
 import { ROLE_BADGE_CLASSES, ROLES, type Role } from '../access/roles'
+import { useAuth } from '../access/useAuth'
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { Dialog } from '../../shared/Dialog'
 import { FieldRow } from '../../shared/FieldRow'
 import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
 import { initials } from '../../shared/formatName'
@@ -138,7 +140,7 @@ function AccountFormModal({
       })
       showSuccess(isCreate ? 'Cuenta creada.' : 'Cuenta actualizada.')
     } catch (submitError) {
-      showError(submitError instanceof ApiError ? submitError.message : SAVE_ERROR_MESSAGE)
+      showError(errorMessage(submitError, SAVE_ERROR_MESSAGE))
       setSaving(false)
     }
   }
@@ -151,11 +153,11 @@ function AccountFormModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={onCancel} aria-hidden="true" />
-      <form
+      <Dialog
+        label={title}
+        onClose={onCancel}
         onSubmit={handleSubmit}
-        role="dialog"
-        aria-label={title}
-        className="relative flex w-full max-w-md flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
+        className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
       >
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-3">
@@ -179,11 +181,13 @@ function AccountFormModal({
               onChange={(event) => setName(event.target.value)}
               onBlur={() => markTouched('name')}
               disabled={saving}
+              aria-invalid={showNameError || undefined}
+              aria-describedby={showNameError ? 'account-name-error' : undefined}
               className={fieldClasses(showNameError)}
             />
           </label>
           {showNameError && (
-            <span role="alert" className="text-sm text-danger">
+            <span id="account-name-error" role="alert" className="text-sm text-danger">
               {nameError}
             </span>
           )}
@@ -199,10 +203,16 @@ function AccountFormModal({
               onChange={(event) => setUserName(event.target.value)}
               onBlur={() => markTouched('userName')}
               disabled={saving}
+              aria-invalid={showUserNameError || undefined}
+              aria-describedby="account-user-name-hint"
               className={fieldClasses(showUserNameError)}
             />
           </label>
-          <span className={`text-sm ${showUserNameError ? 'text-danger' : 'opacity-60'}`}>
+          <span
+            id="account-user-name-hint"
+            role={showUserNameError ? 'alert' : undefined}
+            className={`text-sm ${showUserNameError ? 'text-danger' : 'opacity-60'}`}
+          >
             {showUserNameError ? userNameError : `Mínimo ${USERNAME_MIN_LENGTH} caracteres.`}
           </span>
         </div>
@@ -219,11 +229,13 @@ function AccountFormModal({
                 onChange={(event) => setPassword(event.target.value)}
                 onBlur={() => markTouched('password')}
                 disabled={saving}
+                aria-invalid={showPasswordError || undefined}
+                aria-describedby={showPasswordError && password === '' ? 'account-password-error' : undefined}
                 className={fieldClasses(showPasswordError)}
               />
             </label>
             {showPasswordError && password === '' && (
-              <span role="alert" className="text-sm text-danger">
+              <span id="account-password-error" role="alert" className="text-sm text-danger">
                 {passwordError}
               </span>
             )}
@@ -251,7 +263,7 @@ function AccountFormModal({
             Cancelar
           </button>
         </div>
-      </form>
+      </Dialog>
 
       {confirming && (
         <ConfirmDialog
@@ -320,7 +332,7 @@ function ResetPasswordModal({
       await onSubmit(password)
       showSuccess('Contraseña restablecida.')
     } catch (submitError) {
-      showError(submitError instanceof ApiError ? submitError.message : SAVE_ERROR_MESSAGE)
+      showError(errorMessage(submitError, SAVE_ERROR_MESSAGE))
       setSaving(false)
     }
   }
@@ -328,11 +340,11 @@ function ResetPasswordModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={onCancel} aria-hidden="true" />
-      <form
+      <Dialog
+        label="Restablecer contraseña"
+        onClose={onCancel}
         onSubmit={handleSubmit}
-        role="dialog"
-        aria-label="Restablecer contraseña"
-        className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
+        className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
       >
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-3">
@@ -356,11 +368,13 @@ function ResetPasswordModal({
               onChange={(event) => setPassword(event.target.value)}
               onBlur={() => markTouched('password')}
               disabled={saving}
+              aria-invalid={showPasswordError || undefined}
+              aria-describedby={showPasswordError && password === '' ? 'reset-password-error' : undefined}
               className={fieldClasses(showPasswordError)}
             />
           </label>
           {showPasswordError && password === '' && (
-            <span role="alert" className="text-sm text-danger">
+            <span id="reset-password-error" role="alert" className="text-sm text-danger">
               {passwordError}
             </span>
           )}
@@ -377,12 +391,14 @@ function ResetPasswordModal({
             onChange={(event) => setConfirmation(event.target.value)}
             onBlur={() => markTouched('confirmation')}
             disabled={saving}
+            aria-invalid={showConfirmationError || undefined}
+            aria-describedby={showConfirmationError ? 'reset-confirmation-error' : undefined}
             className={fieldClasses(showConfirmationError)}
           />
         </label>
 
         {showConfirmationError && (
-          <p role="alert" className="m-0 text-base text-danger">
+          <p id="reset-confirmation-error" role="alert" className="m-0 text-base text-danger">
             {confirmationError}
           </p>
         )}
@@ -395,14 +411,15 @@ function ResetPasswordModal({
             Cancelar
           </button>
         </div>
-      </form>
+      </Dialog>
     </div>
   )
 }
 
 export function AccountsPage() {
   const { showSuccess, showError } = useToast()
-  const { status, data, reload, setData } = useLoad(() => fetchAccounts(), [])
+  const { account: currentAccount } = useAuth()
+  const { status, data, reload, setData } = useLoad(() => fetchAccounts(), [currentAccount?.active_business_id])
   const accounts = data ?? NO_ACCOUNTS
 
   const [searchInput, setSearchInput] = useState('')
@@ -544,20 +561,21 @@ export function AccountsPage() {
     setResettingAccount(null)
   }
 
-  function confirmToggleActive() {
+  async function confirmToggleActive() {
     if (confirmingAccount === null) return
     const account = confirmingAccount
-    setConfirmingAccount(null)
     const activating = account.status !== 'active'
-    const request = account.status === 'active' ? deactivateAccount(account.id) : activateAccount(account.id)
-    request
-      .then((updated) => {
-        applyAccountUpdate(updated)
-        showSuccess(activating ? 'Cuenta activada.' : 'Cuenta desactivada.')
-      })
-      .catch(() => {
-        showError(activating ? 'No se pudo activar la cuenta.' : 'No se pudo desactivar la cuenta.')
-      })
+    try {
+      const updated = activating ? await activateAccount(account.id) : await deactivateAccount(account.id)
+      applyAccountUpdate(updated)
+      showSuccess(activating ? 'Cuenta activada.' : 'Cuenta desactivada.')
+    } catch (error) {
+      showError(
+        errorMessage(error, activating ? 'No se pudo activar la cuenta.' : 'No se pudo desactivar la cuenta.'),
+      )
+    } finally {
+      setConfirmingAccount(null)
+    }
   }
 
   function accountRowMenuItems(account: ManagedAccount) {
@@ -576,12 +594,12 @@ export function AccountsPage() {
 
   return (
     <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Cuentas</h1>
-          <p className="mt-1 whitespace-nowrap text-base opacity-60 lg:text-lg">{accounts.length} cuentas registradas</p>
+          <p className="mt-1 text-base opacity-60 lg:text-lg">{accounts.length} cuentas registradas</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {status === 'success' && <ViewToggle mode={viewMode} onChange={setViewMode} />}
           <button
             type="button"
@@ -677,16 +695,16 @@ export function AccountsPage() {
                 ariaLabel="Buscar cuentas"
                 className="lg:min-w-48 lg:flex-1"
               />
-              <div className="grid grid-cols-2 gap-2 lg:hidden">
+              <div className="flex flex-wrap gap-2 lg:hidden">
                 <FiltersButton
                   onClick={() => setFiltersOpen(true)}
                   hasActiveFilters={hasActiveFilters}
-                  widthClassName="w-full"
+                  widthClassName="flex-1"
                 />
                 <button
                   type="button"
                   onClick={() => setCreating(true)}
-                  className={`${HEADER_ACTION_BUTTON_CLASSES} w-full justify-start bg-brand text-brand-contrast hover:bg-brand/90`}
+                  className={`${HEADER_ACTION_BUTTON_CLASSES} flex-1 justify-start bg-brand text-brand-contrast hover:bg-brand/90`}
                 >
                   <svg
                     aria-hidden="true"
@@ -750,8 +768,8 @@ export function AccountsPage() {
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
             {paginated.map((account) => (
               <div key={account.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex min-w-32 flex-1 items-center gap-3">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-bold text-brand-contrast">
                       {initials(account.name)}
                     </span>
@@ -759,7 +777,7 @@ export function AccountsPage() {
                       <HighlightedText text={account.name} query={searchInput} />
                     </span>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="ml-auto flex shrink-0 items-center gap-2">
                     <span
                       className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
                         account.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
@@ -837,11 +855,19 @@ export function AccountsPage() {
               <thead ref={theadRef} className="sticky top-0 z-10">
                 <tr className="table-header border-b border-line">
                   <th
-                    onClick={toggleSort}
-                    className="cursor-pointer whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60 transition-colors hover:text-brand"
+                    aria-sort={sortDir === 'asc' ? 'ascending' : 'descending'}
+                    className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60"
                   >
-                    Nombre
-                    <span className="ml-1.5 text-lg leading-none">{sortDir === 'asc' ? '↑' : '↓'}</span>
+                    <button
+                      type="button"
+                      onClick={toggleSort}
+                      className="inline-flex items-center uppercase tracking-wide transition-colors hover:text-brand"
+                    >
+                      Nombre
+                      <span aria-hidden="true" className="ml-1.5 text-lg leading-none">
+                        {sortDir === 'asc' ? '↑' : '↓'}
+                      </span>
+                    </button>
                   </th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Usuario</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Rol</th>

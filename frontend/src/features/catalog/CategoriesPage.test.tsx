@@ -76,8 +76,8 @@ describe('CategoriesPage', () => {
 
     expect(await screen.findByText('Mercería')).toBeInTheDocument()
     expect(screen.getByText('Despensa')).toBeInTheDocument()
-    expect(screen.getByRole('cell', { name: '2' })).toBeInTheDocument()
-    expect(screen.getByRole('cell', { name: '0' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: /^Productos:\s?2$/ })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: /^Productos:\s?0$/ })).toBeInTheDocument()
   })
 
   it('lets an administrator create a new category', async () => {
@@ -139,7 +139,7 @@ describe('CategoriesPage', () => {
 
     await screen.findByText('Mercería')
     expect(screen.queryByRole('button', { name: '+ Nueva categoría' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Editar/ })).not.toBeInTheDocument()
   })
 
   it('shows an error message when categories fail to load', async () => {
@@ -169,5 +169,17 @@ describe('CategoriesPage', () => {
 
     expect(await screen.findByText('Mercería')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('shows a clear message instead of an empty table when there are no categories', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 25 }))
+
+    renderPage()
+
+    expect(await screen.findByText('No hay categorías cargadas')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 })

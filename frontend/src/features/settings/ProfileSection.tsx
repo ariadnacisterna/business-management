@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { Dialog } from '../../shared/Dialog'
 import { PencilIcon } from '../../shared/icons'
 import { useToast } from '../../shared/useToast'
 import { useAuth } from '../access/useAuth'
@@ -41,7 +42,7 @@ function EditNameModal({
       onClose()
     } catch (error) {
       showError(
-        error instanceof ApiError ? error.message : 'No se pudo cambiar el nombre. Intentá de nuevo.',
+        errorMessage(error, 'No se pudo cambiar el nombre. Intentá de nuevo.'),
       )
       setSaving(false)
     }
@@ -50,11 +51,11 @@ function EditNameModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-      <form
+      <Dialog
+        label="Cambiar nombre"
+        onClose={onClose}
         onSubmit={handleSubmit}
-        role="dialog"
-        aria-label="Cambiar nombre"
-        className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
+        className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
       >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -75,11 +76,11 @@ function EditNameModal({
           />
         </label>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="submit"
             disabled={!hasChanges || saving}
-            className="h-14 flex-1 whitespace-nowrap rounded-xl bg-brand px-4 text-lg font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="h-14 flex-1 rounded-xl bg-brand px-4 text-lg font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Guardar
           </button>
@@ -87,12 +88,12 @@ function EditNameModal({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="h-14 flex-1 whitespace-nowrap rounded-xl border border-line px-4 text-lg font-semibold transition-colors hover:bg-surface-brand"
+            className="h-14 flex-1 rounded-xl border border-line px-4 text-lg font-semibold transition-colors hover:bg-surface-brand"
           >
             Cancelar
           </button>
         </div>
-      </form>
+      </Dialog>
 
       {confirming && (
         <ConfirmDialog

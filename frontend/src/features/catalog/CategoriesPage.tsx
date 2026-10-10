@@ -1,9 +1,20 @@
 import { useMemo, useState } from 'react'
 import { createCategory, fetchCategories, fetchProducts, updateCategory } from '../../api/catalog'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import type { Category, Product } from '../../api/types'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { PageLoading } from '../../shared/PageLoading'
+import {
+  STACKED_ACTION_CELL_CLASSES,
+  STACKED_BODY_CLASSES,
+  STACKED_CELL_CLASSES,
+  STACKED_FULL_CELL_CLASSES,
+  STACKED_HEAD_CLASSES,
+  STACKED_LABEL_CLASSES,
+  STACKED_ROW_CLASSES,
+  STACKED_TABLE_CLASSES,
+} from '../../shared/stackedTable'
 import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { useAuth } from '../access/useAuth'
@@ -73,7 +84,7 @@ export function CategoriesPage() {
       setCreating(false)
       showSuccess('Categoría creada.')
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(errorMessage(error, SAVE_ERROR_MESSAGE))
     } finally {
       setSavingNew(false)
     }
@@ -117,7 +128,7 @@ export function CategoriesPage() {
       cancelEdit()
       showSuccess('Categoría actualizada.')
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(errorMessage(error, SAVE_ERROR_MESSAGE))
     } finally {
       setSavingEdit(false)
     }
@@ -167,14 +178,23 @@ export function CategoriesPage() {
         </form>
       )}
 
-      {status === 'loading' && <p role="status">Cargando…</p>}
+      {status === 'loading' && <PageLoading />}
 
       {status === 'error' && <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={reload} />}
 
-      {status === 'success' && (
+      {status === 'success' && categories.length === 0 && (
+        <div className="flex max-w-2xl flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
+          <p className="text-xl font-semibold opacity-70">No hay categorías cargadas</p>
+          <p className="text-lg opacity-50">
+            {canManage ? 'Usá "+ Nueva categoría" para crear la primera.' : 'Cuando se carguen categorías, van a aparecer acá.'}
+          </p>
+        </div>
+      )}
+
+      {status === 'success' && categories.length > 0 && (
         <div className="max-w-2xl overflow-hidden rounded-xl border border-line bg-surface">
-          <table className="w-full">
-            <thead>
+          <table className={STACKED_TABLE_CLASSES}>
+            <thead className={STACKED_HEAD_CLASSES}>
               <tr className="border-b border-line bg-surface-brand/40">
                 <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
                   Nombre
@@ -188,11 +208,11 @@ export function CategoriesPage() {
                 {canManage && <th className="px-4 py-2.5" />}
               </tr>
             </thead>
-            <tbody>
+            <tbody className={STACKED_BODY_CLASSES}>
               {categories.map((category) => (
-                <tr key={category.id} className="border-t border-line">
+                <tr key={category.id} className={STACKED_ROW_CLASSES}>
                   {editingId === category.id ? (
-                    <td colSpan={canManage ? 4 : 3} className="px-4 py-3">
+                    <td colSpan={canManage ? 4 : 3} className={STACKED_FULL_CELL_CLASSES}>
                       <form onSubmit={handleSaveEdit} className="flex flex-wrap items-center gap-2">
                         <input
                           type="text"
@@ -212,9 +232,14 @@ export function CategoriesPage() {
                     </td>
                   ) : (
                     <>
-                      <td className="px-4 py-3 text-base font-medium">{category.name}</td>
-                      <td className="px-4 py-3 text-base opacity-70">{productCountByCategory.get(category.id) ?? 0}</td>
-                      <td className="px-4 py-3">
+                      <td className={`${STACKED_FULL_CELL_CLASSES} text-base font-medium [overflow-wrap:anywhere]`}>
+                        {category.name}
+                      </td>
+                      <td className={`${STACKED_CELL_CLASSES} text-base`}>
+                        <span className={STACKED_LABEL_CLASSES}>Productos: </span>
+                        <span className="opacity-70">{productCountByCategory.get(category.id) ?? 0}</span>
+                      </td>
+                      <td className={STACKED_CELL_CLASSES}>
                         <span
                           className={`text-sm font-semibold ${category.status === 'active' ? 'text-success' : 'opacity-50'}`}
                         >
@@ -222,8 +247,13 @@ export function CategoriesPage() {
                         </span>
                       </td>
                       {canManage && (
-                        <td className="px-4 py-3 text-right">
-                          <button type="button" onClick={() => startEdit(category)} className={rowButtonClasses}>
+                        <td className={STACKED_ACTION_CELL_CLASSES}>
+                          <button
+                            type="button"
+                            onClick={() => startEdit(category)}
+                            aria-label={`Editar ${category.name}`}
+                            className={rowButtonClasses}
+                          >
                             Editar
                           </button>
                         </td>

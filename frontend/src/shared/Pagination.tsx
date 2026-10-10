@@ -8,7 +8,7 @@ interface Props {
 }
 
 const navButtonClasses =
-  'h-11 rounded-full border border-line bg-surface px-4 text-lg font-semibold text-ink/60 transition-colors hover:bg-line/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface'
+  'h-11 shrink-0 rounded-full border border-line bg-surface px-4 text-lg font-semibold text-ink/60 transition-colors hover:bg-line/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface'
 
 export function Pagination({ page, totalPages, onPageChange }: Props) {
   if (totalPages <= 1) return null
@@ -27,7 +27,10 @@ export function Pagination({ page, totalPages, onPageChange }: Props) {
         disabled={page <= 1}
         className={navButtonClasses}
       >
-        Anterior
+        <span aria-hidden="true" className="min-[480px]:hidden">
+          ‹
+        </span>
+        <span className="max-[479px]:sr-only">Anterior</span>
       </button>
 
       <div className="flex min-w-0 flex-1 items-center gap-2 sm:hidden">
@@ -71,7 +74,10 @@ export function Pagination({ page, totalPages, onPageChange }: Props) {
         disabled={page >= totalPages}
         className={navButtonClasses}
       >
-        Siguiente
+        <span aria-hidden="true" className="min-[480px]:hidden">
+          ›
+        </span>
+        <span className="max-[479px]:sr-only">Siguiente</span>
       </button>
     </nav>
   )

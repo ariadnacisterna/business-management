@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { changeProductPrice, changeVariantPrice, setInitialVariantPrice } from '../../api/catalog'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import type { Price, Product, Variant } from '../../api/types'
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
+import { Dialog } from '../../shared/Dialog'
 import { PriceInput } from '../../shared/PriceInput'
 import { AllVariantsPreview, DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
 import { deltaToApi, evaluateDelta, evaluateForAll, evaluateTargetPrice } from '../../shared/signedDelta'
@@ -100,7 +101,7 @@ export function ChangePriceModal({
         )
       }
     } catch (submitError) {
-      showError(submitError instanceof ApiError ? submitError.message : GENERIC_ERROR_MESSAGE)
+      showError(errorMessage(submitError, GENERIC_ERROR_MESSAGE))
     } finally {
       setSaving(false)
     }
@@ -110,9 +111,11 @@ export function ChangePriceModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
-      <form
+      <Dialog
+        label={`Cambiar precio de ${product.name}`}
+        onClose={onClose}
         onSubmit={handleSubmit}
-        className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
+        className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
       >
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-3">
@@ -125,26 +128,26 @@ export function ChangePriceModal({
         </div>
 
         <div className="flex flex-col gap-1.5 text-lg">
-          <div className="flex justify-between">
+          <div className="flex flex-wrap justify-between gap-x-3">
             <span className="opacity-60">Producto</span>
-            <span className="font-semibold">{product.name}</span>
+            <span className="min-w-0 text-right font-semibold [overflow-wrap:anywhere]">{product.name}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-wrap justify-between gap-x-3">
             <span className="opacity-60">Categoría</span>
-            <span className="font-semibold">{categoryName}</span>
+            <span className="min-w-0 text-right font-semibold [overflow-wrap:anywhere]">{categoryName}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-wrap justify-between gap-x-3">
             <span className="opacity-60">Variante</span>
-            <span className="font-semibold">{describeVariantLabel(variant)}</span>
+            <span className="min-w-0 text-right font-semibold [overflow-wrap:anywhere]">{describeVariantLabel(variant)}</span>
           </div>
         </div>
 
         <div className="flex flex-col gap-1.5 border-t border-line pt-3 text-lg">
-          <div className="flex justify-between">
+          <div className="flex flex-wrap justify-between gap-x-3">
             <span className="opacity-60">Precio actual</span>
             <span className="font-bold">{currentPrice !== null ? formatPrice(currentPrice.amount) : 'Sin precio'}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-wrap justify-between gap-x-3">
             <span className="opacity-60">Vigente desde</span>
             <span className="font-medium text-success">
               {currentPrice !== null ? formatRelativeTime(currentPrice.effective_from) : '—'}
@@ -262,7 +265,7 @@ export function ChangePriceModal({
             Cancelar
           </button>
         </div>
-      </form>
+      </Dialog>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
@@ -605,6 +605,31 @@ describe('InventoryPage', () => {
     expect(within(dialog).getByText('Cambiado por: Ada')).toBeInTheDocument()
   })
 
+  it('ignores a late history answer after the dialog was closed with Escape', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage()
+
+    await screen.findAllByText('Hilo blanco')
+    let answerHistory: (response: Response) => void = () => {}
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          answerHistory = resolve
+        }),
+    )
+
+    await user.click(screen.getAllByRole('button', { name: /Ver historial de stock de Hilo blanco/ })[0])
+    expect(await screen.findByRole('dialog', { name: /Historial de stock de Hilo blanco/ })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    answerHistory(jsonResponse([]))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
   it('shows an empty history message when the variant has no movements', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
@@ -807,7 +832,24 @@ describe('InventoryPage', () => {
       fetchMock.mockResolvedValueOnce(jsonResponse([]))
       await user.click(screen.getByRole('button', { name: 'Faltantes' }))
 
+      expect(await screen.findByText('No hay faltantes pendientes')).toBeInTheDocument()
+      expect(screen.queryByText('No hay faltantes que coincidan.')).not.toBeInTheDocument()
+    })
+
+    it('says no shortage matches only when a filter is active', async () => {
+      const user = userEvent.setup()
+      const fetchMock = fetch as ReturnType<typeof vi.fn>
+      renderPage()
+
+      await screen.findAllByText('Hilo blanco')
+      fetchMock.mockResolvedValueOnce(jsonResponse([SHORTAGE]))
+      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
+      await screen.findByText('Hilo blanco')
+
+      fireEvent.change(screen.getByLabelText('Buscar producto'), { target: { value: 'inexistente' } })
+
       expect(await screen.findByText('No hay faltantes que coincidan.')).toBeInTheDocument()
+      expect(screen.queryByText('No hay faltantes pendientes')).not.toBeInTheDocument()
     })
 
     it('groups shortages by provider when selected', async () => {

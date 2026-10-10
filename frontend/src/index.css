@@ -41,6 +41,13 @@
   color-scheme: light;
 }
 
+@layer base {
+  :focus-visible {
+    outline: 3px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

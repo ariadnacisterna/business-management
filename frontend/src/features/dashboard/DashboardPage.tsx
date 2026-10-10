@@ -1,46 +1,37 @@
-import { useEffect, useState } from 'react'
 import { fetchCustomerBalances } from '../../api/catalog'
+import type { CustomerBalanceSummary } from '../../api/types'
+import { useAuth } from '../access/useAuth'
 import { fetchStockSummary, type StockSummary } from '../inventory/stockRows'
 import { formatAmount } from '../../shared/formatAmount'
 import { NavIconGlyph } from '../../shared/layout/NavIcon'
+import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { useLoad } from '../../shared/useLoad'
 
 const EMPTY_SUMMARY: StockSummary = { total: 0, stockBajo: 0, sinStock: 0 }
+const STOCK_LOAD_ERROR_MESSAGE = 'No se pudo cargar el resumen del inventario.'
 
-type Status = 'loading' | 'success' | 'error'
+function pendingCreditTotal(balances: CustomerBalanceSummary[]): number {
+  return balances.reduce((sum, item) => {
+    const value = Number(item.balance)
+    return value > 0 ? sum + value : sum
+  }, 0)
+}
 
 export function DashboardPage() {
-  const [summary, setSummary] = useState<StockSummary>(EMPTY_SUMMARY)
-  const [status, setStatus] = useState<Status>('loading')
-  const [pendingTotal, setPendingTotal] = useState(0)
-  const [balanceStatus, setBalanceStatus] = useState<Status>('loading')
-
-  useEffect(() => {
-    fetchStockSummary()
-      .then((result) => {
-        setSummary(result)
-        setStatus('success')
-      })
-      .catch(() => setStatus('error'))
-  }, [])
-
-  useEffect(() => {
-    fetchCustomerBalances()
-      .then((balances) => {
-        const total = balances.reduce((sum, item) => {
-          const value = Number(item.balance)
-          return value > 0 ? sum + value : sum
-        }, 0)
-        setPendingTotal(total)
-        setBalanceStatus('success')
-      })
-      .catch(() => setBalanceStatus('error'))
-  }, [])
+  const { account } = useAuth()
+  const businessId = account?.active_business_id
+  const stock = useLoad(() => fetchStockSummary(), [businessId])
+  const balances = useLoad(() => fetchCustomerBalances().then(pendingCreditTotal), [businessId])
+  const status = stock.status
+  const summary = stock.data ?? EMPTY_SUMMARY
+  const balanceStatus = balances.status
+  const pendingTotal = balances.data ?? 0
 
   return (
     <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div>
         <h1 className="text-3xl font-bold">Panel</h1>
-        <p className="mt-1 whitespace-nowrap text-base opacity-60 lg:text-lg">Resumen general del negocio</p>
+        <p className="mt-1 text-base opacity-60 lg:text-lg">Resumen general del negocio</p>
       </div>
 
       <div className="rounded-xl border border-line bg-surface p-5">
@@ -53,9 +44,16 @@ export function DashboardPage() {
         )}
         {balanceStatus === 'success' && <p className="mt-1 text-3xl font-bold">${formatAmount(String(pendingTotal))}</p>}
         {balanceStatus === 'error' && (
-          <p className="mt-1 text-xl font-semibold text-danger" role="alert">
-            No se pudo cargar
-          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-3" role="alert">
+            <p className="m-0 text-xl font-semibold text-danger">No se pudo cargar</p>
+            <button
+              type="button"
+              onClick={balances.reload}
+              className="min-h-11 rounded-lg border border-danger px-4 text-base font-bold text-danger transition-colors hover:bg-danger/10"
+            >
+              Reintentar
+            </button>
+          </div>
         )}
       </div>
 
@@ -65,6 +63,8 @@ export function DashboardPage() {
           <p className="text-xl font-semibold">Cargando…</p>
         </div>
       )}
+
+      {status === 'error' && <LoadErrorCard message={STOCK_LOAD_ERROR_MESSAGE} onRetry={stock.reload} />}
 
       {status === 'success' && summary.total > 0 && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

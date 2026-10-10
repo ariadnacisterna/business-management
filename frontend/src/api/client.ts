@@ -61,6 +61,13 @@ export class ApiError extends Error {
   }
 }
 
+export function errorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError && error.message.trim() !== '') {
+    return error.message
+  }
+  return fallback
+}
+
 type UnauthorizedHandler = () => void
 
 let unauthorizedHandler: UnauthorizedHandler | null = null
@@ -86,9 +93,9 @@ async function readErrorBody(response: Response): Promise<{ message: string; det
     if (typeof detail === 'string') {
       return { message: detail, detail }
     }
-    return { message: response.statusText, detail }
+    return { message: '', detail }
   }
-  return { message: response.statusText, detail: null }
+  return { message: '', detail: null }
 }
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {

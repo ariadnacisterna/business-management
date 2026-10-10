@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { createAttribute, createAttributeValue, fetchAttributeValues } from '../../api/catalog'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import type { Attribute, AttributeValue } from '../../api/types'
 import { SelectMenu } from '../../shared/SelectMenu'
+import { useLatestRequest } from '../../shared/useLatestRequest'
 import { useToast } from '../../shared/useToast'
 import { TrashIcon } from '../../shared/icons'
 
@@ -53,8 +54,10 @@ export function VariantAttributesEditor({
   const [showNewAttributeInput, setShowNewAttributeInput] = useState(false)
   const [newAttributeName, setNewAttributeName] = useState('')
   const [savingNewAttribute, setSavingNewAttribute] = useState(false)
+  const startValuesRequest = useLatestRequest()
 
   function handleAttributeChange(rawId: string) {
+    const isLatest = startValuesRequest()
     setLoadError(null)
     setShowNewValueInput(false)
     setNewValueText('')
@@ -63,6 +66,7 @@ export function VariantAttributesEditor({
     if (rawId === CREATE_NEW_ATTRIBUTE) {
       setPickerAttributeId('')
       setAvailableValues([])
+      setLoadingValues(false)
       setShowNewAttributeInput(true)
       setNewAttributeName('')
       return
@@ -72,6 +76,7 @@ export function VariantAttributesEditor({
     if (rawId === '') {
       setPickerAttributeId('')
       setAvailableValues([])
+      setLoadingValues(false)
       return
     }
 
@@ -80,12 +85,14 @@ export function VariantAttributesEditor({
     setLoadingValues(true)
     fetchAttributeValues(attributeId)
       .then((values) => {
-        setAvailableValues(values.filter((value) => value.status === 'active'))
+        if (isLatest()) setAvailableValues(values.filter((value) => value.status === 'active'))
       })
       .catch(() => {
-        setLoadError(LOAD_ERROR_MESSAGE)
+        if (isLatest()) setLoadError(LOAD_ERROR_MESSAGE)
       })
-      .finally(() => setLoadingValues(false))
+      .finally(() => {
+        if (isLatest()) setLoadingValues(false)
+      })
   }
 
   async function handleCreateAttribute() {
@@ -103,7 +110,7 @@ export function VariantAttributesEditor({
       setShowNewValueInput(true)
       showSuccess('Atributo creado.')
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : SAVE_ATTRIBUTE_ERROR_MESSAGE)
+      showError(errorMessage(error, SAVE_ATTRIBUTE_ERROR_MESSAGE))
     } finally {
       setSavingNewAttribute(false)
     }
@@ -142,7 +149,7 @@ export function VariantAttributesEditor({
       setShowNewValueInput(false)
       showSuccess('Valor agregado.')
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(errorMessage(error, SAVE_ERROR_MESSAGE))
     } finally {
       setSavingNewValue(false)
     }
@@ -168,9 +175,9 @@ export function VariantAttributesEditor({
                     type="button"
                     aria-label={`Quitar ${value.value}`}
                     onClick={() => onRemove(value.id)}
-                    className="flex h-6 w-6 items-center justify-center rounded-full text-danger transition-colors hover:bg-danger/10"
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-danger transition-colors hover:bg-danger/10"
                   >
-                    <TrashIcon className="h-3.5 w-3.5" />
+                    <TrashIcon className="h-4 w-4" />
                   </button>
                 )}
               </li>

@@ -56,6 +56,23 @@ export function RowMenu({ title, subtitle, items }: Props) {
 
   useEffect(() => {
     if (!open) return
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      setOpen(false)
+      buttonRef.current?.focus()
+    }
+    document.addEventListener('keydown', handleKeyDown, true)
+    return () => document.removeEventListener('keydown', handleKeyDown, true)
+  }, [open])
+
+  useEffect(() => {
+    if (!open || !positioned) return
+    menuRef.current?.querySelector<HTMLButtonElement>('button:not([disabled])')?.focus({ preventScroll: true })
+  }, [open, positioned])
+
+  useEffect(() => {
+    if (!open) return
     function handleReposition() {
       setOpen(false)
     }

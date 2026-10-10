@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { changeOwnPassword } from '../../api/auth'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { Dialog } from '../../shared/Dialog'
 import { EyeIcon } from '../../shared/icons'
 import { PasswordChecklist } from '../../shared/PasswordChecklist'
 import { isPasswordSecure } from '../../shared/passwordRules'
@@ -69,7 +70,7 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
       showSuccess('Contraseña cambiada. Se cerraron las demás sesiones abiertas de tu cuenta.')
       onClose()
     } catch (error) {
-      setServerError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      setServerError(errorMessage(error, SAVE_ERROR_MESSAGE))
       setSaving(false)
     }
   }
@@ -77,11 +78,11 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-      <form
+      <Dialog
+        label="Cambiar contraseña"
+        onClose={onClose}
         onSubmit={handleSubmit}
         noValidate
-        role="dialog"
-        aria-label="Cambiar contraseña"
         className="relative my-auto flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
       >
         <div className="flex flex-col gap-2">
@@ -106,11 +107,13 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
               disabled={saving}
               autoComplete="current-password"
               autoFocus
+              aria-invalid={(attempted && currentError !== null) || undefined}
+              aria-describedby={attempted && currentError !== null ? 'current-password-error' : undefined}
               className={fieldClasses(attempted && currentError !== null)}
             />
           </label>
           {attempted && currentError !== null && (
-            <span role="alert" className="text-sm text-danger">
+            <span id="current-password-error" role="alert" className="text-sm text-danger">
               {currentError}
             </span>
           )}
@@ -127,11 +130,13 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
               onChange={(event) => setNewPassword(event.target.value)}
               disabled={saving}
               autoComplete="new-password"
+              aria-invalid={(attempted && newError !== null) || undefined}
+              aria-describedby={attempted && newError !== null ? 'new-password-error' : undefined}
               className={fieldClasses(attempted && newError !== null)}
             />
           </label>
           {attempted && newError !== null && (
-            <span role="alert" className="text-sm text-danger">
+            <span id="new-password-error" role="alert" className="text-sm text-danger">
               {newError}
             </span>
           )}
@@ -149,11 +154,13 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
               onChange={(event) => setConfirmation(event.target.value)}
               disabled={saving}
               autoComplete="new-password"
+              aria-invalid={(attempted && confirmationError !== null) || undefined}
+              aria-describedby={attempted && confirmationError !== null ? 'confirmation-password-error' : undefined}
               className={fieldClasses(attempted && confirmationError !== null)}
             />
           </label>
           {attempted && confirmationError !== null && (
-            <span role="alert" className="text-sm text-danger">
+            <span id="confirmation-password-error" role="alert" className="text-sm text-danger">
               {confirmationError}
             </span>
           )}
@@ -163,7 +170,7 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
           type="button"
           onClick={() => setVisible((value) => !value)}
           aria-pressed={visible}
-          className="flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-line px-4 text-base font-semibold transition-colors hover:bg-surface-brand"
+          className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-line px-4 text-base font-semibold transition-colors hover:bg-surface-brand"
         >
           <EyeIcon className="h-5 w-5" />
           {visible ? 'Ocultar contraseñas' : 'Mostrar contraseñas'}
@@ -183,7 +190,7 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
             Cancelar
           </button>
         </div>
-      </form>
+      </Dialog>
 
       {confirming && (
         <ConfirmDialog

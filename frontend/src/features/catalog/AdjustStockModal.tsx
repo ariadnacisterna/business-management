@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { adjustStock } from '../../api/catalog'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import type { Product, StockRow, Variant } from '../../api/types'
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
+import { Dialog } from '../../shared/Dialog'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { formatQuantity } from '../../shared/formatQuantity'
 import { DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
@@ -64,7 +65,7 @@ export function AdjustStockModal({
       )
       onSuccess()
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : GENERIC_ERROR_MESSAGE)
+      showError(errorMessage(error, GENERIC_ERROR_MESSAGE))
       setSaving(false)
     }
   }
@@ -73,9 +74,11 @@ export function AdjustStockModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
-      <form
+      <Dialog
+        label={`Actualizar stock de ${product.name}`}
+        onClose={onClose}
         onSubmit={handleSubmit}
-        className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
+        className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
       >
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-3">
@@ -88,22 +91,22 @@ export function AdjustStockModal({
         </div>
 
         <div className="flex flex-col gap-1.5 text-lg">
-          <div className="flex justify-between">
+          <div className="flex flex-wrap justify-between gap-x-3">
             <span className="opacity-60">Producto</span>
-            <span className="font-semibold">{product.name}</span>
+            <span className="min-w-0 text-right font-semibold [overflow-wrap:anywhere]">{product.name}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-wrap justify-between gap-x-3">
             <span className="opacity-60">Categoría</span>
-            <span className="font-semibold">{categoryName}</span>
+            <span className="min-w-0 text-right font-semibold [overflow-wrap:anywhere]">{categoryName}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-wrap justify-between gap-x-3">
             <span className="opacity-60">Variante</span>
-            <span className="font-semibold">{describeVariantLabel(variant)}</span>
+            <span className="min-w-0 text-right font-semibold [overflow-wrap:anywhere]">{describeVariantLabel(variant)}</span>
           </div>
         </div>
 
         <div className="flex flex-col gap-1.5 border-t border-line pt-3 text-lg">
-          <div className="flex justify-between">
+          <div className="flex flex-wrap justify-between gap-x-3">
             <span className="opacity-60">Stock actual</span>
             <span className="font-bold">{formatQuantity(currentQuantity)}</span>
           </div>
@@ -161,7 +164,7 @@ export function AdjustStockModal({
             Cancelar
           </button>
         </div>
-      </form>
+      </Dialog>
 
       {confirming && (
         <ConfirmDialog

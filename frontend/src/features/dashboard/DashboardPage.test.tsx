@@ -1,6 +1,46 @@
-import { render, screen } from '@testing-library/react'
+import { render as renderElement, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import type { ReactElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Account } from '../../api/types'
+import { AuthContext, type AuthContextValue } from '../access/useAuth'
 import { DashboardPage } from './DashboardPage'
+
+const ADMIN_ACCOUNT = {
+  id: 1,
+  name: 'Ada Lovelace',
+  user_name: 'ada',
+  status: 'activo',
+  role: 'Administrador',
+  active_business_id: 1,
+  businesses: [
+    { id: 1, name: 'Mercería', industry: 'Mercería' },
+    { id: 2, name: 'Despensa', industry: 'Despensa' },
+  ],
+  font_size: 3,
+} as unknown as Account
+
+function authValue(account: Account): AuthContextValue {
+  return {
+    account,
+    status: 'ready',
+    justLoggedIn: false,
+    login: vi.fn(),
+    logout: vi.fn(),
+    switchBusiness: vi.fn(),
+    changeFontSize: vi.fn(),
+    changeName: vi.fn(),
+    acknowledgeLogin: vi.fn(),
+  }
+}
+
+function withAuth(element: ReactElement, account: Account = ADMIN_ACCOUNT) {
+  return <AuthContext.Provider value={authValue(account)}>{element}</AuthContext.Provider>
+}
+
+function render(element: ReactElement) {
+  return renderElement(withAuth(element))
+}
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
@@ -120,5 +160,50 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByText('No se pudo cargar')).toBeInTheDocument()
     expect(await screen.findByText('Variantes')).toBeInTheDocument()
+  })
+
+  it('shows an error card with a retry button when the stock summary fails, instead of a blank area', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    let stockFails = true
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      if (String(input).includes('/customers/balances')) return Promise.resolve(jsonResponse([]))
+      if (stockFails) return Promise.resolve(new Response('{}', { status: 500 }))
+      return Promise.resolve(jsonResponse(STOCK_COUNTS))
+    })
+
+    render(<DashboardPage />)
+
+    expect(await screen.findByText('No se pudo cargar el resumen del inventario.')).toBeInTheDocument()
+
+    stockFails = false
+    await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+
+    expect(await screen.findByText('Variantes')).toBeInTheDocument()
+  })
+
+  it('reloads the summary when the active business changes and ignores the old answer', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    const pendingOldStock: Array<(response: Response) => void> = []
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      if (String(input).includes('/customers/balances')) return Promise.resolve(jsonResponse([]))
+      if (pendingOldStock.length === 0) {
+        return new Promise<Response>((resolve) => {
+          pendingOldStock.push(resolve)
+        })
+      }
+      return Promise.resolve(jsonResponse(NO_STOCK))
+    })
+
+    const { rerender } = renderElement(withAuth(<DashboardPage />))
+    rerender(withAuth(<DashboardPage />, { ...ADMIN_ACCOUNT, active_business_id: 2 }))
+
+    expect(await screen.findByText('No hay inventario cargado')).toBeInTheDocument()
+
+    pendingOldStock[0](jsonResponse(STOCK_COUNTS))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(screen.queryByText('Variantes')).not.toBeInTheDocument()
+    expect(screen.getByText('No hay inventario cargado')).toBeInTheDocument()
   })
 })

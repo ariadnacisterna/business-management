@@ -47,7 +47,7 @@ function ToastItem({ toast, onClose, onPause, onResume }: ToastItemProps) {
       <CloseButton onClose={onClose} className="absolute right-1 top-1" />
 
       <h3 className="m-0 text-3xl font-bold">{heading}</h3>
-      <p className="m-0 text-xl opacity-80">{toast.message}</p>
+      <p className="m-0 text-xl opacity-80 [overflow-wrap:anywhere]">{toast.message}</p>
     </div>
   )
 }

@@ -8,13 +8,14 @@ import {
   fetchVariantPriceHistory,
   setInitialVariantPrice,
 } from '../../api/catalog'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import type { Category, Price, Product, Variant } from '../../api/types'
 import { useAuth } from '../access/useAuth'
 import { canManageCatalog } from '../access/roles'
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { CloseButton } from '../../shared/CloseButton'
+import { Dialog } from '../../shared/Dialog'
 import { FieldRow } from '../../shared/FieldRow'
 import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
 import { HighlightedText } from '../../shared/HighlightedText'
@@ -34,6 +35,7 @@ import {
   evaluateTargetPrice,
   formatSignedDelta,
 } from '../../shared/signedDelta'
+import { useLatestRequest } from '../../shared/useLatestRequest'
 import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { firstName } from '../../shared/formatName'
@@ -46,6 +48,7 @@ import type { ViewMode } from '../../shared/ViewToggle'
 import { ViewToggle } from '../../shared/ViewToggle'
 
 const NO_PRODUCTS: Product[] = []
+const NO_CATEGORIES: Category[] = []
 const NO_PRICES: Map<number, Price | null> = new Map()
 const NO_DRAFTS: Map<number, string> = new Map()
 
@@ -146,7 +149,7 @@ function VariantPriceEditor({
 
   return (
     <div className="flex w-full flex-col gap-2">
-      <div className="grid grid-cols-2 items-start gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
         {wholePrice ? (
           <PriceInput
             value={draft}
@@ -244,7 +247,9 @@ export function PricingPage() {
   const canManage = canManageCatalog(account)
   const { showSuccess, showError } = useToast()
 
-  const [categories, setCategories] = useState<Category[]>([])
+  const categoriesLoad = useLoad(() => fetchCategories(), [account?.active_business_id])
+  const categories = categoriesLoad.data ?? NO_CATEGORIES
+  const startHistoryRequest = useLatestRequest()
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
 
@@ -259,10 +264,6 @@ export function PricingPage() {
   const [historyState, setHistoryState] = useState<HistoryState | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
   const [filtersOpen, setFiltersOpen] = useState(false)
-
-  useEffect(() => {
-    fetchCategories().then(setCategories).catch(() => {})
-  }, [account?.active_business_id])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -416,7 +417,7 @@ export function PricingPage() {
         )
       }
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : 'No se pudo actualizar el precio. Intentá de nuevo.')
+      showError(errorMessage(error, 'No se pudo actualizar el precio. Intentá de nuevo.'))
       setConfirmState(null)
     } finally {
       setConfirming(false)
@@ -428,10 +429,20 @@ export function PricingPage() {
   }
 
   function openHistory(product: Product, variant: Variant) {
+    const isLatest = startHistoryRequest()
     setHistoryState({ product, variant, status: 'loading', prices: [] })
     fetchVariantPriceHistory(variant.id)
-      .then((prices) => setHistoryState({ product, variant, status: 'success', prices }))
-      .catch(() => setHistoryState({ product, variant, status: 'error', prices: [] }))
+      .then((prices) => {
+        if (isLatest()) setHistoryState({ product, variant, status: 'success', prices })
+      })
+      .catch(() => {
+        if (isLatest()) setHistoryState({ product, variant, status: 'error', prices: [] })
+      })
+  }
+
+  function closeHistory() {
+    startHistoryRequest()
+    setHistoryState(null)
   }
 
   const confirmDescription = (() => {
@@ -459,10 +470,10 @@ export function PricingPage() {
 
   return (
     <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Precios</h1>
-          <p className="mt-1 whitespace-nowrap text-base opacity-60 lg:text-lg">{total} productos encontrados</p>
+          <p className="mt-1 text-base opacity-60 lg:text-lg">{total} productos encontrados</p>
         </div>
         {status === 'success' && (total > 0 || hasActiveFilters) && (
           <ViewToggle mode={viewMode} onChange={setViewMode} />
@@ -612,15 +623,15 @@ export function PricingPage() {
                       const draft = draftFor(variant.id)
                       return (
                         <div key={variant.id} data-testid="price-row" className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
-                          <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
-                            <div className="flex min-h-12 items-center gap-3">
+                          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-3">
+                            <div className="flex min-h-12 min-w-32 flex-1 items-center gap-3">
                               <ProductThumbnail imageUrl={product.image_url} name={product.name} sizeClassName="h-12 w-12" />
-                              <p className="text-xl font-bold leading-tight">
+                              <p className="min-w-0 text-xl font-bold leading-tight [overflow-wrap:anywhere]">
                                 <HighlightedText text={product.name} query={appliedSearch} />
                               </p>
                             </div>
                             {currentPrice !== null ? (
-                              <span className="text-2xl font-bold text-brand">{formatPrice(currentPrice.amount)}</span>
+                              <span className="ml-auto whitespace-nowrap text-2xl font-bold text-brand">{formatPrice(currentPrice.amount)}</span>
                             ) : (
                               <span className="text-lg italic opacity-40">Sin precio</span>
                             )}
@@ -642,29 +653,27 @@ export function PricingPage() {
                             />
                           )}
                           {canManage && <FieldRow label="Último cambio" value={lastChangeLabel(variant.id)} />}
-                          {canManage && (
-                            <button
-                              type="button"
-                              onClick={() => openHistory(product, variant)}
-                              aria-label={`Ver historial de precios de ${product.name} ${variantLabel(variant)}`}
-                              className="flex h-12 items-center justify-center gap-2 rounded-lg border border-line text-base font-semibold text-ink/70 transition-colors hover:bg-surface-brand hover:text-brand"
+                          <button
+                            type="button"
+                            onClick={() => openHistory(product, variant)}
+                            aria-label={`Ver historial de precios de ${product.name} ${variantLabel(variant)}`}
+                            className="flex h-12 items-center justify-center gap-2 rounded-lg border border-line text-base font-semibold text-ink/70 transition-colors hover:bg-surface-brand hover:text-brand"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="h-5 w-5"
                             >
-                              <svg
-                                aria-hidden="true"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="h-5 w-5"
-                              >
-                                <circle cx="12" cy="12" r="9" />
-                                <polyline points="12 7 12 12 15.5 14" />
-                              </svg>
-                              Ver historial
-                            </button>
-                          )}
+                              <circle cx="12" cy="12" r="9" />
+                              <polyline points="12 7 12 12 15.5 14" />
+                            </svg>
+                            Ver historial
+                          </button>
                         </div>
                       )
                     })}
@@ -711,7 +720,9 @@ export function PricingPage() {
                     {canManage && (
                       <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Último cambio</th>
                     )}
-                    {canManage && <th className="px-4 py-3" />}
+                    <th className="px-4 py-3">
+                      <span className="sr-only">Historial</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -782,30 +793,28 @@ export function PricingPage() {
                               {canManage && (
                                 <td className="px-4 py-3.5 text-lg opacity-70">{lastChangeLabel(variant.id)}</td>
                               )}
-                              {canManage && (
-                                <td className="px-4 py-3.5 text-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => openHistory(product, variant)}
-                                    aria-label={`Ver historial de precios de ${product.name} ${variantLabel(variant)}`}
-                                    className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-ink/50 transition-colors hover:bg-surface-brand hover:text-brand"
+                              <td className="px-4 py-3.5 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => openHistory(product, variant)}
+                                  aria-label={`Ver historial de precios de ${product.name} ${variantLabel(variant)}`}
+                                  className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-ink/50 transition-colors hover:bg-surface-brand hover:text-brand"
+                                >
+                                  <svg
+                                    aria-hidden="true"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="h-6 w-6"
                                   >
-                                    <svg
-                                      aria-hidden="true"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      className="h-6 w-6"
-                                    >
-                                      <circle cx="12" cy="12" r="9" />
-                                      <polyline points="12 7 12 12 15.5 14" />
-                                    </svg>
-                                  </button>
-                                </td>
-                              )}
+                                    <circle cx="12" cy="12" r="9" />
+                                    <polyline points="12 7 12 12 15.5 14" />
+                                  </svg>
+                                </button>
+                              </td>
                             </tr>
                           )
                         })}
@@ -851,10 +860,10 @@ export function PricingPage() {
 
       {historyState !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={() => setHistoryState(null)} aria-hidden="true" />
-          <div
-            role="dialog"
-            aria-label={`Historial de precios de ${historyState.product.name}`}
+          <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={closeHistory} aria-hidden="true" />
+          <Dialog
+            label={`Historial de precios de ${historyState.product.name}`}
+            onClose={closeHistory}
             className="relative grid max-h-[80vh] w-full max-w-lg grid-rows-[auto_1fr] gap-4 overflow-hidden rounded-2xl bg-surface p-6 shadow-2xl"
           >
             <div className="flex flex-col gap-2">
@@ -862,7 +871,7 @@ export function PricingPage() {
                 <div className="min-w-0">
                   <Breadcrumb segments={['Precios', historyState.product.name, 'Historial de precios']} />
                 </div>
-                <CloseButton onClose={() => setHistoryState(null)} />
+                <CloseButton onClose={closeHistory} />
               </div>
               <div>
                 <h2 className="m-0 text-2xl font-bold">Historial de precios</h2>
@@ -932,7 +941,7 @@ export function PricingPage() {
                 )}
               </div>
             )}
-          </div>
+          </Dialog>
         </div>
       )}
     </section>

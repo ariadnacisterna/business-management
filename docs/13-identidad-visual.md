@@ -135,6 +135,14 @@ implementación distinta por pantalla. `shared/ConfirmDialog.tsx` ya lo
 incluye por defecto para cualquier confirmación; un modal de formulario
 propio (ej. alta/edición) reutiliza `shared/CloseButton.tsx`.
 
+Desde T-079, la tarjeta de todo modal se arma con `shared/Dialog.tsx`
+(o, en `ConfirmDialog`, con su hook `useDialogKeyboard`): al abrirse
+recibe el foco, la tecla Tab no se sale del modal, Escape lo cierra (solo
+el de más arriba si hay dos abiertos) y al cerrarse el foco vuelve al
+botón que lo abrió. Si el contenido puede ser más alto que la pantalla
+(letra grande en un celular), la tarjeta lleva un alto máximo con scroll
+propio.
+
 ### Notificaciones (popup/toast) y tarjeta de error de carga
 
 Desde T-043, `shared/Toast.tsx` (`ToastProvider`/`useToast`) es el

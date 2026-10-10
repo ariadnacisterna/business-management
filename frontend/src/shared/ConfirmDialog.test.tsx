@@ -80,4 +80,32 @@ describe('ConfirmDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Cerrar' }))
     await waitFor(() => expect(onCancel).toHaveBeenCalledTimes(1))
   })
+
+  it('cancels with the Escape key and keeps the keyboard inside the dialog', async () => {
+    const user = userEvent.setup()
+    const onCancel = vi.fn()
+
+    render(
+      <ConfirmDialog
+        title="Título"
+        description="Descripción"
+        confirmLabel="Aceptar"
+        breadcrumb={['Sección', 'Título']}
+        onConfirm={vi.fn()}
+        onCancel={onCancel}
+      />,
+    )
+
+    const dialog = screen.getByRole('alertdialog', { name: 'Título' })
+    expect(dialog).toHaveFocus()
+    await user.tab()
+    await user.tab()
+    await user.tab()
+    await user.tab()
+    expect(dialog).toContainElement(document.activeElement as HTMLElement)
+
+    await user.keyboard('{Escape}')
+
+    expect(onCancel).toHaveBeenCalledTimes(1)
+  })
 })

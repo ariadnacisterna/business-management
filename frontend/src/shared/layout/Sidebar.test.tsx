@@ -237,4 +237,43 @@ describe('Sidebar', () => {
 
     vi.unstubAllGlobals()
   })
+
+  it('closes the mobile drawer with the Escape key', async () => {
+    const user = userEvent.setup()
+    const onNavigate = vi.fn()
+    renderSidebar('/products', true, onNavigate)
+
+    await user.keyboard('{Escape}')
+
+    expect(onNavigate).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the newest low stock count when an older answer arrives late', async () => {
+    let answerFirst: (response: Response) => void = () => {}
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/stock/low-count')) {
+        if (fetchMock.mock.calls.filter((call) => String(call[0]).includes('/stock/low-count')).length === 1) {
+          return new Promise<Response>((resolve) => {
+            answerFirst = resolve
+          })
+        }
+        return Promise.resolve(new Response(JSON.stringify({ count: 2 }), { headers: { 'Content-Type': 'application/json' } }))
+      }
+      return Promise.resolve(new Response(JSON.stringify({ count: 0 }), { headers: { 'Content-Type': 'application/json' } }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    renderSidebar('/products')
+
+    window.dispatchEvent(new Event('stock-updated'))
+    const inventoryLink = screen.getByRole('link', { name: /Inventario/ })
+    expect(await within(inventoryLink).findByText('2')).toBeInTheDocument()
+
+    answerFirst(new Response(JSON.stringify({ count: 9 }), { headers: { 'Content-Type': 'application/json' } }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(within(inventoryLink).queryByText('9')).not.toBeInTheDocument()
+    expect(within(inventoryLink).getByText('2')).toBeInTheDocument()
+    vi.unstubAllGlobals()
+  })
 })

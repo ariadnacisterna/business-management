@@ -68,7 +68,7 @@ describe('AttributesPage', () => {
     renderPage()
 
     await screen.findByText('color')
-    await user.click(screen.getByRole('button', { name: 'Ver valores' }))
+    await user.click(screen.getByRole('button', { name: 'Ver valores de color' }))
     await screen.findByText('Rojo')
 
     const [desactivarButton] = screen.getAllByRole('button', { name: 'Desactivar' })
@@ -136,9 +136,55 @@ describe('AttributesPage', () => {
     renderPage()
 
     await screen.findByText('color')
-    await user.click(screen.getByRole('button', { name: 'Ver valores' }))
+    await user.click(screen.getByRole('button', { name: 'Ver valores de color' }))
     await screen.findByText('Rojo')
 
     expect(screen.queryByRole('button', { name: 'Desactivar' })).not.toBeInTheDocument()
+  })
+
+  it('shows a clear message when there are no attributes or an attribute has no values', async () => {
+    const user = userEvent.setup()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse(ATTRIBUTES))
+      .mockResolvedValueOnce(jsonResponse([]))
+
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Ver valores de color' }))
+
+    expect(await screen.findByText('Este atributo todavía no tiene valores.')).toBeInTheDocument()
+  })
+
+  it('shows the values of the last attribute chosen even if an older answer arrives later', async () => {
+    const user = userEvent.setup()
+    let resolveOld: (response: Response) => void = () => {}
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(
+        jsonResponse([
+          ...ATTRIBUTES,
+          { id: 2, name: 'talle', status: 'active' },
+        ]),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveOld = resolve
+          }),
+      )
+      .mockResolvedValueOnce(jsonResponse([{ id: 20, attribute_id: 2, value: 'M', status: 'active' }]))
+
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Ver valores de color' }))
+    await user.click(screen.getByRole('button', { name: 'Ver valores de talle' }))
+    expect(await screen.findByText('M')).toBeInTheDocument()
+
+    resolveOld(jsonResponse(VALUES))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(screen.queryByText('Rojo')).not.toBeInTheDocument()
+    expect(screen.getByText('M')).toBeInTheDocument()
   })
 })

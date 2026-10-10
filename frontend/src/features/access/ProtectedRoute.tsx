@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { lazyWithReload } from '../../shared/lazyWithReload'
 import { Loadable } from '../../shared/Loadable'
+import { PageLoading } from '../../shared/PageLoading'
 import { useAuth } from './useAuth'
 import { isDueno } from './roles'
 
@@ -14,7 +15,7 @@ export function ProtectedRoute() {
   const [businessConfirmed, setBusinessConfirmed] = useState(false)
 
   if (status === 'loading') {
-    return <p role="status">Cargando…</p>
+    return <PageLoading />
   }
 
   if (account === null) {

@@ -17,6 +17,7 @@ interface Props<T extends string> {
   className?: string
   disabled?: boolean
   hasError?: boolean
+  ariaDescribedBy?: string
   onBlur?: () => void
 }
 
@@ -30,6 +31,7 @@ export function SelectMenu<T extends string>({
   className = '',
   disabled = false,
   hasError = false,
+  ariaDescribedBy,
   onBlur,
 }: Props<T>) {
   const [open, setOpen] = useState(false)
@@ -151,6 +153,8 @@ export function SelectMenu<T extends string>({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
+        aria-invalid={hasError || undefined}
+        aria-describedby={ariaDescribedBy}
         className={`flex h-12 w-full items-center justify-between gap-2 rounded-lg border bg-surface px-3 text-left text-lg transition-colors focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${
           hasError
             ? 'border-danger focus:border-danger focus:ring-danger/10'

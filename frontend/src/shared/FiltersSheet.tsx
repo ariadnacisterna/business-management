@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Breadcrumb } from './Breadcrumb'
 import { CloseButton } from './CloseButton'
+import { Dialog } from './Dialog'
 import { HEADER_ACTION_BUTTON_CLASSES } from './headerActionButton'
 
 export function FiltersButton({
@@ -55,9 +56,9 @@ export function FiltersSheet({ open, onOpenChange, section, children }: Props) {
         onClick={() => onOpenChange(false)}
         aria-hidden="true"
       />
-      <div
-        role="dialog"
-        aria-label="Filtros"
+      <Dialog
+        label="Filtros"
+        onClose={() => onOpenChange(false)}
         className="scrollbar-clean relative flex max-h-[80vh] w-full flex-col gap-4 overflow-auto rounded-t-2xl bg-surface p-6 shadow-2xl"
       >
         <div className="flex flex-col gap-2">
@@ -70,7 +71,7 @@ export function FiltersSheet({ open, onOpenChange, section, children }: Props) {
           <h2 className="m-0 text-2xl font-bold">Filtros</h2>
         </div>
         <div className="flex flex-col gap-3">{children}</div>
-      </div>
+      </Dialog>
     </div>
   )
 }

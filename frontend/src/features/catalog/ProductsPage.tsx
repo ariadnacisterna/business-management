@@ -9,12 +9,13 @@ import {
   fetchUnits,
   reactivateProduct,
 } from '../../api/catalog'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import type { Category, Product, StockRow, Unit, Variant } from '../../api/types'
 import { useAuth } from '../access/useAuth'
 import { canManageCatalog } from '../access/roles'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { Dialog } from '../../shared/Dialog'
 import { HighlightedText } from '../../shared/HighlightedText'
 import { EyeIcon, PencilIcon } from '../../shared/icons'
 import { Pagination } from '../../shared/Pagination'
@@ -37,6 +38,9 @@ import type { ViewMode } from '../../shared/ViewToggle'
 import { ViewToggle } from '../../shared/ViewToggle'
 
 const NO_PRODUCTS: Product[] = []
+const NO_CATEGORIES: Category[] = []
+const NO_UNITS: Unit[] = []
+const NO_STOCK_ROWS: StockRow[] = []
 type StatusFilter = 'all' | 'active' | 'inactive'
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los productos.'
@@ -88,9 +92,19 @@ export function ProductsPage() {
   const navigate = useNavigate()
   const { showSuccess, showError } = useToast()
 
-  const [categories, setCategories] = useState<Category[]>([])
-  const [units, setUnits] = useState<Unit[]>([])
-  const [stockByVariant, setStockByVariant] = useState<Map<number, StockRow>>(new Map())
+  const auxiliary = useLoad(
+    () =>
+      Promise.all([
+        fetchCategories().catch(() => NO_CATEGORIES),
+        fetchUnits().catch(() => NO_UNITS),
+        fetchAllStock().catch(() => NO_STOCK_ROWS),
+      ]),
+    [account?.active_business_id],
+  )
+  const categories = auxiliary.data?.[0] ?? NO_CATEGORIES
+  const units = auxiliary.data?.[1] ?? NO_UNITS
+  const stockRows = auxiliary.data?.[2] ?? NO_STOCK_ROWS
+  const stockByVariant = useMemo(() => new Map(stockRows.map((row) => [row.variant_id, row])), [stockRows])
   const [confirmingProduct, setConfirmingProduct] = useState<Product | null>(null)
   const [pickingVariantForShortage, setPickingVariantForShortage] = useState<Product | null>(null)
   const [confirmingShortage, setConfirmingShortage] = useState<{ product: Product; variant: Variant } | null>(null)
@@ -101,14 +115,6 @@ export function ProductsPage() {
   const [appliedSearch, setAppliedSearch] = useState('')
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-
-  useEffect(() => {
-    fetchCategories().then(setCategories).catch(() => {})
-    fetchUnits().then(setUnits).catch(() => {})
-    fetchAllStock()
-      .then((rows) => setStockByVariant(new Map(rows.map((row) => [row.variant_id, row]))))
-      .catch(() => {})
-  }, [account?.active_business_id])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -161,23 +167,19 @@ export function ProductsPage() {
     )
   }
 
-  function toggleActive(product: Product) {
-    const activating = product.status !== 'active'
-    const request = product.status === 'active' ? deactivateProduct(product.id) : reactivateProduct(product.id)
-    request
-      .then((updated) => {
-        applyProductUpdate(updated)
-        showSuccess(activating ? 'Producto activado.' : 'Producto desactivado.')
-      })
-      .catch(() => {
-        showError(activating ? 'No se pudo activar el producto.' : 'No se pudo desactivar el producto.')
-      })
-  }
-
-  function confirmToggleActive() {
+  async function confirmToggleActive() {
     if (confirmingProduct === null) return
-    toggleActive(confirmingProduct)
-    setConfirmingProduct(null)
+    const product = confirmingProduct
+    const activating = product.status !== 'active'
+    try {
+      const updated = activating ? await reactivateProduct(product.id) : await deactivateProduct(product.id)
+      applyProductUpdate(updated)
+      showSuccess(activating ? 'Producto activado.' : 'Producto desactivado.')
+    } catch (error) {
+      showError(errorMessage(error, activating ? 'No se pudo activar el producto.' : 'No se pudo desactivar el producto.'))
+    } finally {
+      setConfirmingProduct(null)
+    }
   }
 
   function openMarkAsShortage(product: Product) {
@@ -191,18 +193,18 @@ export function ProductsPage() {
     setConfirmingShortage({ product, variant })
   }
 
-  function confirmMarkAsShortage() {
+  async function confirmMarkAsShortage() {
     if (confirmingShortage === null) return
     const { variant } = confirmingShortage
-    setConfirmingShortage(null)
-    createShortage(variant.id)
-      .then(() => {
-        showSuccess('La variante ahora figura como faltante.')
-        window.dispatchEvent(new Event('shortages-updated'))
-      })
-      .catch((error) => {
-        showError(error instanceof ApiError ? error.message : 'No se pudo marcar como faltante.')
-      })
+    try {
+      await createShortage(variant.id)
+      showSuccess('La variante ahora figura como faltante.')
+      window.dispatchEvent(new Event('shortages-updated'))
+    } catch (error) {
+      showError(errorMessage(error, 'No se pudo marcar como faltante.'))
+    } finally {
+      setConfirmingShortage(null)
+    }
   }
 
   function productRowMenuItems(product: Product) {
@@ -260,12 +262,12 @@ export function ProductsPage() {
 
   return (
     <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Productos</h1>
-          <p className="mt-1 whitespace-nowrap text-base opacity-60 lg:text-lg">{total} productos encontrados</p>
+          <p className="mt-1 text-base opacity-60 lg:text-lg">{total} productos encontrados</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {status === 'success' && (total > 0 || hasActiveFilters) && (
             <ViewToggle mode={viewMode} onChange={setViewMode} />
           )}
@@ -347,7 +349,7 @@ export function ProductsPage() {
         const newProductLink = canManage && (
           <Link
             to="/products/new"
-            className={`${HEADER_ACTION_BUTTON_CLASSES} w-full justify-start bg-brand text-brand-contrast hover:bg-brand/90 lg:hidden`}
+            className={`${HEADER_ACTION_BUTTON_CLASSES} flex-1 justify-start bg-brand text-brand-contrast hover:bg-brand/90 lg:hidden`}
           >
             <svg
               aria-hidden="true"
@@ -382,11 +384,11 @@ export function ProductsPage() {
                     ariaLabel="Buscar productos"
                     className="lg:min-w-40 lg:flex-1"
                   />
-                  <div className="grid grid-cols-2 gap-2 lg:hidden">
+                  <div className="flex flex-wrap gap-2 lg:hidden">
                     <FiltersButton
                       onClick={() => setFiltersOpen(true)}
                       hasActiveFilters={hasActiveFilters}
-                      widthClassName="w-full"
+                      widthClassName="flex-1"
                     />
                     {newProductLink}
                   </div>
@@ -394,7 +396,7 @@ export function ProductsPage() {
                 </div>
               </>
             ) : (
-              canManage && <div className="lg:hidden">{newProductLink}</div>
+              canManage && <div className="flex lg:hidden">{newProductLink}</div>
             )}
           </>
         )
@@ -475,7 +477,7 @@ export function ProductsPage() {
                       </Link>
                       <p className="mt-0.5 text-lg opacity-60">{categoryName(product.category_id)}</p>
                     </div>
-                    <div className="grid grid-cols-4 gap-3 border-t border-line pt-3">
+                    <div className="grid grid-cols-2 gap-3 border-t border-line pt-3 sm:grid-cols-4">
                       <div>
                         <p className="text-sm font-bold uppercase tracking-wide opacity-50">Precio</p>
                         <p className="mt-0.5 text-lg font-bold">
@@ -549,11 +551,19 @@ export function ProductsPage() {
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Imagen</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Código</th>
                     <th
-                      onClick={toggleSort}
-                      className="cursor-pointer whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60 transition-colors hover:text-brand"
+                      aria-sort={sortDir === 'asc' ? 'ascending' : 'descending'}
+                      className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60"
                     >
-                      Nombre
-                      <span className="ml-1.5 text-lg leading-none">{sortDir === 'asc' ? '↑' : '↓'}</span>
+                      <button
+                        type="button"
+                        onClick={toggleSort}
+                        className="inline-flex items-center uppercase tracking-wide transition-colors hover:text-brand"
+                      >
+                        Nombre
+                        <span aria-hidden="true" className="ml-1.5 text-lg leading-none">
+                          {sortDir === 'asc' ? '↑' : '↓'}
+                        </span>
+                      </button>
                     </th>
                     <th className="whitespace-nowrap pl-8 pr-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Categoría</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Variantes</th>
@@ -664,7 +674,11 @@ export function ProductsPage() {
             onClick={() => setPickingVariantForShortage(null)}
             aria-hidden="true"
           />
-          <div className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl">
+          <Dialog
+            label="Elegir variante"
+            onClose={() => setPickingVariantForShortage(null)}
+            className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
+          >
             <div className="flex items-start justify-between">
               <h2 className="m-0 text-2xl font-bold">Elegir variante</h2>
               <CloseButton onClose={() => setPickingVariantForShortage(null)} />
@@ -691,7 +705,7 @@ export function ProductsPage() {
                   </li>
                 ))}
             </ul>
-          </div>
+          </Dialog>
         </div>
       )}
 

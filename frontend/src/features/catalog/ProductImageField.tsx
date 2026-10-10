@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { removeProductImage, uploadProductImage } from '../../api/catalog'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import type { Product } from '../../api/types'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { TrashIcon } from '../../shared/icons'
@@ -341,7 +341,7 @@ export function ProductImageField({ product, disabled = false, onUpdated }: Prop
       onUpdated(updated)
       setPendingFile(null)
     } catch (err) {
-      showError(err instanceof ApiError ? err.message : UPLOAD_ERROR_MESSAGE)
+      showError(errorMessage(err, UPLOAD_ERROR_MESSAGE))
     } finally {
       setSaving(false)
     }
@@ -354,7 +354,7 @@ export function ProductImageField({ product, disabled = false, onUpdated }: Prop
       const updated = await removeProductImage(product.id)
       onUpdated(updated)
     } catch (err) {
-      showError(err instanceof ApiError ? err.message : REMOVE_ERROR_MESSAGE)
+      showError(errorMessage(err, REMOVE_ERROR_MESSAGE))
     } finally {
       setSaving(false)
     }

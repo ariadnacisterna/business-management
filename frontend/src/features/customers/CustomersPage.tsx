@@ -9,11 +9,12 @@ import {
   reactivateCustomer,
   updateCustomer,
 } from '../../api/catalog'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import type { Credit, Customer } from '../../api/types'
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { Dialog } from '../../shared/Dialog'
 import { FieldRow } from '../../shared/FieldRow'
 import { formatAmount } from '../../shared/formatAmount'
 import { formatDateTime } from '../../shared/formatDateTime'
@@ -96,10 +97,12 @@ function CustomerFormModal({
   const [saving, setSaving] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [attemptedSubmit, setAttemptedSubmit] = useState(false)
+  const [nameTouched, setNameTouched] = useState(false)
   const isCreate = initialValues.name === ''
 
   const nameError = values.name.trim() === '' ? 'El nombre es obligatorio.' : null
   const canSubmit = nameError === null
+  const showNameError = (attemptedSubmit || nameTouched) && nameError !== null
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -115,7 +118,7 @@ function CustomerFormModal({
       await onSubmit(values)
       showSuccess(isCreate ? 'Cliente creado.' : 'Cliente actualizado.')
     } catch (submitError) {
-      showError(submitError instanceof ApiError ? submitError.message : SAVE_ERROR_MESSAGE)
+      showError(errorMessage(submitError, SAVE_ERROR_MESSAGE))
       setSaving(false)
     }
   }
@@ -123,10 +126,10 @@ function CustomerFormModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={onCancel} aria-hidden="true" />
-      <form
+      <Dialog
+        label={title}
+        onClose={onCancel}
         onSubmit={handleSubmit}
-        role="dialog"
-        aria-label={title}
         className="relative flex max-h-[90vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
       >
         <div className="flex flex-col gap-2">
@@ -153,12 +156,15 @@ function CustomerFormModal({
             <input
               value={values.name}
               onChange={(event) => setValues((prev) => ({ ...prev, name: event.target.value }))}
+              onBlur={() => setNameTouched(true)}
               disabled={saving}
+              aria-invalid={showNameError || undefined}
+              aria-describedby={showNameError ? 'customer-name-error' : undefined}
               className={inputClasses}
             />
           </label>
-          {attemptedSubmit && nameError !== null && (
-            <span role="alert" className="text-sm text-danger">
+          {showNameError && (
+            <span id="customer-name-error" role="alert" className="text-sm text-danger">
               {nameError}
             </span>
           )}
@@ -192,7 +198,7 @@ function CustomerFormModal({
             Cancelar
           </button>
         </div>
-      </form>
+      </Dialog>
 
       {confirming && (
         <ConfirmDialog
@@ -240,6 +246,7 @@ function CustomerPaymentModal({
   const amountError =
     amount.trim() === '' || Number.isNaN(amountValue) || amountValue <= 0 ? 'Ingresá un importe válido.' : null
   const canSubmit = amountError === null
+  const showAmountError = (attemptedSubmit || amount.trim() !== '') && amountError !== null
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -258,7 +265,7 @@ function CustomerPaymentModal({
       setAttemptedSubmit(false)
       showSuccess(movementType === 'cargo' ? 'Fiado registrado.' : 'Pago registrado.')
     } catch (submitError) {
-      showError(submitError instanceof ApiError ? submitError.message : MOVEMENT_ERROR_MESSAGE)
+      showError(errorMessage(submitError, MOVEMENT_ERROR_MESSAGE))
     } finally {
       setSaving(false)
     }
@@ -267,9 +274,9 @@ function CustomerPaymentModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-      <div
-        role="dialog"
-        aria-label={`Registrar pago de ${customer.name}`}
+      <Dialog
+        label={`Registrar pago de ${customer.name}`}
+        onClose={onClose}
         className="relative flex max-h-[90vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
       >
         <div className="flex flex-col gap-2">
@@ -291,13 +298,14 @@ function CustomerPaymentModal({
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl border border-line p-4">
           <h3 className="m-0 text-lg font-bold">Registrar movimiento</h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5">
               <span className="text-base font-semibold">Importe</span>
               <PriceInput
                 value={amount}
                 onChange={setAmount}
                 ariaLabel="Importe"
+                ariaDescribedBy={showAmountError ? 'payment-amount-error' : undefined}
                 disabled={saving}
                 className={`${inputClasses} pl-8`}
               />
@@ -315,8 +323,8 @@ function CustomerPaymentModal({
               />
             </label>
           </div>
-          {attemptedSubmit && amountError !== null && (
-            <span role="alert" className="text-sm text-danger">
+          {showAmountError && (
+            <span id="payment-amount-error" role="alert" className="text-sm text-danger">
               {amountError}
             </span>
           )}
@@ -324,7 +332,7 @@ function CustomerPaymentModal({
             Registrar
           </button>
         </form>
-      </div>
+      </Dialog>
 
       {confirming && (
         <ConfirmDialog
@@ -356,9 +364,9 @@ function CustomerHistoryModal({ customer, onClose }: { customer: Customer; onClo
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-      <div
-        role="dialog"
-        aria-label={`Historial de ${customer.name}`}
+      <Dialog
+        label={`Historial de ${customer.name}`}
+        onClose={onClose}
         className="relative grid max-h-[80vh] w-full max-w-lg grid-rows-[auto_1fr] gap-4 overflow-hidden rounded-2xl bg-surface p-6 shadow-2xl"
       >
         <div className="flex flex-col gap-2">
@@ -417,7 +425,7 @@ function CustomerHistoryModal({ customer, onClose }: { customer: Customer; onClo
             )}
           </div>
         )}
-      </div>
+      </Dialog>
     </div>
   )
 }
@@ -459,7 +467,7 @@ function CustomerBalanceEditor({
       setAmount('')
       showSuccess(movementType === 'cargo' ? 'Fiado registrado.' : 'Pago registrado.')
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : MOVEMENT_ERROR_MESSAGE)
+      showError(errorMessage(error, MOVEMENT_ERROR_MESSAGE))
     } finally {
       setSaving(false)
     }
@@ -467,7 +475,7 @@ function CustomerBalanceEditor({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_110px]">
+      <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
         <PriceInput
           value={amount}
           onChange={setAmount}
@@ -500,7 +508,7 @@ function CustomerBalanceEditor({
       </div>
 
       {canViewHistory && lastMovement !== undefined && (
-        <div className="flex items-center justify-between gap-3 text-lg">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 text-lg">
           <span className="opacity-60">Último cambio</span>
           <span className="font-semibold">
             {formatRelativeTime(lastMovement.at)} por {firstName(lastMovement.byAccountName)}
@@ -565,7 +573,7 @@ export function CustomersPage() {
   const canManage = canManageCustomers(account)
   const canViewHistory = canViewCustomerHistory(account)
 
-  const { status, data, reload, setData } = useLoad(loadCustomersData, [])
+  const { status, data, reload, setData } = useLoad(loadCustomersData, [account?.active_business_id])
   const customers = data?.customers ?? NO_CUSTOMERS
   const balances = data?.balances ?? NO_BALANCES
   const lastMovements = data?.lastMovements ?? NO_LAST_MOVEMENTS
@@ -618,20 +626,19 @@ export function CustomersPage() {
     })
   }
 
-  function confirmToggleActive() {
+  async function confirmToggleActive() {
     if (confirmingCustomer === null) return
     const customer = confirmingCustomer
-    setConfirmingCustomer(null)
     const activating = customer.status !== 'active'
-    const request = customer.status === 'active' ? deactivateCustomer(customer.id) : reactivateCustomer(customer.id)
-    request
-      .then((updated) => {
-        applyCustomerUpdate(updated)
-        showSuccess(activating ? 'Cliente activado.' : 'Cliente desactivado.')
-      })
-      .catch(() => {
-        showError(activating ? 'No se pudo activar el cliente.' : 'No se pudo desactivar el cliente.')
-      })
+    try {
+      const updated = activating ? await reactivateCustomer(customer.id) : await deactivateCustomer(customer.id)
+      applyCustomerUpdate(updated)
+      showSuccess(activating ? 'Cliente activado.' : 'Cliente desactivado.')
+    } catch (error) {
+      showError(errorMessage(error, activating ? 'No se pudo activar el cliente.' : 'No se pudo desactivar el cliente.'))
+    } finally {
+      setConfirmingCustomer(null)
+    }
   }
 
   function customerRowMenuItems(customer: Customer, includeMovementActions: boolean) {
@@ -684,12 +691,12 @@ export function CustomersPage() {
 
   return (
     <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Clientes</h1>
           <p className="mt-1 text-base opacity-60 lg:text-lg">{customers.length} clientes registrados</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {status === 'success' && customers.length > 0 && <ViewToggle mode={viewMode} onChange={setViewMode} />}
           {canManage && (
             <button
@@ -767,8 +774,8 @@ export function CustomersPage() {
       {status === 'success' && filteredCustomers.length > 0 && (
         <>
           {viewMode === 'table' && (
-          <div className="overflow-hidden rounded-xl border border-line bg-surface">
-            <table className="w-full">
+          <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+            <table className="w-full min-w-[720px]">
               <thead>
                 <tr className="border-b border-line bg-surface-brand/40">
                   <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
@@ -825,14 +832,14 @@ export function CustomersPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {paginatedCustomers.map((customer) => (
               <div key={customer.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
-                <div className="flex items-center gap-3 border-b border-line pb-3">
+                <div className="flex flex-wrap items-center gap-3 border-b border-line pb-3">
                   <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand text-lg font-bold text-brand-contrast">
                     {initials(customer.name)}
                   </span>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-32 flex-1">
                     <p className="truncate text-xl font-bold leading-tight">{customer.name}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="ml-auto flex items-center gap-2">
                     <span
                       className={`whitespace-nowrap text-2xl font-bold ${Number(balanceFor(customer.id)) > 0 ? 'text-danger' : 'opacity-60'}`}
                     >

@@ -1,11 +1,12 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
+import type { Account } from '../../api/types'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../shared/Toast'
 import { AuthProvider } from '../access/AuthContext'
-import { useAuth } from '../access/useAuth'
+import { AuthContext, useAuth } from '../access/useAuth'
 import { CustomersPage } from './CustomersPage'
 
 function ReadyGate({ children }: { children: ReactNode }) {
@@ -472,5 +473,71 @@ describe('CustomersPage', () => {
     expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
     expect(screen.getAllByText('$200,00').length).toBeGreaterThan(0)
     expect(screen.getByText(/por Empleada/)).toBeInTheDocument()
+  })
+
+  it('reloads the customers when the active business changes', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/customers/balances')) return Promise.resolve(jsonResponse([]))
+      const businessCustomers = fetchMock.mock.calls.filter((call) => String(call[0]) === '/customers').length
+      return Promise.resolve(
+        jsonResponse(businessCustomers === 1 ? CUSTOMERS : [{ id: 9, name: 'Clienta de la despensa', phone: null, address: null, status: 'active' }]),
+      )
+    })
+    const authValue = (activeBusinessId: number) => ({
+      account: { ...ACCOUNT, active_business_id: activeBusinessId } as unknown as Account,
+      status: 'ready' as const,
+      justLoggedIn: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+      switchBusiness: vi.fn(),
+      changeFontSize: vi.fn(),
+      changeName: vi.fn(),
+      acknowledgeLogin: vi.fn(),
+    })
+    const page = (activeBusinessId: number) => (
+      <MemoryRouter>
+        <ToastProvider>
+          <AuthContext.Provider value={authValue(activeBusinessId)}>
+            <CustomersPage />
+          </AuthContext.Provider>
+        </ToastProvider>
+      </MemoryRouter>
+    )
+
+    const { rerender } = render(page(1))
+    expect(await screen.findByText('Ana Gómez')).toBeInTheDocument()
+
+    rerender(page(2))
+
+    expect(await screen.findByText('Clienta de la despensa')).toBeInTheDocument()
+    expect(screen.queryByText('Ana Gómez')).not.toBeInTheDocument()
+  })
+
+  it('keeps the deactivate confirmation disabled until the server answers', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(CUSTOMERS, BALANCES, GERENTE_ACCOUNT)
+
+    await screen.findByText('Ana Gómez')
+    let answer: (response: Response) => void = () => {}
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          answer = resolve
+        }),
+    )
+
+    await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[0])
+    await user.click(screen.getByRole('button', { name: 'Desactivar' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Desactivar' }))
+
+    expect(within(dialog).getByRole('button', { name: 'Desactivar' })).toBeDisabled()
+
+    answer(jsonResponse({ ...CUSTOMERS[0], status: 'inactive' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(fetchMock.mock.calls.filter((call) => String(call[0]).includes('/deactivate'))).toHaveLength(1)
   })
 })

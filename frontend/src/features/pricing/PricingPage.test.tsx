@@ -193,14 +193,13 @@ describe('PricingPage', () => {
   })
 
   it('shows the no-matches state when a search finds nothing', async () => {
-    const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
     renderPage(ADMIN_ACCOUNT)
 
     await screen.findByText('Cinta bebé')
     fetchMock.mockResolvedValueOnce(productPage([], { total: 0 }))
 
-    await user.type(screen.getByPlaceholderText('Buscar por nombre…'), 'inexistente')
+    fireEvent.change(screen.getByPlaceholderText('Buscar por nombre…'), { target: { value: 'inexistente' } })
 
     expect(await screen.findByText('No hay productos que coincidan.')).toBeInTheDocument()
     expect(screen.getByText('Probá cambiar la búsqueda.')).toBeInTheDocument()
@@ -230,21 +229,33 @@ describe('PricingPage', () => {
   })
 
   it('searches by product name, debouncing the request', async () => {
-    const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>
     renderPage(ADMIN_ACCOUNT)
 
     await screen.findByText('Cinta bebé')
-    fetchMock.mockResolvedValueOnce(productPage([PRODUCTS[0]], { total: 1 }))
-    fetchMock.mockResolvedValueOnce(currentPrice(10, '150.00'))
-    fetchMock.mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/products?')) {
+        return url.includes('search=') ? productPage([PRODUCTS[0]], { total: 1 }) : productPage(PRODUCTS)
+      }
+      const priceMatch = /\/variants\/(\d+)\/price$/.exec(url)
+      if (priceMatch !== null) return currentPrice(Number(priceMatch[1]), '150.00')
+      return jsonResponse(ADMIN_ACCOUNT)
+    })
 
-    await user.type(screen.getByLabelText('Buscar productos'), 'cinta')
+    const productCallsBefore = fetchMock.mock.calls.filter((call) => String(call[0]).includes('/products?')).length
+    fireEvent.change(screen.getByLabelText('Buscar productos'), { target: { value: 'cinta' } })
+    expect(fetchMock.mock.calls.filter((call) => String(call[0]).includes('/products?'))).toHaveLength(productCallsBefore)
 
-    await waitFor(() => expect(screen.queryByText('Botones surtidos')).not.toBeInTheDocument(), { timeout: 2000 })
-
-    const productCalls = fetchMock.mock.calls.filter((call) => String(call[0]).includes('/products?'))
-    expect(productCalls.at(-1)?.[0]).toContain('search=cinta')
+    await waitFor(
+      () => {
+        const productCalls = fetchMock.mock.calls.filter((call) => String(call[0]).includes('/products?'))
+        expect(productCalls.at(-1)?.[0]).toContain('search=cinta')
+        expect(screen.queryByText('Botones surtidos')).not.toBeInTheDocument()
+      },
+      { timeout: 3000 },
+    )
+    expect(screen.getAllByTestId('price-row')).toHaveLength(1)
   })
 
   it('asks the server to filter by category', async () => {
@@ -301,7 +312,7 @@ describe('PricingPage', () => {
     fetchMock.mockResolvedValueOnce(productPage([PRODUCTS[0]], { total: 1, page_size: 10 }))
     fetchMock.mockResolvedValueOnce(currentPrice(10, '150.00'))
 
-    await user.type(screen.getByLabelText('Buscar productos'), 'cinta')
+    fireEvent.change(screen.getByLabelText('Buscar productos'), { target: { value: 'cinta' } })
     await waitFor(() => expect(screen.getByRole('button', { name: 'Limpiar búsqueda' })).toBeEnabled())
 
     fetchMock.mockResolvedValueOnce(productPage(PRODUCTS, { total: 2, page_size: 10 }))
@@ -666,7 +677,9 @@ describe('PricingPage', () => {
     expect(screen.queryByText('Resultado viejo')).not.toBeInTheDocument()
   })
 
-  it('renders read-only for an Empleado account, without price inputs or history access', async () => {
+  it('renders read-only for an Empleado account, without price inputs but with the price history (docs/02)', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
     renderPage(EMPLOYEE_ACCOUNT)
 
     await screen.findByText('Cinta bebé')
@@ -674,8 +687,35 @@ describe('PricingPage', () => {
     expect(screen.queryByRole('button', { name: 'Actualizar' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Actualizar todas' })).not.toBeInTheDocument()
     expect(screen.queryByText('Último cambio')).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Ver historial de precios de Cinta bebé Estándar' }),
-    ).not.toBeInTheDocument()
+
+    fetchMock.mockResolvedValueOnce(jsonResponse([priceBody(1000, 10, '150.00')]))
+    await user.click(screen.getByRole('button', { name: 'Ver historial de precios de Cinta bebé Estándar' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Historial de precios de Cinta bebé' })
+    expect((await within(dialog).findAllByText('$ 150')).length).toBeGreaterThan(0)
+  })
+
+  it('keeps the history of the last variant opened when an older answer arrives late', async () => {
+    const user = userEvent.setup()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    const slowHistory = deferred<Response>()
+    fetchMock.mockImplementationOnce(() => slowHistory.promise)
+    await user.click(screen.getByRole('button', { name: 'Ver historial de precios de Cinta bebé Estándar' }))
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    fetchMock.mockResolvedValueOnce(jsonResponse([priceBody(2000, 20, '10.00')]))
+    await user.click(screen.getByRole('button', { name: 'Ver historial de precios de Botones surtidos Chico' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Historial de precios de Botones surtidos' })
+    expect((await within(dialog).findAllByText('$ 10')).length).toBeGreaterThan(0)
+
+    slowHistory.resolve(jsonResponse([priceBody(3000, 10, '999.00')]))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(within(dialog).queryByText('$ 999')).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Historial de precios de Botones surtidos' })).toBeInTheDocument()
   })
 })

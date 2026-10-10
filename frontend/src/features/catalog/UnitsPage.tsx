@@ -1,9 +1,20 @@
 import { useMemo, useState } from 'react'
 import { createUnit, fetchProducts, fetchUnits, updateUnit } from '../../api/catalog'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import type { Product, Unit } from '../../api/types'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import { PageLoading } from '../../shared/PageLoading'
+import {
+  STACKED_ACTION_CELL_CLASSES,
+  STACKED_BODY_CLASSES,
+  STACKED_CELL_CLASSES,
+  STACKED_FULL_CELL_CLASSES,
+  STACKED_HEAD_CLASSES,
+  STACKED_LABEL_CLASSES,
+  STACKED_ROW_CLASSES,
+  STACKED_TABLE_CLASSES,
+} from '../../shared/stackedTable'
 import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { useAuth } from '../access/useAuth'
@@ -82,7 +93,7 @@ export function UnitsPage() {
       setCreating(false)
       showSuccess('Unidad creada.')
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(errorMessage(error, SAVE_ERROR_MESSAGE))
     } finally {
       setSavingNew(false)
     }
@@ -127,7 +138,7 @@ export function UnitsPage() {
       cancelEdit()
       showSuccess('Unidad actualizada.')
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(errorMessage(error, SAVE_ERROR_MESSAGE))
     } finally {
       setSavingEdit(false)
     }
@@ -201,14 +212,23 @@ export function UnitsPage() {
         </form>
       )}
 
-      {status === 'loading' && <p role="status">Cargando…</p>}
+      {status === 'loading' && <PageLoading />}
 
       {status === 'error' && <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={reload} />}
 
-      {status === 'success' && (
-        <div className="max-w-3xl overflow-x-auto rounded-xl border border-line bg-surface">
-          <table className="w-full">
-            <thead>
+      {status === 'success' && units.length === 0 && (
+        <div className="flex max-w-3xl flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
+          <p className="text-xl font-semibold opacity-70">No hay unidades cargadas</p>
+          <p className="text-lg opacity-50">
+            {canManage ? 'Usá "+ Nueva unidad" para crear la primera.' : 'Cuando se carguen unidades, van a aparecer acá.'}
+          </p>
+        </div>
+      )}
+
+      {status === 'success' && units.length > 0 && (
+        <div className="max-w-3xl overflow-hidden rounded-xl border border-line bg-surface">
+          <table className={STACKED_TABLE_CLASSES}>
+            <thead className={STACKED_HEAD_CLASSES}>
               <tr className="border-b border-line bg-surface-brand/40">
                 {['Nombre', 'Abreviatura', 'Fraccionable', 'Productos', 'Estado'].map((label) => (
                   <th key={label} className="whitespace-nowrap px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
@@ -218,11 +238,11 @@ export function UnitsPage() {
                 {canManage && <th className="px-4 py-2.5" />}
               </tr>
             </thead>
-            <tbody>
+            <tbody className={STACKED_BODY_CLASSES}>
               {units.map((unit) => (
-                <tr key={unit.id} className="border-t border-line">
+                <tr key={unit.id} className={STACKED_ROW_CLASSES}>
                   {editingId === unit.id ? (
-                    <td colSpan={canManage ? 6 : 5} className="px-4 py-3">
+                    <td colSpan={canManage ? 6 : 5} className={STACKED_FULL_CELL_CLASSES}>
                       <form onSubmit={handleSaveEdit} className="flex flex-wrap items-center gap-2">
                         <input
                           type="text"
@@ -264,15 +284,24 @@ export function UnitsPage() {
                     </td>
                   ) : (
                     <>
-                      <td className="px-4 py-3 text-base font-medium">{unit.name}</td>
-                      <td className="px-4 py-3 font-mono text-base opacity-70">{unit.abbreviation}</td>
-                      <td className="px-4 py-3">
+                      <td className={`${STACKED_FULL_CELL_CLASSES} text-base font-medium [overflow-wrap:anywhere]`}>
+                        {unit.name}
+                      </td>
+                      <td className={`${STACKED_CELL_CLASSES} text-base`}>
+                        <span className={STACKED_LABEL_CLASSES}>Abreviatura: </span>
+                        <span className="font-mono opacity-70">{unit.abbreviation}</span>
+                      </td>
+                      <td className={STACKED_CELL_CLASSES}>
+                        <span className={`${STACKED_LABEL_CLASSES} text-base`}>Fraccionable: </span>
                         <span className={`text-sm font-semibold ${unit.allows_fraction ? 'text-success' : 'opacity-50'}`}>
                           {unit.allows_fraction ? 'Sí' : 'No'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-base opacity-70">{productCountByUnit.get(unit.id) ?? 0}</td>
-                      <td className="px-4 py-3">
+                      <td className={`${STACKED_CELL_CLASSES} text-base`}>
+                        <span className={STACKED_LABEL_CLASSES}>Productos: </span>
+                        <span className="opacity-70">{productCountByUnit.get(unit.id) ?? 0}</span>
+                      </td>
+                      <td className={STACKED_CELL_CLASSES}>
                         <span
                           className={`text-sm font-semibold ${unit.status === 'active' ? 'text-success' : 'opacity-50'}`}
                         >
@@ -280,8 +309,13 @@ export function UnitsPage() {
                         </span>
                       </td>
                       {canManage && (
-                        <td className="px-4 py-3 text-right">
-                          <button type="button" onClick={() => startEdit(unit)} className={rowButtonClasses}>
+                        <td className={STACKED_ACTION_CELL_CLASSES}>
+                          <button
+                            type="button"
+                            onClick={() => startEdit(unit)}
+                            aria-label={`Editar ${unit.name}`}
+                            className={rowButtonClasses}
+                          >
                             Editar
                           </button>
                         </td>

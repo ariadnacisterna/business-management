@@ -78,4 +78,21 @@ describe('DatePicker', () => {
 
     expect(screen.getByRole('button', { name: dayLabel(tomorrow) })).not.toBeDisabled()
   })
+
+  it('names the arrows after what they move and closes with the Escape key', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+
+    const trigger = screen.getByRole('button', { name: 'Última compra' })
+    await user.click(trigger)
+
+    expect(screen.getByRole('button', { name: 'Mes anterior' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mes siguiente' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Mes anterior' }))
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('dialog', { name: 'Última compra' })).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+  })
 })

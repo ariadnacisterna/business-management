@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Account, Business } from '../../api/types'
 import { isDueno } from '../../features/access/roles'
 import { ConfirmDialog } from '../ConfirmDialog'
@@ -16,14 +16,27 @@ export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {
   const [open, setOpen] = useState(false)
   const [switchingId, setSwitchingId] = useState<number | null>(null)
   const [pendingBusiness, setPendingBusiness] = useState<Business | null>(null)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   const canSwitchBusiness = isDueno(account) && account.businesses.length > 1
 
+  useEffect(() => {
+    if (!open) return
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape' && !event.defaultPrevented) setOpen(false)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [open])
+
   async function handleLogout() {
+    if (loggingOut) return
+    setLoggingOut(true)
     try {
       await onLogout()
     } catch {
       showError('No se pudo cerrar sesión. Intentá de nuevo.')
+      setLoggingOut(false)
     }
   }
 
@@ -52,6 +65,7 @@ export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
+        aria-label={`Menú de la cuenta de ${account.name}`}
         className={`flex h-14 items-center gap-3 rounded-lg border-2 px-4 transition-colors hover:border-brand hover:bg-ink/5 ${
           open ? 'border-brand' : 'border-transparent'
         }`}
@@ -97,7 +111,9 @@ export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {
             <button
               type="button"
               onClick={handleLogout}
-              className="flex min-h-14 w-full items-center gap-3 px-4 text-base text-danger transition-colors hover:bg-danger/10"
+              disabled={loggingOut}
+              aria-busy={loggingOut}
+              className="flex min-h-14 w-full items-center gap-3 px-4 text-base text-danger transition-colors hover:bg-danger/10 disabled:cursor-wait disabled:opacity-60"
             >
               <svg
                 aria-hidden="true"
@@ -113,7 +129,7 @@ export function AccountMenu({ account, onLogout, onSwitchBusiness }: Props) {
                 <path d="M16 17l5-5-5-5" />
                 <path d="M21 12H9" />
               </svg>
-              Cerrar sesión
+              {loggingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}
             </button>
           </div>
         </>

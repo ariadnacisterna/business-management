@@ -235,7 +235,7 @@ describe('ProductDetailPage', () => {
       ]),
     )
 
-    await user.click(screen.getAllByRole('button', { name: 'Ver historial' })[0])
+    await user.click(screen.getAllByRole('button', { name: /^Ver historial de precios/ })[0])
 
     const dialog = await screen.findByRole('dialog', { name: /Historial de precios/ })
     expect(await screen.findByText(/45,50/)).toBeInTheDocument()
@@ -250,7 +250,7 @@ describe('ProductDetailPage', () => {
     expect(await screen.findByRole('heading', { name: 'Cinta bebé' })).toBeInTheDocument()
 
     fetchMock.mockResolvedValueOnce(jsonResponse([]))
-    await user.click(screen.getAllByRole('button', { name: 'Ver historial' })[1])
+    await user.click(screen.getAllByRole('button', { name: /^Ver historial de stock/ })[0])
 
     const dialog = await screen.findByRole('dialog', { name: /Historial de stock/ })
     expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Productos › Cinta bebé › Historial de stock')
@@ -288,7 +288,7 @@ describe('ProductDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Cambiar precio' })).toBeInTheDocument()
   })
 
-  it('shows read-only stock quantity and status but no history or adjust for an empleado', async () => {
+  it('shows read-only stock quantity and status, the price history but no stock history or adjust for an empleado', async () => {
     const fetchMock = fetch as ReturnType<typeof vi.fn>
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ ...ADMIN_ACCOUNT, role: 'Empleado' }))
@@ -321,7 +321,8 @@ describe('ProductDetailPage', () => {
     ).toBeInTheDocument()
     expect(screen.queryByText(/Último cambio/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Actualizar stock' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Ver historial' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Ver historial de stock/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ver historial de precios de Tijera' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Cambiar precio' })).not.toBeInTheDocument()
   })
 
@@ -380,7 +381,8 @@ describe('ProductDetailPage', () => {
       await screen.findByText((_, element) => element?.tagName === 'P' && element.textContent === '7 (Stock bajo)'),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Actualizar stock' })).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'Ver historial' }).length).toBe(2)
+    expect(screen.getByRole('button', { name: 'Ver historial de precios de Tijera' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ver historial de stock de Tijera' })).toBeInTheDocument()
     expect(screen.getByText(/hace.*por Ada/)).toBeInTheDocument()
   })
 

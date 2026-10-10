@@ -28,7 +28,7 @@ import {
   updateVariant,
   uploadProductImage,
 } from '../../api/catalog'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import type {
   Attribute,
   Category,
@@ -43,6 +43,7 @@ import type {
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { Dialog } from '../../shared/Dialog'
 import { formatDateTime } from '../../shared/formatDateTime'
 import { firstName } from '../../shared/formatName'
 import { formatPrice } from '../../shared/formatPrice'
@@ -55,6 +56,7 @@ import { PriceInput } from '../../shared/PriceInput'
 import { RowMenu } from '../../shared/RowMenu'
 import { SelectMenu } from '../../shared/SelectMenu'
 import { STOCK_STATUS_LABELS, stockStatusTextColor } from '../../shared/stockStatus'
+import { useLatestRequest } from '../../shared/useLatestRequest'
 import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { useScrollbar } from '../../shared/useScrollbar'
@@ -247,7 +249,7 @@ export function ProductDetailPage() {
       showSuccess('Variante creada.')
       resetNewVariantDraft()
     } catch (error) {
-      setNewVariantError(error instanceof ApiError ? error.message : 'No se pudo crear la variante. Intentá de nuevo.')
+      setNewVariantError(errorMessage(error, 'No se pudo crear la variante. Intentá de nuevo.'))
     } finally {
       setCreatingVariant(false)
     }
@@ -283,6 +285,9 @@ export function ProductDetailPage() {
   const [priceModalApplyToAll, setPriceModalApplyToAll] = useState(false)
 
   const [historyState, setHistoryState] = useState<HistoryState | null>(null)
+  const startHistoryRequest = useLatestRequest()
+  const startStockHistoryRequest = useLatestRequest()
+  const startStockRefresh = useLatestRequest()
   const {
     scrollRef: historyScrollRef,
     scrollbar: historyScrollbar,
@@ -414,7 +419,7 @@ export function ProductDetailPage() {
       setNewCategoryName('')
       showSuccess('Categoría creada.')
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : CREATE_CATEGORY_ERROR_MESSAGE)
+      showError(errorMessage(error, CREATE_CATEGORY_ERROR_MESSAGE))
     } finally {
       setSavingNewCategory(false)
     }
@@ -438,7 +443,7 @@ export function ProductDetailPage() {
       setNewUnit({ name: '', abbreviation: '', allows_fraction: false })
       showSuccess('Unidad creada.')
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : CREATE_UNIT_ERROR_MESSAGE)
+      showError(errorMessage(error, CREATE_UNIT_ERROR_MESSAGE))
     } finally {
       setSavingNewUnit(false)
     }
@@ -540,7 +545,7 @@ export function ProductDetailPage() {
       showSuccess('Producto actualizado.')
       close()
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(errorMessage(error, SAVE_ERROR_MESSAGE))
     } finally {
       setSavingProduct(false)
     }
@@ -599,7 +604,7 @@ export function ProductDetailPage() {
       cancelEditVariant()
       showSuccess('Variante actualizada.')
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(errorMessage(error, SAVE_ERROR_MESSAGE))
     } finally {
       setSavingVariant(false)
     }
@@ -621,28 +626,53 @@ export function ProductDetailPage() {
       setConfirmingVariantStatusChange(null)
       showSuccess(updated.status === 'active' ? 'Variante activada.' : 'Variante desactivada.')
     } catch (error) {
-      setVariantStatusError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      setVariantStatusError(errorMessage(error, SAVE_ERROR_MESSAGE))
     }
   }
 
   function openHistory(variant: Variant) {
+    const isLatest = startHistoryRequest()
     setHistoryState({ variant, status: 'loading', prices: [] })
     fetchVariantPriceHistory(variant.id)
-      .then((prices) => setHistoryState({ variant, status: 'success', prices }))
-      .catch(() => setHistoryState({ variant, status: 'error', prices: [] }))
+      .then((prices) => {
+        if (isLatest()) setHistoryState({ variant, status: 'success', prices })
+      })
+      .catch(() => {
+        if (isLatest()) setHistoryState({ variant, status: 'error', prices: [] })
+      })
+  }
+
+  function closeHistory() {
+    startHistoryRequest()
+    setHistoryState(null)
   }
 
   function openStockHistory(variant: Variant) {
+    const isLatest = startStockHistoryRequest()
     setStockHistoryState({ variant, status: 'loading', movements: [] })
     fetchStockMovements(variant.id)
-      .then((movements) => setStockHistoryState({ variant, status: 'success', movements }))
-      .catch(() => setStockHistoryState({ variant, status: 'error', movements: [] }))
+      .then((movements) => {
+        if (isLatest()) setStockHistoryState({ variant, status: 'success', movements })
+      })
+      .catch(() => {
+        if (isLatest()) setStockHistoryState({ variant, status: 'error', movements: [] })
+      })
+  }
+
+  function closeStockHistory() {
+    startStockHistoryRequest()
+    setStockHistoryState(null)
   }
 
   function refreshStock() {
+    const isLatest = startStockRefresh()
     fetchAllStock()
-      .then((rows) => setStockByVariant(new Map(rows.map((row) => [row.variant_id, row]))))
-      .catch(() => showError(REFRESH_STOCK_ERROR_MESSAGE))
+      .then((rows) => {
+        if (isLatest()) setStockByVariant(new Map(rows.map((row) => [row.variant_id, row])))
+      })
+      .catch(() => {
+        if (isLatest()) showError(REFRESH_STOCK_ERROR_MESSAGE)
+      })
   }
 
   return (
@@ -650,17 +680,21 @@ export function ProductDetailPage() {
     {!pickingVariantForPrice && !(priceModalVariant !== null && priceModalOpenedDirectly) && loadStatus === 'error' && (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
-      <div className="relative w-full max-w-md">
+      <Dialog label="Detalle de producto" onClose={close} className="relative w-full max-w-md">
         <CloseButton onClose={close} className="absolute right-0 top-8 z-10" />
         <LoadErrorCard message={LOAD_ERROR_MESSAGE} onRetry={loadAgain} />
-      </div>
+      </Dialog>
     </div>
     )}
     {!pickingVariantForPrice && !(priceModalVariant !== null && priceModalOpenedDirectly) && loadStatus !== 'error' && (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4">
       <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={close} aria-hidden="true" />
 
-      <div className="relative flex max-h-[90vh] min-h-[16rem] w-full max-w-full flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl sm:max-w-3xl">
+      <Dialog
+        label={product !== null ? product.name : 'Detalle de producto'}
+        onClose={close}
+        className="relative flex max-h-[90vh] min-h-[16rem] w-full max-w-full flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl sm:max-w-3xl"
+      >
         <div ref={modalScrollRef} onScroll={updateModalScrollbar} className="scrollbar-hidden min-h-0 flex-1 overflow-auto px-4 py-4 sm:px-6 sm:py-6">
 
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -701,6 +735,8 @@ export function ProductDetailPage() {
                   <input
                     id="edit-product-name"
                     type="text"
+                    aria-invalid={showProductNameError || undefined}
+                    aria-describedby={showProductNameError ? 'edit-product-name-error' : undefined}
                     value={productDraft.name}
                     onChange={(event) => {
                       setProductDraft((prev) => ({ ...prev, name: event.target.value }))
@@ -711,7 +747,7 @@ export function ProductDetailPage() {
                     className={fieldClasses(showProductNameError)}
                   />
                   {showProductNameError && (
-                    <span role="alert" className="-mt-2 text-sm text-danger">
+                    <span id="edit-product-name-error" role="alert" className="-mt-2 text-sm text-danger">
                       {productNameError}
                     </span>
                   )}
@@ -857,10 +893,10 @@ export function ProductDetailPage() {
                         onClick={cancelCreateCategory}
                         aria-hidden="true"
                       />
-                      <div
-                        role="dialog"
-                        aria-label="Nueva categoría"
-                        className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
+                      <Dialog
+                        label="Nueva categoría"
+                        onClose={cancelCreateCategory}
+                        className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
                       >
                         <div className="flex flex-col gap-2">
                           <div className="flex items-center justify-between gap-3">
@@ -918,7 +954,7 @@ export function ProductDetailPage() {
                             Cancelar
                           </button>
                         </div>
-                      </div>
+                      </Dialog>
                     </div>
                   )}
 
@@ -929,10 +965,10 @@ export function ProductDetailPage() {
                         onClick={cancelCreateUnit}
                         aria-hidden="true"
                       />
-                      <div
-                        role="dialog"
-                        aria-label="Nueva unidad"
-                        className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
+                      <Dialog
+                        label="Nueva unidad"
+                        onClose={cancelCreateUnit}
+                        className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
                       >
                         <div className="flex flex-col gap-2">
                           <div className="flex items-center justify-between gap-3">
@@ -1015,7 +1051,7 @@ export function ProductDetailPage() {
                             Cancelar
                           </button>
                         </div>
-                      </div>
+                      </Dialog>
                     </div>
                   )}
 
@@ -1112,7 +1148,7 @@ export function ProductDetailPage() {
                 </div>
 
                 <div className="flex flex-col gap-4 rounded-xl bg-line/15 p-4">
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
                       <p className="m-0 text-base uppercase tracking-wide opacity-60">Categoría</p>
                       <p className="m-0 font-bold">
@@ -1178,7 +1214,7 @@ export function ProductDetailPage() {
                       </div>
                     )}
 
-                    <div className="flex flex-nowrap gap-2">
+                    <div className="flex flex-wrap gap-2">
                       {editingProduct && canManage && (
                         <button
                           type="button"
@@ -1192,15 +1228,14 @@ export function ProductDetailPage() {
                           Cambiar precio
                         </button>
                       )}
-                      {canManage && (
-                        <button
-                          type="button"
-                          onClick={() => openHistory(product.variants[0])}
-                          className={compactSecondaryButtonClasses}
-                        >
-                          Ver historial
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => openHistory(product.variants[0])}
+                        aria-label={`Ver historial de precios de ${product.name}`}
+                        className={compactSecondaryButtonClasses}
+                      >
+                        Ver historial
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1241,7 +1276,7 @@ export function ProductDetailPage() {
                       )}
 
                       {canManage && (
-                        <div className="mt-auto flex flex-nowrap gap-2">
+                        <div className="mt-auto flex flex-wrap gap-2">
                           {editingProduct && (
                             <button
                               type="button"
@@ -1254,6 +1289,7 @@ export function ProductDetailPage() {
                           <button
                             type="button"
                             onClick={() => openStockHistory(product.variants[0])}
+                            aria-label={`Ver historial de stock de ${product.name}`}
                             className={compactSecondaryButtonClasses}
                           >
                             Ver historial
@@ -1387,30 +1423,29 @@ export function ProductDetailPage() {
                                 </p>
                               )}
 
-                              {canManage && (
-                                <div className="flex flex-nowrap gap-2">
-                                  {editingProduct && variant.status === 'active' && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setPriceModalOpenedDirectly(false)
-                                        setPriceModalApplyToAll(false)
-                                        setPriceModalVariant(variant)
-                                      }}
-                                      className={compactPrimaryButtonClasses}
-                                    >
-                                      Cambiar precio
-                                    </button>
-                                  )}
+                              <div className="flex flex-wrap gap-2">
+                                {editingProduct && canManage && variant.status === 'active' && (
                                   <button
                                     type="button"
-                                    onClick={() => openHistory(variant)}
-                                    className={compactSecondaryButtonClasses}
+                                    onClick={() => {
+                                      setPriceModalOpenedDirectly(false)
+                                      setPriceModalApplyToAll(false)
+                                      setPriceModalVariant(variant)
+                                    }}
+                                    className={compactPrimaryButtonClasses}
                                   >
-                                    Ver historial
+                                    Cambiar precio
                                   </button>
-                                </div>
-                              )}
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => openHistory(variant)}
+                                  aria-label={`Ver historial de precios de ${describeVariant(variant, valuesById)}`}
+                                  className={compactSecondaryButtonClasses}
+                                >
+                                  Ver historial
+                                </button>
+                              </div>
                               </div>
                             </div>
 
@@ -1455,7 +1490,7 @@ export function ProductDetailPage() {
                                 )}
 
                                 {canManage && (
-                                  <div className="mt-auto flex flex-nowrap gap-2">
+                                  <div className="mt-auto flex flex-wrap gap-2">
                                     {editingProduct && (
                                       <button
                                         type="button"
@@ -1468,6 +1503,7 @@ export function ProductDetailPage() {
                                     <button
                                       type="button"
                                       onClick={() => openStockHistory(variant)}
+                                      aria-label={`Ver historial de stock de ${describeVariant(variant, valuesById)}`}
                                       className={compactSecondaryButtonClasses}
                                     >
                                       Ver historial
@@ -1526,7 +1562,7 @@ export function ProductDetailPage() {
                     />
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                       <div className="flex flex-col gap-1">
-                        <span className="whitespace-nowrap text-sm font-bold">
+                        <span className="text-sm font-bold">
                           Precio <span className="font-normal opacity-70">(opcional)</span>
                         </span>
                         <PriceInput
@@ -1539,7 +1575,7 @@ export function ProductDetailPage() {
                         />
                       </div>
                       <div className="flex flex-col gap-1">
-                        <span className="whitespace-nowrap text-sm font-bold">
+                        <span className="text-sm font-bold">
                           Stock actual <span className="font-normal opacity-70">(opcional)</span>
                         </span>
                         <input
@@ -1550,17 +1586,23 @@ export function ProductDetailPage() {
                           value={newVariantStock}
                           onChange={(event) => setNewVariantStock(event.target.value)}
                           aria-label="Stock actual de la nueva variante"
+                          aria-invalid={(!unitAllowsFraction(product.unit_id) && newVariantStock.includes('.')) || undefined}
+                          aria-describedby={
+                            !unitAllowsFraction(product.unit_id) && newVariantStock.includes('.')
+                              ? 'new-variant-stock-error'
+                              : undefined
+                          }
                           disabled={creatingVariant}
                           className={inputClasses}
                         />
                         {!unitAllowsFraction(product.unit_id) && newVariantStock.includes('.') && (
-                          <span role="alert" className="text-sm text-danger">
+                          <span id="new-variant-stock-error" role="alert" className="text-sm text-danger">
                             Esta unidad no admite decimales.
                           </span>
                         )}
                       </div>
                       <div className="flex flex-col gap-1">
-                        <span className="whitespace-nowrap text-sm font-bold">
+                        <span className="text-sm font-bold">
                           Stock min. <span className="font-normal opacity-70">(opcional)</span>
                         </span>
                         <input
@@ -1571,11 +1613,17 @@ export function ProductDetailPage() {
                           value={newVariantMinimum}
                           onChange={(event) => setNewVariantMinimum(event.target.value)}
                           aria-label="Stock mínimo de la nueva variante"
+                          aria-invalid={(!unitAllowsFraction(product.unit_id) && newVariantMinimum.includes('.')) || undefined}
+                          aria-describedby={
+                            !unitAllowsFraction(product.unit_id) && newVariantMinimum.includes('.')
+                              ? 'new-variant-minimum-error'
+                              : undefined
+                          }
                           disabled={creatingVariant}
                           className={inputClasses}
                         />
                         {!unitAllowsFraction(product.unit_id) && newVariantMinimum.includes('.') && (
-                          <span role="alert" className="text-sm text-danger">
+                          <span id="new-variant-minimum-error" role="alert" className="text-sm text-danger">
                             Esta unidad no admite decimales.
                           </span>
                         )}
@@ -1656,7 +1704,7 @@ export function ProductDetailPage() {
             />
           </div>
         )}
-      </div>
+      </Dialog>
     </div>
     )}
 
@@ -1667,7 +1715,11 @@ export function ProductDetailPage() {
             onClick={() => setPickingVariantForPrice(false)}
             aria-hidden="true"
           />
-          <div className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl">
+          <Dialog
+            label="Elegir variante"
+            onClose={() => setPickingVariantForPrice(false)}
+            className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
+          >
             <div className="flex items-start justify-between">
               <h2 className="m-0 text-2xl font-bold">Elegir variante</h2>
               <CloseButton onClose={() => setPickingVariantForPrice(false)} />
@@ -1715,7 +1767,7 @@ export function ProductDetailPage() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Dialog>
         </div>
       )}
 
@@ -1776,12 +1828,12 @@ export function ProductDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-ink/20 backdrop-blur-sm"
-            onClick={() => setStockHistoryState(null)}
+            onClick={closeStockHistory}
             aria-hidden="true"
           />
-          <div
-            role="dialog"
-            aria-label={`Historial de stock de ${product.name}`}
+          <Dialog
+            label={`Historial de stock de ${product.name}`}
+            onClose={closeStockHistory}
             className="relative flex max-h-[80vh] w-full max-w-lg flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
           >
             <div className="flex flex-col gap-2">
@@ -1789,7 +1841,7 @@ export function ProductDetailPage() {
                 <div className="min-w-0">
                   <Breadcrumb segments={['Productos', product.name, 'Historial de stock']} />
                 </div>
-                <CloseButton onClose={() => setStockHistoryState(null)} />
+                <CloseButton onClose={closeStockHistory} />
               </div>
               <div>
                 <h2 className="m-0 text-2xl font-bold">Historial de stock</h2>
@@ -1833,7 +1885,7 @@ export function ProductDetailPage() {
                   })}
               </ul>
             )}
-          </div>
+          </Dialog>
         </div>
       )}
 
@@ -1841,12 +1893,12 @@ export function ProductDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-ink/20 backdrop-blur-sm"
-            onClick={() => setHistoryState(null)}
+            onClick={closeHistory}
             aria-hidden="true"
           />
-          <div
-            role="dialog"
-            aria-label={`Historial de precios de ${product?.name ?? ''}`}
+          <Dialog
+            label={`Historial de precios de ${product?.name ?? ''}`}
+            onClose={closeHistory}
             className="relative flex max-h-[80vh] w-full max-w-lg flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
           >
             <div className="flex flex-col gap-2">
@@ -1854,7 +1906,7 @@ export function ProductDetailPage() {
                 <div className="min-w-0">
                   <Breadcrumb segments={['Productos', product?.name ?? '', 'Historial de precios']} />
                 </div>
-                <CloseButton onClose={() => setHistoryState(null)} />
+                <CloseButton onClose={closeHistory} />
               </div>
               <div>
                 <h2 className="m-0 text-2xl font-bold">Historial de precios</h2>
@@ -1915,7 +1967,7 @@ export function ProductDetailPage() {
                 )}
               </div>
             )}
-          </div>
+          </Dialog>
         </div>
       )}
 

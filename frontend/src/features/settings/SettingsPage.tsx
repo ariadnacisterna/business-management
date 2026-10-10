@@ -51,7 +51,7 @@ export function SettingsPage() {
             cuenta y se ve igual en cualquier aparato.
           </p>
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-3">
             {FONT_SIZE_STEPS.map((option) => {
               const isCurrent = option.step === current
               return (
@@ -60,7 +60,7 @@ export function SettingsPage() {
                   type="button"
                   aria-pressed={isCurrent}
                   onClick={() => setSelected(option.step)}
-                  className={`min-h-16 whitespace-nowrap rounded-xl border-2 px-2 text-lg font-semibold transition-colors disabled:cursor-wait ${
+                  className={`min-h-16 rounded-xl border-2 px-2 text-lg font-semibold transition-colors disabled:cursor-wait ${
                     isCurrent
                       ? 'border-brand bg-brand text-brand-contrast'
                       : 'border-line hover:border-brand hover:bg-surface-brand'

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 
 interface Props {
   id?: string
@@ -6,6 +6,7 @@ interface Props {
   placeholder?: string
   onChange: (value: string) => void
   ariaLabel: string
+  ariaDescribedBy?: string
   className: string
   disabled?: boolean
   required?: boolean
@@ -29,12 +30,17 @@ export function PriceInput({
   placeholder,
   onChange,
   ariaLabel,
+  ariaDescribedBy,
   className,
   disabled = false,
   required = false,
   autoFocus = false,
 }: Props) {
   const [showInvalidCharError, setShowInvalidCharError] = useState(false)
+  const invalidCharErrorId = useId()
+  const describedBy = [ariaDescribedBy, showInvalidCharError ? invalidCharErrorId : undefined]
+    .filter((value): value is string => value !== undefined)
+    .join(' ')
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const raw = event.target.value
@@ -55,6 +61,8 @@ export function PriceInput({
           type="text"
           inputMode="decimal"
           aria-label={ariaLabel}
+          aria-invalid={describedBy !== '' || undefined}
+          aria-describedby={describedBy === '' ? undefined : describedBy}
           disabled={disabled}
           required={required}
           autoFocus={autoFocus}
@@ -62,7 +70,7 @@ export function PriceInput({
         />
       </div>
       {showInvalidCharError && (
-        <span role="alert" className="text-sm text-danger">
+        <span id={invalidCharErrorId} role="alert" className="text-sm text-danger">
           Solo se permiten números.
         </span>
       )}

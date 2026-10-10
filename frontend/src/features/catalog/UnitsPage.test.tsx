@@ -118,6 +118,19 @@ describe('UnitsPage', () => {
 
     await screen.findByText('Kilogramo')
     expect(screen.queryByRole('button', { name: '+ Nueva unidad' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Editar/ })).not.toBeInTheDocument()
+  })
+
+  it('shows a clear message instead of an empty table when there are no units', async () => {
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ items: [], total: 0, page: 1, page_size: 25 }))
+
+    renderPage()
+
+    expect(await screen.findByText('No hay unidades cargadas')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 })

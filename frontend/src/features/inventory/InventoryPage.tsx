@@ -10,11 +10,12 @@ import {
   fetchUnits,
   setMinimumStock,
 } from '../../api/catalog'
-import { ApiError } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import type { Category, Shortage, Stock, StockMovement, Unit } from '../../api/types'
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { CloseButton } from '../../shared/CloseButton'
+import { Dialog } from '../../shared/Dialog'
 import { FieldRow } from '../../shared/FieldRow'
 import { ProductThumbnail } from '../../shared/ProductThumbnail'
 import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
@@ -27,6 +28,7 @@ import { DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
 import { deltaToApi, describeChange, evaluateDelta, evaluateTargetStock } from '../../shared/signedDelta'
 import { formatQuantity } from '../../shared/formatQuantity'
 import { STOCK_STATUS_LABELS, stockStatusClasses, stockStatusTextColor } from '../../shared/stockStatus'
+import { useLatestRequest } from '../../shared/useLatestRequest'
 import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { firstName } from '../../shared/formatName'
@@ -137,12 +139,14 @@ function MinimumStockEditor({
   const { showError } = useToast()
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
+  const decimalErrorId = `minimum-decimal-error-${row.variant_id}`
 
   const trimmed = value.trim()
   const parsedQuantity = Number(trimmed)
   const quantityPattern = allowDecimals ? /^\d+\.?\d{0,3}$/ : /^\d+$/
   const quantityValid = trimmed !== '' && quantityPattern.test(trimmed) && parsedQuantity >= 0
   const edited = quantityValid && parsedQuantity !== Number(row.effective_minimum_quantity)
+  const showDecimalError = !allowDecimals && trimmed !== '' && trimmed.includes('.')
 
   async function save() {
     if (!edited) return
@@ -152,7 +156,7 @@ function MinimumStockEditor({
       const stock = await setMinimumStock(row.variant_id, parsedQuantity.toFixed(3))
       onUpdated(row.variant_id, stock)
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : MINIMUM_SAVE_ERROR_MESSAGE)
+      showError(errorMessage(error, MINIMUM_SAVE_ERROR_MESSAGE))
     } finally {
       setSaving(false)
     }
@@ -169,6 +173,8 @@ function MinimumStockEditor({
         placeholder={formatQuantity(row.effective_minimum_quantity)}
         onChange={(event) => setValue(event.target.value)}
         aria-label={`Nuevo stock mínimo para ${variantLabel(row)}`}
+        aria-invalid={showDecimalError || undefined}
+        aria-describedby={showDecimalError ? decimalErrorId : undefined}
         disabled={saving}
         className={
           edited
@@ -176,8 +182,8 @@ function MinimumStockEditor({
             : 'h-12 w-full rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
         }
       />
-      {!allowDecimals && trimmed !== '' && trimmed.includes('.') && (
-        <span role="alert" className="col-span-2 text-base text-danger">
+      {showDecimalError && (
+        <span id={decimalErrorId} role="alert" className="col-span-2 text-base text-danger">
           Esta unidad no admite decimales.
         </span>
       )}
@@ -220,7 +226,7 @@ function StockRowEditor({
 
   return (
     <div data-testid="stock-editor" className="flex w-full flex-col gap-2">
-      <div className="grid grid-cols-2 items-start gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
         <SignedDeltaInput
           kind="stock"
           allowDecimals={allowDecimals}
@@ -332,6 +338,7 @@ function StockTab({
   const [historyState, setHistoryState] = useState<HistoryState | null>(null)
   const [adjustingRow, setAdjustingRow] = useState<StockRow | null>(null)
   const [editingMinimumRow, setEditingMinimumRow] = useState<StockRow | null>(null)
+  const startHistoryRequest = useLatestRequest()
 
   const { status, data, reload, setData } = useLoad(
     () =>
@@ -418,7 +425,7 @@ function StockTab({
     try {
       movement = await adjustStock(row.variant_id, { delta: deltaToApi('stock', delta) })
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : SAVE_ERROR_MESSAGE)
+      showError(errorMessage(error, SAVE_ERROR_MESSAGE))
       setConfirmState(null)
       setConfirming(false)
       return
@@ -442,10 +449,20 @@ function StockTab({
   }
 
   function openHistory(row: StockRow) {
+    const isLatest = startHistoryRequest()
     setHistoryState({ row, status: 'loading', movements: [] })
     fetchStockMovements(row.variant_id)
-      .then((movements) => setHistoryState({ row, status: 'success', movements }))
-      .catch(() => setHistoryState({ row, status: 'error', movements: [] }))
+      .then((movements) => {
+        if (isLatest()) setHistoryState({ row, status: 'success', movements })
+      })
+      .catch(() => {
+        if (isLatest()) setHistoryState({ row, status: 'error', movements: [] })
+      })
+  }
+
+  function closeHistory() {
+    startHistoryRequest()
+    setHistoryState(null)
   }
 
   const hasActiveFilters = searchInput !== '' || filters.categoryId !== 'all' || filters.quickFilter !== 'all'
@@ -680,12 +697,12 @@ function StockTab({
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
               {items.map((row) => (
                 <div key={row.variant_id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
-                  <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
-                    <div className="flex min-h-12 items-center gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+                    <div className="flex min-h-12 min-w-32 flex-1 items-center gap-3">
                       <ProductThumbnail imageUrl={row.image_url} name={row.product_name} sizeClassName="h-12 w-12" />
-                      <p className="text-xl font-bold leading-tight">{row.product_name}</p>
+                      <p className="min-w-0 text-xl font-bold leading-tight [overflow-wrap:anywhere]">{row.product_name}</p>
                     </div>
-                    <span className={`whitespace-nowrap text-2xl font-bold ${stockStatusTextColor(row.status)}`}>
+                    <span className={`ml-auto whitespace-nowrap text-2xl font-bold ${stockStatusTextColor(row.status)}`}>
                       {formatQuantity(row.quantity)}{' '}
                       <span className="text-base font-normal opacity-60">{unitAbbreviation(row.unit_id)}</span>
                     </span>
@@ -763,10 +780,10 @@ function StockTab({
       {adjustingRow !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={() => setAdjustingRow(null)} aria-hidden="true" />
-          <div
-            role="dialog"
-            aria-label={`Ajustar stock de ${variantLabel(adjustingRow)}`}
-            className="relative flex w-full max-w-md flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
+          <Dialog
+            label={`Ajustar stock de ${variantLabel(adjustingRow)}`}
+            onClose={() => setAdjustingRow(null)}
+            className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
           >
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-3">
@@ -785,17 +802,17 @@ function StockTab({
                 setAdjustingRow(null)
               }}
             />
-          </div>
+          </Dialog>
         </div>
       )}
 
       {editingMinimumRow !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={() => setEditingMinimumRow(null)} aria-hidden="true" />
-          <div
-            role="dialog"
-            aria-label={`Editar stock mínimo de ${variantLabel(editingMinimumRow)}`}
-            className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface p-6 shadow-2xl"
+          <Dialog
+            label={`Editar stock mínimo de ${variantLabel(editingMinimumRow)}`}
+            onClose={() => setEditingMinimumRow(null)}
+            className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
           >
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-3">
@@ -814,7 +831,7 @@ function StockTab({
                 setEditingMinimumRow(null)
               }}
             />
-          </div>
+          </Dialog>
         </div>
       )}
 
@@ -831,10 +848,10 @@ function StockTab({
 
       {historyState !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={() => setHistoryState(null)} aria-hidden="true" />
-          <div
-            role="dialog"
-            aria-label={`Historial de stock de ${variantLabel(historyState.row)}`}
+          <div className="absolute inset-0 bg-ink/20 backdrop-blur-sm" onClick={closeHistory} aria-hidden="true" />
+          <Dialog
+            label={`Historial de stock de ${variantLabel(historyState.row)}`}
+            onClose={closeHistory}
             className="relative grid max-h-[80vh] w-full max-w-lg grid-rows-[auto_1fr] gap-4 overflow-hidden rounded-2xl bg-surface p-6 shadow-2xl"
           >
             <div className="flex flex-col gap-2">
@@ -842,7 +859,7 @@ function StockTab({
                 <div className="min-w-0">
                   <Breadcrumb segments={['Inventario', variantLabel(historyState.row), 'Historial de stock']} />
                 </div>
-                <CloseButton onClose={() => setHistoryState(null)} />
+                <CloseButton onClose={closeHistory} />
               </div>
               <h2 className="m-0 text-2xl font-bold">Historial de stock</h2>
             </div>
@@ -904,7 +921,7 @@ function StockTab({
                 )}
               </div>
             )}
-          </div>
+          </Dialog>
         </div>
       )}
     </div>
@@ -1052,7 +1069,7 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
       reload()
       window.dispatchEvent(new Event('shortages-updated'))
     } catch (error) {
-      showError(error instanceof ApiError ? error.message : SHORTAGE_STATUS_ERROR_MESSAGE)
+      showError(errorMessage(error, SHORTAGE_STATUS_ERROR_MESSAGE))
       setActionState(null)
     } finally {
       setSaving(false)
@@ -1153,10 +1170,17 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
 
       {status === 'error' && <LoadErrorCard message={SHORTAGES_LOAD_ERROR_MESSAGE} onRetry={reload} />}
 
-      {status === 'success' && filteredItems.length === 0 && (
+      {status === 'success' && filteredItems.length === 0 && hasActiveFilters && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
           <p className="text-xl font-semibold">No hay faltantes que coincidan.</p>
           <p className="text-lg opacity-60">Probá cambiar los filtros.</p>
+        </div>
+      )}
+
+      {status === 'success' && filteredItems.length === 0 && !hasActiveFilters && (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
+          <p className="text-xl font-semibold opacity-70">No hay faltantes pendientes</p>
+          <p className="text-lg opacity-50">Cuando se marque un producto como faltante, va a aparecer acá.</p>
         </div>
       )}
 
@@ -1171,7 +1195,7 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
                   return (
                     <div key={item.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
                       <div className="flex items-start justify-between gap-3">
-                        <p className="m-0 text-xl font-bold leading-tight">{item.product_name}</p>
+                        <p className="m-0 min-w-0 text-xl font-bold leading-tight [overflow-wrap:anywhere]">{item.product_name}</p>
                         <span
                           className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-base font-semibold ${shortageStatusClasses(item.status)}`}
                         >
@@ -1183,12 +1207,12 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
                         <FieldRow label="Proveedor" value={item.provider_name ?? 'Sin proveedor'} />
                       </div>
                       {(next !== null || item.status === 'pedido') && (
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           {next !== null && (
                             <button
                               type="button"
                               onClick={() => requestAdvance(item)}
-                              className="h-12 flex-1 rounded-lg bg-brand px-3 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90"
+                              className="min-h-12 flex-1 rounded-lg bg-brand px-3 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90"
                             >
                               Marcar como {SHORTAGE_STATUS_LABELS[next] ?? next}
                             </button>
@@ -1197,7 +1221,7 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
                             <button
                               type="button"
                               onClick={() => requestCancel(item)}
-                              className="h-12 flex-1 rounded-lg border border-line text-base font-semibold transition-colors hover:bg-surface-brand"
+                              className="min-h-12 flex-1 rounded-lg border border-line px-3 text-base font-semibold transition-colors hover:bg-surface-brand"
                             >
                               Cancelar
                             </button>
@@ -1233,6 +1257,7 @@ function InventoryTabs({ tab, onChange }: { tab: InventoryTab; onChange: (tab: I
       <button
         type="button"
         onClick={() => onChange('stock')}
+        aria-pressed={tab === 'stock'}
         className={`min-h-12 px-4 text-lg font-semibold transition-colors ${
           tab === 'stock' ? 'border-b-2 border-brand text-brand' : 'text-ink/50 hover:text-ink'
         }`}
@@ -1242,6 +1267,7 @@ function InventoryTabs({ tab, onChange }: { tab: InventoryTab; onChange: (tab: I
       <button
         type="button"
         onClick={() => onChange('faltantes')}
+        aria-pressed={tab === 'faltantes'}
         className={`min-h-12 px-4 text-lg font-semibold transition-colors ${
           tab === 'faltantes' ? 'border-b-2 border-brand text-brand' : 'text-ink/50 hover:text-ink'
         }`}
@@ -1303,8 +1329,8 @@ export function InventoryPage() {
       </div>
 
       {tab === 'stock' && canManage && status === 'success' && summary.total > 0 && summary.sinStock > 0 && !bannerDismissed && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger/10 py-3 pl-4 pr-1">
-          <p className="m-0 whitespace-nowrap text-lg font-semibold text-danger">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger/10 py-3 pl-4 pr-1">
+          <p className="m-0 min-w-0 text-lg font-semibold text-danger">
             Hay {summary.sinStock} {summary.sinStock === 1 ? 'variante sin stock' : 'variantes sin stock'}.
           </p>
           <div className="flex items-center">
