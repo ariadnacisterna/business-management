@@ -111,7 +111,7 @@ def list_price_history(db: Session, variant_id: int, business_id: int) -> list[P
     )
 
 
-def change_variant_price(
+def apply_variant_price_change(
     db: Session,
     variant_id: int,
     business_id: int,
@@ -151,20 +151,16 @@ def change_variant_price(
         new_amount = amount
 
     now = datetime.now(UTC)
-    new_price = _apply_price_change(
+    return _apply_price_change(
         db, variant.id, business_id, new_amount, actor_account_id, now, current_price
     )
-
-    db.commit()
-    db.refresh(new_price)
-    return new_price
 
 
 def _active_variants(product: Product) -> list[Variant]:
     return [variant for variant in product.variants if variant.status == EntityStatus.ACTIVE.value]
 
 
-def change_product_price(
+def apply_product_price_change(
     db: Session,
     product_id: int,
     business_id: int,
@@ -226,8 +222,4 @@ def change_product_price(
         )
         for variant in priced_variants
     ]
-
-    db.commit()
-    for new_price in new_prices:
-        db.refresh(new_price)
     return new_prices, skipped_variant_ids

@@ -1,7 +1,6 @@
 from getpass import getpass
 
-from sqlalchemy import URL, create_engine, make_url
-from sqlalchemy.exc import ArgumentError, DBAPIError
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.constants.roles import DUENO
@@ -12,32 +11,16 @@ from app.domain.access.emergency_owner import (
     plan_emergency_owner,
 )
 from app.domain.access.errors import AccessError
+from scripts.database_connection import (
+    CONNECTION_PROMPT,
+    DATABASE_FAILED_MESSAGE,
+    NOTHING_CHANGED,
+    connected_engine,
+    sqlalchemy_connection_url,
+)
 
-ACCEPTED_SCHEMES = ("postgresql", "postgres")
-SQLALCHEMY_DRIVER = "postgresql+psycopg"
-CONNECT_TIMEOUT_SECONDS = 15
 CONFIRMATION_WORD = "si"
 ACCEPTED_CONFIRMATIONS = (CONFIRMATION_WORD, "sí")
-NOTHING_CHANGED = "No se cambió nada."
-INVALID_CONNECTION_MESSAGE = (
-    "La conexión no tiene el formato esperado (tiene que empezar con postgresql://). "
-    + NOTHING_CHANGED
-)
-CONNECTION_FAILED_MESSAGE = (
-    "No se pudo conectar a la base. Revisá que la conexión sea la del Session pooler, "
-    "con la contraseña correcta, y que el proyecto de Supabase no esté pausado. " + NOTHING_CHANGED
-)
-DATABASE_FAILED_MESSAGE = "La base devolvió un error durante la operación. " + NOTHING_CHANGED
-
-
-def sqlalchemy_connection_url(raw_url: str) -> URL:
-    try:
-        url = make_url(raw_url.strip())
-    except (ArgumentError, ValueError):
-        raise SystemExit(INVALID_CONNECTION_MESSAGE) from None
-    if url.drivername.partition("+")[0] not in ACCEPTED_SCHEMES or not url.host:
-        raise SystemExit(INVALID_CONNECTION_MESSAGE)
-    return url.set(drivername=SQLALCHEMY_DRIVER)
 
 
 def ask_user_name() -> str:
@@ -119,17 +102,8 @@ def recover_owner_access(db: Session) -> None:
 
 
 def main() -> None:
-    connection_url = sqlalchemy_connection_url(
-        getpass("Conexión a la base, Session pooler de Supabase (no se ve al escribirla): ")
-    )
-    engine = create_engine(
-        connection_url, connect_args={"connect_timeout": CONNECT_TIMEOUT_SECONDS}
-    )
+    engine = connected_engine(sqlalchemy_connection_url(getpass(CONNECTION_PROMPT)))
     try:
-        try:
-            engine.connect().close()
-        except DBAPIError:
-            raise SystemExit(CONNECTION_FAILED_MESSAGE) from None
         with Session(engine) as db:
             try:
                 recover_owner_access(db)

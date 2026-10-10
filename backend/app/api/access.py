@@ -2,15 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.api.submissions import require_submission_key, respond_once
 from app.constants.access import (
     BUSINESS_NOT_ACCESSIBLE_DETAIL,
     CSRF_COOKIE_NAME,
     INVALID_CREDENTIALS_DETAIL,
     LOGIN_LOCKED_DETAIL,
     NO_BUSINESS_ACCESS_DETAIL,
+    PERMISSION_DENIED_DETAIL,
     SESSION_COOKIE_NAME,
 )
-from app.constants.roles import ADMINISTRADOR, DUENO
+from app.constants.roles import ACCOUNT_MANAGER_ROLE, DUENO
 from app.core.client_ip import get_client_ip
 from app.core.config import get_settings
 from app.db.models import Account, AccountSession, Business
@@ -23,6 +25,7 @@ from app.domain.access.active_business import (
 )
 from app.domain.access.errors import (
     AccountNotFound,
+    ActorNotAllowed,
     BusinessNotAccessible,
     DuplicateUsername,
     InactiveAccount,
@@ -324,21 +327,36 @@ def change_active_business(
 )
 def create_account(
     payload: CreateAccountRequest,
+    request: Request,
     db: Session = Depends(get_db),
-    actor: Account = Depends(require_role(ADMINISTRADOR)),
+    actor: Account = Depends(require_role(ACCOUNT_MANAGER_ROLE)),
     business: Business = Depends(get_active_business),
+    submission_key: str = Depends(require_submission_key),
 ) -> AccountResponse:
-    actor_role_name = accounts.get_role_name(db, actor.id, business.id)
-    try:
-        account = accounts.create_account(
+    def perform() -> AccountResponse:
+        account = accounts.add_account_by_manager(
             db,
             business,
+            actor.id,
             payload.name,
             payload.user_name,
             payload.initial_password,
             payload.role,
-            actor_role_name,
         )
+        return _account_response(db, account, business, actor)
+
+    try:
+        return respond_once(
+            db,
+            actor.id,
+            submission_key,
+            request,
+            payload.model_dump_json().encode(),
+            AccountResponse,
+            perform,
+        )
+    except ActorNotAllowed as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, PERMISSION_DENIED_DETAIL) from exc
     except DuplicateUsername as exc:
         raise HTTPException(
             status.HTTP_409_CONFLICT, "El nombre de usuario ya esta en uso"
@@ -348,13 +366,11 @@ def create_account(
     except InsufficientRoleRank as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
 
-    return _account_response(db, account, business, actor)
-
 
 @router.get("/accounts", response_model=list[AccountResponse])
 def list_accounts(
     db: Session = Depends(get_db),
-    actor: Account = Depends(require_role(ADMINISTRADOR)),
+    actor: Account = Depends(require_role(ACCOUNT_MANAGER_ROLE)),
     business: Business = Depends(get_active_business),
 ) -> list[AccountResponse]:
     actor_role = accounts.get_role_name(db, actor.id, business.id)
@@ -371,7 +387,7 @@ def list_accounts(
 def get_account(
     account_id: int,
     db: Session = Depends(get_db),
-    actor: Account = Depends(require_role(ADMINISTRADOR)),
+    actor: Account = Depends(require_role(ACCOUNT_MANAGER_ROLE)),
     business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
@@ -389,21 +405,21 @@ def update_account(
     account_id: int,
     payload: UpdateAccountRequest,
     db: Session = Depends(get_db),
-    actor: Account = Depends(require_role(ADMINISTRADOR)),
+    actor: Account = Depends(require_role(ACCOUNT_MANAGER_ROLE)),
     business: Business = Depends(get_active_business),
 ) -> AccountResponse:
-    actor_role_name = accounts.get_role_name(db, actor.id, business.id)
     try:
         account = accounts.update_account(
             db,
             business,
             account_id,
             actor.id,
-            actor_role_name,
             name=payload.name,
             user_name=payload.user_name,
             role_name=payload.role,
         )
+    except ActorNotAllowed as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, PERMISSION_DENIED_DETAIL) from exc
     except AccountNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cuenta no encontrada") from exc
     except DuplicateUsername as exc:
@@ -426,11 +442,13 @@ def update_account(
 def deactivate_account(
     account_id: int,
     db: Session = Depends(get_db),
-    actor: Account = Depends(require_role(ADMINISTRADOR)),
+    actor: Account = Depends(require_role(ACCOUNT_MANAGER_ROLE)),
     business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
         account = accounts.deactivate_account(db, business.id, account_id, actor.id)
+    except ActorNotAllowed as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, PERMISSION_DENIED_DETAIL) from exc
     except AccountNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cuenta no encontrada") from exc
     except SelfActionForbidden as exc:
@@ -447,11 +465,13 @@ def deactivate_account(
 def activate_account(
     account_id: int,
     db: Session = Depends(get_db),
-    actor: Account = Depends(require_role(ADMINISTRADOR)),
+    actor: Account = Depends(require_role(ACCOUNT_MANAGER_ROLE)),
     business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
-        account = accounts.activate_account(db, business.id, account_id)
+        account = accounts.activate_account(db, business.id, account_id, actor.id)
+    except ActorNotAllowed as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, PERMISSION_DENIED_DETAIL) from exc
     except AccountNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cuenta no encontrada") from exc
 
@@ -467,11 +487,15 @@ def reset_password(
     account_id: int,
     payload: ResetPasswordRequest,
     db: Session = Depends(get_db),
-    actor: Account = Depends(require_role(ADMINISTRADOR)),
+    actor: Account = Depends(require_role(ACCOUNT_MANAGER_ROLE)),
     business: Business = Depends(get_active_business),
 ) -> AccountResponse:
     try:
-        account = accounts.reset_password(db, business.id, account_id, payload.new_password)
+        account = accounts.reset_password(
+            db, business.id, account_id, actor.id, payload.new_password
+        )
+    except ActorNotAllowed as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, PERMISSION_DENIED_DETAIL) from exc
     except AccountNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cuenta no encontrada") from exc
     except InvalidPassword as exc:

@@ -1,4 +1,4 @@
-import { ApiError, apiFetch } from './client'
+import { ApiError, apiFetch, forgetPendingSubmissions } from './client'
 import type { Account } from './types'
 
 const DEFAULT_LOCK_SECONDS = 15 * 60
@@ -49,6 +49,7 @@ export function fetchCurrentAccount(): Promise<Account> {
 }
 
 export function logout(): Promise<void> {
+  forgetPendingSubmissions()
   return apiFetch<void>('/auth/logout', { method: 'POST' })
 }
 

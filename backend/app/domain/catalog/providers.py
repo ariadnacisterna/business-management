@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.constants.status import EntityStatus
 from app.core.text import normalize_for_comparison
+from app.db.locks import LockKind, lock_until_commit
 from app.db.models import Category, Provider
 from app.domain.catalog.errors import (
     CategoryNotFound,
@@ -31,6 +32,7 @@ def _normalize_optional(value: str | None) -> str | None:
 def _check_duplicate_name(
     db: Session, business_id: int, name: str, exclude_id: int | None = None
 ) -> None:
+    lock_until_commit(db, LockKind.PROVIDER_NAMES, business_id)
     normalized = normalize_for_comparison(name)
     query = select(Provider).where(Provider.business_id == business_id)
     if exclude_id is not None:
@@ -61,6 +63,33 @@ def create_provider(
     last_purchase_at: date | None = None,
     category_ids: list[int] | None = None,
 ) -> Provider:
+    provider = add_provider(
+        db,
+        business_id,
+        name,
+        actor_account_id,
+        contact_name=contact_name,
+        email=email,
+        phone=phone,
+        last_purchase_at=last_purchase_at,
+        category_ids=category_ids,
+    )
+    db.commit()
+    db.refresh(provider)
+    return provider
+
+
+def add_provider(
+    db: Session,
+    business_id: int,
+    name: str,
+    actor_account_id: int,
+    contact_name: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    last_purchase_at: date | None = None,
+    category_ids: list[int] | None = None,
+) -> Provider:
     name = _validate_name(name)
     _check_duplicate_name(db, business_id, name)
     categories = _get_categories(db, business_id, category_ids or [])
@@ -81,8 +110,7 @@ def create_provider(
         updated_at=now,
     )
     db.add(provider)
-    db.commit()
-    db.refresh(provider)
+    db.flush()
     return provider
 
 

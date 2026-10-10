@@ -564,7 +564,7 @@ def test_change_product_price_is_atomic_when_a_variant_fails_mid_operation(
     monkeypatch.setattr(pricing_module, "_apply_price_change", _flaky_apply)
 
     with pytest.raises(RuntimeError):
-        pricing_module.change_product_price(
+        pricing_module.apply_product_price_change(
             db_session, product["id"], business_id, Decimal("5.00"), admin_account_id
         )
     db_session.rollback()

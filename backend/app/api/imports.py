@@ -1,16 +1,17 @@
 from datetime import datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.api.submissions import require_submission_key, respond_once
 from app.constants.roles import ADMINISTRADOR
 from app.db.models import Account, Business
 from app.db.session import get_db
 from app.domain.access.permissions import get_active_business, require_csrf, require_role
 from app.domain.catalog.errors import DuplicateProductName
-from app.domain.import_.applying import ImportResult, apply_import
+from app.domain.import_.applying import ImportResult, add_import
 from app.domain.import_.errors import (
     EmptyFile,
     FileTooLarge,
@@ -205,15 +206,31 @@ def preview_import(
     dependencies=[Depends(require_csrf)],
 )
 def confirm_import(
+    request: Request,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
+    submission_key: str = Depends(require_submission_key),
 ) -> ImportConfirmResponse:
     filename, content = _read_upload(file)
 
+    def perform() -> ImportConfirmResponse:
+        result = add_import(db, business.id, filename, content, actor.id)
+        return ImportConfirmResponse(
+            import_run=_import_run_response(result), summary=_summary_response(result.plan)
+        )
+
     try:
-        result = apply_import(db, business.id, filename, content, actor.id)
+        return respond_once(
+            db,
+            actor.id,
+            submission_key,
+            request,
+            filename.encode() + b"/" + content,
+            ImportConfirmResponse,
+            perform,
+        )
     except FileTooLarge as exc:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, str(exc)) from exc
     except (
@@ -233,7 +250,3 @@ def confirm_import(
             "Uno de los productos a crear ya existe con ese nombre en otra categoria. "
             "Corregi el archivo y volve a analizarlo.",
         ) from exc
-
-    return ImportConfirmResponse(
-        import_run=_import_run_response(result), summary=_summary_response(result.plan)
-    )

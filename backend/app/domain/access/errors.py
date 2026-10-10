@@ -54,6 +54,10 @@ class SelfActionForbidden(AccessError):
     pass
 
 
+class ActorNotAllowed(AccessError):
+    pass
+
+
 class NoBusinessAccess(AccessError):
     pass
 

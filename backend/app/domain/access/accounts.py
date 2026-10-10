@@ -10,12 +10,14 @@ from app.constants.limits import (
     PASSWORD_MIN_LENGTH,
     USERNAME_MIN_LENGTH,
 )
-from app.constants.roles import INITIAL_ROLES, ROLE_RANK
+from app.constants.roles import ACCOUNT_MANAGER_ROLE, INITIAL_ROLES, ROLE_RANK
 from app.constants.status import EntityStatus
 from app.core.security import hash_password, verify_password
+from app.db.locks import GLOBAL_LOCK_SCOPE, LockKind, lock_until_commit
 from app.db.models import Account, Business, BusinessAccess, Role
 from app.domain.access.errors import (
     AccountNotFound,
+    ActorNotAllowed,
     DuplicateUsername,
     InsufficientRoleRank,
     InvalidAccountName,
@@ -85,6 +87,46 @@ def _get_business_access(db: Session, account_id: int, business_id: int) -> Busi
     ).first()
 
 
+def _lock_accounts_and_check_actor(
+    db: Session, business_id: int, actor_id: int, other_account_ids: list[int]
+) -> str:
+    account_ids = sorted({actor_id, *other_account_ids})
+    db.execute(
+        select(Account)
+        .where(Account.id.in_(account_ids))
+        .order_by(Account.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).scalars().all()
+    actor = db.get(Account, actor_id)
+    access = db.scalars(
+        select(BusinessAccess)
+        .where(BusinessAccess.account_id == actor_id, BusinessAccess.business_id == business_id)
+        .execution_options(populate_existing=True)
+    ).first()
+    if (
+        actor is None
+        or actor.status != EntityStatus.ACTIVE.value
+        or access is None
+        or access.status != EntityStatus.ACTIVE.value
+        or ROLE_RANK[access.role.name] < ROLE_RANK[ACCOUNT_MANAGER_ROLE]
+    ):
+        db.rollback()
+        raise ActorNotAllowed
+    return access.role.name
+
+
+def _check_user_name_available(
+    db: Session, user_name: str, exclude_account_id: int | None = None
+) -> None:
+    lock_until_commit(db, LockKind.ACCOUNT_USER_NAMES, GLOBAL_LOCK_SCOPE)
+    query = select(Account).where(Account.user_name == user_name)
+    if exclude_account_id is not None:
+        query = query.where(Account.id != exclude_account_id)
+    if db.scalars(query).first() is not None:
+        raise DuplicateUsername
+
+
 def _check_role_rank(role_name: str, actor_role_name: str) -> None:
     if ROLE_RANK[role_name] > ROLE_RANK[actor_role_name]:
         raise InsufficientRoleRank(
@@ -109,6 +151,19 @@ def create_account(
     return account
 
 
+def add_account_by_manager(
+    db: Session,
+    business: Business,
+    actor_id: int,
+    name: str,
+    user_name: str,
+    initial_password: str,
+    role_name: str,
+) -> Account:
+    actor_role_name = _lock_accounts_and_check_actor(db, business.id, actor_id, [])
+    return add_account(db, business, name, user_name, initial_password, role_name, actor_role_name)
+
+
 def add_account(
     db: Session,
     business: Business,
@@ -124,9 +179,7 @@ def add_account(
     role = _get_role(db, role_name)
     _check_role_rank(role_name, actor_role_name)
 
-    existing_user = db.scalars(select(Account).where(Account.user_name == user_name)).first()
-    if existing_user is not None:
-        raise DuplicateUsername
+    _check_user_name_available(db, user_name)
 
     account = Account(
         organization_id=business.organization_id,
@@ -155,11 +208,11 @@ def update_account(
     business: Business,
     account_id: int,
     actor_id: int,
-    actor_role_name: str,
     name: str | None = None,
     user_name: str | None = None,
     role_name: str | None = None,
 ) -> Account:
+    actor_role_name = _lock_accounts_and_check_actor(db, business.id, actor_id, [account_id])
     account = _get_account(db, business.id, account_id)
 
     if role_name is not None and account_id == actor_id:
@@ -170,11 +223,7 @@ def update_account(
 
     if user_name is not None and user_name != account.user_name:
         _validate_user_name(user_name)
-        existing_username = db.scalars(
-            select(Account).where(Account.user_name == user_name, Account.id != account.id)
-        ).first()
-        if existing_username is not None:
-            raise DuplicateUsername
+        _check_user_name_available(db, user_name, exclude_account_id=account.id)
         account.user_name = user_name
 
     if role_name is not None:
@@ -226,6 +275,7 @@ def change_own_password(
 def deactivate_account(db: Session, business_id: int, account_id: int, actor_id: int) -> Account:
     if account_id == actor_id:
         raise SelfActionForbidden("No se puede desactivar la propia cuenta")
+    _lock_accounts_and_check_actor(db, business_id, actor_id, [account_id])
     account = _get_account(db, business_id, account_id)
     account.status = EntityStatus.INACTIVE.value
     delete_sessions_for_account(db, account.id)
@@ -234,7 +284,8 @@ def deactivate_account(db: Session, business_id: int, account_id: int, actor_id:
     return account
 
 
-def activate_account(db: Session, business_id: int, account_id: int) -> Account:
+def activate_account(db: Session, business_id: int, account_id: int, actor_id: int) -> Account:
+    _lock_accounts_and_check_actor(db, business_id, actor_id, [account_id])
     account = _get_account(db, business_id, account_id)
     account.status = EntityStatus.ACTIVE.value
     db.commit()
@@ -242,7 +293,10 @@ def activate_account(db: Session, business_id: int, account_id: int) -> Account:
     return account
 
 
-def reset_password(db: Session, business_id: int, account_id: int, new_password: str) -> Account:
+def reset_password(
+    db: Session, business_id: int, account_id: int, actor_id: int, new_password: str
+) -> Account:
+    _lock_accounts_and_check_actor(db, business_id, actor_id, [account_id])
     account = _get_account(db, business_id, account_id)
     apply_password_reset(db, account, new_password)
     db.commit()

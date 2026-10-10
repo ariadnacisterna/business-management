@@ -10,7 +10,7 @@ from app.domain.catalog.errors import (
     InvalidShortageTransition,
     ShortageNotFound,
 )
-from app.domain.catalog.products import get_variant
+from app.domain.catalog.products import get_variant_for_update
 
 ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     ShortageStatus.FALTANTE.value: {ShortageStatus.PEDIDO.value},
@@ -31,10 +31,8 @@ def _has_open_shortage(db: Session, variant_id: int) -> bool:
     )
 
 
-def create_shortage(
-    db: Session, business_id: int, variant_id: int, actor_account_id: int
-) -> Shortage:
-    variant = get_variant(db, business_id, variant_id)
+def add_shortage(db: Session, business_id: int, variant_id: int, actor_account_id: int) -> Shortage:
+    variant = get_variant_for_update(db, business_id, variant_id)
     if _has_open_shortage(db, variant.id):
         raise DuplicateOpenShortage
 
@@ -48,8 +46,7 @@ def create_shortage(
         updated_at=now,
     )
     db.add(shortage)
-    db.commit()
-    db.refresh(shortage)
+    db.flush()
     return shortage
 
 
@@ -60,11 +57,22 @@ def get_shortage(db: Session, business_id: int, shortage_id: int) -> Shortage:
     return shortage
 
 
+def _get_shortage_for_update(db: Session, business_id: int, shortage_id: int) -> Shortage:
+    get_shortage(db, business_id, shortage_id)
+    return db.execute(
+        select(Shortage)
+        .where(Shortage.id == shortage_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).scalar_one()
+
+
 def change_shortage_status(
     db: Session, business_id: int, shortage_id: int, actor_account_id: int, new_status: str
 ) -> Shortage:
-    shortage = get_shortage(db, business_id, shortage_id)
+    shortage = _get_shortage_for_update(db, business_id, shortage_id)
     if new_status not in ALLOWED_TRANSITIONS.get(shortage.status, set()):
+        db.rollback()
         raise InvalidShortageTransition
 
     shortage.status = new_status

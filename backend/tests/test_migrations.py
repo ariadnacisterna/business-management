@@ -393,3 +393,138 @@ def test_decimal_stock_migration_preserves_existing_integer_values(
         engine.dispose()
 
     command.downgrade(config, "base")
+
+
+INTEGRITY_REVISION = "f3b8d2a6c1e9"
+PRE_INTEGRITY_REVISION = "e7b2c4d8f1a6"
+NEW_INTEGRITY_CHECKS = ("ck_stock_movement_quantity_changed", "ck_price_effective_range")
+EXISTING_INTEGRITY_RULES = (
+    "ck_variant_quantity_non_negative",
+    "ck_variant_minimum_quantity_non_negative",
+    "ck_stock_movement_quantity_before_non_negative",
+    "ck_stock_movement_quantity_after_non_negative",
+    "ck_price_amount_positive",
+    "ck_credit_amount_positive",
+)
+
+
+def _validated_constraints(connection):
+    return dict(
+        connection.execute(
+            sa.text(
+                "SELECT conname, convalidated FROM pg_constraint "
+                "WHERE connamespace = 'public'::regnamespace"
+            )
+        ).all()
+    )
+
+
+def _insert_variant_with_movement(connection, quantity_before, quantity_after):
+    business_id = connection.execute(sa.text("SELECT id FROM business LIMIT 1")).scalar_one()
+    account_id = connection.execute(sa.text("SELECT id FROM account LIMIT 1")).scalar_one()
+    parameters = {"business_id": business_id, "account_id": account_id}
+    audit = ":account_id, now(), :account_id, now()"
+    category_id = connection.execute(
+        sa.text(
+            "INSERT INTO category (business_id, name, status, created_by_account_id, "
+            "created_at, updated_by_account_id, updated_at) VALUES (:business_id, "
+            f"'Categoria vieja', 'active', {audit}) RETURNING id"
+        ),
+        parameters,
+    ).scalar_one()
+    unit_id = connection.execute(
+        sa.text(
+            "INSERT INTO unit (business_id, name, abbreviation, allows_fraction, status, "
+            "created_by_account_id, created_at, updated_by_account_id, updated_at) VALUES "
+            f"(:business_id, 'Unidad vieja', 'uv', false, 'active', {audit}) RETURNING id"
+        ),
+        parameters,
+    ).scalar_one()
+    product_id = connection.execute(
+        sa.text(
+            "INSERT INTO product (business_id, category_id, unit_id, name, status, "
+            "created_by_account_id, created_at, updated_by_account_id, updated_at) VALUES "
+            f"(:business_id, :category_id, :unit_id, 'Producto viejo', 'active', {audit}) "
+            "RETURNING id"
+        ),
+        {**parameters, "category_id": category_id, "unit_id": unit_id},
+    ).scalar_one()
+    variant_id = connection.execute(
+        sa.text(
+            "INSERT INTO variant (product_id, is_implicit, quantity, status, "
+            "created_by_account_id, created_at, updated_by_account_id, updated_at) VALUES "
+            f"(:product_id, true, :quantity, 'active', {audit}) RETURNING id"
+        ),
+        {**parameters, "product_id": product_id, "quantity": quantity_after},
+    ).scalar_one()
+    connection.execute(
+        sa.text(
+            "INSERT INTO stock_movement (variant_id, quantity_before, quantity_after, "
+            "created_by_account_id, created_at) "
+            "VALUES (:variant_id, :quantity_before, :quantity_after, :account_id, now())"
+        ),
+        {
+            **parameters,
+            "variant_id": variant_id,
+            "quantity_before": quantity_before,
+            "quantity_after": quantity_after,
+        },
+    )
+
+
+def test_integrity_migration_validates_new_rules_on_clean_data_and_keeps_existing_ones(
+    postgres_empty_schema, monkeypatch, request
+):
+    _isolate_from_second_business_env(monkeypatch, request)
+    config = alembic_config()
+    command.upgrade(config, PRE_INTEGRITY_REVISION)
+    engine = sa.create_engine(postgres_empty_schema)
+    try:
+        with engine.begin() as connection:
+            _insert_variant_with_movement(connection, 0, 5)
+
+        command.upgrade(config, INTEGRITY_REVISION)
+
+        with engine.connect() as connection:
+            constraints = _validated_constraints(connection)
+            indexes = connection.execute(
+                sa.text("SELECT indexname FROM pg_indexes WHERE tablename = 'price'")
+            ).scalars()
+            assert "uq_price_variant_id_business_id_current" in set(indexes)
+        for name in NEW_INTEGRITY_CHECKS + EXISTING_INTEGRITY_RULES:
+            assert constraints[name] is True
+        assert "submission" in set(inspect(engine).get_table_names())
+
+        command.downgrade(config, PRE_INTEGRITY_REVISION)
+
+        with engine.connect() as connection:
+            constraints = _validated_constraints(connection)
+        assert not set(NEW_INTEGRITY_CHECKS) & set(constraints)
+        assert "submission" not in set(inspect(engine).get_table_names())
+    finally:
+        engine.dispose()
+
+
+def test_integrity_migration_leaves_a_rule_unvalidated_when_old_data_breaks_it(
+    postgres_empty_schema, monkeypatch, request
+):
+    _isolate_from_second_business_env(monkeypatch, request)
+    config = alembic_config()
+    command.upgrade(config, PRE_INTEGRITY_REVISION)
+    engine = sa.create_engine(postgres_empty_schema)
+    try:
+        with engine.begin() as connection:
+            _insert_variant_with_movement(connection, 4, 4)
+
+        command.upgrade(config, INTEGRITY_REVISION)
+
+        with engine.connect() as connection:
+            constraints = _validated_constraints(connection)
+            movement_count = connection.execute(
+                sa.text("SELECT count(*) FROM stock_movement")
+            ).scalar_one()
+        assert constraints["ck_stock_movement_quantity_changed"] is False
+        assert constraints["ck_price_effective_range"] is True
+        assert movement_count == 1
+    finally:
+        engine.dispose()

@@ -6,11 +6,13 @@ from sqlalchemy.orm import Session
 
 from app.constants.status import EntityStatus
 from app.core.text import normalize_for_comparison
+from app.db.locks import LockKind, lock_until_commit
 from app.db.models import AttributeValue, Category, Product, Provider, Unit, Variant
 from app.domain.catalog.errors import (
     CategoryNotFound,
     DuplicateProductName,
     DuplicateVariantInProduct,
+    FractionalStockBlocksUnitChange,
     ImplicitVariantNeedsLabel,
     InvalidAttributeValue,
     InvalidCatalogInput,
@@ -20,6 +22,7 @@ from app.domain.catalog.errors import (
     VariantLabelRequired,
     VariantNotFound,
 )
+from app.domain.catalog.units import lock_unit_against_changes, products_with_fractional_stock
 
 
 @dataclass
@@ -45,6 +48,7 @@ def _normalize_label(label: str | None) -> str | None:
 def _check_duplicate_product_name(
     db: Session, business_id: int, name: str, exclude_id: int | None = None
 ) -> None:
+    lock_until_commit(db, LockKind.PRODUCT_NAMES, business_id)
     normalized = normalize_for_comparison(name)
     query = select(Product).where(Product.business_id == business_id)
     if exclude_id is not None:
@@ -111,6 +115,7 @@ def _check_variant_identity(
             "diferencie de las demas"
         )
 
+    lock_until_commit(db, LockKind.PRODUCT_VARIANTS, product_id)
     normalized_label = normalize_for_comparison(label) if label else ""
     siblings = db.scalars(
         select(Variant).where(
@@ -200,7 +205,7 @@ def find_possible_duplicates(
     return duplicates
 
 
-def _create_product_core(
+def add_product(
     db: Session,
     business_id: int,
     category_id: int,
@@ -255,23 +260,6 @@ def _create_product_core(
     return product, created_variants, possible_duplicates
 
 
-def create_product(
-    db: Session,
-    business_id: int,
-    category_id: int,
-    unit_id: int,
-    name: str,
-    actor_account_id: int,
-    variants: list[VariantInput] | None = None,
-) -> tuple[Product, list[Variant], list[Variant]]:
-    product, created_variants, possible_duplicates = _create_product_core(
-        db, business_id, category_id, unit_id, name, actor_account_id, variants
-    )
-    db.commit()
-    db.refresh(product)
-    return product, created_variants, possible_duplicates
-
-
 def update_product(
     db: Session,
     business_id: int,
@@ -281,7 +269,8 @@ def update_product(
     category_id: int | None = None,
     unit_id: int | None = None,
 ) -> Product:
-    product = get_product(db, business_id, product_id)
+    get_product(db, business_id, product_id)
+    product = _lock_product(db, product_id, shared=False)
 
     if name is not None:
         name = _validate_name(name)
@@ -294,6 +283,8 @@ def update_product(
 
     if unit_id is not None:
         unit = _get_unit(db, unit_id, business_id)
+        if unit.id != product.unit_id:
+            _check_unit_change_keeps_whole_quantities(db, product, unit.id)
         product.unit_id = unit.id
 
     product.updated_by_account_id = actor_account_id
@@ -301,6 +292,32 @@ def update_product(
     db.commit()
     db.refresh(product)
     return product
+
+
+def _lock_product(db: Session, product_id: int, shared: bool) -> Product:
+    return db.execute(
+        select(Product)
+        .where(Product.id == product_id)
+        .with_for_update(read=shared)
+        .execution_options(populate_existing=True)
+    ).scalar_one()
+
+
+def lock_product_against_unit_change(db: Session, product_id: int) -> Product:
+    return _lock_product(db, product_id, shared=True)
+
+
+def _check_unit_change_keeps_whole_quantities(db: Session, product: Product, unit_id: int) -> None:
+    new_unit = lock_unit_against_changes(db, unit_id)
+    if new_unit.allows_fraction:
+        return
+    if products_with_fractional_stock(db, Product.id == product.id):
+        db.rollback()
+        raise FractionalStockBlocksUnitChange(
+            f'El producto "{product.name}" no puede pasar a la unidad "{new_unit.name}", que no '
+            "admite decimales, porque alguna de sus variantes tiene stock o stock mínimo con "
+            "decimales. Ajustá ese stock antes de cambiar la unidad."
+        )
 
 
 def set_product_provider(
@@ -327,7 +344,7 @@ def set_product_provider(
     return product
 
 
-def _add_variant_core(
+def add_variant(
     db: Session,
     business_id: int,
     product_id: int,
@@ -368,22 +385,6 @@ def _add_variant_core(
         exclude_variant_id=variant.id,
     )
 
-    return variant, duplicates
-
-
-def add_variant(
-    db: Session,
-    business_id: int,
-    product_id: int,
-    actor_account_id: int,
-    label: str | None = None,
-    attribute_value_ids: list[int] | None = None,
-) -> tuple[Variant, list[Variant]]:
-    variant, duplicates = _add_variant_core(
-        db, business_id, product_id, actor_account_id, label, attribute_value_ids
-    )
-    db.commit()
-    db.refresh(variant)
     return variant, duplicates
 
 

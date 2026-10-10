@@ -9,7 +9,7 @@ from app.core.security import verify_password
 from app.db.models import Account, AccountSession, Business, BusinessAccess
 from app.domain.access import accounts
 from app.domain.access.sessions import create_session
-from scripts import emergency_owner
+from scripts import database_connection, emergency_owner
 
 NEW_PASSWORD = "Clave-nueva-1"
 OLD_PASSWORD = "Clave-vieja-1"
@@ -230,9 +230,9 @@ def test_cancelling_a_new_account_creates_nothing(monkeypatch, db_session, postg
     ],
 )
 def test_connection_url_accepts_supabase_and_render_formats(raw_url):
-    url = emergency_owner.sqlalchemy_connection_url(raw_url)
+    url = database_connection.sqlalchemy_connection_url(raw_url)
 
-    assert url.drivername == emergency_owner.SQLALCHEMY_DRIVER
+    assert url.drivername == database_connection.SQLALCHEMY_DRIVER
     assert url.host == "servidor.example"
     assert url.password == "Secreta-1"
 
@@ -242,7 +242,7 @@ def test_connection_url_accepts_supabase_and_render_formats(raw_url):
 )
 def test_connection_url_rejects_other_formats_without_showing_it(raw_url):
     with pytest.raises(SystemExit) as raised:
-        emergency_owner.sqlalchemy_connection_url(raw_url)
+        database_connection.sqlalchemy_connection_url(raw_url)
 
     assert "Secreta-1" not in str(raised.value)
 

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Breadcrumb } from './Breadcrumb'
 import { CloseButton } from './CloseButton'
 import { CLOSE_FLOATING_MENUS_EVENT } from './floatingMenuEvents'
@@ -9,7 +9,7 @@ interface Props {
   confirmLabel: string
   danger?: boolean
   breadcrumb: string[]
-  onConfirm: () => void
+  onConfirm: () => void | Promise<void>
   onCancel: () => void
 }
 
@@ -22,9 +22,24 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: Props) {
+  const [confirming, setConfirming] = useState(false)
+  const confirmingRef = useRef(false)
+
   useEffect(() => {
     window.dispatchEvent(new Event(CLOSE_FLOATING_MENUS_EVENT))
   }, [])
+
+  async function handleConfirm() {
+    if (confirmingRef.current) return
+    confirmingRef.current = true
+    setConfirming(true)
+    try {
+      await onConfirm()
+    } finally {
+      confirmingRef.current = false
+      setConfirming(false)
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -49,8 +64,10 @@ export function ConfirmDialog({
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={onConfirm}
-            className={`h-12 flex-1 rounded-lg text-lg font-bold transition-colors ${
+            onClick={handleConfirm}
+            disabled={confirming}
+            aria-busy={confirming}
+            className={`h-12 flex-1 rounded-lg text-lg font-bold transition-colors disabled:cursor-wait disabled:opacity-60 ${
               danger
                 ? 'bg-danger text-brand-contrast hover:bg-danger/90'
                 : 'bg-brand text-brand-contrast hover:bg-brand/90'

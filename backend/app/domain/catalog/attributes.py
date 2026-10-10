@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.constants.status import EntityStatus
 from app.core.text import normalize_for_comparison
+from app.db.locks import LockKind, lock_until_commit
 from app.db.models import Attribute
 from app.domain.catalog.errors import AttributeNotFound, DuplicateAttributeName, InvalidCatalogInput
 
@@ -17,6 +18,7 @@ def _validate_name(name: str) -> str:
 
 
 def _check_duplicate_name(db: Session, business_id: int, name: str) -> None:
+    lock_until_commit(db, LockKind.ATTRIBUTE_NAMES, business_id)
     normalized = normalize_for_comparison(name)
     existing = db.scalars(select(Attribute).where(Attribute.business_id == business_id))
     for candidate in existing:
@@ -24,7 +26,7 @@ def _check_duplicate_name(db: Session, business_id: int, name: str) -> None:
             raise DuplicateAttributeName
 
 
-def create_attribute(db: Session, business_id: int, name: str, actor_account_id: int) -> Attribute:
+def add_attribute(db: Session, business_id: int, name: str, actor_account_id: int) -> Attribute:
     name = _validate_name(name)
     _check_duplicate_name(db, business_id, name)
 
@@ -39,8 +41,7 @@ def create_attribute(db: Session, business_id: int, name: str, actor_account_id:
         updated_at=now,
     )
     db.add(attribute)
-    db.commit()
-    db.refresh(attribute)
+    db.flush()
     return attribute
 
 

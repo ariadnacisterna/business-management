@@ -22,6 +22,10 @@ class DuplicateUnitName(CatalogError):
     pass
 
 
+class FractionalStockBlocksUnitChange(CatalogError):
+    pass
+
+
 class AttributeNotFound(CatalogError):
     pass
 

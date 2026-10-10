@@ -22,7 +22,7 @@ def _balance_expression():
     )
 
 
-def create_credit(
+def add_credit(
     db: Session,
     business_id: int,
     customer_id: int,
@@ -46,8 +46,7 @@ def create_credit(
         created_at=datetime.now(UTC),
     )
     db.add(credit)
-    db.commit()
-    db.refresh(credit)
+    db.flush()
     return credit
 
 

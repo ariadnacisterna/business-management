@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.constants.status import EntityStatus
 from app.core.text import normalize_for_comparison
+from app.db.locks import LockKind, lock_until_commit
 from app.db.models import Customer
 from app.domain.catalog.errors import (
     CustomerNotFound,
@@ -30,6 +31,7 @@ def _normalize_optional(value: str | None) -> str | None:
 def _check_duplicate_name(
     db: Session, business_id: int, name: str, exclude_id: int | None = None
 ) -> None:
+    lock_until_commit(db, LockKind.CUSTOMER_NAMES, business_id)
     normalized = normalize_for_comparison(name)
     query = select(Customer).where(Customer.business_id == business_id)
     if exclude_id is not None:
@@ -40,6 +42,20 @@ def _check_duplicate_name(
 
 
 def create_customer(
+    db: Session,
+    business_id: int,
+    name: str,
+    actor_account_id: int,
+    phone: str | None = None,
+    address: str | None = None,
+) -> Customer:
+    customer = add_customer(db, business_id, name, actor_account_id, phone=phone, address=address)
+    db.commit()
+    db.refresh(customer)
+    return customer
+
+
+def add_customer(
     db: Session,
     business_id: int,
     name: str,
@@ -63,8 +79,7 @@ def create_customer(
         updated_at=now,
     )
     db.add(customer)
-    db.commit()
-    db.refresh(customer)
+    db.flush()
     return customer
 
 

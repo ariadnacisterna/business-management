@@ -31,6 +31,37 @@ describe('ConfirmDialog', () => {
     expect(onCancel).toHaveBeenCalledTimes(1)
   })
 
+  it('ignores a second tap and stays disabled while the confirmation is being saved', async () => {
+    const user = userEvent.setup()
+    let finishSaving: () => void = () => {}
+    const onConfirm = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSaving = resolve
+        }),
+    )
+
+    render(
+      <ConfirmDialog
+        title="Título"
+        description="Descripción"
+        confirmLabel="Aceptar"
+        breadcrumb={['Sección', 'Título']}
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    const confirmButton = screen.getByRole('button', { name: 'Aceptar' })
+    await user.dblClick(confirmButton)
+
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+    expect(confirmButton).toBeDisabled()
+
+    finishSaving()
+    await waitFor(() => expect(confirmButton).toBeEnabled())
+  })
+
   it('closes from the X button, same as cancel', async () => {
     const user = userEvent.setup()
     const onCancel = vi.fn()

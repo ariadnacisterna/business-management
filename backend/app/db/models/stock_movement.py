@@ -18,6 +18,7 @@ from app.db.base import Base
 
 STOCK_MOVEMENT_QUANTITY_BEFORE_NON_NEGATIVE_CONSTRAINT_NAME = "quantity_before_non_negative"
 STOCK_MOVEMENT_QUANTITY_AFTER_NON_NEGATIVE_CONSTRAINT_NAME = "quantity_after_non_negative"
+STOCK_MOVEMENT_QUANTITY_CHANGED_CONSTRAINT_NAME = "quantity_changed"
 
 
 class StockMovement(Base):
@@ -28,6 +29,10 @@ class StockMovement(Base):
         ),
         CheckConstraint(
             "quantity_after >= 0", name=STOCK_MOVEMENT_QUANTITY_AFTER_NON_NEGATIVE_CONSTRAINT_NAME
+        ),
+        CheckConstraint(
+            "quantity_before <> quantity_after",
+            name=STOCK_MOVEMENT_QUANTITY_CHANGED_CONSTRAINT_NAME,
         ),
     )
 

@@ -1,10 +1,11 @@
 from datetime import date
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.api.submissions import require_submission_key, respond_once
 from app.constants.roles import ADMINISTRADOR, EMPLEADO, GERENTE, ROLE_RANK
 from app.constants.status import EntityStatus, ShortageStatus, StockStatus
 from app.core.storage import StorageNotConfigured, StorageRequestFailed
@@ -55,6 +56,7 @@ from app.domain.catalog.errors import (
     DuplicateProviderName,
     DuplicateUnitName,
     DuplicateVariantInProduct,
+    FractionalStockBlocksUnitChange,
     ImageTooLarge,
     ImplicitVariantNeedsLabel,
     InvalidAttributeValue,
@@ -520,18 +522,29 @@ def _credit_response(credit: Credit, account_names: dict[int, str]) -> CreditRes
 )
 def create_category(
     payload: CreateCategoryRequest,
+    request: Request,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
+    submission_key: str = Depends(require_submission_key),
 ) -> CategoryResponse:
+    def perform() -> CategoryResponse:
+        return _category_response(categories.add_category(db, business.id, payload.name, _actor.id))
+
     try:
-        category = categories.create_category(db, business.id, payload.name, _actor.id)
+        return respond_once(
+            db,
+            _actor.id,
+            submission_key,
+            request,
+            payload.model_dump_json().encode(),
+            CategoryResponse,
+            perform,
+        )
     except DuplicateCategoryName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "La categoria ya existe") from exc
     except InvalidCatalogInput as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-
-    return _category_response(category)
 
 
 @router.get("/categories", response_model=list[CategoryResponse])
@@ -594,25 +607,38 @@ def update_category(
 )
 def create_unit(
     payload: CreateUnitRequest,
+    request: Request,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
+    submission_key: str = Depends(require_submission_key),
 ) -> UnitResponse:
+    def perform() -> UnitResponse:
+        return _unit_response(
+            units.add_unit(
+                db,
+                business.id,
+                payload.name,
+                payload.abbreviation,
+                _actor.id,
+                allows_fraction=payload.allows_fraction,
+            )
+        )
+
     try:
-        unit = units.create_unit(
+        return respond_once(
             db,
-            business.id,
-            payload.name,
-            payload.abbreviation,
             _actor.id,
-            allows_fraction=payload.allows_fraction,
+            submission_key,
+            request,
+            payload.model_dump_json().encode(),
+            UnitResponse,
+            perform,
         )
     except DuplicateUnitName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "La unidad ya existe") from exc
     except InvalidCatalogInput as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-
-    return _unit_response(unit)
 
 
 @router.get("/units", response_model=list[UnitResponse])
@@ -661,6 +687,8 @@ def update_unit(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Unidad no encontrada") from exc
     except DuplicateUnitName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "La unidad ya existe") from exc
+    except FractionalStockBlocksUnitChange as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     except InvalidCatalogInput as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
@@ -675,18 +703,31 @@ def update_unit(
 )
 def create_attribute(
     payload: CreateAttributeRequest,
+    request: Request,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
+    submission_key: str = Depends(require_submission_key),
 ) -> AttributeResponse:
+    def perform() -> AttributeResponse:
+        return _attribute_response(
+            attributes.add_attribute(db, business.id, payload.name, _actor.id)
+        )
+
     try:
-        attribute = attributes.create_attribute(db, business.id, payload.name, _actor.id)
+        return respond_once(
+            db,
+            _actor.id,
+            submission_key,
+            request,
+            payload.model_dump_json().encode(),
+            AttributeResponse,
+            perform,
+        )
     except DuplicateAttributeName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "El atributo ya existe") from exc
     except InvalidCatalogInput as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-
-    return _attribute_response(attribute)
 
 
 @router.get("/attributes", response_model=list[AttributeResponse])
@@ -724,13 +765,28 @@ def get_attribute(
 def create_attribute_value(
     attribute_id: int,
     payload: CreateAttributeValueRequest,
+    request: Request,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
+    submission_key: str = Depends(require_submission_key),
 ) -> AttributeValueResponse:
+    def perform() -> AttributeValueResponse:
+        return _attribute_value_response(
+            attribute_values.add_attribute_value(
+                db, business.id, attribute_id, payload.value, _actor.id
+            )
+        )
+
     try:
-        attribute_value = attribute_values.create_attribute_value(
-            db, business.id, attribute_id, payload.value, _actor.id
+        return respond_once(
+            db,
+            _actor.id,
+            submission_key,
+            request,
+            payload.model_dump_json().encode(),
+            AttributeValueResponse,
+            perform,
         )
     except AttributeNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Atributo no encontrado") from exc
@@ -740,8 +796,6 @@ def create_attribute_value(
         ) from exc
     except InvalidCatalogInput as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-
-    return _attribute_value_response(attribute_value)
 
 
 @router.get("/attributes/{attribute_id}/values", response_model=list[AttributeValueResponse])
@@ -846,12 +900,14 @@ def _to_variant_inputs(payload: list[VariantInputSchema] | None) -> list[Variant
 )
 def create_product(
     payload: CreateProductRequest,
+    request: Request,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
+    submission_key: str = Depends(require_submission_key),
 ) -> ProductCreationResponse:
-    try:
-        product, _created_variants, duplicates = products.create_product(
+    def perform() -> ProductCreationResponse:
+        product, _created_variants, duplicates = products.add_product(
             db,
             business.id,
             payload.category_id,
@@ -859,6 +915,21 @@ def create_product(
             payload.name,
             _actor.id,
             variants=_to_variant_inputs(payload.variants),
+        )
+        return ProductCreationResponse(
+            product=_product_response(product),
+            possible_duplicates=[_variant_response(variant) for variant in duplicates],
+        )
+
+    try:
+        return respond_once(
+            db,
+            _actor.id,
+            submission_key,
+            request,
+            payload.model_dump_json().encode(),
+            ProductCreationResponse,
+            perform,
         )
     except CategoryNotFound as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Categoria invalida") from exc
@@ -874,11 +945,6 @@ def create_product(
         ) from exc
     except DuplicateVariantInProduct as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
-
-    return ProductCreationResponse(
-        product=_product_response(product),
-        possible_duplicates=[_variant_response(variant) for variant in duplicates],
-    )
 
 
 ALLOWED_PAGE_SIZES = (10, 25, 50)
@@ -967,6 +1033,8 @@ def update_product(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Categoria invalida") from exc
     except UnitNotFound as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Unidad invalida") from exc
+    except FractionalStockBlocksUnitChange as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     except InvalidCatalogInput as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except DuplicateProductName as exc:
@@ -1024,11 +1092,13 @@ def reactivate_product(
 def add_variant(
     product_id: int,
     payload: AddVariantRequest,
+    request: Request,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
+    submission_key: str = Depends(require_submission_key),
 ) -> VariantCreationResponse:
-    try:
+    def perform() -> VariantCreationResponse:
         variant, duplicates = products.add_variant(
             db,
             business.id,
@@ -1036,6 +1106,21 @@ def add_variant(
             _actor.id,
             label=payload.label,
             attribute_value_ids=payload.attribute_value_ids,
+        )
+        return VariantCreationResponse(
+            variant=_variant_response(variant),
+            possible_duplicates=[_variant_response(candidate) for candidate in duplicates],
+        )
+
+    try:
+        return respond_once(
+            db,
+            _actor.id,
+            submission_key,
+            request,
+            payload.model_dump_json().encode(),
+            VariantCreationResponse,
+            perform,
         )
     except ProductNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
@@ -1045,11 +1130,6 @@ def add_variant(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except DuplicateVariantInProduct as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
-
-    return VariantCreationResponse(
-        variant=_variant_response(variant),
-        possible_duplicates=[_variant_response(candidate) for candidate in duplicates],
-    )
 
 
 @router.post(
@@ -1189,21 +1269,36 @@ def delete_product_image(
 )
 def create_provider(
     payload: CreateProviderRequest,
+    request: Request,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(ADMINISTRADOR)),
     business: Business = Depends(get_active_business),
+    submission_key: str = Depends(require_submission_key),
 ) -> ProviderResponse:
+    def perform() -> ProviderResponse:
+        return _provider_response(
+            providers.add_provider(
+                db,
+                business.id,
+                payload.name,
+                _actor.id,
+                contact_name=payload.contact_name,
+                email=payload.email,
+                phone=payload.phone,
+                last_purchase_at=payload.last_purchase_at,
+                category_ids=payload.category_ids,
+            )
+        )
+
     try:
-        provider = providers.create_provider(
+        return respond_once(
             db,
-            business.id,
-            payload.name,
             _actor.id,
-            contact_name=payload.contact_name,
-            email=payload.email,
-            phone=payload.phone,
-            last_purchase_at=payload.last_purchase_at,
-            category_ids=payload.category_ids,
+            submission_key,
+            request,
+            payload.model_dump_json().encode(),
+            ProviderResponse,
+            perform,
         )
     except DuplicateProviderName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "El proveedor ya existe") from exc
@@ -1211,8 +1306,6 @@ def create_provider(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Categoria invalida") from exc
     except InvalidCatalogInput as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-
-    return _provider_response(provider)
 
 
 @router.get("/providers", response_model=list[ProviderResponse])
@@ -1367,20 +1460,33 @@ def set_product_provider(
 )
 def create_shortage(
     payload: CreateShortageRequest,
+    request: Request,
     db: Session = Depends(get_db),
     _actor: Account = Depends(get_current_user),
     business: Business = Depends(get_active_business),
+    submission_key: str = Depends(require_submission_key),
 ) -> ShortageResponse:
+    def perform() -> ShortageResponse:
+        return _shortage_response(
+            shortages.add_shortage(db, business.id, payload.variant_id, _actor.id)
+        )
+
     try:
-        shortage = shortages.create_shortage(db, business.id, payload.variant_id, _actor.id)
+        return respond_once(
+            db,
+            _actor.id,
+            submission_key,
+            request,
+            payload.model_dump_json().encode(),
+            ShortageResponse,
+            perform,
+        )
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
     except DuplicateOpenShortage as exc:
         raise HTTPException(
             status.HTTP_409_CONFLICT, "La variante ya tiene un faltante abierto"
         ) from exc
-
-    return _shortage_response(shortage)
 
 
 @router.get("/shortages", response_model=list[ShortageResponse])
@@ -1453,20 +1559,38 @@ def change_shortage_status(
 )
 def create_customer(
     payload: CreateCustomerRequest,
+    request: Request,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
+    submission_key: str = Depends(require_submission_key),
 ) -> CustomerResponse:
+    def perform() -> CustomerResponse:
+        return _customer_response(
+            customers.add_customer(
+                db,
+                business.id,
+                payload.name,
+                _actor.id,
+                phone=payload.phone,
+                address=payload.address,
+            )
+        )
+
     try:
-        customer = customers.create_customer(
-            db, business.id, payload.name, _actor.id, phone=payload.phone, address=payload.address
+        return respond_once(
+            db,
+            _actor.id,
+            submission_key,
+            request,
+            payload.model_dump_json().encode(),
+            CustomerResponse,
+            perform,
         )
     except DuplicateCustomerName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "El cliente ya existe") from exc
     except InvalidCatalogInput as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-
-    return _customer_response(customer)
 
 
 @router.get("/customers", response_model=list[CustomerResponse])
@@ -1651,13 +1775,27 @@ def list_credits(
 def create_credit(
     customer_id: int,
     payload: CreateCreditRequest,
+    request: Request,
     db: Session = Depends(get_db),
     _actor: Account = Depends(get_current_user),
     business: Business = Depends(get_active_business),
+    submission_key: str = Depends(require_submission_key),
 ) -> CreditResponse:
-    try:
-        credit = credits.create_credit(
+    def perform() -> CreditResponse:
+        credit = credits.add_credit(
             db, business.id, customer_id, payload.type, payload.amount, _actor.id
+        )
+        return _credit_response(credit, {_actor.id: _actor.name})
+
+    try:
+        return respond_once(
+            db,
+            _actor.id,
+            submission_key,
+            request,
+            payload.model_dump_json().encode(),
+            CreditResponse,
+            perform,
         )
     except CustomerNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado") from exc
@@ -1667,8 +1805,6 @@ def create_credit(
         ) from exc
     except InvalidCreditAmount as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Importe invalido") from exc
-
-    return _credit_response(credit, {_actor.id: _actor.name})
 
 
 @router.get("/variants/{variant_id}/stock", response_model=StockResponse)
@@ -1719,12 +1855,14 @@ def set_minimum_stock(
 def adjust_stock(
     variant_id: int,
     payload: StockAdjustmentRequest,
+    request: Request,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
+    submission_key: str = Depends(require_submission_key),
 ) -> StockMovementResponse:
-    try:
-        movement = stock.adjust_stock(
+    def perform() -> StockMovementResponse:
+        movement = stock.apply_stock_adjustment(
             db,
             business.id,
             variant_id,
@@ -1732,13 +1870,23 @@ def adjust_stock(
             payload.delta,
             observation=payload.observation,
         )
+        account_names = get_account_names(db, [movement.created_by_account_id])
+        return _stock_movement_response(movement, account_names)
+
+    try:
+        return respond_once(
+            db,
+            _actor.id,
+            submission_key,
+            request,
+            payload.model_dump_json().encode(),
+            StockMovementResponse,
+            perform,
+        )
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
     except InvalidStockQuantity as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-
-    account_names = get_account_names(db, [movement.created_by_account_id])
-    return _stock_movement_response(movement, account_names)
 
 
 @router.get("/variants/{variant_id}/stock/movements", response_model=list[StockMovementResponse])

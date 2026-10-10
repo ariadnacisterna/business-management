@@ -1,10 +1,11 @@
 from datetime import datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.api.submissions import require_submission_key, respond_once
 from app.constants.roles import GERENTE
 from app.db.models import Account, Business, Price
 from app.db.session import get_db
@@ -115,12 +116,14 @@ def get_variant_price_history(
 def change_variant_price(
     variant_id: int,
     payload: ChangeVariantPriceRequest,
+    request: Request,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
+    submission_key: str = Depends(require_submission_key),
 ) -> PriceResponse:
-    try:
-        price = prices.change_variant_price(
+    def perform() -> PriceResponse:
+        price = prices.apply_variant_price_change(
             db,
             variant_id,
             business.id,
@@ -128,13 +131,23 @@ def change_variant_price(
             delta=payload.delta,
             amount=payload.amount,
         )
+        account_names = prices.get_account_names(db, [price.created_by_account_id])
+        return _price_response(price, account_names)
+
+    try:
+        return respond_once(
+            db,
+            _actor.id,
+            submission_key,
+            request,
+            payload.model_dump_json().encode(),
+            PriceResponse,
+            perform,
+        )
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
     except InvalidPriceAmount as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-
-    account_names = prices.get_account_names(db, [price.created_by_account_id])
-    return _price_response(price, account_names)
 
 
 @router.put(
@@ -145,13 +158,33 @@ def change_variant_price(
 def change_product_price(
     product_id: int,
     payload: ChangeProductPriceRequest,
+    request: Request,
     db: Session = Depends(get_db),
     _actor: Account = Depends(require_role(GERENTE)),
     business: Business = Depends(get_active_business),
+    submission_key: str = Depends(require_submission_key),
 ) -> ProductPriceChangeResponse:
-    try:
-        changed, skipped_variant_ids = prices.change_product_price(
+    def perform() -> ProductPriceChangeResponse:
+        changed, skipped_variant_ids = prices.apply_product_price_change(
             db, product_id, business.id, payload.delta, _actor.id
+        )
+        account_names = prices.get_account_names(
+            db, [price.created_by_account_id for price in changed]
+        )
+        return ProductPriceChangeResponse(
+            prices=[_price_response(price, account_names) for price in changed],
+            skipped_variant_ids=skipped_variant_ids,
+        )
+
+    try:
+        return respond_once(
+            db,
+            _actor.id,
+            submission_key,
+            request,
+            payload.model_dump_json().encode(),
+            ProductPriceChangeResponse,
+            perform,
         )
     except ProductNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
@@ -161,9 +194,3 @@ def change_product_price(
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "El producto no tiene variantes activas"
         ) from exc
-
-    account_names = prices.get_account_names(db, [price.created_by_account_id for price in changed])
-    return ProductPriceChangeResponse(
-        prices=[_price_response(price, account_names) for price in changed],
-        skipped_variant_ids=skipped_variant_ids,
-    )

@@ -209,9 +209,11 @@ describe('ProductFormPage', () => {
 
     expect(await screen.findByRole('status')).toHaveTextContent('Producto creado correctamente.')
     const adjustCall = fetchMock.mock.calls.find((call) => call[0] === '/variants/40/stock/adjustments')
-    expect(JSON.parse(String((adjustCall?.[1] as RequestInit).body))).toEqual({ delta: '2.500' })
+    expect(JSON.parse(String((adjustCall?.[1] as RequestInit | undefined)?.body))).toEqual({ delta: '2.500' })
     const minimumCall = fetchMock.mock.calls.find((call) => call[0] === '/variants/40/stock/minimum')
-    expect(JSON.parse(String((minimumCall?.[1] as RequestInit).body))).toEqual({ minimum_quantity: '0.500' })
+    expect(JSON.parse(String((minimumCall?.[1] as RequestInit | undefined)?.body))).toEqual({
+      minimum_quantity: '0.500',
+    })
   })
 
   it('shows an error and marks the name field as soon as it is left empty', async () => {

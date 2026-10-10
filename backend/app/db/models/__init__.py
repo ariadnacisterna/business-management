@@ -17,6 +17,7 @@ from app.db.models.provider_category import provider_category
 from app.db.models.role import Role
 from app.db.models.shortage import Shortage
 from app.db.models.stock_movement import StockMovement
+from app.db.models.submission import Submission
 from app.db.models.unit import Unit
 from app.db.models.variant import Variant
 from app.db.models.variant_attribute_value import variant_attribute_value
@@ -40,6 +41,7 @@ __all__ = [
     "Role",
     "Shortage",
     "StockMovement",
+    "Submission",
     "Unit",
     "Variant",
     "provider_category",

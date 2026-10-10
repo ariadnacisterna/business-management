@@ -5,11 +5,17 @@ from sqlalchemy.orm import Session
 
 from app.constants.import_ import DEFAULT_UNIT_ALLOWS_FRACTION
 from app.core.text import normalize_for_comparison
+from app.db.locks import LockKind, lock_until_commit
 from app.db.models import ImportRun
-from app.domain.catalog.attribute_values import _build_attribute_value
-from app.domain.catalog.categories import _build_category
-from app.domain.catalog.products import VariantInput, _add_variant_core, _create_product_core
-from app.domain.catalog.units import _build_unit
+from app.domain.catalog.attribute_values import add_attribute_value
+from app.domain.catalog.categories import add_category
+from app.domain.catalog.products import (
+    VariantInput,
+    add_product,
+    add_variant,
+    get_variants_for_update,
+)
+from app.domain.catalog.units import add_unit
 from app.domain.import_.errors import ImportPlanHasErrors
 from app.domain.import_.planning import GroupPlan, ImportPlan, RowPlan, analyze_import
 from app.domain.pricing.prices import _apply_price_change, get_current_price_for_variant
@@ -48,7 +54,7 @@ def _resolve_category_id(
         return group.category_id
     key = normalize_for_comparison(group.category_name)
     if key not in ctx.category_ids:
-        category = _build_category(db, business_id, group.category_name, actor_account_id)
+        category = add_category(db, business_id, group.category_name, actor_account_id)
         ctx.category_ids[key] = category.id
         ctx.created_categories += 1
     return ctx.category_ids[key]
@@ -61,7 +67,7 @@ def _resolve_unit_id(
         return group.unit_id
     key = normalize_for_comparison(group.unit_name)
     if key not in ctx.unit_ids:
-        unit = _build_unit(
+        unit = add_unit(
             db,
             business_id,
             group.unit_name,
@@ -81,7 +87,7 @@ def _resolve_attribute_value_ids(
     for attribute_id, value in row.pending_attribute_values:
         key = (attribute_id, normalize_for_comparison(value))
         if key not in ctx.attribute_value_ids:
-            attribute_value = _build_attribute_value(
+            attribute_value = add_attribute_value(
                 db, business_id, attribute_id, value, actor_account_id
             )
             ctx.attribute_value_ids[key] = attribute_value.id
@@ -113,7 +119,7 @@ def _apply_new_group(
             for row in group.rows
         ]
 
-    _product, created_variants, _duplicates = _create_product_core(
+    _product, created_variants, _duplicates = add_product(
         db,
         business_id,
         category_id,
@@ -159,7 +165,7 @@ def _apply_existing_group(
                 ctx.updated_variants += 1
             continue
 
-        variant, _duplicates = _add_variant_core(
+        variant, _duplicates = add_variant(
             db,
             business_id,
             group.existing_product_id,
@@ -173,57 +179,61 @@ def _apply_existing_group(
         )
 
 
-def apply_import(
+def _lock_existing_variants(db: Session, plan: ImportPlan) -> None:
+    existing_variant_ids = sorted(
+        {row.existing_variant_id for row in plan.rows if row.existing_variant_id is not None}
+    )
+    if existing_variant_ids:
+        get_variants_for_update(db, existing_variant_ids)
+
+
+def add_import(
     db: Session,
     business_id: int,
     filename: str,
     content: bytes,
     actor_account_id: int,
 ) -> ImportResult:
+    lock_until_commit(db, LockKind.IMPORT, business_id)
     plan = analyze_import(db, business_id, filename, content)
     if plan.has_errors:
         raise ImportPlanHasErrors(plan)
 
+    _lock_existing_variants(db, plan)
     now = datetime.now(UTC)
     ctx = _ApplyContext()
 
-    try:
-        for group in plan.groups:
-            category_id = _resolve_category_id(db, business_id, group, actor_account_id, ctx)
-            unit_id = _resolve_unit_id(db, business_id, group, actor_account_id, ctx)
+    for group in plan.groups:
+        category_id = _resolve_category_id(db, business_id, group, actor_account_id, ctx)
+        unit_id = _resolve_unit_id(db, business_id, group, actor_account_id, ctx)
 
-            if group.existing_product_id is None:
-                _apply_new_group(
-                    db,
-                    business_id,
-                    category_id,
-                    unit_id,
-                    group,
-                    actor_account_id,
-                    now,
-                    ctx,
-                )
-            else:
-                _apply_existing_group(db, business_id, group, actor_account_id, now, ctx)
+        if group.existing_product_id is None:
+            _apply_new_group(
+                db,
+                business_id,
+                category_id,
+                unit_id,
+                group,
+                actor_account_id,
+                now,
+                ctx,
+            )
+        else:
+            _apply_existing_group(db, business_id, group, actor_account_id, now, ctx)
 
-        import_run = ImportRun(
-            business_id=business_id,
-            file_name=filename,
-            row_count=len(plan.rows),
-            created_categories_count=ctx.created_categories,
-            created_units_count=ctx.created_units,
-            created_attribute_values_count=ctx.created_attribute_values,
-            created_products_count=ctx.created_products,
-            created_variants_count=ctx.created_variants,
-            updated_variants_count=ctx.updated_variants,
-            created_by_account_id=actor_account_id,
-            created_at=now,
-        )
-        db.add(import_run)
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
-
-    db.refresh(import_run)
+    import_run = ImportRun(
+        business_id=business_id,
+        file_name=filename,
+        row_count=len(plan.rows),
+        created_categories_count=ctx.created_categories,
+        created_units_count=ctx.created_units,
+        created_attribute_values_count=ctx.created_attribute_values,
+        created_products_count=ctx.created_products,
+        created_variants_count=ctx.created_variants,
+        updated_variants_count=ctx.updated_variants,
+        created_by_account_id=actor_account_id,
+        created_at=now,
+    )
+    db.add(import_run)
+    db.flush()
     return ImportResult(import_run=import_run, plan=plan)

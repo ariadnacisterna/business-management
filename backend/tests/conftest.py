@@ -1,5 +1,6 @@
 import contextlib
 import os
+import uuid
 from collections.abc import Generator
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, sessionmaker
 
 from alembic import command
+from app.constants.submission import SUBMISSION_KEY_HEADER_NAME
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.main import app
@@ -20,6 +22,7 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 ALEMBIC_INI = BACKEND_DIR / "alembic.ini"
 
 TEST_DATABASE_SUFFIX = "_test"
+MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 
 class TestClient(StarletteTestClient):
@@ -31,6 +34,9 @@ class TestClient(StarletteTestClient):
             merged.update(dict(cookies))
             cookie_header = "; ".join(f"{name}={value}" for name, value in merged.items())
             headers = {**(headers or {}), "Cookie": cookie_header}
+        if method.upper() in MUTATING_METHODS:
+            headers = dict(headers or {})
+            headers.setdefault(SUBMISSION_KEY_HEADER_NAME, uuid.uuid4().hex)
         return super().request(method, url, headers=headers, **kwargs)
 
 

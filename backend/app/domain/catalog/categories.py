@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.constants.status import EntityStatus
 from app.core.text import normalize_for_comparison
+from app.db.locks import LockKind, lock_until_commit
 from app.db.models import Category
 from app.domain.catalog.errors import CategoryNotFound, DuplicateCategoryName, InvalidCatalogInput
 
@@ -19,6 +20,7 @@ def _validate_name(name: str) -> str:
 def _check_duplicate_name(
     db: Session, business_id: int, name: str, exclude_id: int | None = None
 ) -> None:
+    lock_until_commit(db, LockKind.CATEGORY_NAMES, business_id)
     normalized = normalize_for_comparison(name)
     query = select(Category).where(Category.business_id == business_id)
     if exclude_id is not None:
@@ -28,7 +30,7 @@ def _check_duplicate_name(
             raise DuplicateCategoryName
 
 
-def _build_category(db: Session, business_id: int, name: str, actor_account_id: int) -> Category:
+def add_category(db: Session, business_id: int, name: str, actor_account_id: int) -> Category:
     name = _validate_name(name)
     _check_duplicate_name(db, business_id, name)
 
@@ -44,13 +46,6 @@ def _build_category(db: Session, business_id: int, name: str, actor_account_id: 
     )
     db.add(category)
     db.flush()
-    return category
-
-
-def create_category(db: Session, business_id: int, name: str, actor_account_id: int) -> Category:
-    category = _build_category(db, business_id, name, actor_account_id)
-    db.commit()
-    db.refresh(category)
     return category
 
 

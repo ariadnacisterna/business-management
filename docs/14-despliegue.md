@@ -269,6 +269,52 @@ Las cuentas no guardan quién hizo cada cambio sobre ellas, así que este uso de
 7. **Cookie segura**: F12 → pestaña **Aplicación** (Application) → **Cookies** → la dirección de la aplicación: la cookie `session_id` tiene que tener tildada la columna **Secure** y **HttpOnly**.
 8. **No se puede meter dentro de otra página**: es lo que bloquea `x-frame-options` del punto 1; alcanza con verlo ahí.
 
+## Verificación de integridad de los datos (T-078)
+
+### Qué hace
+
+Corre en tu computadora y **solo lee** la base: no cambia nada, aunque encuentre problemas (se conecta en modo de solo lectura, así que la base misma le impide escribir). Revisa que los datos guardados sean coherentes:
+
+- Cada variante tiene a lo sumo un precio vigente en cada negocio, todo precio es mayor que cero, ningún precio termina antes de empezar, el historial de precios de cada variante no tiene huecos ni superposiciones y cada precio es del mismo negocio que su producto.
+- Ningún stock, stock mínimo ni movimiento de stock es negativo, y cada movimiento cambia la cantidad.
+- La cadena de movimientos de stock de cada variante es continua: el primero arranca en 0, cada uno arranca donde terminó el anterior, y el stock actual es el que dejó el último (una variante sin movimientos tiene que tener stock 0).
+- Las variantes que se venden en una unidad sin decimales (unidad, rollo, paquete) no tienen stock ni stock mínimo con decimales.
+- Todo producto tiene al menos una variante.
+- Cada variante tiene a lo sumo un faltante abierto.
+- Todo fiado o pago tiene un importe mayor que cero.
+- Las reglas de la base que todavía no se comprueban sobre datos viejos (ver "Si aparece un problema").
+
+Al final muestra cada problema en lenguaje claro, agrupado por negocio (qué producto o cliente y qué está mal), o "Sin problemas.".
+
+### Qué necesitás
+
+Lo mismo que para el acceso de emergencia: la conexión del **Session pooler** de Supabase y el entorno virtual del backend instalado en tu computadora.
+
+### Pasos
+
+1. Abrí una terminal en la carpeta `backend` del proyecto y activá el entorno virtual (`.venv\Scripts\activate`).
+2. Escribí:
+
+   ```
+   python -m scripts.check_integrity
+   ```
+
+3. Te pide la conexión a la base: pegala y Enter. **No se ve mientras la pegás**, es normal.
+4. Esperá unos segundos. Si dice "Sin problemas.", listo.
+5. Si aparece una lista, copiala completa y pasala a una conversación de tarea. **No corrijas los datos a mano** desde el panel de Supabase: primero hay que entender cómo se generó cada problema.
+6. Cerrá la terminal.
+
+La conexión no queda guardada en ningún archivo ni en el historial de la terminal, y el script nunca la muestra. Los mensajes de error son los mismos que los del acceso de emergencia ("No se pudo conectar a la base", "La conexión no tiene el formato esperado").
+
+### Si aparece un problema
+
+- Un problema de stock o de precio de un producto: anotá qué producto es y avisá. No se arregla con un ajuste de stock desde la aplicación sin antes saber qué pasó, porque el ajuste agrega un movimiento nuevo y no repara la cadena vieja.
+- "La regla de la base ... todavía no se comprueba sobre los datos viejos": al instalar T-078 la base tenía datos que no cumplían esa regla (aparecen listados arriba, en su negocio). La regla ya protege todos los datos nuevos; cuando los viejos estén corregidos, una tarea aparte la activa también para ellos.
+
+### Antes de cada despliegue
+
+Corré `python -m scripts.check_integrity` contra producción antes de desplegar una versión nueva, sobre todo si trae una migración. Si muestra problemas, no despliegues: pasá la lista a una conversación de tarea. T-081 va a sumar este paso a la lista completa de cosas para revisar antes de cada despliegue.
+
 ## Pendiente
 
 - Dominio propio: por ahora se usa el subdominio gratuito de Render. Migrar a un dominio propio más adelante no requiere cambios de código, solo configurar el dominio en Render.

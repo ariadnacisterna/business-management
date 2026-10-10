@@ -9,12 +9,17 @@ from app.db.base import Base
 
 PRICE_AMOUNT_POSITIVE_CONSTRAINT_NAME = "amount_positive"
 PRICE_CURRENT_UNIQUE_INDEX_NAME = "uq_price_variant_id_business_id_current"
+PRICE_EFFECTIVE_RANGE_CONSTRAINT_NAME = "effective_range"
 
 
 class Price(Base):
     __tablename__ = "price"
     __table_args__ = (
         CheckConstraint("amount > 0", name=PRICE_AMOUNT_POSITIVE_CONSTRAINT_NAME),
+        CheckConstraint(
+            "effective_to IS NULL OR effective_to >= effective_from",
+            name=PRICE_EFFECTIVE_RANGE_CONSTRAINT_NAME,
+        ),
         Index(
             PRICE_CURRENT_UNIQUE_INDEX_NAME,
             "variant_id",

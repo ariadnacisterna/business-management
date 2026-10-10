@@ -8,12 +8,17 @@ from app.constants.limits import DEFAULT_MINIMUM_STOCK, MAX_STOCK_QUANTITY, STOC
 from app.constants.status import EntityStatus, StockStatus
 from app.db.models import Product, StockMovement, Unit, Variant
 from app.domain.catalog.errors import InvalidStockQuantity
-from app.domain.catalog.products import get_variant, get_variant_for_update
+from app.domain.catalog.products import (
+    get_variant,
+    get_variant_for_update,
+    lock_product_against_unit_change,
+)
+from app.domain.catalog.units import lock_unit_against_changes
 
 STOCK_STEP = Decimal(1).scaleb(-STOCK_QUANTITY_SCALE)
 
 
-def _format_quantity(value: Decimal) -> str:
+def format_quantity(value: Decimal) -> str:
     text = format(value, "f")
     if "." in text:
         text = text.rstrip("0").rstrip(".")
@@ -46,6 +51,11 @@ def stock_status(variant: Variant) -> str:
     return StockStatus.NORMAL.value
 
 
+def _lock_unit_of_variant(db: Session, variant: Variant) -> Unit:
+    product = lock_product_against_unit_change(db, variant.product_id)
+    return lock_unit_against_changes(db, product.unit_id)
+
+
 def set_minimum_quantity(
     db: Session,
     business_id: int,
@@ -57,9 +67,14 @@ def set_minimum_quantity(
     if minimum_quantity is not None:
         if minimum_quantity < 0:
             raise InvalidStockQuantity("El stock minimo no puede ser negativo")
-        minimum_quantity = _validate_quantity_for_unit(
-            minimum_quantity, variant.product.unit, "El stock minimo es demasiado grande"
-        )
+        unit = _lock_unit_of_variant(db, variant)
+        try:
+            minimum_quantity = _validate_quantity_for_unit(
+                minimum_quantity, unit, "El stock minimo es demasiado grande"
+            )
+        except InvalidStockQuantity:
+            db.rollback()
+            raise
 
     variant.minimum_quantity = minimum_quantity
     variant.updated_by_account_id = actor_account_id
@@ -69,7 +84,7 @@ def set_minimum_quantity(
     return variant
 
 
-def adjust_stock(
+def apply_stock_adjustment(
     db: Session,
     business_id: int,
     variant_id: int,
@@ -80,9 +95,12 @@ def adjust_stock(
     variant = get_variant(db, business_id, variant_id)
     if delta == 0:
         raise InvalidStockQuantity("El ajuste no puede ser cero: no hay ningún cambio")
-    delta = _validate_quantity_for_unit(
-        delta, variant.product.unit, "La cantidad es demasiado grande"
-    )
+    unit = _lock_unit_of_variant(db, variant)
+    try:
+        delta = _validate_quantity_for_unit(delta, unit, "La cantidad es demasiado grande")
+    except InvalidStockQuantity:
+        db.rollback()
+        raise
 
     variant = get_variant_for_update(db, business_id, variant_id)
     quantity_before = variant.quantity
@@ -90,7 +108,7 @@ def adjust_stock(
     if quantity_after < 0:
         db.rollback()
         raise InvalidStockQuantity(
-            f"No podés descontar más de lo que hay ({_format_quantity(quantity_before)})"
+            f"No podés descontar más de lo que hay ({format_quantity(quantity_before)})"
         )
     if quantity_after > MAX_STOCK_QUANTITY:
         db.rollback()
@@ -109,9 +127,7 @@ def adjust_stock(
         created_at=now,
     )
     db.add(movement)
-    db.commit()
-    db.refresh(movement)
-    db.refresh(variant)
+    db.flush()
     return movement
 
 

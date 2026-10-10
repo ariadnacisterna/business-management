@@ -292,6 +292,21 @@ La unicidad del precio vigente se reforzará con un índice único parcial sobre
 variante y negocio, restringido a las filas sin fecha de finalización, y no solo
 con una validación de la API.
 
+Estado de las restricciones de integridad (revisado en T-078): ya existen el
+índice único del precio vigente, el de un solo faltante abierto por variante, y
+los pisos de D-060 como restricciones `CHECK` (precio y fiado mayores que cero;
+stock, stock mínimo y cantidades de los movimientos no negativos). T-078 agrega
+que todo movimiento de stock cambie la cantidad y que un precio no termine antes
+de empezar. Esas dos se agregan sin revisar los datos viejos (`NOT VALID`) y la
+migración las valida solo si los datos existentes ya las cumplen; si no, quedan
+activas para los datos nuevos y el script de integridad (docs/14) muestra qué
+datos viejos las violan. El saldo de un cliente no tiene piso: un pago mayor a la
+deuda deja saldo a favor. Lo que no se puede expresar como restricción (la
+cadena de movimientos de stock, que el stock actual coincida con el último
+movimiento, el historial de precios sin huecos, los decimales según la unidad,
+el precio del mismo negocio que su producto y que todo producto tenga una
+variante) lo comprueba ese script.
+
 La regla «al menos una variante por producto» no puede expresarse con una
 restricción declarativa simple, porque involucra dos tablas. Se propone
 garantizarla creando el producto y su primera variante dentro de la misma
@@ -386,11 +401,66 @@ devuelve los precios resultantes.
 
 ### Ajuste de stock
 
-El ajuste recibe una diferencia entera (D-060). Una única transacción bloquea la
-fila de la variante, lee la cantidad bajo el bloqueo, calcula la resultante,
-rechaza el ajuste si es negativa (informando la cantidad actual), si la
-diferencia es cero o si excede el rango de la columna, y guarda la cantidad y el
-movimiento con antes y después.
+El ajuste recibe una diferencia (D-060, con decimales según D-065). Una única
+transacción bloquea la fila de la variante, lee la cantidad bajo el bloqueo,
+calcula la resultante, rechaza el ajuste si es negativa (informando la cantidad
+actual), si la diferencia es cero o si excede el rango de la columna, y guarda la
+cantidad y el movimiento con antes y después.
+
+### Pedidos simultáneos (T-078)
+
+Toda operación que lee un valor y escribe en base a él se serializa en la base:
+
+| Operación | Cómo se evita que dos pedidos a la vez dejen un resultado incorrecto |
+|---|---|
+| Ajuste de stock, cambio de precio de una variante | Bloqueo de la fila de la variante (`SELECT ... FOR UPDATE`). |
+| Cambio de precio de todo un producto | Bloqueo de sus variantes activas en orden de id. |
+| Marcar un faltante | Bloqueo de la fila de la variante antes de buscar uno abierto. |
+| Cambiar el estado de un faltante | Bloqueo de la fila del faltante antes de comprobar la transición, así un faltante recibido no puede volver atrás. |
+| Alta o cambio de nombre de producto, categoría, unidad, atributo, cliente o proveedor | Bloqueo consultivo de PostgreSQL por negocio y por tipo (`pg_advisory_xact_lock`) antes de buscar nombres repetidos, porque la comparación ignora mayúsculas y acentos y no la cubre un índice único. |
+| Alta o edición de una variante | Bloqueo consultivo por producto antes de comprobar que no se repita la combinación de nombre y atributos. |
+| Alta o edición de un valor de atributo | Bloqueo consultivo por atributo. |
+| Nombre de usuario de una cuenta | Bloqueo consultivo único para todas las cuentas antes de comprobar que no exista. |
+| Alta, edición, baja, alta de nuevo y restablecimiento de contraseña de una cuenta | Bloqueo de las filas de quien actúa y de la cuenta afectada en orden de id, y nueva comprobación de que quien actúa sigue activa y con rol suficiente. Así dos Administradores no pueden desactivarse o bajarse el rol uno al otro a la vez. |
+| Importación | Bloqueo consultivo por negocio antes de analizar el archivo (dos importaciones del mismo negocio van una después de otra) y bloqueo de las variantes existentes en orden de id antes de tocar sus precios. |
+| Quitar los decimales a una unidad, o pasar un producto a una unidad sin decimales (D-073) | Para la unidad: bloqueo exclusivo de su fila antes de buscar variantes con stock o stock mínimo con decimales. Para el producto: bloqueo exclusivo de la fila del producto y compartido de la unidad nueva antes de la misma búsqueda (es una sola consulta, reutilizada). Si hay, se rechaza nombrando los productos. El ajuste de stock y el cambio de stock mínimo toman antes un bloqueo compartido del producto y de su unidad y validan los decimales contra la unidad ya bloqueada, así ninguno se cuela mientras cambia la unidad o el producto. |
+| Fiados y pagos | No leen nada para escribir: solo insertan un movimiento, y el saldo se calcula. No necesitan bloqueo. |
+| Stock mínimo y ediciones de datos sueltos | Fijan un valor absoluto: prevalece el último aceptado (RF-027). |
+
+Los bloqueos duran hasta el final de la transacción. Las variantes siempre se
+bloquean en orden de id para que dos operaciones no se esperen mutuamente.
+
+### Doble envío (T-078)
+
+Un doble toque o un reintento del celular por mala señal no puede aplicar dos
+veces la misma operación. Se usa **una clave única por envío generada en el
+frontend** (encabezado `Idempotency-Key`), y no el control de "el valor que la
+usuaria vio": D-060 quitó a propósito esa comprobación para que dos cambios
+simultáneos de distintas personas se compongan en lugar de chocar, y la mayoría
+de las operaciones repetibles (fiados, faltantes, altas) no tienen un valor
+previo que comparar.
+
+- La exigen todas las operaciones que no son idempotentes por naturaleza: ajuste
+  de stock, cambio de precio (de una variante o de todo un producto, también el
+  precio inicial), fiado o pago, marcar un faltante, importación, y las altas de
+  producto, variante, categoría, unidad, atributo, valor de atributo, cliente,
+  proveedor y cuenta. Sin clave válida la API responde 422 y no aplica nada.
+- El servidor guarda la clave junto con la respuesta en la tabla `submission`,
+  **en la misma transacción que la operación**. Si la misma cuenta vuelve a
+  mandar la misma clave, devuelve la respuesta guardada sin aplicar nada. Si dos
+  pedidos con la misma clave llegan a la vez, el índice único sobre cuenta y
+  clave hace fallar al segundo, que deshace todo lo suyo y devuelve la respuesta
+  del primero. Una operación rechazada no se guarda, así que se puede reintentar.
+- Si la misma clave llega con otra operación u otros datos, se rechaza (422).
+- Las claves se borran a las 24 horas (`SUBMISSION_RETENTION_HOURS`).
+- El frontend (`api/client.ts`) genera la clave al mandar un cambio y la
+  reutiliza si el mismo cambio (mismo método, dirección y datos) se vuelve a
+  mandar mientras el primero sigue en curso, falló por la red o devolvió un
+  error del servidor, durante 5 minutos como máximo. En cuanto el servidor
+  responde, la olvida: repetir después el mismo cambio a propósito usa una clave
+  nueva. Al cerrar sesión se olvidan todas.
+- Además, el botón de confirmar de `ConfirmDialog` (por donde pasa toda
+  modificación, D-048) queda deshabilitado mientras el pedido está en curso.
 
 ### Alta de producto
 

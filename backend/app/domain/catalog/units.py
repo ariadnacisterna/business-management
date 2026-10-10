@@ -1,12 +1,18 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.constants.status import EntityStatus
 from app.core.text import normalize_for_comparison
-from app.db.models import Unit
-from app.domain.catalog.errors import DuplicateUnitName, InvalidCatalogInput, UnitNotFound
+from app.db.locks import LockKind, lock_until_commit
+from app.db.models import Product, Unit, Variant
+from app.domain.catalog.errors import (
+    DuplicateUnitName,
+    FractionalStockBlocksUnitChange,
+    InvalidCatalogInput,
+    UnitNotFound,
+)
 
 
 def _validate_name(name: str) -> str:
@@ -26,6 +32,7 @@ def _validate_abbreviation(abbreviation: str) -> str:
 def _check_duplicate_name(
     db: Session, business_id: int, name: str, exclude_id: int | None = None
 ) -> None:
+    lock_until_commit(db, LockKind.UNIT_NAMES, business_id)
     normalized = normalize_for_comparison(name)
     query = select(Unit).where(Unit.business_id == business_id)
     if exclude_id is not None:
@@ -35,7 +42,7 @@ def _check_duplicate_name(
             raise DuplicateUnitName
 
 
-def _build_unit(
+def add_unit(
     db: Session,
     business_id: int,
     name: str,
@@ -64,20 +71,6 @@ def _build_unit(
     return unit
 
 
-def create_unit(
-    db: Session,
-    business_id: int,
-    name: str,
-    abbreviation: str,
-    actor_account_id: int,
-    allows_fraction: bool = False,
-) -> Unit:
-    unit = _build_unit(db, business_id, name, abbreviation, actor_account_id, allows_fraction)
-    db.commit()
-    db.refresh(unit)
-    return unit
-
-
 def update_unit(
     db: Session,
     business_id: int,
@@ -87,7 +80,8 @@ def update_unit(
     abbreviation: str | None = None,
     allows_fraction: bool | None = None,
 ) -> Unit:
-    unit = get_unit(db, business_id, unit_id)
+    get_unit(db, business_id, unit_id)
+    unit = _lock_unit(db, unit_id, shared=False)
 
     if name is not None:
         name = _validate_name(name)
@@ -98,6 +92,8 @@ def update_unit(
         unit.abbreviation = _validate_abbreviation(abbreviation)
 
     if allows_fraction is not None:
+        if unit.allows_fraction and not allows_fraction:
+            _check_no_fractional_stock(db, unit)
         unit.allows_fraction = allows_fraction
 
     unit.updated_by_account_id = actor_account_id
@@ -105,6 +101,51 @@ def update_unit(
     db.commit()
     db.refresh(unit)
     return unit
+
+
+def _lock_unit(db: Session, unit_id: int, shared: bool) -> Unit:
+    return db.execute(
+        select(Unit)
+        .where(Unit.id == unit_id)
+        .with_for_update(read=shared)
+        .execution_options(populate_existing=True)
+    ).scalar_one()
+
+
+def lock_unit_against_changes(db: Session, unit_id: int) -> Unit:
+    return _lock_unit(db, unit_id, shared=True)
+
+
+def products_with_fractional_stock(
+    db: Session, product_condition: ColumnElement[bool]
+) -> list[str]:
+    return list(
+        db.scalars(
+            select(Product.name)
+            .join(Variant, Variant.product_id == Product.id)
+            .where(
+                product_condition,
+                or_(
+                    Variant.quantity != func.trunc(Variant.quantity),
+                    Variant.minimum_quantity != func.trunc(Variant.minimum_quantity),
+                ),
+            )
+            .distinct()
+            .order_by(Product.name)
+        ).all()
+    )
+
+
+def _check_no_fractional_stock(db: Session, unit: Unit) -> None:
+    product_names = products_with_fractional_stock(db, Product.unit_id == unit.id)
+    if product_names:
+        db.rollback()
+        raise FractionalStockBlocksUnitChange(
+            "La unidad no puede dejar de admitir decimales porque estos productos tienen stock "
+            "o stock mínimo con decimales: "
+            + ", ".join(product_names)
+            + ". Ajustá ese stock antes de cambiar la unidad."
+        )
 
 
 def list_units(db: Session, business_id: int) -> list[Unit]:

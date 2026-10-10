@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.constants.status import EntityStatus
 from app.core.text import normalize_for_comparison
+from app.db.locks import LockKind, lock_until_commit
 from app.db.models import AttributeValue
 from app.domain.catalog.attributes import get_attribute
 from app.domain.catalog.errors import (
@@ -24,6 +25,7 @@ def _validate_value(value: str) -> str:
 def _check_duplicate_value(
     db: Session, attribute_id: int, normalized_value: str, exclude_id: int | None = None
 ) -> None:
+    lock_until_commit(db, LockKind.ATTRIBUTE_VALUES, attribute_id)
     query = select(AttributeValue).where(
         AttributeValue.attribute_id == attribute_id,
         AttributeValue.status == EntityStatus.ACTIVE.value,
@@ -35,7 +37,7 @@ def _check_duplicate_value(
             raise DuplicateAttributeValue
 
 
-def _build_attribute_value(
+def add_attribute_value(
     db: Session, business_id: int, attribute_id: int, value: str, actor_account_id: int
 ) -> AttributeValue:
     attribute = get_attribute(db, business_id, attribute_id)
@@ -56,15 +58,6 @@ def _build_attribute_value(
     )
     db.add(attribute_value)
     db.flush()
-    return attribute_value
-
-
-def create_attribute_value(
-    db: Session, business_id: int, attribute_id: int, value: str, actor_account_id: int
-) -> AttributeValue:
-    attribute_value = _build_attribute_value(db, business_id, attribute_id, value, actor_account_id)
-    db.commit()
-    db.refresh(attribute_value)
     return attribute_value
 
 

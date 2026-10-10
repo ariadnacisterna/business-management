@@ -704,3 +704,114 @@ def test_decimal_stock_floor_rejects_delta_below_zero_and_accepts_delta_to_exact
     assert accepted.json()["quantity_after"] == "0.000"
     stock = client.get(f"/variants/{variant_id}/stock", cookies=admin_cookies).json()
     assert stock["quantity"] == "0.000"
+
+
+def _setup_fraction_unit_product(client, admin_cookies, name):
+    category = _create_category(client, admin_cookies, f"Categoria {name}")
+    unit = _create_unit(client, admin_cookies, f"Unidad {name}", "m", allows_fraction=True)
+    product = _create_product(client, admin_cookies, name, category["id"], unit["id"])
+    return unit["id"], product["variants"][0]["id"]
+
+
+def _stop_allowing_fractions(client, cookies, unit_id):
+    return client.patch(
+        f"/units/{unit_id}",
+        json={"allows_fraction": False},
+        cookies=cookies,
+        headers=_auth_headers(cookies),
+    )
+
+
+def test_unit_cannot_stop_allowing_fractions_while_a_product_has_decimal_stock(client):
+    admin_cookies = _admin_cookies(client)
+    unit_id, variant_id = _setup_fraction_unit_product(client, admin_cookies, "Cinta por metro")
+    _adjust_stock(client, admin_cookies, variant_id, "2.5")
+
+    response = _stop_allowing_fractions(client, admin_cookies, unit_id)
+
+    assert response.status_code == 409
+    assert "Cinta por metro" in response.json()["detail"]
+    assert "Ajustá ese stock antes de cambiar la unidad" in response.json()["detail"]
+    unit = client.get(f"/units/{unit_id}", cookies=admin_cookies).json()
+    assert unit["allows_fraction"] is True
+
+
+def test_unit_cannot_stop_allowing_fractions_while_a_product_has_decimal_minimum(client):
+    admin_cookies = _admin_cookies(client)
+    unit_id, variant_id = _setup_fraction_unit_product(client, admin_cookies, "Vellon por kilo")
+    _adjust_stock(client, admin_cookies, variant_id, "3")
+    client.patch(
+        f"/variants/{variant_id}/stock/minimum",
+        json={"minimum_quantity": "0.5"},
+        cookies=admin_cookies,
+        headers=_auth_headers(admin_cookies),
+    )
+
+    response = _stop_allowing_fractions(client, admin_cookies, unit_id)
+
+    assert response.status_code == 409
+    assert "Vellon por kilo" in response.json()["detail"]
+
+
+def test_unit_can_stop_allowing_fractions_when_every_quantity_is_whole(client):
+    admin_cookies = _admin_cookies(client)
+    unit_id, variant_id = _setup_fraction_unit_product(client, admin_cookies, "Hilo entero")
+    _adjust_stock(client, admin_cookies, variant_id, "4")
+
+    response = _stop_allowing_fractions(client, admin_cookies, unit_id)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["allows_fraction"] is False
+    rejected = _adjust_stock(client, admin_cookies, variant_id, "0.5")
+    assert rejected.status_code == 422
+
+
+def _change_product_unit(client, cookies, product_id, unit_id):
+    return client.patch(
+        f"/products/{product_id}",
+        json={"unit_id": unit_id},
+        cookies=cookies,
+        headers=_auth_headers(cookies),
+    )
+
+
+def _product_id_of_variant(client, cookies, variant_id):
+    products = client.get("/products", cookies=cookies).json()["items"]
+    return next(
+        product["id"]
+        for product in products
+        if any(variant["id"] == variant_id for variant in product["variants"])
+    )
+
+
+def test_product_cannot_move_to_a_unit_without_fractions_while_it_has_decimal_stock(client):
+    admin_cookies = _admin_cookies(client)
+    unit_id, variant_id = _setup_fraction_unit_product(client, admin_cookies, "Cinta a cambiar")
+    whole_unit = _create_unit(client, admin_cookies, "Rollo entero", "r", allows_fraction=False)
+    product_id = _product_id_of_variant(client, admin_cookies, variant_id)
+    _adjust_stock(client, admin_cookies, variant_id, "2.5")
+
+    response = _change_product_unit(client, admin_cookies, product_id, whole_unit["id"])
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        'El producto "Cinta a cambiar" no puede pasar a la unidad "Rollo entero", que no admite '
+        "decimales, porque alguna de sus variantes tiene stock o stock mínimo con decimales. "
+        "Ajustá ese stock antes de cambiar la unidad."
+    )
+    product = client.get(f"/products/{product_id}", cookies=admin_cookies).json()
+    assert product["unit_id"] == unit_id
+
+
+def test_product_can_move_to_a_unit_without_fractions_when_every_quantity_is_whole(client):
+    admin_cookies = _admin_cookies(client)
+    _unit_id, variant_id = _setup_fraction_unit_product(client, admin_cookies, "Cinta entera")
+    whole_unit = _create_unit(client, admin_cookies, "Rollo cambio", "r", allows_fraction=False)
+    product_id = _product_id_of_variant(client, admin_cookies, variant_id)
+    _adjust_stock(client, admin_cookies, variant_id, "3")
+
+    response = _change_product_unit(client, admin_cookies, product_id, whole_unit["id"])
+
+    assert response.status_code == 200, response.text
+    assert response.json()["unit_id"] == whole_unit["id"]
+    assert _adjust_stock(client, admin_cookies, variant_id, "0.5").status_code == 422
