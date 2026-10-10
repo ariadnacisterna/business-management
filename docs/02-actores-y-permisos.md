@@ -42,7 +42,7 @@ Toda persona debe iniciar sesión antes de acceder al catálogo o consultar prec
 
 Cada persona utilizará una cuenta individual con nombre de usuario y contraseña. Las sesiones vencerán según una política de seguridad configurable y, al vencer, deberá iniciarse sesión nuevamente. Todas las operaciones se atribuirán a la cuenta activa. La aplicación deberá identificar claramente qué Usuario se encuentra activo y permitir cerrar sesión antes del vencimiento.
 
-Una contraseña se recupera mediante un restablecimiento realizado por un Administrador o Dueño, sin correo electrónico (D-028). Queda pendiente definir el procedimiento restringido para el caso en que no quede ninguna cuenta con ese privilegio disponible (DP-009).
+Una contraseña se recupera mediante un restablecimiento realizado por un Administrador o Dueño, sin correo electrónico (D-028). Si no queda ninguna cuenta con ese privilegio disponible, el Responsable recupera el acceso con un script local de emergencia que crea o reactiva una cuenta Dueño (D-067; procedimiento en docs/14, "Acceso de emergencia").
 
 ## Matriz de permisos del MVP
 

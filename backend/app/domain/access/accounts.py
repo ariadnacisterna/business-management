@@ -101,6 +101,23 @@ def create_account(
     role_name: str,
     actor_role_name: str,
 ) -> Account:
+    account = add_account(
+        db, business, name, user_name, initial_password, role_name, actor_role_name
+    )
+    db.commit()
+    db.refresh(account)
+    return account
+
+
+def add_account(
+    db: Session,
+    business: Business,
+    name: str,
+    user_name: str,
+    initial_password: str,
+    role_name: str,
+    actor_role_name: str,
+) -> Account:
     name = _validate_name(name)
     _validate_user_name(user_name)
     _validate_password(initial_password)
@@ -129,8 +146,7 @@ def create_account(
         status=EntityStatus.ACTIVE.value,
     )
     db.add(access)
-    db.commit()
-    db.refresh(account)
+    db.flush()
     return account
 
 
@@ -228,12 +244,16 @@ def activate_account(db: Session, business_id: int, account_id: int) -> Account:
 
 def reset_password(db: Session, business_id: int, account_id: int, new_password: str) -> Account:
     account = _get_account(db, business_id, account_id)
-    _validate_password(new_password)
-    account.password_hash = hash_password(new_password)
-    delete_sessions_for_account(db, account.id)
+    apply_password_reset(db, account, new_password)
     db.commit()
     db.refresh(account)
     return account
+
+
+def apply_password_reset(db: Session, account: Account, new_password: str) -> None:
+    _validate_password(new_password)
+    account.password_hash = hash_password(new_password)
+    delete_sessions_for_account(db, account.id)
 
 
 def list_accounts(db: Session, business_id: int) -> list[Account]:

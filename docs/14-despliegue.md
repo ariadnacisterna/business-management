@@ -172,6 +172,66 @@ Hay que hacerla **antes de empezar a usar datos reales**, y repetirla después d
 |---|---|---|
 | 2026-10-09 | `copia-base-2026-10-10-0023.dump.gpg` | Restaurada en PostgreSQL 17 vacío (Docker): 22 tablas, `alembic_version` con 1 fila, 445 productos y 445 variantes. |
 
+## Acceso de emergencia (T-075, D-067)
+
+### Para prevenirlo
+
+Mantené siempre **al menos dos cuentas activas con rol Dueño o Administrador**, de personas distintas. Así, si una se olvida la contraseña o queda desactivada, la otra puede restablecerla desde la pantalla de cuentas, sin necesidad de lo que sigue.
+
+### Cuándo usarlo
+
+Solo cuando **nadie** puede entrar a administrar las cuentas: por ejemplo, la única cuenta Dueño o Administrador se olvidó la contraseña, quedó desactivada o le bajaron el rol por error. Si queda alguna cuenta Dueño o Administrador que puede entrar, usá el restablecimiento de contraseña normal desde la aplicación.
+
+### Qué hace
+
+Corre en tu computadora, no en la página web. Con el nombre de usuario que le digas:
+
+- **Si esa cuenta no existe**, la crea: activa, con rol Dueño y con acceso a todos los negocios.
+- **Si ya existe**, la deja activa (si estaba desactivada), con rol Dueño y acceso a todos los negocios, le pone la contraseña nueva y cierra todas sus sesiones abiertas en cualquier dispositivo. El nombre de la persona no cambia.
+
+Antes de cambiar nada muestra un resumen y te pide que escribas `si`. Si escribís otra cosa o solo apretás Enter, no cambia nada. Si algo falla en el medio, tampoco cambia nada: o se aplica todo, o nada.
+
+### Qué necesitás
+
+- La conexión a la base del **Session pooler** de Supabase, la misma del paso 2 de "Copia de seguridad semanal" (también sirve la de Render, la que tiene `+psycopg`).
+- El proyecto en tu computadora, con el entorno virtual del backend instalado (el mismo que se usa para restaurar copias).
+
+### Pasos
+
+1. Abrí una terminal en la carpeta `backend` del proyecto y activá el entorno virtual (`.venv\Scripts\activate`).
+2. Escribí:
+
+   ```
+   python -m scripts.emergency_owner
+   ```
+
+3. Te pide la conexión a la base: pegala y Enter. **No se ve mientras la pegás**, es normal.
+4. Te pide el nombre de usuario de la cuenta Dueño. Puede ser una cuenta que ya existe (por ejemplo la tuya) o uno nuevo.
+5. Si la cuenta no existe, te pide el nombre de la persona para la cuenta nueva.
+6. Te pide la contraseña nueva dos veces. **Tampoco se ve al escribirla.** Tiene que cumplir las mismas reglas de siempre (largo mínimo, una mayúscula, una minúscula y un número) y las dos veces tiene que ser igual.
+7. Leé el resumen con atención: dice si va a crear o a reactivar la cuenta, qué cambia en cada negocio y cuántas sesiones se van a cerrar.
+8. Si está bien, escribí `si` y Enter. Al terminar dice "Listo".
+9. Cerrá la terminal.
+
+Ni la conexión ni la contraseña quedan guardadas en ningún archivo ni en el historial de la terminal, y el script nunca las muestra, tampoco en un mensaje de error.
+
+### Si aparece un error
+
+- "No se pudo conectar a la base": revisá que la conexión sea la del Session pooler, con la contraseña de la base correcta, y que el proyecto de Supabase no esté pausado (entrá al panel de Supabase para reactivarlo).
+- "La conexión no tiene el formato esperado": copiala de nuevo desde Supabase; tiene que empezar con `postgresql://`.
+- "Las contraseñas no coinciden" o un mensaje sobre las reglas de la contraseña: volvé a correrlo desde el paso 2 con otra contraseña.
+
+En todos los casos de error termina con "No se cambió nada".
+
+### Qué hacer después
+
+1. Entrá a la aplicación con esa cuenta y la contraseña nueva.
+2. Revisá la pantalla de cuentas: si había alguna cuenta que no debería estar activa o con un rol alto, corregila.
+3. Si no hay otra cuenta Dueño o Administrador activa, creá o reactivá una para otra persona de confianza (ver "Para prevenirlo").
+4. Si creaste una cuenta nueva solo para entrar y ya no la necesitás, desactivala desde la aplicación usando la otra cuenta.
+
+Las cuentas no guardan quién hizo cada cambio sobre ellas, así que este uso del script no queda anotado dentro del sistema. Si querés registro, anotá la fecha y el motivo por tu cuenta.
+
 ## Pendiente
 
 - Dominio propio: por ahora se usa el subdominio gratuito de Render. Migrar a un dominio propio más adelante no requiere cambios de código, solo configurar el dominio en Render.
