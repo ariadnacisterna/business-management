@@ -64,8 +64,10 @@ from app.domain.catalog.errors import (
     InvalidCreditAmount,
     InvalidCreditType,
     InvalidImageType,
+    InvalidPresentation,
     InvalidShortageTransition,
     InvalidStockQuantity,
+    PresentationChanged,
     ProductNotFound,
     ProviderNotFound,
     ShortageNotFound,
@@ -74,7 +76,7 @@ from app.domain.catalog.errors import (
     VariantNotFound,
 )
 from app.domain.catalog.product_images import remove_product_image, set_product_image
-from app.domain.catalog.products import VariantInput
+from app.domain.catalog.products import PresentationInput, VariantInput
 from app.domain.pricing.prices import get_account_names, get_current_prices_for_variants
 
 router = APIRouter()
@@ -154,6 +156,12 @@ class VariantInputSchema(BaseModel):
     attribute_value_ids: list[int] = []
 
 
+class PresentationSchema(BaseModel):
+    name: str
+    plural_name: str
+    quantity: Decimal
+
+
 class ProductResponse(BaseModel):
     id: int
     name: str
@@ -162,6 +170,7 @@ class ProductResponse(BaseModel):
     provider_id: int | None
     status: str
     image_url: str | None
+    presentation: PresentationSchema | None
     variants: list[VariantResponse]
 
 
@@ -170,12 +179,14 @@ class CreateProductRequest(BaseModel):
     category_id: int
     unit_id: int
     variants: list[VariantInputSchema] | None = None
+    presentation: PresentationSchema | None = None
 
 
 class UpdateProductRequest(BaseModel):
     name: str | None = None
     category_id: int | None = None
     unit_id: int | None = None
+    presentation: PresentationSchema | None = None
 
 
 class AddVariantRequest(BaseModel):
@@ -329,11 +340,15 @@ class StockResponse(BaseModel):
 
 class SetMinimumStockRequest(BaseModel):
     minimum_quantity: Decimal | None
+    in_presentations: bool = False
+    presentation_quantity: Decimal | None = None
 
 
 class StockAdjustmentRequest(BaseModel):
     delta: Decimal
     observation: str | None = None
+    in_presentations: bool = False
+    presentation_quantity: Decimal | None = None
 
 
 class StockMovementResponse(BaseModel):
@@ -357,6 +372,7 @@ class StockRowResponse(BaseModel):
     image_url: str | None
     category_id: int
     unit_id: int
+    presentation: PresentationSchema | None
     variant_id: int
     variant_label: str | None
     quantity: Decimal | None
@@ -422,6 +438,28 @@ def _variant_response(
     )
 
 
+def _presentation_response(product: Product) -> PresentationSchema | None:
+    if (
+        product.presentation_name is None
+        or product.presentation_plural_name is None
+        or product.presentation_quantity is None
+    ):
+        return None
+    return PresentationSchema(
+        name=product.presentation_name,
+        plural_name=product.presentation_plural_name,
+        quantity=product.presentation_quantity,
+    )
+
+
+def _presentation_input(payload: PresentationSchema | None) -> PresentationInput | None:
+    if payload is None:
+        return None
+    return PresentationInput(
+        name=payload.name, plural_name=payload.plural_name, quantity=payload.quantity
+    )
+
+
 def _product_response(
     product: Product, current_prices: dict[int, Price] | None = None
 ) -> ProductResponse:
@@ -433,6 +471,7 @@ def _product_response(
         provider_id=product.provider_id,
         status=product.status,
         image_url=product.image_url,
+        presentation=_presentation_response(product),
         variants=[_variant_response(variant, current_prices) for variant in product.variants],
     )
 
@@ -915,6 +954,7 @@ def create_product(
             payload.name,
             _actor.id,
             variants=_to_variant_inputs(payload.variants),
+            presentation=_presentation_input(payload.presentation),
         )
         return ProductCreationResponse(
             product=_product_response(product),
@@ -937,7 +977,7 @@ def create_product(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Unidad invalida") from exc
     except InvalidAttributeValue as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    except (InvalidCatalogInput, VariantLabelRequired) as exc:
+    except (InvalidCatalogInput, InvalidPresentation, VariantLabelRequired) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except DuplicateProductName as exc:
         raise HTTPException(
@@ -1026,6 +1066,8 @@ def update_product(
             name=payload.name,
             category_id=payload.category_id,
             unit_id=payload.unit_id,
+            change_presentation="presentation" in payload.model_fields_set,
+            presentation=_presentation_input(payload.presentation),
         )
     except ProductNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
@@ -1035,7 +1077,7 @@ def update_product(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Unidad invalida") from exc
     except FractionalStockBlocksUnitChange as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
-    except InvalidCatalogInput as exc:
+    except (InvalidCatalogInput, InvalidPresentation) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except DuplicateProductName as exc:
         raise HTTPException(
@@ -1836,12 +1878,20 @@ def set_minimum_stock(
 ) -> StockResponse:
     try:
         variant = stock.set_minimum_quantity(
-            db, business.id, variant_id, _actor.id, payload.minimum_quantity
+            db,
+            business.id,
+            variant_id,
+            _actor.id,
+            payload.minimum_quantity,
+            in_presentations=payload.in_presentations,
+            presentation_quantity=payload.presentation_quantity,
         )
     except VariantNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
     except InvalidStockQuantity as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    except PresentationChanged as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
     return _stock_response(variant)
 
@@ -1869,6 +1919,8 @@ def adjust_stock(
             _actor.id,
             payload.delta,
             observation=payload.observation,
+            in_presentations=payload.in_presentations,
+            presentation_quantity=payload.presentation_quantity,
         )
         account_names = get_account_names(db, [movement.created_by_account_id])
         return _stock_movement_response(movement, account_names)
@@ -1887,6 +1939,8 @@ def adjust_stock(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Variante no encontrada") from exc
     except InvalidStockQuantity as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    except PresentationChanged as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
 
 @router.get("/variants/{variant_id}/stock/movements", response_model=list[StockMovementResponse])
@@ -1959,6 +2013,7 @@ def list_stock(
                 image_url=product.image_url,
                 category_id=product.category_id,
                 unit_id=product.unit_id,
+                presentation=_presentation_response(product),
                 variant_id=variant.id,
                 variant_label=variant.label,
                 quantity=variant.quantity if can_view_quantity_and_status else None,

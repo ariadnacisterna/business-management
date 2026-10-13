@@ -6,9 +6,10 @@ import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { Dialog } from '../../shared/Dialog'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
-import { formatQuantity } from '../../shared/formatQuantity'
+import { evaluateStockEntry, formatStock } from '../../shared/presentation'
+import type { StockEntryMode } from '../../shared/presentation'
+import { StockModeToggle } from '../../shared/StockModeToggle'
 import { DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
-import { deltaToApi, describeChange, evaluateDelta, evaluateTargetStock } from '../../shared/signedDelta'
 import { useToast } from '../../shared/useToast'
 
 const GENERIC_ERROR_MESSAGE = 'No se pudo guardar el ajuste. Intentá de nuevo.'
@@ -23,6 +24,7 @@ interface Props {
   variant: Variant
   currentStock: StockRow | undefined
   allowDecimals: boolean
+  unitAbbreviation?: string
   onClose: () => void
   onSuccess: () => void
 }
@@ -33,6 +35,7 @@ export function AdjustStockModal({
   variant,
   currentStock,
   allowDecimals,
+  unitAbbreviation = '',
   onClose,
   onSuccess,
 }: Props) {
@@ -40,13 +43,25 @@ export function AdjustStockModal({
 
   const [delta, setDelta] = useState('')
   const [wholeQuantity, setWholeQuantity] = useState(false)
+  const [mode, setMode] = useState<StockEntryMode>('presentation')
   const [confirming, setConfirming] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const currentQuantity = currentStock?.quantity ?? '0'
-  const evaluation = wholeQuantity
-    ? evaluateTargetStock(currentQuantity, delta, allowDecimals)
-    : evaluateDelta('stock', currentQuantity, delta, allowDecimals)
+  const presentation = product.presentation ?? null
+  const inPresentations = presentation !== null && mode === 'presentation'
+  const entry = evaluateStockEntry({
+    current: currentQuantity,
+    text: delta,
+    allowDecimals,
+    presentation,
+    abbreviation: unitAbbreviation,
+    mode,
+    whole: wholeQuantity,
+  })
+  const evaluation = entry.evaluation
+  const showStock = (quantity: string | number) =>
+    presentation === null ? formatStock(quantity, null, '') : formatStock(quantity, presentation, unitAbbreviation)
   const canSubmit = evaluation.state === 'ready'
 
   function handleSubmit(event: React.FormEvent) {
@@ -59,10 +74,9 @@ export function AdjustStockModal({
     setConfirming(false)
     setSaving(true)
     try {
-      const movement = await adjustStock(variant.id, { delta: deltaToApi('stock', evaluation.delta ?? 0) })
-      showSuccess(
-        `Stock actualizado: ${formatQuantity(movement.quantity_before)} → ${formatQuantity(movement.quantity_after)}.`,
-      )
+      if (entry.request === null) return
+      const movement = await adjustStock(variant.id, entry.request)
+      showSuccess(`Stock actualizado: ${showStock(movement.quantity_before)} → ${showStock(movement.quantity_after)}.`)
       onSuccess()
     } catch (error) {
       showError(errorMessage(error, GENERIC_ERROR_MESSAGE))
@@ -108,9 +122,22 @@ export function AdjustStockModal({
         <div className="flex flex-col gap-1.5 border-t border-line pt-3 text-lg">
           <div className="flex flex-wrap justify-between gap-x-3">
             <span className="opacity-60">Stock actual</span>
-            <span className="font-bold">{formatQuantity(currentQuantity)}</span>
+            <span className="font-bold">{showStock(currentQuantity)}</span>
           </div>
         </div>
+
+        {presentation !== null && (
+          <StockModeToggle
+            presentation={presentation}
+            abbreviation={unitAbbreviation}
+            mode={mode}
+            onChange={(next) => {
+              setMode(next)
+              setDelta('')
+            }}
+            disabled={saving}
+          />
+        )}
 
         <div>
           <label htmlFor="adjust-stock-delta" className="text-lg font-semibold uppercase tracking-wide opacity-70">
@@ -119,7 +146,7 @@ export function AdjustStockModal({
           <div className="mt-1.5">
             <SignedDeltaInput
               kind="stock"
-              allowDecimals={allowDecimals}
+              allowDecimals={allowDecimals && !inPresentations}
               id="adjust-stock-delta"
               value={delta}
               onChange={setDelta}
@@ -146,7 +173,12 @@ export function AdjustStockModal({
           </label>
         </div>
 
-        <DeltaPreview kind="stock" current={currentQuantity} evaluation={evaluation} />
+        <DeltaPreview
+          kind="stock"
+          current={currentQuantity}
+          evaluation={evaluation}
+          formatValue={presentation === null ? undefined : (units) => showStock((units / 1000).toFixed(3))}
+        />
 
         <div className="flex gap-2">
           <button
@@ -170,7 +202,7 @@ export function AdjustStockModal({
       {confirming && (
         <ConfirmDialog
           title="Actualizar stock"
-          description={`El stock de "${product.name}" (${describeVariantLabel(variant)}) cambia: ${describeChange('stock', currentQuantity, evaluation.delta ?? 0)}.`}
+          description={`El stock de "${product.name}" (${describeVariantLabel(variant)}) cambia: ${entry.change}.`}
           confirmLabel="Confirmar"
           breadcrumb={['Productos', product.name, 'Actualizar stock']}
           onConfirm={confirmSubmit}

@@ -4,37 +4,21 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
-from app.constants.limits import DEFAULT_MINIMUM_STOCK, MAX_STOCK_QUANTITY, STOCK_QUANTITY_SCALE
+from app.constants.limits import DEFAULT_MINIMUM_STOCK, MAX_STOCK_QUANTITY
 from app.constants.status import EntityStatus, StockStatus
 from app.db.models import Product, StockMovement, Unit, Variant
-from app.domain.catalog.errors import InvalidStockQuantity
+from app.domain.catalog.errors import InvalidStockQuantity, PresentationChanged
 from app.domain.catalog.products import (
     get_variant,
     get_variant_for_update,
     lock_product_against_unit_change,
 )
+from app.domain.catalog.quantities import (
+    STOCK_STEP,
+    format_stock_amount,
+    validate_quantity_for_unit,
+)
 from app.domain.catalog.units import lock_unit_against_changes
-
-STOCK_STEP = Decimal(1).scaleb(-STOCK_QUANTITY_SCALE)
-
-
-def format_quantity(value: Decimal) -> str:
-    text = format(value, "f")
-    if "." in text:
-        text = text.rstrip("0").rstrip(".")
-    return text
-
-
-def _validate_quantity_for_unit(value: Decimal, unit: Unit, too_large_message: str) -> Decimal:
-    if not value.is_finite() or abs(value) > MAX_STOCK_QUANTITY:
-        raise InvalidStockQuantity(too_large_message)
-    if unit.allows_fraction:
-        if value != value.quantize(STOCK_STEP):
-            raise InvalidStockQuantity(f"Usá como máximo {STOCK_QUANTITY_SCALE} decimales")
-        return value.quantize(STOCK_STEP)
-    if value != value.to_integral_value():
-        raise InvalidStockQuantity("Esta unidad no admite decimales")
-    return value.quantize(STOCK_STEP)
 
 
 def effective_minimum_quantity(variant: Variant) -> Decimal:
@@ -51,9 +35,41 @@ def stock_status(variant: Variant) -> str:
     return StockStatus.NORMAL.value
 
 
-def _lock_unit_of_variant(db: Session, variant: Variant) -> Unit:
+def _lock_product_and_unit(db: Session, variant: Variant) -> tuple[Product, Unit]:
     product = lock_product_against_unit_change(db, variant.product_id)
-    return lock_unit_against_changes(db, product.unit_id)
+    return product, lock_unit_against_changes(db, product.unit_id)
+
+
+def _to_product_unit(
+    value: Decimal,
+    product: Product,
+    unit: Unit,
+    in_presentations: bool,
+    presentation_quantity: Decimal | None,
+    too_large_message: str,
+) -> Decimal:
+    if presentation_quantity is not None and presentation_quantity != product.presentation_quantity:
+        raise PresentationChanged(
+            "La presentación de este producto cambió mientras cargabas el dato. "
+            "Revisá cómo se ve el stock ahora y volvé a intentar."
+        )
+    if in_presentations:
+        if product.presentation_quantity is None:
+            raise InvalidStockQuantity(
+                "Este producto no tiene presentación: cargá la cantidad en la unidad del producto"
+            )
+        if presentation_quantity is None:
+            raise InvalidStockQuantity(
+                "Falta el largo de la presentación que se ve en pantalla. Volvé a intentar."
+            )
+        if not value.is_finite() or abs(value) > MAX_STOCK_QUANTITY:
+            raise InvalidStockQuantity(too_large_message)
+        if value != value.to_integral_value():
+            raise InvalidStockQuantity(
+                f"Los {product.presentation_plural_name} se cargan en números enteros"
+            )
+        value = value * product.presentation_quantity
+    return validate_quantity_for_unit(value, unit, too_large_message)
 
 
 def set_minimum_quantity(
@@ -62,17 +78,24 @@ def set_minimum_quantity(
     variant_id: int,
     actor_account_id: int,
     minimum_quantity: Decimal | None,
+    in_presentations: bool = False,
+    presentation_quantity: Decimal | None = None,
 ) -> Variant:
     variant = get_variant(db, business_id, variant_id)
     if minimum_quantity is not None:
         if minimum_quantity < 0:
             raise InvalidStockQuantity("El stock minimo no puede ser negativo")
-        unit = _lock_unit_of_variant(db, variant)
+        product, unit = _lock_product_and_unit(db, variant)
         try:
-            minimum_quantity = _validate_quantity_for_unit(
-                minimum_quantity, unit, "El stock minimo es demasiado grande"
+            minimum_quantity = _to_product_unit(
+                minimum_quantity,
+                product,
+                unit,
+                in_presentations,
+                presentation_quantity,
+                "El stock minimo es demasiado grande",
             )
-        except InvalidStockQuantity:
+        except (InvalidStockQuantity, PresentationChanged):
             db.rollback()
             raise
 
@@ -91,14 +114,23 @@ def apply_stock_adjustment(
     actor_account_id: int,
     delta: Decimal,
     observation: str | None = None,
+    in_presentations: bool = False,
+    presentation_quantity: Decimal | None = None,
 ) -> StockMovement:
     variant = get_variant(db, business_id, variant_id)
     if delta == 0:
         raise InvalidStockQuantity("El ajuste no puede ser cero: no hay ningún cambio")
-    unit = _lock_unit_of_variant(db, variant)
+    product, unit = _lock_product_and_unit(db, variant)
     try:
-        delta = _validate_quantity_for_unit(delta, unit, "La cantidad es demasiado grande")
-    except InvalidStockQuantity:
+        delta = _to_product_unit(
+            delta,
+            product,
+            unit,
+            in_presentations,
+            presentation_quantity,
+            "La cantidad es demasiado grande",
+        )
+    except (InvalidStockQuantity, PresentationChanged):
         db.rollback()
         raise
 
@@ -108,7 +140,8 @@ def apply_stock_adjustment(
     if quantity_after < 0:
         db.rollback()
         raise InvalidStockQuantity(
-            f"No podés descontar más de lo que hay ({format_quantity(quantity_before)})"
+            "No podés descontar más de lo que hay "
+            f"({format_stock_amount(quantity_before, product, unit)})"
         )
     if quantity_after > MAX_STOCK_QUANTITY:
         db.rollback()

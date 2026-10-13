@@ -9,6 +9,7 @@ import type {
   CustomerBalance,
   CustomerBalanceSummary,
   CustomerWithBalance,
+  Presentation,
   Price,
   Product,
   ProductCreationResult,
@@ -123,13 +124,14 @@ export function createProduct(input: {
   category_id: number
   unit_id: number
   variants?: VariantInput[]
+  presentation?: Presentation | null
 }): Promise<ProductCreationResult> {
   return apiFetch<ProductCreationResult>('/products', { method: 'POST', body: JSON.stringify(input) })
 }
 
 export function updateProduct(
   id: number,
-  input: { name?: string; category_id?: number; unit_id?: number },
+  input: { name?: string; category_id?: number; unit_id?: number; presentation?: Presentation | null },
 ): Promise<Product> {
   return apiFetch<Product>(`/products/${id}`, { method: 'PATCH', body: JSON.stringify(input) })
 }
@@ -340,7 +342,7 @@ export function fetchStock(variantId: number): Promise<Stock> {
 
 export function adjustStock(
   variantId: number,
-  input: { delta: string; observation?: string },
+  input: { delta: string; observation?: string; in_presentations?: boolean; presentation_quantity?: string },
 ): Promise<StockMovement> {
   return apiFetch<StockMovement>(`/variants/${variantId}/stock/adjustments`, {
     method: 'POST',
@@ -352,10 +354,18 @@ export function fetchStockMovements(variantId: number): Promise<StockMovement[]>
   return apiFetch<StockMovement[]>(`/variants/${variantId}/stock/movements`)
 }
 
-export function setMinimumStock(variantId: number, minimumQuantity: string | null): Promise<Stock> {
+export function setMinimumStock(
+  variantId: number,
+  minimumQuantity: string | null,
+  presentationQuantity?: string,
+): Promise<Stock> {
+  const body =
+    presentationQuantity === undefined
+      ? { minimum_quantity: minimumQuantity }
+      : { minimum_quantity: minimumQuantity, in_presentations: true, presentation_quantity: presentationQuantity }
   return apiFetch<Stock>(`/variants/${variantId}/stock/minimum`, {
     method: 'PATCH',
-    body: JSON.stringify({ minimum_quantity: minimumQuantity }),
+    body: JSON.stringify(body),
   })
 }
 

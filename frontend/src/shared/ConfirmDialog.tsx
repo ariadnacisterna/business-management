@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Breadcrumb } from './Breadcrumb'
 import { CloseButton } from './CloseButton'
 import { Dialog } from './Dialog'
@@ -7,6 +8,7 @@ import { CLOSE_FLOATING_MENUS_EVENT } from './floatingMenuEvents'
 interface Props {
   title: string
   description: string
+  details?: ReactNode
   confirmLabel: string
   danger?: boolean
   breadcrumb: string[]
@@ -17,6 +19,7 @@ interface Props {
 export function ConfirmDialog({
   title,
   description,
+  details,
   confirmLabel,
   danger = false,
   breadcrumb,
@@ -62,6 +65,7 @@ export function ConfirmDialog({
           <h2 className="m-0 text-2xl font-bold">{title}</h2>
         </div>
         <p className="m-0 text-lg opacity-70 [overflow-wrap:anywhere]">{description}</p>
+        {details}
 
         <div className="flex flex-wrap gap-2">
           <button

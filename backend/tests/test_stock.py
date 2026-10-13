@@ -731,7 +731,7 @@ def test_unit_cannot_stop_allowing_fractions_while_a_product_has_decimal_stock(c
 
     assert response.status_code == 409
     assert "Cinta por metro" in response.json()["detail"]
-    assert "Ajustá ese stock antes de cambiar la unidad" in response.json()["detail"]
+    assert "Ajustá esos datos antes de cambiar la unidad" in response.json()["detail"]
     unit = client.get(f"/units/{unit_id}", cookies=admin_cookies).json()
     assert unit["allows_fraction"] is True
 
@@ -796,8 +796,8 @@ def test_product_cannot_move_to_a_unit_without_fractions_while_it_has_decimal_st
     assert response.status_code == 409
     assert response.json()["detail"] == (
         'El producto "Cinta a cambiar" no puede pasar a la unidad "Rollo entero", que no admite '
-        "decimales, porque alguna de sus variantes tiene stock o stock mínimo con decimales. "
-        "Ajustá ese stock antes de cambiar la unidad."
+        "decimales, porque alguna de sus variantes tiene stock o stock mínimo con decimales, o "
+        "su presentación tiene decimales. Ajustá esos datos antes de cambiar la unidad."
     )
     product = client.get(f"/products/{product_id}", cookies=admin_cookies).json()
     assert product["unit_id"] == unit_id

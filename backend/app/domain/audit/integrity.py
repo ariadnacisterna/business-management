@@ -7,7 +7,7 @@ from sqlalchemy import RowMapping, text
 from sqlalchemy.orm import Session
 
 from app.constants.status import SHORTAGE_OPEN_STATUSES
-from app.domain.catalog.stock import format_quantity
+from app.domain.catalog.quantities import format_quantity
 
 CONSTRAINT_DESCRIPTIONS = {
     "ck_stock_movement_quantity_changed": "cada movimiento de stock tiene que cambiar la cantidad",
@@ -304,6 +304,33 @@ def _products_without_variants(db: Session) -> list[IntegrityProblem]:
     ]
 
 
+def _invalid_presentations(db: Session) -> list[IntegrityProblem]:
+    rows = db.execute(
+        text(
+            """
+            SELECT b.name AS business_name, p.name AS product_name, u.name AS unit_name,
+                   p.presentation_name, p.presentation_quantity
+            FROM product p
+            JOIN business b ON b.id = p.business_id
+            JOIN unit u ON u.id = p.unit_id
+            WHERE p.presentation_quantity <= 0
+               OR (NOT u.allows_fraction
+                   AND p.presentation_quantity <> trunc(p.presentation_quantity))
+            ORDER BY b.name, p.name
+            """
+        )
+    ).mappings()
+    return [
+        IntegrityProblem(
+            row["business_name"],
+            f'Producto "{row["product_name"]}": la presentación "{row["presentation_name"]}" '
+            f"de {format_quantity(row['presentation_quantity'])} no es válida para la unidad "
+            f'"{row["unit_name"]}" (tiene que ser mayor que cero y respetar sus decimales).',
+        )
+        for row in rows
+    ]
+
+
 def _duplicate_open_shortages(db: Session) -> list[IntegrityProblem]:
     return _variant_problems(
         db,
@@ -380,6 +407,7 @@ CHECKS = (
     _broken_stock_chains,
     _stock_not_matching_last_movement,
     _products_without_variants,
+    _invalid_presentations,
     _duplicate_open_shortages,
     _non_positive_credits,
     _unvalidated_constraints,

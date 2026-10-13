@@ -116,3 +116,11 @@ class InvalidCreditAmount(CatalogError):
 
 class InvalidStockQuantity(CatalogError):
     pass
+
+
+class InvalidPresentation(CatalogError):
+    pass
+
+
+class PresentationChanged(CatalogError):
+    pass

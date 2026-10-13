@@ -28,7 +28,7 @@ import { SelectMenu } from '../../shared/SelectMenu'
 import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { formatPrice } from '../../shared/formatPrice'
-import { formatQuantity } from '../../shared/formatQuantity'
+import { formatStock } from '../../shared/presentation'
 import { NavIconGlyph } from '../../shared/layout/NavIcon'
 import { ProductThumbnail } from '../../shared/ProductThumbnail'
 import { stockStatusTextColor } from '../../shared/stockStatus'
@@ -158,6 +158,10 @@ export function ProductsPage() {
 
   function unitName(unitId: number): string {
     return units.find((unit) => unit.id === unitId)?.name ?? '—'
+  }
+
+  function unitAbbreviation(unitId: number): string {
+    return units.find((unit) => unit.id === unitId)?.abbreviation ?? ''
   }
 
   function applyProductUpdate(updated: Product) {
@@ -501,7 +505,7 @@ export function ProductsPage() {
                             if (stockInfo === null) return <span className="opacity-40">—</span>
                             return (
                               <span className={stockStatusTextColor(stockInfo.status)}>
-                                {formatQuantity(stockInfo.quantity)}
+                                {formatStock(stockInfo.quantity, product.presentation, product.presentation ? unitAbbreviation(product.unit_id) : '')}
                               </span>
                             )
                           })()}
@@ -615,7 +619,7 @@ export function ProductsPage() {
                           if (stockInfo === null) return <span className="italic opacity-40">—</span>
                           return (
                             <span className={stockStatusTextColor(stockInfo.status)}>
-                              {formatQuantity(stockInfo.quantity)}
+                              {formatStock(stockInfo.quantity, product.presentation, product.presentation ? unitAbbreviation(product.unit_id) : '')}
                             </span>
                           )
                         })()}

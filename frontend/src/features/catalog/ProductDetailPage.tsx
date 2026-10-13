@@ -47,7 +47,15 @@ import { Dialog } from '../../shared/Dialog'
 import { formatDateTime } from '../../shared/formatDateTime'
 import { firstName } from '../../shared/formatName'
 import { formatPrice } from '../../shared/formatPrice'
-import { formatQuantity } from '../../shared/formatQuantity'
+import { describePresentation, formatStock, formatStockDifference } from '../../shared/presentation'
+import { PresentationFields } from '../../shared/PresentationFields'
+import {
+  EMPTY_PRESENTATION_DRAFT,
+  draftToPresentation,
+  presentationDraftError,
+  presentationToDraft,
+  samePresentation,
+} from '../../shared/presentationDraft'
 import { formatRelativeTime } from '../../shared/formatRelativeTime'
 import { PencilIcon } from '../../shared/icons'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
@@ -168,6 +176,7 @@ export function ProductDetailPage() {
   const [savingProduct, setSavingProduct] = useState(false)
   const [confirmingStatusChange, setConfirmingStatusChange] = useState(false)
   const [confirmingProductEdit, setConfirmingProductEdit] = useState(false)
+  const [presentationDraft, setPresentationDraft] = useState(EMPTY_PRESENTATION_DRAFT)
   const [pendingImageFile, setPendingImageFile] = useState<File | null>(null)
   const [imageRemoved, setImageRemoved] = useState(false)
 
@@ -340,6 +349,7 @@ export function ProductDetailPage() {
               unitId: loadedProduct.unit_id,
               status: loadedProduct.status,
             })
+            setPresentationDraft(presentationToDraft(loadedProduct.presentation))
             setPendingImageFile(null)
             setImageRemoved(false)
             setEditingProduct(true)
@@ -365,6 +375,49 @@ export function ProductDetailPage() {
   const providers = detailData?.providers ?? NO_PROVIDERS
   const attributes = detailData?.attributes ?? NO_ATTRIBUTES
   const valuesById = detailData?.valuesById ?? NO_VALUES
+  const productUnitAbbreviation = units.find((unit) => unit.id === product?.unit_id)?.abbreviation ?? ''
+  const draftUnit = units.find((unit) => unit.id === productDraft.unitId)
+  const draftPresentation = draftToPresentation(presentationDraft)
+  const presentationError = presentationDraftError(presentationDraft, draftUnit?.allows_fraction ?? false)
+  const presentationChanged = product !== null && !samePresentation(product.presentation, draftPresentation)
+
+  function showStock(quantity: string): string {
+    return product?.presentation ? formatStock(quantity, product.presentation, productUnitAbbreviation) : formatStock(quantity, null, '')
+  }
+
+  const presentationPreviewRows =
+    product === null || !presentationChanged
+      ? []
+      : product.variants.flatMap((variant) => {
+          const stock = stockByVariant.get(variant.id)
+          if (stock === undefined || Number(stock.quantity) === 0) return []
+          return [
+            {
+              id: variant.id,
+              label: describeVariant(variant, valuesById),
+              before: formatStock(stock.quantity, product.presentation, productUnitAbbreviation),
+              after: formatStock(stock.quantity, draftPresentation, draftUnit?.abbreviation ?? ''),
+            },
+          ]
+        })
+  const presentationPreview =
+    presentationPreviewRows.length === 0 ? undefined : (
+      <div data-testid="presentation-preview" className="flex flex-col gap-2 rounded-lg border-2 border-warning p-3 text-lg">
+        <p className="m-0 font-bold">El stock guardado no cambia. Así se va a ver:</p>
+        <ul className="m-0 flex list-none flex-col gap-1 p-0">
+          {presentationPreviewRows.map((row) => (
+            <li key={row.id} className="[overflow-wrap:anywhere]">
+              <span className="font-semibold">{row.label}:</span> hoy {row.before} → se va a ver{' '}
+              <span className="font-bold">{row.after}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="m-0">
+          Revisá que esté bien. Si antes cargaste el stock contando presentaciones y no en{' '}
+          {draftUnit?.abbreviation || 'la unidad del producto'}, corregilo con “Actualizar stock” después de guardar.
+        </p>
+      </div>
+    )
 
   function unitAllowsFraction(unitId: number): boolean {
     return units.find((unit) => unit.id === unitId)?.allows_fraction ?? false
@@ -467,7 +520,7 @@ export function ProductDetailPage() {
     event.preventDefault()
     if (product === null) return
     setAttemptedProductSubmit(true)
-    if (productNameError !== null) return
+    if (productNameError !== null || presentationError !== null) return
 
     const trimmedName = productDraft.name.trim()
     if (normalizeForComparison(trimmedName) !== normalizeForComparison(product.name)) {
@@ -518,6 +571,7 @@ export function ProductDetailPage() {
         name: productDraft.name.trim(),
         category_id: productDraft.categoryId,
         unit_id: productDraft.unitId,
+        ...(presentationChanged ? { presentation: draftPresentation } : {}),
       })
       if (productDraft.status !== product.status) {
         updated = productDraft.status === 'active' ? await reactivateProduct(product.id) : await deactivateProduct(product.id)
@@ -886,6 +940,15 @@ export function ProductDetailPage() {
                     </div>
                   </div>
 
+                  <PresentationFields
+                    draft={presentationDraft}
+                    onChange={setPresentationDraft}
+                    unitAbbreviation={draftUnit?.abbreviation ?? ''}
+                    allowDecimals={draftUnit?.allows_fraction ?? false}
+                    disabled={savingProduct}
+                    showError
+                  />
+
                   {creatingCategory && (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
                       <div
@@ -1162,6 +1225,14 @@ export function ProductDetailPage() {
                         {units.find((unit) => unit.id === product.unit_id)?.name ?? '—'}
                       </p>
                     </div>
+                    {product.presentation && (
+                      <div>
+                        <p className="m-0 text-base uppercase tracking-wide opacity-60">Presentación</p>
+                        <p className="m-0 font-bold [overflow-wrap:anywhere]">
+                          {describePresentation(product.presentation, productUnitAbbreviation)}
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <p className="m-0 text-base uppercase tracking-wide opacity-60">Variantes</p>
                       <p className="m-0 font-bold">{product.variants.length}</p>
@@ -1253,7 +1324,7 @@ export function ProductDetailPage() {
                           if (stock === undefined) return <p className="m-0 text-xl font-bold">—</p>
                           return (
                             <p className={`m-0 text-xl font-bold ${stockStatusTextColor(stock.status)}`}>
-                              {formatQuantity(stock.quantity)} <span className="text-base font-normal opacity-70">({STOCK_STATUS_LABELS[stock.status] ?? stock.status})</span>
+                              {showStock(stock.quantity)} <span className="text-base font-normal opacity-70">({STOCK_STATUS_LABELS[stock.status] ?? stock.status})</span>
                             </p>
                           )
                         })()}
@@ -1462,7 +1533,7 @@ export function ProductDetailPage() {
                                     if (stock === undefined) return <p className="m-0 text-xl font-bold">—</p>
                                     return (
                                       <p className={`m-0 text-xl font-bold ${stockStatusTextColor(stock.status)}`}>
-                                        {formatQuantity(stock.quantity)}{' '}
+                                        {showStock(stock.quantity)}{' '}
                                         <span className="text-base font-normal opacity-70">
                                           ({STOCK_STATUS_LABELS[stock.status] ?? stock.status})
                                         </span>
@@ -1670,7 +1741,7 @@ export function ProductDetailPage() {
                 <button
                   type="submit"
                   form="edit-product-form"
-                  disabled={savingProduct || productNameError !== null || checkingProductName}
+                  disabled={savingProduct || productNameError !== null || presentationError !== null || checkingProductName}
                   className={`${primaryButtonClasses} flex-1`}
                 >
                   {checkingProductName ? 'Verificando…' : 'Guardar cambios'}
@@ -1819,6 +1890,7 @@ export function ProductDetailPage() {
           variant={adjustingVariant}
           currentStock={stockByVariant.get(adjustingVariant.id)}
           allowDecimals={units.find((unit) => unit.id === product.unit_id)?.allows_fraction ?? false}
+          unitAbbreviation={productUnitAbbreviation}
           onClose={() => setAdjustingVariant(null)}
           onSuccess={() => {
             refreshStock()
@@ -1873,12 +1945,12 @@ export function ProductDetailPage() {
                       <li key={movement.id} className="flex flex-col gap-1 rounded-lg border border-line px-4 py-3">
                         <div className="flex items-center justify-between text-lg">
                           <span className={`font-bold ${diff < 0 ? 'text-danger' : diff > 0 ? 'text-success' : ''}`}>
-                            {diff > 0 ? `+${formatQuantity(diff)}` : formatQuantity(diff)}
+                            {formatStockDifference(movement.quantity_before, movement.quantity_after, product?.presentation, productUnitAbbreviation)}
                           </span>
                           <span className="opacity-60">{formatDateTime(movement.created_at)}</span>
                         </div>
                         <p className="m-0 text-base opacity-70">
-                          {formatQuantity(movement.quantity_before)} → {formatQuantity(movement.quantity_after)}
+                          {showStock(movement.quantity_before)} → {showStock(movement.quantity_after)}
                         </p>
                         <p className="m-0 text-base opacity-70">
                           Cambiado por: {firstName(movement.created_by_account_name)}
@@ -2004,6 +2076,7 @@ export function ProductDetailPage() {
               ? `"${product.name}" y sus variantes vuelven a aparecer en las consultas del catálogo.`
               : `"${product.name}" y todas sus variantes van a dejar de aparecer en las consultas del catálogo. Vas a poder reactivarlo cuando quieras.`
           }
+          details={presentationChanged ? presentationPreview : undefined}
           confirmLabel={productDraft.status === 'active' ? 'Activar' : 'Desactivar'}
           danger={productDraft.status !== 'active'}
           breadcrumb={[
@@ -2020,6 +2093,7 @@ export function ProductDetailPage() {
         <ConfirmDialog
           title="Guardar cambios"
           description={`Se van a guardar los cambios en "${product.name}" (nombre, categoría, unidad o precio).`}
+          details={presentationChanged ? presentationPreview : undefined}
           confirmLabel="Guardar"
           breadcrumb={['Productos', product.name, 'Guardar cambios']}
           onConfirm={confirmProductEditAndSave}

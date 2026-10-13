@@ -1,9 +1,16 @@
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import CheckConstraint, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.constants.limits import NAME_MAX_LENGTH, STATUS_MAX_LENGTH
+from app.constants.limits import (
+    NAME_MAX_LENGTH,
+    PRESENTATION_NAME_MAX_LENGTH,
+    STATUS_MAX_LENGTH,
+    STOCK_QUANTITY_PRECISION,
+    STOCK_QUANTITY_SCALE,
+)
 from app.constants.status import EntityStatus
 from app.db.audit_mixin import AuditedMixin
 from app.db.base import Base
@@ -16,10 +23,25 @@ if TYPE_CHECKING:
     from app.db.models.unit import Unit
     from app.db.models.variant import Variant
 
+PRODUCT_PRESENTATION_COMPLETE_CONSTRAINT_NAME = "presentation_complete"
+PRODUCT_PRESENTATION_QUANTITY_POSITIVE_CONSTRAINT_NAME = "presentation_quantity_positive"
+
 
 class Product(Base, AuditedMixin):
     __tablename__ = "product"
-    __table_args__ = (status_check_constraint(),)
+    __table_args__ = (
+        status_check_constraint(),
+        CheckConstraint(
+            "(presentation_name IS NULL AND presentation_plural_name IS NULL "
+            "AND presentation_quantity IS NULL) OR (presentation_name IS NOT NULL "
+            "AND presentation_plural_name IS NOT NULL AND presentation_quantity IS NOT NULL)",
+            name=PRODUCT_PRESENTATION_COMPLETE_CONSTRAINT_NAME,
+        ),
+        CheckConstraint(
+            "presentation_quantity IS NULL OR presentation_quantity > 0",
+            name=PRODUCT_PRESENTATION_QUANTITY_POSITIVE_CONSTRAINT_NAME,
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     business_id: Mapped[int] = mapped_column(ForeignKey("business.id"), nullable=False)
@@ -31,6 +53,15 @@ class Product(Base, AuditedMixin):
         String(STATUS_MAX_LENGTH), nullable=False, default=EntityStatus.ACTIVE.value
     )
     image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    presentation_name: Mapped[str | None] = mapped_column(
+        String(PRESENTATION_NAME_MAX_LENGTH), nullable=True
+    )
+    presentation_plural_name: Mapped[str | None] = mapped_column(
+        String(PRESENTATION_NAME_MAX_LENGTH), nullable=True
+    )
+    presentation_quantity: Mapped[Decimal | None] = mapped_column(
+        Numeric(STOCK_QUANTITY_PRECISION, STOCK_QUANTITY_SCALE), nullable=True
+    )
 
     business: Mapped["Business"] = relationship(back_populates="products")
     category: Mapped["Category"] = relationship(back_populates="products")

@@ -52,6 +52,12 @@ export interface Variant {
   price_amount: string | null
 }
 
+export interface Presentation {
+  name: string
+  plural_name: string
+  quantity: string
+}
+
 export interface Product {
   id: number
   name: string
@@ -61,6 +67,7 @@ export interface Product {
   image_url: string | null
   variants: Variant[]
   provider_id: number | null
+  presentation?: Presentation | null
 }
 
 export interface Provider {
@@ -181,6 +188,7 @@ export interface StockRow {
   image_url: string | null
   category_id: number
   unit_id: number
+  presentation?: Presentation | null
   variant_id: number
   variant_label: string | null
   quantity: string

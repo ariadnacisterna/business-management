@@ -84,12 +84,15 @@ interface PreviewProps {
   kind: DeltaKind
   current: number | string
   evaluation: DeltaEvaluation
+  formatValue?: (units: number) => string
 }
 
-export function DeltaPreview({ kind, current, evaluation }: PreviewProps) {
+export function DeltaPreview({ kind, current, evaluation, formatValue }: PreviewProps) {
   const label = kind === 'stock' ? 'Stock' : 'Precio'
-  const from = formatDeltaValue(kind, toUnits(kind, current))
-  const to = evaluation.result !== null ? formatDeltaValue(kind, evaluation.result) : '—'
+  const format = formatValue ?? ((units: number) => formatDeltaValue(kind, units))
+  const from = format(toUnits(kind, current))
+  const to =
+    evaluation.result !== null && (formatValue === undefined || evaluation.result >= 0) ? format(evaluation.result) : '—'
   const danger = evaluation.state === 'invalid'
 
   return (

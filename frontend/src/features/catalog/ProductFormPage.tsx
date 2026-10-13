@@ -1,3 +1,6 @@
+import { PresentationFields } from '../../shared/PresentationFields'
+import { EMPTY_PRESENTATION_DRAFT, draftToPresentation, presentationDraftError } from '../../shared/presentationDraft'
+import { describePresentation, formatStock } from '../../shared/presentation'
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import {
@@ -156,6 +159,7 @@ export function ProductFormPage() {
   const [categoryId, setCategoryId] = useState<number | ''>('')
   const [unitId, setUnitId] = useState<number | ''>('')
   const [providerId, setProviderId] = useState<number | ''>('')
+  const [presentationDraft, setPresentationDraft] = useState(EMPTY_PRESENTATION_DRAFT)
   const [touched, setTouched] = useState({ name: false, category: false, unit: false })
   const [attemptedContinueStep1, setAttemptedContinueStep1] = useState(false)
   const [duplicateNameError, setDuplicateNameError] = useState<string | null>(null)
@@ -311,6 +315,9 @@ export function ProductFormPage() {
   const stockUnit = unitId === '' ? null : (units.find((unit) => unit.id === unitId) ?? null)
   const stockAllowsFraction = stockUnit?.allows_fraction ?? false
   const stockStep = stockAllowsFraction ? 0.001 : 1
+  const presentationError = presentationDraftError(presentationDraft, stockAllowsFraction)
+  const presentation = draftToPresentation(presentationDraft)
+  const stockUnitHint = presentation !== null && stockUnit !== null ? ` en ${stockUnit.abbreviation}` : ''
 
   function stockDecimalError(value: string): string | null {
     if (stockAllowsFraction || value.trim() === '') return null
@@ -328,7 +335,7 @@ export function ProductFormPage() {
   async function handleContinueStep1(event: React.FormEvent) {
     event.preventDefault()
     setAttemptedContinueStep1(true)
-    if (name.trim() === '' || categoryError !== null || unitError !== null) return
+    if (name.trim() === '' || categoryError !== null || unitError !== null || presentationError !== null) return
 
     const trimmedName = name.trim()
     setCheckingName(true)
@@ -368,6 +375,7 @@ export function ProductFormPage() {
         name: name.trim(),
         category_id: categoryId,
         unit_id: unitId,
+        ...(presentation !== null ? { presentation } : {}),
         variants:
           addVariants && variantDrafts.length > 0
             ? variantDrafts.map((draft) => ({
@@ -691,6 +699,17 @@ export function ProductFormPage() {
                   </div>
                 )}
 
+                {stockUnit !== null && (
+                  <PresentationFields
+                    draft={presentationDraft}
+                    onChange={setPresentationDraft}
+                    unitAbbreviation={stockUnit.abbreviation}
+                    allowDecimals={stockAllowsFraction}
+                    disabled={checkingName}
+                    showError={attemptedContinueStep1}
+                  />
+                )}
+
                 {canViewProviders && (
                   <>
                     <span className="text-lg font-semibold">
@@ -714,7 +733,13 @@ export function ProductFormPage() {
                 <div className="flex justify-end">
                   <button
                     type="submit"
-                    disabled={checkingName || nameError !== null || categoryError !== null || unitError !== null}
+                    disabled={
+                      checkingName ||
+                      nameError !== null ||
+                      categoryError !== null ||
+                      unitError !== null ||
+                      presentationError !== null
+                    }
                     className={`${primaryButtonClasses} w-1/2`}
                   >
                     {checkingName ? 'Verificando…' : 'Continuar'}
@@ -762,7 +787,7 @@ export function ProductFormPage() {
                     </label>
                     <label className="flex flex-col gap-1">
                       <span className="text-base font-semibold">
-                        Stock actual <span className="font-normal opacity-70">(opcional)</span>
+                        Stock actual{stockUnitHint} <span className="font-normal opacity-70">(opcional)</span>
                       </span>
                       <input
                         name="product-stock"
@@ -785,7 +810,7 @@ export function ProductFormPage() {
                     </label>
                     <label className="flex flex-col gap-1">
                       <span className="text-base font-semibold">
-                        Stock min. <span className="font-normal opacity-70">(opcional)</span>
+                        Stock min.{stockUnitHint} <span className="font-normal opacity-70">(opcional)</span>
                       </span>
                       <input
                         name="product-minimum"
@@ -989,6 +1014,12 @@ export function ProductFormPage() {
                         {selectedUnit !== undefined ? `${selectedUnit.name} (${selectedUnit.abbreviation})` : '—'}
                       </p>
                     </div>
+                    {presentation !== null && selectedUnit !== undefined && (
+                      <div>
+                        <p className="m-0 text-sm uppercase tracking-wide opacity-60">Presentación</p>
+                        <p className="m-0 font-bold">{describePresentation(presentation, selectedUnit.abbreviation)}</p>
+                      </div>
+                    )}
                     {canViewProviders && (
                       <div>
                         <p className="m-0 text-sm uppercase tracking-wide opacity-60">Proveedor</p>
@@ -1014,11 +1045,23 @@ export function ProductFormPage() {
                       </div>
                       <div>
                         <p className="m-0 text-sm uppercase tracking-wide opacity-60">Stock actual</p>
-                        <p className="m-0 font-bold">{singleStock.trim() !== '' ? singleStock : '—'}</p>
+                        <p className="m-0 font-bold">
+                          {singleStock.trim() === ''
+                            ? '—'
+                            : presentation !== null && stockUnit !== null && Number.isFinite(Number(singleStock))
+                              ? formatStock(singleStock, presentation, stockUnit.abbreviation)
+                              : singleStock}
+                        </p>
                       </div>
                       <div>
                         <p className="m-0 text-sm uppercase tracking-wide opacity-60">Stock min.</p>
-                        <p className="m-0 font-bold">{singleMinimum.trim() !== '' ? singleMinimum : '—'}</p>
+                        <p className="m-0 font-bold">
+                          {singleMinimum.trim() === ''
+                            ? '—'
+                            : presentation !== null && stockUnit !== null && Number.isFinite(Number(singleMinimum))
+                              ? formatStock(singleMinimum, presentation, stockUnit.abbreviation)
+                              : singleMinimum}
+                        </p>
                       </div>
                     </div>
                   ) : (

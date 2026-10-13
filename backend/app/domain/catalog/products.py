@@ -1,9 +1,11 @@
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.constants.limits import PRESENTATION_NAME_MAX_LENGTH
 from app.constants.status import EntityStatus
 from app.core.text import normalize_for_comparison
 from app.db.locks import LockKind, lock_until_commit
@@ -16,12 +18,15 @@ from app.domain.catalog.errors import (
     ImplicitVariantNeedsLabel,
     InvalidAttributeValue,
     InvalidCatalogInput,
+    InvalidPresentation,
+    InvalidStockQuantity,
     ProductNotFound,
     ProviderNotFound,
     UnitNotFound,
     VariantLabelRequired,
     VariantNotFound,
 )
+from app.domain.catalog.quantities import validate_quantity_for_unit
 from app.domain.catalog.units import lock_unit_against_changes, products_with_fractional_stock
 
 
@@ -29,6 +34,59 @@ from app.domain.catalog.units import lock_unit_against_changes, products_with_fr
 class VariantInput:
     label: str | None = None
     attribute_value_ids: list[int] = field(default_factory=list)
+
+
+@dataclass
+class PresentationInput:
+    name: str
+    plural_name: str
+    quantity: Decimal
+
+
+def _validate_presentation_name(name: str) -> str:
+    stripped = name.strip()
+    if not stripped:
+        raise InvalidPresentation(
+            "Escribí el nombre de la presentación en singular y en plural, por ejemplo rollo y "
+            "rollos"
+        )
+    if len(stripped) > PRESENTATION_NAME_MAX_LENGTH:
+        raise InvalidPresentation(
+            f"El nombre de la presentación puede tener hasta {PRESENTATION_NAME_MAX_LENGTH} letras"
+        )
+    return stripped
+
+
+def _apply_presentation(
+    db: Session, product: Product, unit_id: int, presentation: PresentationInput | None
+) -> None:
+    if presentation is None:
+        product.presentation_name = None
+        product.presentation_plural_name = None
+        product.presentation_quantity = None
+        return
+    name = _validate_presentation_name(presentation.name)
+    plural_name = _validate_presentation_name(presentation.plural_name)
+    if not presentation.quantity.is_finite() or presentation.quantity <= 0:
+        raise InvalidPresentation(
+            "El largo o la cantidad de la presentación tiene que ser mayor que cero"
+        )
+    unit = lock_unit_against_changes(db, unit_id)
+    try:
+        quantity = validate_quantity_for_unit(
+            presentation.quantity,
+            unit,
+            "El largo o la cantidad de la presentación es demasiado grande",
+        )
+    except InvalidStockQuantity as exc:
+        raise InvalidPresentation(f"Presentación: {exc}") from exc
+    if quantity <= 0:
+        raise InvalidPresentation(
+            "El largo o la cantidad de la presentación tiene que ser mayor que cero"
+        )
+    product.presentation_name = name
+    product.presentation_plural_name = plural_name
+    product.presentation_quantity = quantity
 
 
 def _validate_name(name: str) -> str:
@@ -213,6 +271,7 @@ def add_product(
     name: str,
     actor_account_id: int,
     variants: list[VariantInput] | None = None,
+    presentation: PresentationInput | None = None,
 ) -> tuple[Product, list[Variant], list[Variant]]:
     name = _validate_name(name)
     _check_duplicate_product_name(db, business_id, name)
@@ -231,6 +290,7 @@ def add_product(
         updated_by_account_id=actor_account_id,
         updated_at=now,
     )
+    _apply_presentation(db, product, unit.id, presentation)
     db.add(product)
     db.flush()
 
@@ -268,9 +328,21 @@ def update_product(
     name: str | None = None,
     category_id: int | None = None,
     unit_id: int | None = None,
+    change_presentation: bool = False,
+    presentation: PresentationInput | None = None,
 ) -> Product:
     get_product(db, business_id, product_id)
     product = _lock_product(db, product_id, shared=False)
+
+    if change_presentation:
+        target_unit_id = unit_id if unit_id is not None else product.unit_id
+        _get_unit(db, target_unit_id, business_id)
+        try:
+            _apply_presentation(db, product, target_unit_id, presentation)
+        except InvalidPresentation:
+            db.rollback()
+            raise
+        db.flush()
 
     if name is not None:
         name = _validate_name(name)
@@ -316,7 +388,8 @@ def _check_unit_change_keeps_whole_quantities(db: Session, product: Product, uni
         raise FractionalStockBlocksUnitChange(
             f'El producto "{product.name}" no puede pasar a la unidad "{new_unit.name}", que no '
             "admite decimales, porque alguna de sus variantes tiene stock o stock mínimo con "
-            "decimales. Ajustá ese stock antes de cambiar la unidad."
+            "decimales, o su presentación tiene decimales. Ajustá esos datos antes de cambiar la "
+            "unidad."
         )
 
 

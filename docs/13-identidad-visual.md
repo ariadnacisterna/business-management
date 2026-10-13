@@ -141,6 +141,20 @@ ventana y, si no entra, tiene scroll propio.
 12px`, `font-size: 16px` (evita el zoom automático de iOS en un input
 enfocado). Foco: `border-color: var(--accent)`.
 
+### Cantidades con presentación (T-084)
+
+Un producto con presentación (D-075) muestra su stock como presentaciones
+cerradas más lo suelto, nunca con decimales de presentación: "2 rollos y
+38 m", "3 rollos" si no hay sueltos, "38 m" si no hay ninguna completa y "0
+rollos" si no hay stock. Se usa la misma forma en Inventario, Productos,
+detalle, stock mínimo, historial y avisos. Donde se carga una cantidad
+(ajuste de stock, stock mínimo) aparece arriba del campo un selector de dos
+botones grandes, "Rollos" y "Sueltos (m)", con el elegido pintado con el
+color de marca; las presentaciones se cargan siempre en números enteros. Al
+cambiar o quitar la presentación de un producto con stock, la confirmación
+muestra en un recuadro naranja cómo se ve el stock hoy y cómo se va a ver,
+aclarando que la cantidad guardada no cambia.
+
 ### Modales
 
 Fondo superpuesto semitransparente, tarjeta centrada con `border-radius:

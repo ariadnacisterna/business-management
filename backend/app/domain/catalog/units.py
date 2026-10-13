@@ -128,6 +128,7 @@ def products_with_fractional_stock(
                 or_(
                     Variant.quantity != func.trunc(Variant.quantity),
                     Variant.minimum_quantity != func.trunc(Variant.minimum_quantity),
+                    Product.presentation_quantity != func.trunc(Product.presentation_quantity),
                 ),
             )
             .distinct()
@@ -141,10 +142,10 @@ def _check_no_fractional_stock(db: Session, unit: Unit) -> None:
     if product_names:
         db.rollback()
         raise FractionalStockBlocksUnitChange(
-            "La unidad no puede dejar de admitir decimales porque estos productos tienen stock "
-            "o stock mínimo con decimales: "
+            "La unidad no puede dejar de admitir decimales porque estos productos tienen stock, "
+            "stock mínimo o presentación con decimales: "
             + ", ".join(product_names)
-            + ". Ajustá ese stock antes de cambiar la unidad."
+            + ". Ajustá esos datos antes de cambiar la unidad."
         )
 
 

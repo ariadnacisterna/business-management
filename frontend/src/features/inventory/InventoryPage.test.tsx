@@ -925,4 +925,80 @@ describe('InventoryPage', () => {
       expect(screen.queryByRole('button', { name: 'Cancelar' })).not.toBeInTheDocument()
     })
   })
+
+  describe('with a presentation', () => {
+    const ROLL_ROW = {
+      ...STOCK_ROW,
+      product_name: 'Cinta raso',
+      unit_id: 2,
+      quantity: '138.000',
+      effective_minimum_quantity: '50.000',
+      status: 'normal',
+      presentation: { name: 'rollo', plural_name: 'rollos', quantity: '50.000' },
+    }
+
+    it('shows the stock as whole presentations plus loose units', async () => {
+      renderPage(GERENTE_ACCOUNT, ROLL_ROW)
+
+      expect((await screen.findAllByText('2 rollos y 38 m')).length).toBeGreaterThan(0)
+      expect(screen.getAllByText('1 rollo').length).toBeGreaterThan(0)
+    })
+
+    it('adjusts in presentations or in loose units, chosen with a clear control', async () => {
+      const user = userEvent.setup()
+      const fetchMock = fetch as ReturnType<typeof vi.fn>
+      renderPage(GERENTE_ACCOUNT, ROLL_ROW)
+
+      const deltaInput = (await screen.findAllByLabelText(/Cuánto sumar o restar a Cinta raso/))[0]
+      const editor = deltaInput.closest('[data-testid="stock-editor"]') as HTMLElement
+      expect(within(editor).getByRole('radio', { name: 'Rollos' })).toHaveAttribute('aria-checked', 'true')
+
+      await user.type(deltaInput, '+2')
+      expect(within(editor).getByTestId('delta-preview')).toHaveTextContent('Stock: 2 rollos y 38 m → 4 rollos y 38 m')
+
+      fetchMock.mockResolvedValueOnce(movementResponse(138, 238))
+      fetchMock.mockResolvedValueOnce(jsonResponse({ ...STOCK, quantity: '238.000', status: 'normal' }))
+      fetchMock.mockResolvedValueOnce(jsonResponse(summaryFor([{ status: 'normal' }])))
+      await user.click(within(editor).getByRole('button', { name: 'Actualizar' }))
+      expect(screen.getByRole('alertdialog')).toHaveTextContent('(diferencia +2 rollos)')
+      await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Ajustar' }))
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+
+      const adjustCall = fetchMock.mock.calls.find((call) => call[0] === '/variants/10/stock/adjustments')
+      expect(JSON.parse(adjustCall?.[1]?.body as string)).toEqual({
+        delta: '2',
+        in_presentations: true,
+        presentation_quantity: '50.000',
+      })
+
+      const nextInput = screen.getAllByLabelText(/Cuánto sumar o restar a Cinta raso/)[0]
+      const nextEditor = nextInput.closest('[data-testid="stock-editor"]') as HTMLElement
+      await user.click(within(nextEditor).getByRole('radio', { name: 'Sueltos (m)' }))
+      await user.type(nextInput, '-12')
+      expect(within(nextEditor).getByTestId('delta-preview')).toHaveTextContent('4 rollos y 26 m')
+    })
+
+    it('sets the minimum stock in presentations', async () => {
+      const user = userEvent.setup()
+      const fetchMock = fetch as ReturnType<typeof vi.fn>
+      renderPage(GERENTE_ACCOUNT, ROLL_ROW)
+
+      await screen.findAllByText('Cinta raso')
+      await user.click(screen.getAllByLabelText(/Editar stock mínimo de Cinta raso/)[0])
+      const dialog = await screen.findByRole('dialog', { name: /Editar stock mínimo de Cinta raso/ })
+      await user.type(within(dialog).getByLabelText(/Nuevo stock mínimo para Cinta raso/), '2')
+
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse({ ...STOCK, minimum_quantity: '100.000', effective_minimum_quantity: '100.000' }),
+      )
+      await user.click(within(dialog).getByRole('button', { name: 'Actualizar' }))
+
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: /Editar stock mínimo/ })).not.toBeInTheDocument())
+      expect(JSON.parse(fetchMock.mock.calls.at(-1)?.[1]?.body as string)).toEqual({
+        minimum_quantity: '2',
+        in_presentations: true,
+        presentation_quantity: '50.000',
+      })
+    })
+  })
 })

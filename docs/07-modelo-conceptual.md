@@ -59,6 +59,9 @@ erDiagram
         id identificador
         nombre texto
         estado activo_inactivo
+        presentacion texto_opcional
+        presentacion_plural texto_opcional
+        largo_presentacion decimal_opcional
     }
     VARIANTE {
         id identificador
@@ -155,6 +158,12 @@ Indica cómo se expresa el precio: unidad, metro, kilo, paquete, rollo u otra me
 Agrupación comercial que sirve para buscar y navegar. Reúne las presentaciones o versiones que la usuaria considera «lo mismo»: una cinta bebé N.º 2 con sus colores, o una gaseosa con sus tamaños.
 
 El producto no lleva precio por sí mismo: lo llevan sus variantes.
+
+### Presentación
+
+Forma cerrada en que un producto se compra o se cuenta, con un largo o una cantidad fija expresada en la unidad de venta del producto: por ejemplo un rollo de 50 m o una caja de 12 u (D-075). Es opcional y se carga una vez en el producto, con su nombre en singular y en plural ("rollo", "rollos") y su largo, que tiene que ser mayor que cero y respetar los decimales de la unidad (D-065).
+
+La presentación no crea un stock aparte: el stock sigue siendo uno solo por variante y se guarda siempre en la unidad de venta. Solo cambia cómo se muestra y cómo se carga: se muestra como presentaciones cerradas más lo suelto ("2 rollos y 38 m", "3 rollos", "38 m"), y los ajustes de stock y el stock mínimo se pueden cargar en presentaciones enteras o en la unidad suelta, y el sistema los convierte a la unidad de venta. Cambiar o quitar la presentación no modifica la cantidad guardada, solo cómo se ve.
 
 ### Variante
 
