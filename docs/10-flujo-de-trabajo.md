@@ -186,6 +186,16 @@ Decisiones recientes a tener presentes: D-060 (ajustes de stock y precio por
 diferencia, con piso), D-063 (tamaño de letra por cuenta, 5 pasos), D-065
 (stock decimal, ya implementado en T-076), D-070 (reordenamiento de etapas).
 
+## Modo orquestador (Etapa 4, desde 2026-10-13)
+
+La Etapa 3 quedó cerrada y publicada el 2026-10-10. Para la Etapa 4 el Responsable pidió que la conversación madre trabaje como orquestadora, como se hizo para cerrar la Etapa 3. Mientras dure la Etapa 4, esto reemplaza a "Los comandos de git son siempre manuales", a la plantilla para abrir una conversación de tarea y a que el Responsable corra los checks:
+
+- **Tareas:** la madre lanza un agente por tarea, con un prompt equivalente a la plantilla de esta página. Si dos tareas corren a la vez, cada una trabaja en una copia aislada del repositorio. La madre sigue sin escribir código: incluso un conflicto de merge lo resuelve un agente.
+- **Git:** la madre crea la rama, commitea con el formato de una línea, mergea a `main` y hace push. Render despliega solo; después de cada push la madre comprueba `/health` en producción y le avisa al Responsable qué se publicó y qué probar.
+- **Checks:** los agentes corren `ruff`, `pytest`, `npm` y las pruebas de punta a punta mientras trabajan, y la madre los vuelve a correr por su cuenta antes de aprobar. La revisión sigue el mismo checklist de esta página.
+- **Decisiones:** la madre le pregunta al Responsable solo las decisiones de negocio. Las técnicas y de diseño de pantallas las toma ella y las anota en docs/08.
+- **Producción:** la madre nunca corre nada contra producción salvo leer `/health`, ni recibe credenciales por el chat. El script de integridad y los chequeos a mano de docs/14 los hace el Responsable.
+
 ## Registro de tareas
 
 Tabla viva. Cada conversación de tarea agrega o actualiza su propia fila; la
