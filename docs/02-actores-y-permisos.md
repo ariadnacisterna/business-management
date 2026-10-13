@@ -84,7 +84,7 @@ Una contraseña se recupera mediante un restablecimiento realizado por un Admini
 | Consultar listas de compra | Según definición futura | Sí | Sí | Sí |
 | Registrar ventas | Sí | Sí | Sí | Sí |
 | Consultar cantidades de inventario | Según definición futura | Sí | Sí | Sí |
-| Consultar ingresos, egresos y márgenes | No | No | No | Sí |
+| Consultar ingresos, egresos y márgenes (D-076) | No | No | Sí | Sí |
 | Administrar permisos | No | No | No | Sí |
 | Definir atributos normalizados nuevos | Según definición futura | Sí | Sí | Sí |
 | Administrar códigos de barras de una variante | Sí | Sí | Sí | Sí |

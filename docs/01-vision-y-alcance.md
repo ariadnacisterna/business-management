@@ -113,7 +113,7 @@ Esta etapa se cierra cuando todo lo que sostiene a Ventas está firme: copias de
 
 ### Etapa 4: ventas y compras
 
-Ventas cargadas manualmente que descuentan el stock, compras (órdenes de compra a proveedores, que lo aumentan) y permisos para información financiera (ingresos, egresos y márgenes, exclusivos de Administradores, RN-018). El Panel que muestra ingresos y ventas (D-058) llega con esta etapa. Ventas y compras se diseñan juntas porque ambas mueven el stock y alimentan los ingresos y egresos. Queda por resolver cómo se relacionan dos formas de vender un mismo producto, por ejemplo cinta por metro o por rollo (DP-010).
+Ventas cargadas manualmente que descuentan el stock, compras (órdenes de compra a proveedores, que lo aumentan) y permisos para información financiera (ingresos, egresos y márgenes, exclusivos de Administradores, RN-018). El Panel que muestra ingresos y ventas (D-058) llega con esta etapa. Ventas y compras se diseñan juntas porque ambas mueven el stock y alimentan los ingresos y egresos. Dos formas de vender un mismo producto, como cinta por metro o por rollo, comparten un solo stock: se guarda en metros y se muestra en rollos y metros sueltos (D-075).
 
 ### Etapa 5: varios negocios
 
