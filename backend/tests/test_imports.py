@@ -390,7 +390,7 @@ def test_adding_a_new_variant_to_a_product_with_an_unlabeled_implicit_variant_is
     assert response.status_code == 200, response.text
     row = response.json()["rows"][0]
     assert row["is_valid"] is False
-    assert any("variante implicita sin nombre" in error["reason"] for error in row["errors"])
+    assert any("variante implícita sin nombre" in error["reason"] for error in row["errors"])
 
 
 def test_adding_a_new_labeled_variant_to_an_existing_labeled_product(client):

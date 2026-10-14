@@ -1,7 +1,9 @@
 import { PresentationFields } from '../../shared/PresentationFields'
 import { EMPTY_PRESENTATION_DRAFT, draftToPresentation, presentationDraftError } from '../../shared/presentationDraft'
-import { describePresentation, formatStock } from '../../shared/presentation'
-import { useState } from 'react'
+import { describePresentation, evaluateMinimumEntry, formatStock, presentationLabel } from '../../shared/presentation'
+import type { StockEntryMode } from '../../shared/presentation'
+import { StockModeToggle } from '../../shared/StockModeToggle'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import {
   adjustStock,
@@ -34,7 +36,15 @@ import { DuplicateWarning } from './DuplicateWarning'
 import { NewCategoryDialog } from './NewCategoryDialog'
 import { NewUnitDialog } from './NewUnitDialog'
 import { NewProductImagePicker } from './ProductImageField'
+import { StockNumberField } from './StockNumberField'
 import { VariantAttributesEditor } from './VariantAttributesEditor'
+import {
+  duplicateVariantProblem,
+  locateServerProblem,
+  repeatedAttributeProblem,
+  stockSignProblem,
+} from './productFormProblems'
+import type { ServerProblem } from './productFormProblems'
 import type { SelectedAttributeValue } from './VariantAttributesEditor'
 
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los datos necesarios para el formulario.'
@@ -47,6 +57,10 @@ const MINIMUM_STOCK_ERROR_MESSAGE = 'El producto se creó, pero no se pudo defin
 const CHECK_DUPLICATE_NAME_ERROR_MESSAGE = 'No se pudo verificar si el nombre está repetido. El producto se guardará igual.'
 
 const CREATE_NEW_OPTION = '__create__'
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
 
 const inputClasses =
   'h-12 rounded-lg border border-line px-3.5 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
@@ -168,6 +182,8 @@ export function ProductFormPage() {
 
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [creatingUnit, setCreatingUnit] = useState(false)
+  const [stockMode, setStockMode] = useState<StockEntryMode>('presentation')
+  const focusSelector = useRef<string | null>(null)
 
   const [singlePrice, setSinglePrice] = useState('')
   const [singleStock, setSingleStock] = useState('')
@@ -179,7 +195,7 @@ export function ProductFormPage() {
   const [variantMinimums, setVariantMinimums] = useState<Record<number, string>>({})
 
   const [creating, setCreating] = useState(false)
-  const [createError, setCreateError] = useState<string | null>(null)
+  const [createError, setCreateError] = useState<{ message: string; problem: ServerProblem | null } | null>(null)
   const [createdProductId, setCreatedProductId] = useState<number | null>(null)
   const [duplicatesFound, setDuplicatesFound] = useState<Variant[] | null>(null)
 
@@ -262,14 +278,43 @@ export function ProductFormPage() {
   const unitError = unitId === '' ? 'Elegí una unidad.' : null
   const stockUnit = unitId === '' ? null : (units.find((unit) => unit.id === unitId) ?? null)
   const stockAllowsFraction = stockUnit?.allows_fraction ?? false
-  const stockStep = stockAllowsFraction ? 0.001 : 1
   const presentationError = presentationDraftError(presentationDraft, stockAllowsFraction)
   const presentation = draftToPresentation(presentationDraft)
-  const stockUnitHint = presentation !== null && stockUnit !== null ? ` en ${stockUnit.abbreviation}` : ''
+  const entryMode: StockEntryMode = presentation !== null ? stockMode : 'unit'
+  const stockStep = entryMode === 'unit' && stockAllowsFraction ? 0.001 : 1
+  const stockInputMode = entryMode === 'unit' && stockAllowsFraction ? 'decimal' : 'numeric'
+  const stockUnitText =
+    entryMode === 'presentation' && presentation !== null ? presentation.plural_name : (stockUnit?.abbreviation ?? '')
+  const stockHint = stockUnitText === '' ? '' : `(en ${stockUnitText})`
+  const unitIsAlsoPresentation =
+    presentationDraft.enabled &&
+    stockUnit !== null &&
+    [presentationDraft.name, presentationDraft.pluralName].some(
+      (text) => text.trim() !== '' && normalizeForComparison(text) === normalizeForComparison(stockUnit.name),
+    )
 
-  function stockDecimalError(value: string): string | null {
-    if (stockAllowsFraction || value.trim() === '') return null
-    return value.includes('.') ? 'Esta unidad no admite decimales.' : null
+  function stockProblem(value: string): string | null {
+    return stockSignProblem(value) ?? evaluateMinimumEntry(value, stockAllowsFraction, presentation, entryMode).error
+  }
+
+  function selectStockMode(mode: StockEntryMode) {
+    setStockMode(mode)
+    setSingleStock('')
+    setSingleMinimum('')
+    setVariantStocks({})
+    setVariantMinimums({})
+  }
+
+  function describeStockText(value: string): string {
+    const text = value.trim()
+    if (text === '') return '—'
+    if (entryMode === 'presentation' && presentation !== null) {
+      return `${text} ${presentationLabel(presentation, Number(text))}`
+    }
+    if (presentation !== null && stockUnit !== null && Number.isFinite(Number(text))) {
+      return formatStock(text, presentation, stockUnit.abbreviation)
+    }
+    return stockUnit !== null && stockUnit.abbreviation !== '' ? `${text} ${stockUnit.abbreviation}` : text
   }
 
   const showNameError = (touched.name || attemptedContinueStep1) && nameError !== null
@@ -306,7 +351,37 @@ export function ProductFormPage() {
     setStep(2)
   }
 
-  const step2Valid = !hasUndistinguishedVariant
+  const variantProblems = addVariants
+    ? variantDrafts.map(
+        (draft, index) =>
+          repeatedAttributeProblem(draft.values, attributes) ?? duplicateVariantProblem(variantDrafts, index),
+      )
+    : []
+  const stockTexts = addVariants
+    ? variantDrafts.flatMap((draft) => [variantStocks[draft.key] ?? '', variantMinimums[draft.key] ?? ''])
+    : [singleStock, singleMinimum]
+  const step2Valid =
+    !hasUndistinguishedVariant &&
+    variantProblems.every((problem) => problem === null) &&
+    stockTexts.every((text) => stockProblem(text) === null)
+
+  useEffect(() => {
+    const selector = focusSelector.current
+    if (selector === null) return
+    focusSelector.current = null
+    document.querySelector<HTMLElement>(selector)?.focus()
+  }, [step])
+
+  function goToProblem(problem: ServerProblem) {
+    focusSelector.current = problem.selector
+    setCreateError(null)
+    setStep(problem.step)
+  }
+
+  function goBackFromReview() {
+    setCreateError(null)
+    setStep(2)
+  }
 
   function handleContinueStep2(event: React.FormEvent) {
     event.preventDefault()
@@ -370,14 +445,23 @@ export function ProductFormPage() {
         }
         if (stock !== '' && Number(stock) > 0) {
           try {
-            await adjustStock(variant.id, { delta: Number(stock).toFixed(3) })
+            await adjustStock(
+              variant.id,
+              presentation !== null && entryMode === 'presentation'
+                ? { delta: String(Number(stock)), in_presentations: true, presentation_quantity: presentation.quantity }
+                : { delta: Number(stock).toFixed(3) },
+            )
           } catch {
             stockFailed = true
           }
         }
         if (minimum !== '') {
           try {
-            await setMinimumStock(variant.id, Number(minimum).toFixed(3))
+            await setMinimumStock(
+              variant.id,
+              presentation !== null && entryMode === 'presentation' ? String(Number(minimum)) : Number(minimum).toFixed(3),
+              presentation !== null && entryMode === 'presentation' ? presentation.quantity : undefined,
+            )
           } catch {
             minimumFailed = true
           }
@@ -396,7 +480,8 @@ export function ProductFormPage() {
         navigate(`/products/${product.id}`)
       }
     } catch (error) {
-      setCreateError(errorMessage(error, CREATE_ERROR_MESSAGE))
+      const message = errorMessage(error, CREATE_ERROR_MESSAGE)
+      setCreateError({ message, problem: locateServerProblem(message) })
     } finally {
       setCreating(false)
     }
@@ -544,6 +629,11 @@ export function ProductFormPage() {
                   </span>
                 )}
 
+                <p className="m-0 text-base opacity-70">
+                  La unidad es cómo se vende (por ejemplo, metro). Si además viene en rollos, cajas o packs, tildá la
+                  presentación: es cómo viene (por ejemplo, rollo de 50 m).
+                </p>
+
                 {stockUnit !== null && (
                   <PresentationFields
                     draft={presentationDraft}
@@ -553,6 +643,13 @@ export function ProductFormPage() {
                     disabled={checkingName}
                     showError={attemptedContinueStep1}
                   />
+                )}
+                {unitIsAlsoPresentation && stockUnit !== null && (
+                  <p role="status" className="m-0 rounded-lg bg-surface-brand p-3 text-base">
+                    Elegiste &quot;{stockUnit.name}&quot; como unidad y también como presentación. Para un producto
+                    que se vende por metro y viene en rollos, probá con la unidad Metro (m) y la presentación
+                    &quot;rollo&quot; de 50 m.
+                  </p>
                 )}
 
                 {canViewProviders && (
@@ -616,12 +713,20 @@ export function ProductFormPage() {
                   </button>
                 </div>
 
+                {presentation !== null && (
+                  <StockModeToggle
+                    presentation={presentation}
+                    abbreviation={stockUnit?.abbreviation ?? ''}
+                    mode={entryMode}
+                    onChange={selectStockMode}
+                    label="Cargar el stock en"
+                  />
+                )}
+
                 {!addVariants ? (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="flex flex-col gap-3">
                     <label className="flex flex-col gap-1">
-                      <span className="text-base font-semibold">
-                        Precio <span className="font-normal opacity-70">(opcional)</span>
-                      </span>
+                      <span className="text-base font-semibold">Precio</span>
                       <PriceInput
                         value={singlePrice}
                         placeholder="0.00"
@@ -630,58 +735,36 @@ export function ProductFormPage() {
                         className={priceInputClasses}
                       />
                     </label>
-                    <label className="flex flex-col gap-1">
-                      <span className="text-base font-semibold">
-                        Stock actual{stockUnitHint} <span className="font-normal opacity-70">(opcional)</span>
-                      </span>
-                      <input
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] items-start gap-3">
+                      <StockNumberField
                         name="product-stock"
-                        type="number"
-                        min={0}
-                        step={stockStep}
-                        inputMode={stockAllowsFraction ? 'decimal' : 'numeric'}
+                        label="Stock actual"
+                        hint={stockHint}
+                        ariaLabel="Stock actual"
                         value={singleStock}
-                        onChange={(event) => setSingleStock(event.target.value)}
-                        aria-label="Stock actual"
-                        aria-invalid={stockDecimalError(singleStock) !== null || undefined}
-                        aria-describedby={stockDecimalError(singleStock) !== null ? 'single-stock-error' : undefined}
-                        className={inputClasses}
-                      />
-                      {stockDecimalError(singleStock) !== null && (
-                        <span id="single-stock-error" role="alert" className="text-sm text-danger">
-                          {stockDecimalError(singleStock)}
-                        </span>
-                      )}
-                    </label>
-                    <label className="flex flex-col gap-1">
-                      <span className="text-base font-semibold">
-                        Stock min.{stockUnitHint} <span className="font-normal opacity-70">(opcional)</span>
-                      </span>
-                      <input
-                        name="product-minimum"
-                        type="number"
-                        min={0}
+                        onChange={setSingleStock}
                         step={stockStep}
-                        inputMode={stockAllowsFraction ? 'decimal' : 'numeric'}
-                        value={singleMinimum}
-                        onChange={(event) => setSingleMinimum(event.target.value)}
-                        aria-label="Stock min."
-                        aria-invalid={stockDecimalError(singleMinimum) !== null || undefined}
-                        aria-describedby={stockDecimalError(singleMinimum) !== null ? 'single-minimum-error' : undefined}
-                        className={inputClasses}
+                        inputMode={stockInputMode}
+                        error={stockProblem(singleStock)}
                       />
-                      {stockDecimalError(singleMinimum) !== null && (
-                        <span id="single-minimum-error" role="alert" className="text-sm text-danger">
-                          {stockDecimalError(singleMinimum)}
-                        </span>
-                      )}
-                    </label>
+                      <StockNumberField
+                        name="product-minimum"
+                        label="Stock mínimo"
+                        hint={stockHint}
+                        ariaLabel="Stock mínimo"
+                        value={singleMinimum}
+                        onChange={setSingleMinimum}
+                        step={stockStep}
+                        inputMode={stockInputMode}
+                        error={stockProblem(singleMinimum)}
+                      />
+                    </div>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-4 border-t border-line pt-4">
                     <label className="flex flex-col gap-1">
                       <span className="text-base font-semibold">
-                        Precio para todas las variantes <span className="font-normal opacity-70">(opcional)</span>
+                        Precio para todas las variantes
                       </span>
                       <PriceInput
                         value={sharedPrice}
@@ -724,65 +807,34 @@ export function ProductFormPage() {
                             setFormData((prev) => prev && { ...prev, attributes: [...prev.attributes, attribute] })
                           }
                         />
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                          <label className="flex flex-col gap-1">
-                            <span className="text-base font-semibold">
-                              Stock actual <span className="font-normal opacity-70">(opcional)</span>
-                            </span>
-                            <input
-                              name={`variant-stock-${draft.key}`}
-                              type="number"
-                              min={0}
-                              step={stockStep}
-                              inputMode={stockAllowsFraction ? 'decimal' : 'numeric'}
-                              value={variantStocks[draft.key] ?? ''}
-                              onChange={(event) =>
-                                setVariantStocks((prev) => ({ ...prev, [draft.key]: event.target.value }))
-                              }
-                              aria-label={`Stock actual de la variante ${index + 1}`}
-                              aria-invalid={stockDecimalError(variantStocks[draft.key] ?? '') !== null || undefined}
-                              aria-describedby={
-                                stockDecimalError(variantStocks[draft.key] ?? '') !== null
-                                  ? `variant-stock-error-${draft.key}`
-                                  : undefined
-                              }
-                              className={inputClasses}
-                            />
-                            {stockDecimalError(variantStocks[draft.key] ?? '') !== null && (
-                              <span id={`variant-stock-error-${draft.key}`} role="alert" className="text-sm text-danger">
-                                {stockDecimalError(variantStocks[draft.key] ?? '')}
-                              </span>
-                            )}
-                          </label>
-                          <label className="flex flex-col gap-1">
-                            <span className="text-base font-semibold">
-                              Stock min. <span className="font-normal opacity-70">(opcional)</span>
-                            </span>
-                            <input
-                              name={`variant-minimum-${draft.key}`}
-                              type="number"
-                              min={0}
-                              step={stockStep}
-                              inputMode={stockAllowsFraction ? 'decimal' : 'numeric'}
-                              value={variantMinimums[draft.key] ?? ''}
-                              onChange={(event) =>
-                                setVariantMinimums((prev) => ({ ...prev, [draft.key]: event.target.value }))
-                              }
-                              aria-label={`Stock min. de la variante ${index + 1}`}
-                              aria-invalid={stockDecimalError(variantMinimums[draft.key] ?? '') !== null || undefined}
-                              aria-describedby={
-                                stockDecimalError(variantMinimums[draft.key] ?? '') !== null
-                                  ? `variant-minimum-error-${draft.key}`
-                                  : undefined
-                              }
-                              className={inputClasses}
-                            />
-                            {stockDecimalError(variantMinimums[draft.key] ?? '') !== null && (
-                              <span id={`variant-minimum-error-${draft.key}`} role="alert" className="text-sm text-danger">
-                                {stockDecimalError(variantMinimums[draft.key] ?? '')}
-                              </span>
-                            )}
-                          </label>
+                        {variantProblems[index] !== null && (
+                          <p role="alert" className="m-0 text-base text-danger">
+                            {variantProblems[index]}
+                          </p>
+                        )}
+                        <div className="grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] items-start gap-3">
+                          <StockNumberField
+                            name={`variant-stock-${draft.key}`}
+                            label="Stock actual"
+                            hint={stockHint}
+                            ariaLabel={`Stock actual de la variante ${index + 1}`}
+                            value={variantStocks[draft.key] ?? ''}
+                            onChange={(value) => setVariantStocks((prev) => ({ ...prev, [draft.key]: value }))}
+                            step={stockStep}
+                            inputMode={stockInputMode}
+                            error={stockProblem(variantStocks[draft.key] ?? '')}
+                          />
+                          <StockNumberField
+                            name={`variant-minimum-${draft.key}`}
+                            label="Stock mínimo"
+                            hint={stockHint}
+                            ariaLabel={`Stock mínimo de la variante ${index + 1}`}
+                            value={variantMinimums[draft.key] ?? ''}
+                            onChange={(value) => setVariantMinimums((prev) => ({ ...prev, [draft.key]: value }))}
+                            step={stockStep}
+                            inputMode={stockInputMode}
+                            error={stockProblem(variantMinimums[draft.key] ?? '')}
+                          />
                         </div>
                         <label className="flex min-h-12 items-center gap-3 text-lg">
                           <input
@@ -800,7 +852,7 @@ export function ProductFormPage() {
                         {variantCustomPrice[draft.key] === true && (
                           <label className="flex flex-col gap-1">
                             <span className="text-base font-semibold">
-                              Precio de esta variante <span className="font-normal opacity-70">(opcional)</span>
+                              Precio de esta variante
                             </span>
                             <PriceInput
                               value={variantPrices[draft.key] ?? ''}
@@ -825,6 +877,10 @@ export function ProductFormPage() {
                   </div>
                 )}
 
+                <p className="m-0 text-base opacity-70">
+                  El precio y el stock son opcionales: podés cargarlos más tarde.
+                </p>
+
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -833,7 +889,7 @@ export function ProductFormPage() {
                   >
                     Atrás
                   </button>
-                  <button type="submit" className={`${primaryButtonClasses} flex-1`}>
+                  <button type="submit" disabled={!step2Valid} className={`${primaryButtonClasses} flex-1`}>
                     Continuar
                   </button>
                 </div>
@@ -862,7 +918,9 @@ export function ProductFormPage() {
                     {presentation !== null && selectedUnit !== undefined && (
                       <div>
                         <p className="m-0 text-sm uppercase tracking-wide opacity-60">Presentación</p>
-                        <p className="m-0 font-bold">{describePresentation(presentation, selectedUnit.abbreviation)}</p>
+                        <p className="m-0 font-bold">
+                          {capitalize(describePresentation(presentation, selectedUnit.abbreviation))}
+                        </p>
                       </div>
                     )}
                     {canViewProviders && (
@@ -890,23 +948,11 @@ export function ProductFormPage() {
                       </div>
                       <div>
                         <p className="m-0 text-sm uppercase tracking-wide opacity-60">Stock actual</p>
-                        <p className="m-0 font-bold">
-                          {singleStock.trim() === ''
-                            ? '—'
-                            : presentation !== null && stockUnit !== null && Number.isFinite(Number(singleStock))
-                              ? formatStock(singleStock, presentation, stockUnit.abbreviation)
-                              : singleStock}
-                        </p>
+                        <p className="m-0 font-bold">{describeStockText(singleStock)}</p>
                       </div>
                       <div>
-                        <p className="m-0 text-sm uppercase tracking-wide opacity-60">Stock min.</p>
-                        <p className="m-0 font-bold">
-                          {singleMinimum.trim() === ''
-                            ? '—'
-                            : presentation !== null && stockUnit !== null && Number.isFinite(Number(singleMinimum))
-                              ? formatStock(singleMinimum, presentation, stockUnit.abbreviation)
-                              : singleMinimum}
-                        </p>
+                        <p className="m-0 text-sm uppercase tracking-wide opacity-60">Stock mínimo</p>
+                        <p className="m-0 font-bold">{describeStockText(singleMinimum)}</p>
                       </div>
                     </div>
                   ) : (
@@ -918,8 +964,8 @@ export function ProductFormPage() {
                             <span>
                               Precio: <span className="font-bold text-brand">${effectiveVariantPrice(draft.key) || '0.00'}</span>
                             </span>
-                            <span>Stock actual: {variantStocks[draft.key]?.trim() ? variantStocks[draft.key] : '—'}</span>
-                            <span>Stock min.: {variantMinimums[draft.key]?.trim() ? variantMinimums[draft.key] : '—'}</span>
+                            <span>Stock actual: {describeStockText(variantStocks[draft.key] ?? '')}</span>
+                            <span>Stock mínimo: {describeStockText(variantMinimums[draft.key] ?? '')}</span>
                           </div>
                         </li>
                       ))}
@@ -928,25 +974,42 @@ export function ProductFormPage() {
                 </div>
 
                 {createError !== null && (
-                  <p role="alert" className="m-0 text-base text-danger">
-                    {createError}
-                  </p>
+                  <div role="alert" className="flex flex-col gap-2 rounded-lg border border-danger p-3">
+                    <p className="m-0 text-base text-danger">{createError.message}</p>
+                    {createError.problem !== null && (
+                      <button
+                        type="button"
+                        onClick={() => goToProblem(createError.problem as ServerProblem)}
+                        className={`${secondaryButtonClasses} self-start`}
+                      >
+                        {createError.problem.buttonLabel}
+                      </button>
+                    )}
+                  </div>
                 )}
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={close}
                     disabled={creating}
-                    className={`${secondaryButtonClasses} flex-1`}
+                    className={`${secondaryButtonClasses} min-w-[7rem] flex-1`}
                   >
                     Cancelar
                   </button>
                   <button
                     type="button"
+                    onClick={goBackFromReview}
+                    disabled={creating}
+                    className={`${secondaryButtonClasses} min-w-[7rem] flex-1`}
+                  >
+                    Atrás
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleConfirmCreate}
                     disabled={creating}
-                    className={`${primaryButtonClasses} flex-1`}
+                    className={`${primaryButtonClasses} min-w-[7rem] flex-1`}
                   >
                     {creating ? 'Creando…' : 'Confirmar'}
                   </button>

@@ -972,9 +972,9 @@ def create_product(
             perform,
         )
     except CategoryNotFound as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Categoria invalida") from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Categoría inválida") from exc
     except UnitNotFound as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Unidad invalida") from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Unidad inválida") from exc
     except InvalidAttributeValue as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except (InvalidCatalogInput, InvalidPresentation, VariantLabelRequired) as exc:
@@ -1072,9 +1072,9 @@ def update_product(
     except ProductNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado") from exc
     except CategoryNotFound as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Categoria invalida") from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Categoría inválida") from exc
     except UnitNotFound as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Unidad invalida") from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Unidad inválida") from exc
     except FractionalStockBlocksUnitChange as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     except (InvalidCatalogInput, InvalidPresentation) as exc:
@@ -1345,7 +1345,7 @@ def create_provider(
     except DuplicateProviderName as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "El proveedor ya existe") from exc
     except CategoryNotFound as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Categoria invalida") from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Categoría inválida") from exc
     except InvalidCatalogInput as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
@@ -1427,7 +1427,7 @@ def set_provider_categories(
     except ProviderNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Proveedor no encontrado") from exc
     except CategoryNotFound as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Categoria invalida") from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Categoría inválida") from exc
 
     return _provider_response(provider)
 

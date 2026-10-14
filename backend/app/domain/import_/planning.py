@@ -380,7 +380,7 @@ def _resolve_row(
             row.errors.append(
                 RowError(
                     VARIANT_LABEL_COLUMN,
-                    "El producto tiene una variante implicita sin nombre: debe nombrarse antes "
+                    "El producto tiene una variante implícita sin nombre: debe nombrarse antes "
                     "de poder agregar otra variante",
                 )
             )

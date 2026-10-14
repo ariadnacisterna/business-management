@@ -82,7 +82,7 @@ test.describe('en computadora', () => {
     await form.getByRole('textbox', { name: 'Cuánto trae cada rollo (en m)' }).fill('50')
     await form.getByRole('button', { name: 'Continuar' }).click()
     await form.getByRole('button', { name: 'Continuar' }).click()
-    await expect(form).toContainText('rollo de 50 m')
+    await expect(form).toContainText('Rollo de 50 m')
     await form.getByRole('button', { name: 'Confirmar' }).click()
     await expect(successToast(page, 'Producto creado correctamente.')).toBeVisible()
 

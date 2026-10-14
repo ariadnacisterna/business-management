@@ -203,7 +203,7 @@ describe('ProductFormPage', () => {
     await user.click(screen.getByRole('button', { name: 'Continuar' }))
 
     await user.type(screen.getByLabelText('Stock actual'), '2.5')
-    await user.type(screen.getByLabelText('Stock min.'), '0.5')
+    await user.type(screen.getByLabelText('Stock mínimo'), '0.5')
     await user.click(screen.getByRole('button', { name: 'Continuar' }))
     await user.click(screen.getByRole('button', { name: 'Confirmar' }))
 
@@ -525,7 +525,7 @@ describe('ProductFormPage', () => {
       await user.type(screen.getByLabelText('Precio para todas las variantes'), '100')
       await user.type(screen.getByLabelText('Stock actual de la variante 1'), '5')
       await user.type(screen.getByLabelText('Stock actual de la variante 2'), '8')
-      await user.type(screen.getByLabelText('Stock min. de la variante 2'), '3')
+      await user.type(screen.getByLabelText('Stock mínimo de la variante 2'), '3')
       await confirmCreation(user)
 
       const stockCalls = callsTo(/\/variants\/\d+\/stock\/adjustments$/, 'POST')
@@ -758,5 +758,252 @@ describe('ProductFormPage', () => {
       '/attributes/2/values',
       expect.objectContaining({ method: 'POST', body: JSON.stringify({ value: 'M' }) }),
     )
+  })
+
+  describe('clarity of the product form', () => {
+    const METRO = { id: 2, name: 'Metro', abbreviation: 'm', allows_fraction: true, status: 'active' }
+    const ROLLO = { id: 3, name: 'Rollo', abbreviation: 'ro', allows_fraction: false, status: 'active' }
+    const CREATED_ROLL_PRODUCT = {
+      product: {
+        id: 9,
+        name: 'Cinta gros',
+        category_id: 1,
+        unit_id: 2,
+        status: 'active',
+        variants: [{ id: 50, product_id: 9, label: null, is_implicit: true, status: 'active', attribute_value_ids: [] }],
+      },
+      possible_duplicates: [],
+    }
+
+    function mockLoadWithUnits(units: unknown[]) {
+      fetchMock
+        .mockResolvedValueOnce(jsonResponse(ADMIN_ACCOUNT))
+        .mockResolvedValueOnce(jsonResponse(CATEGORIES))
+        .mockResolvedValueOnce(jsonResponse(units))
+        .mockResolvedValueOnce(jsonResponse(ATTRIBUTES))
+        .mockResolvedValueOnce(jsonResponse(PROVIDERS))
+        .mockResolvedValueOnce(jsonResponse(EMPTY_PRODUCT_PAGE))
+    }
+
+    async function fillRollStep1(user: ReturnType<typeof userEvent.setup>, unitOption: string) {
+      await user.type(await screen.findByLabelText(/^Nombre \*?$/), 'Cinta gros')
+      await pickOption(user, 'Categoría', 'Mercería')
+      await pickOption(user, 'Unidad', unitOption)
+      await user.click(screen.getByRole('checkbox', { name: /Se compra o se cuenta por presentación/ }))
+      await user.type(screen.getByRole('textbox', { name: 'Nombre en singular' }), 'rollo')
+    }
+
+    function bodyOfCall(path: string) {
+      const call = fetchMock.mock.calls.find((candidate) => candidate[0] === path)
+      return JSON.parse(String((call?.[1] as RequestInit | undefined)?.body))
+    }
+
+    it('explains the difference between unit and presentation in step 1', async () => {
+      mockLoadWithUnits([METRO])
+      renderPage()
+
+      expect(await screen.findByText(/La unidad es cómo se vende \(por ejemplo, metro\)/)).toHaveTextContent(
+        'la presentación: es cómo viene (por ejemplo, rollo de 50 m)',
+      )
+    })
+
+    it('suggests the right combination when the presentation has the same name as the unit', async () => {
+      const user = userEvent.setup()
+      mockLoadWithUnits([METRO, ROLLO])
+      renderPage()
+
+      await fillRollStep1(user, 'Rollo (ro)')
+
+      expect(screen.getByRole('status')).toHaveTextContent('Elegiste "Rollo" como unidad y también como presentación')
+      expect(screen.getByRole('status')).toHaveTextContent('probá con la unidad Metro (m)')
+    })
+
+    it('does not warn when the unit and the presentation are different', async () => {
+      const user = userEvent.setup()
+      mockLoadWithUnits([METRO, ROLLO])
+      renderPage()
+
+      await fillRollStep1(user, 'Metro (m)')
+
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+
+    it('loads initial stock and minimum in whole packs, shows them in the summary and sends them as packs', async () => {
+      const user = userEvent.setup()
+      mockLoadWithUnits([METRO])
+      fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+        if (url === '/products' && init?.method === 'POST') return jsonResponse(CREATED_ROLL_PRODUCT, 201)
+        return jsonResponse({})
+      })
+      renderPage()
+
+      await fillRollStep1(user, 'Metro (m)')
+      await user.type(screen.getByRole('textbox', { name: /Cuánto trae cada rollo/ }), '50')
+      await user.click(screen.getByRole('button', { name: 'Continuar' }))
+
+      expect(await screen.findByRole('radio', { name: 'Rollos' })).toBeChecked()
+      expect(screen.getAllByText('(en rollos)')).toHaveLength(2)
+      await user.type(screen.getByLabelText('Stock actual'), '2')
+      await user.type(screen.getByLabelText('Stock mínimo'), '1')
+      await user.click(screen.getByRole('button', { name: 'Continuar' }))
+
+      expect(screen.getByText('Rollo de 50 m')).toBeInTheDocument()
+      expect(screen.getByText('2 rollos')).toBeInTheDocument()
+      expect(screen.getByText('1 rollo')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+      expect(await screen.findByRole('status')).toHaveTextContent('Producto creado correctamente.')
+      expect(bodyOfCall('/variants/50/stock/adjustments')).toEqual({
+        delta: '2',
+        in_presentations: true,
+        presentation_quantity: '50.000',
+      })
+      expect(bodyOfCall('/variants/50/stock/minimum')).toEqual({
+        minimum_quantity: '1',
+        in_presentations: true,
+        presentation_quantity: '50.000',
+      })
+    })
+
+    it('loads initial stock as loose units in the unit abbreviation', async () => {
+      const user = userEvent.setup()
+      mockLoadWithUnits([METRO])
+      fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+        if (url === '/products' && init?.method === 'POST') return jsonResponse(CREATED_ROLL_PRODUCT, 201)
+        return jsonResponse({})
+      })
+      renderPage()
+
+      await fillRollStep1(user, 'Metro (m)')
+      await user.type(screen.getByRole('textbox', { name: /Cuánto trae cada rollo/ }), '50')
+      await user.click(screen.getByRole('button', { name: 'Continuar' }))
+      await user.click(await screen.findByRole('radio', { name: 'Sueltos (m)' }))
+
+      expect(screen.getAllByText('(en m)')).toHaveLength(2)
+      await user.type(screen.getByLabelText('Stock actual'), '12.5')
+      await user.click(screen.getByRole('button', { name: 'Continuar' }))
+      expect(screen.getByText(/^12[.,]5 m$/)).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+      expect(await screen.findByRole('status')).toHaveTextContent('Producto creado correctamente.')
+      expect(bodyOfCall('/variants/50/stock/adjustments')).toEqual({ delta: '12.500' })
+    })
+
+    it('shows an error next to the stock field and blocks advancing when packs are not whole numbers', async () => {
+      const user = userEvent.setup()
+      mockLoadWithUnits([METRO])
+      renderPage()
+
+      await fillRollStep1(user, 'Metro (m)')
+      await user.type(screen.getByRole('textbox', { name: /Cuánto trae cada rollo/ }), '50')
+      await user.click(screen.getByRole('button', { name: 'Continuar' }))
+      await user.type(await screen.findByLabelText('Stock actual'), '1.5')
+
+      expect(screen.getByRole('alert')).toHaveTextContent('Los rollos se cargan en números enteros.')
+      expect(screen.getByRole('button', { name: 'Continuar' })).toBeDisabled()
+    })
+
+    it('shows next to the variant that it has two values of the same attribute and blocks advancing', async () => {
+      const user = userEvent.setup()
+      mockInitialLoad(fetchMock, ADMIN_ACCOUNT)
+      fetchMock.mockResolvedValueOnce(jsonResponse(EMPTY_PRODUCT_PAGE)).mockResolvedValueOnce(
+        jsonResponse([
+          { id: 1, attribute_id: 1, value: 'Rojo', status: 'active' },
+          { id: 2, attribute_id: 1, value: 'Azul', status: 'active' },
+        ]),
+      )
+      renderPage()
+
+      await fillStep1AndContinue(user, 'Cinta')
+      await user.click(await screen.findByRole('button', { name: 'Producto con variantes' }))
+      await pickOption(user, 'Atributo', 'Color')
+      await pickOption(user, 'Valor', 'Rojo')
+      await user.click(screen.getByRole('button', { name: 'Agregar valor' }))
+      await pickOption(user, 'Valor', 'Azul')
+      await user.click(screen.getByRole('button', { name: 'Agregar valor' }))
+
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Esta variante tiene más de un valor de Color (Rojo y Azul). Dejá uno solo.',
+      )
+      expect(screen.getByRole('button', { name: 'Continuar' })).toBeDisabled()
+
+      await user.click(screen.getByRole('button', { name: 'Quitar Azul' }))
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Continuar' })).toBeEnabled()
+    })
+
+    it('blocks two identical variants and points at the repeated one', async () => {
+      const user = userEvent.setup()
+      mockInitialLoad(fetchMock, ADMIN_ACCOUNT)
+      fetchMock.mockResolvedValueOnce(jsonResponse(EMPTY_PRODUCT_PAGE))
+      renderPage()
+
+      await fillStep1AndContinue(user, 'Cinta')
+      await user.click(await screen.findByRole('button', { name: 'Producto con variantes' }))
+      await user.click(screen.getByRole('button', { name: '+ Agregar variante' }))
+      const labels = screen.getAllByLabelText('Nombre de la variante')
+      await user.type(labels[0], 'Roja')
+      await user.type(labels[1], 'roja')
+
+      expect(screen.getByRole('alert')).toHaveTextContent('Esta variante es igual a la variante 1.')
+      expect(screen.getByRole('button', { name: 'Continuar' })).toBeDisabled()
+    })
+
+    it('goes back from the review step with Atrás without losing what was typed', async () => {
+      const user = userEvent.setup()
+      mockInitialLoad(fetchMock, ADMIN_ACCOUNT)
+      fetchMock.mockResolvedValueOnce(jsonResponse(EMPTY_PRODUCT_PAGE))
+      renderPage()
+
+      await fillStep1AndContinue(user, 'Hilo blanco')
+      await user.type(await screen.findByLabelText('Precio'), '150')
+      await user.click(screen.getByRole('button', { name: 'Continuar' }))
+      await user.click(screen.getByRole('button', { name: 'Atrás' }))
+
+      expect(screen.getByLabelText('Precio')).toHaveValue('150')
+    })
+
+    it('offers a button that takes the user to the variant field when the server rejects the confirmation', async () => {
+      const user = userEvent.setup()
+      mockInitialLoad(fetchMock, ADMIN_ACCOUNT)
+      fetchMock
+        .mockResolvedValueOnce(jsonResponse(EMPTY_PRODUCT_PAGE))
+        .mockResolvedValueOnce(
+          jsonResponse(
+            { detail: 'Una variante no puede tener más de un valor del mismo atributo. Dejá uno solo en cada variante.' },
+            422,
+          ),
+        )
+      renderPage()
+
+      await fillStep1AndContinue(user, 'Cinta')
+      await user.click(await screen.findByRole('button', { name: 'Producto con variantes' }))
+      await user.type(screen.getByLabelText('Nombre de la variante'), 'Roja')
+      await user.click(screen.getByRole('button', { name: 'Continuar' }))
+      await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Una variante no puede tener más de un valor')
+      await user.click(screen.getByRole('button', { name: 'Corregir las variantes' }))
+
+      expect(screen.getByLabelText('Nombre de la variante')).toHaveFocus()
+      expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument()
+    })
+
+    it('takes the user back to the name field when the server says the name is repeated', async () => {
+      const user = userEvent.setup()
+      mockInitialLoad(fetchMock, ADMIN_ACCOUNT)
+      fetchMock
+        .mockResolvedValueOnce(jsonResponse(EMPTY_PRODUCT_PAGE))
+        .mockResolvedValueOnce(jsonResponse({ detail: 'Ya existe un producto con ese nombre.' }, 409))
+      renderPage()
+
+      await fillStep1AndContinue(user, 'Hilo blanco')
+      await user.click(screen.getByRole('button', { name: 'Continuar' }))
+      await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+      await user.click(await screen.findByRole('button', { name: 'Corregir el nombre' }))
+
+      expect(screen.getByLabelText(/^Nombre \*?$/)).toHaveFocus()
+    })
   })
 })

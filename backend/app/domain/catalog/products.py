@@ -92,7 +92,7 @@ def _apply_presentation(
 def _validate_name(name: str) -> str:
     stripped = name.strip()
     if not stripped:
-        raise InvalidCatalogInput("El nombre no puede estar vacio")
+        raise InvalidCatalogInput("El nombre no puede estar vacío")
     return stripped
 
 
@@ -145,10 +145,13 @@ def _resolve_attribute_values(
             or value.status != EntityStatus.ACTIVE.value
             or value.attribute.business_id != business_id
         ):
-            raise InvalidAttributeValue(f"Valor de atributo invalido: {value_id}")
+            raise InvalidAttributeValue(
+                "Uno de los valores elegidos ya no está disponible. Quitalo y elegí otro."
+            )
         if value.attribute_id in seen_attribute_ids:
             raise InvalidAttributeValue(
-                "Una variante no puede tener mas de un valor del mismo atributo"
+                "Una variante no puede tener más de un valor del mismo atributo. "
+                "Dejá uno solo en cada variante."
             )
         seen_attribute_ids.add(value.attribute_id)
         values.append(value)
@@ -169,8 +172,8 @@ def _check_variant_identity(
 ) -> None:
     if total_active_variants > 1 and not label and not attribute_value_ids:
         raise VariantLabelRequired(
-            "El producto tiene mas de una variante: esta necesita un nombre o un atributo que la "
-            "diferencie de las demas"
+            "El producto tiene más de una variante: cada una necesita un nombre o un atributo "
+            "que la diferencie de las demás"
         )
 
     lock_until_commit(db, LockKind.PRODUCT_VARIANTS, product_id)
@@ -432,8 +435,8 @@ def add_variant(
     ]
     if unlabeled_implicit_variants:
         raise ImplicitVariantNeedsLabel(
-            "El producto tiene una variante implicita sin nombre: asignale un nombre con "
-            "update_variant antes de agregar una nueva variante"
+            "El producto tiene una variante implícita sin nombre: asignale un nombre antes de "
+            "agregar una nueva variante"
         )
 
     variant_input = VariantInput(label=label, attribute_value_ids=attribute_value_ids or [])
