@@ -3,8 +3,6 @@ import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react
 import {
   addVariant,
   adjustStock,
-  createCategory,
-  createUnit,
   deactivateProduct,
   deactivateVariant,
   fetchAllStock,
@@ -73,14 +71,14 @@ import { canManageCatalog, canManageSuppliers } from '../access/roles'
 import { AdjustStockModal } from './AdjustStockModal'
 import { ChangePriceModal } from './ChangePriceModal'
 import { DuplicateWarning } from './DuplicateWarning'
+import { NewCategoryDialog } from './NewCategoryDialog'
+import { NewUnitDialog } from './NewUnitDialog'
 import { StagedProductImageField } from './ProductImageField'
 import { VariantAttributesEditor } from './VariantAttributesEditor'
 import type { SelectedAttributeValue } from './VariantAttributesEditor'
 
 const LOAD_ERROR_MESSAGE = 'No se pudo cargar el producto.'
 const SAVE_ERROR_MESSAGE = 'No se pudo guardar. Intentá de nuevo.'
-const CREATE_CATEGORY_ERROR_MESSAGE = 'No se pudo crear la categoría. Intentá de nuevo.'
-const CREATE_UNIT_ERROR_MESSAGE = 'No se pudo crear la unidad. Intentá de nuevo.'
 const CHECK_DUPLICATE_NAME_ERROR_MESSAGE = 'No se pudo verificar si el nombre está repetido. El producto se guardará igual.'
 const REFRESH_STOCK_ERROR_MESSAGE = 'El ajuste de stock se guardó, pero no se pudo actualizar la pantalla. Recargá para ver el stock actual.'
 
@@ -265,12 +263,7 @@ export function ProductDetailPage() {
   }
 
   const [creatingCategory, setCreatingCategory] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [savingNewCategory, setSavingNewCategory] = useState(false)
-
   const [creatingUnit, setCreatingUnit] = useState(false)
-  const [newUnit, setNewUnit] = useState({ name: '', abbreviation: '', allows_fraction: false })
-  const [savingNewUnit, setSavingNewUnit] = useState(false)
 
   const [editingVariantId, setEditingVariantId] = useState<number | null>(null)
   const [variantLabel, setVariantLabel] = useState('')
@@ -457,59 +450,6 @@ export function ProductDetailPage() {
 
   function close() {
     navigate('/products')
-  }
-
-  async function handleCreateCategory() {
-    const trimmed = newCategoryName.trim()
-    if (trimmed === '') return
-
-    setSavingNewCategory(true)
-    try {
-      const created = await createCategory(trimmed)
-      setCategories((prev) => [...prev, created])
-      setProductDraft((prev) => ({ ...prev, categoryId: created.id }))
-      setCreatingCategory(false)
-      setNewCategoryName('')
-      showSuccess('Categoría creada.')
-    } catch (error) {
-      showError(errorMessage(error, CREATE_CATEGORY_ERROR_MESSAGE))
-    } finally {
-      setSavingNewCategory(false)
-    }
-  }
-
-  async function handleCreateUnit() {
-    const trimmedName = newUnit.name.trim()
-    const trimmedAbbreviation = newUnit.abbreviation.trim()
-    if (trimmedName === '' || trimmedAbbreviation === '') return
-
-    setSavingNewUnit(true)
-    try {
-      const created = await createUnit({
-        name: trimmedName,
-        abbreviation: trimmedAbbreviation,
-        allows_fraction: newUnit.allows_fraction,
-      })
-      setUnits((prev) => [...prev, created])
-      setProductDraft((prev) => ({ ...prev, unitId: created.id }))
-      setCreatingUnit(false)
-      setNewUnit({ name: '', abbreviation: '', allows_fraction: false })
-      showSuccess('Unidad creada.')
-    } catch (error) {
-      showError(errorMessage(error, CREATE_UNIT_ERROR_MESSAGE))
-    } finally {
-      setSavingNewUnit(false)
-    }
-  }
-
-  function cancelCreateCategory() {
-    setCreatingCategory(false)
-    setNewCategoryName('')
-  }
-
-  function cancelCreateUnit() {
-    setCreatingUnit(false)
-    setNewUnit({ name: '', abbreviation: '', allows_fraction: false })
   }
 
   const productNameError =
@@ -950,173 +890,29 @@ export function ProductDetailPage() {
                   />
 
                   {creatingCategory && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                      <div
-                        className="absolute inset-0 bg-ink/20"
-                        onClick={cancelCreateCategory}
-                        aria-hidden="true"
-                      />
-                      <Dialog
-                        label="Nueva categoría"
-                        onClose={cancelCreateCategory}
-                        className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
-                      >
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <Breadcrumb segments={['Productos', 'Nueva categoría']} />
-                            </div>
-                            <CloseButton onClose={cancelCreateCategory} />
-                          </div>
-                          <h2 className="m-0 text-2xl font-bold">Nueva categoría</h2>
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                          <label
-                            htmlFor="new-category-name"
-                            className="text-base font-bold uppercase tracking-wide opacity-60"
-                          >
-                            Nombre <span className="text-danger">*</span>
-                          </label>
-                          <input
-                            id="new-category-name"
-                            type="text"
-                            placeholder="Ej: Ropa interior"
-                            value={newCategoryName}
-                            onChange={(event) => setNewCategoryName(event.target.value)}
-                            disabled={savingNewCategory}
-                            autoFocus
-                            className={inputClasses}
-                          />
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                          <span className="text-base font-bold uppercase tracking-wide opacity-60">
-                            Descripción <span className="font-normal normal-case opacity-70">(opcional)</span>
-                          </span>
-                          <p className="m-0 flex min-h-16 items-start rounded-lg border border-line bg-line/10 px-3.5 py-2.5 text-lg italic opacity-40">
-                            Próximamente
-                          </p>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={handleCreateCategory}
-                            disabled={savingNewCategory || newCategoryName.trim() === ''}
-                            className={`${primaryButtonClasses} flex-1`}
-                          >
-                            Crear
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelCreateCategory}
-                            disabled={savingNewCategory}
-                            className={`${secondaryButtonClasses} flex-1`}
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      </Dialog>
-                    </div>
+                    <NewCategoryDialog
+                      breadcrumb={['Productos']}
+                      onClose={() => setCreatingCategory(false)}
+                      onCreated={(created) => {
+                        setCategories((prev) => [...prev, created])
+                        setProductDraft((prev) => ({ ...prev, categoryId: created.id }))
+                        setCreatingCategory(false)
+                        showSuccess('Categoría creada.')
+                      }}
+                    />
                   )}
 
                   {creatingUnit && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                      <div
-                        className="absolute inset-0 bg-ink/20"
-                        onClick={cancelCreateUnit}
-                        aria-hidden="true"
-                      />
-                      <Dialog
-                        label="Nueva unidad"
-                        onClose={cancelCreateUnit}
-                        className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
-                      >
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <Breadcrumb segments={['Productos', 'Nueva unidad']} />
-                            </div>
-                            <CloseButton onClose={cancelCreateUnit} />
-                          </div>
-                          <h2 className="m-0 text-2xl font-bold">Nueva unidad</h2>
-                        </div>
-
-                        <div className="grid grid-cols-[1fr_6rem] gap-3">
-                          <div className="flex flex-col gap-2">
-                            <label
-                              htmlFor="new-unit-name"
-                              className="text-base font-bold uppercase tracking-wide opacity-60"
-                            >
-                              Nombre <span className="text-danger">*</span>
-                            </label>
-                            <input
-                              id="new-unit-name"
-                              type="text"
-                              placeholder="Metro"
-                              value={newUnit.name}
-                              onChange={(event) => setNewUnit((prev) => ({ ...prev, name: event.target.value }))}
-                              disabled={savingNewUnit}
-                              autoFocus
-                              className={inputClasses}
-                            />
-                          </div>
-                          <div className="flex flex-col gap-2">
-                            <label
-                              htmlFor="new-unit-abbreviation"
-                              className="text-base font-bold uppercase tracking-wide opacity-60"
-                            >
-                              Abrev. <span className="text-danger">*</span>
-                            </label>
-                            <input
-                              id="new-unit-abbreviation"
-                              type="text"
-                              placeholder="m"
-                              value={newUnit.abbreviation}
-                              onChange={(event) =>
-                                setNewUnit((prev) => ({ ...prev, abbreviation: event.target.value }))
-                              }
-                              disabled={savingNewUnit}
-                              className={inputClasses}
-                            />
-                          </div>
-                        </div>
-
-                        <label className="flex items-center gap-2 text-base">
-                          <input
-                            name="new-unit-allows-fraction"
-                            type="checkbox"
-                            checked={newUnit.allows_fraction}
-                            onChange={(event) =>
-                              setNewUnit((prev) => ({ ...prev, allows_fraction: event.target.checked }))
-                            }
-                            disabled={savingNewUnit}
-                            className="h-5 w-5 accent-brand"
-                          />
-                          Permite decimales (fraccionable)
-                        </label>
-
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={handleCreateUnit}
-                            disabled={savingNewUnit || newUnit.name.trim() === '' || newUnit.abbreviation.trim() === ''}
-                            className={`${primaryButtonClasses} flex-1`}
-                          >
-                            Crear
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelCreateUnit}
-                            disabled={savingNewUnit}
-                            className={`${secondaryButtonClasses} flex-1`}
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      </Dialog>
-                    </div>
+                    <NewUnitDialog
+                      breadcrumb={['Productos']}
+                      onClose={() => setCreatingUnit(false)}
+                      onCreated={(created) => {
+                        setUnits((prev) => [...prev, created])
+                        setProductDraft((prev) => ({ ...prev, unitId: created.id }))
+                        setCreatingUnit(false)
+                        showSuccess('Unidad creada.')
+                      }}
+                    />
                   )}
 
                   {canViewProviders && (

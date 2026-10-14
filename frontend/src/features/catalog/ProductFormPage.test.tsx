@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -642,43 +642,91 @@ describe('ProductFormPage', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 
-  it('lets the user create a missing category and unit inline while creating a product', async () => {
+  it('creates a category from a dialog and leaves it selected', async () => {
     const user = userEvent.setup()
     mockInitialLoad(fetchMock, ADMIN_ACCOUNT)
-    fetchMock
-      .mockResolvedValueOnce(jsonResponse({ id: 2, name: 'Hilos', status: 'active' }))
-      .mockResolvedValueOnce(
-        jsonResponse({ id: 2, name: 'Metro', abbreviation: 'm', allows_fraction: true, status: 'active' }),
-      )
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 2, name: 'Hilos', status: 'active' }))
 
     renderPage()
 
     await user.click(await screen.findByRole('button', { name: 'Categoría' }))
     await user.click(await screen.findByRole('option', { name: '+ Crear categoría nueva…' }))
-    await user.type(screen.getByLabelText('Nombre de la categoría nueva'), 'Hilos')
-    await user.click(screen.getByRole('button', { name: 'Crear' }))
+    const dialog = screen.getByRole('dialog', { name: 'Nueva categoría' })
+    expect(within(dialog).getByText('Nueva categoría', { selector: 'span' }).parentElement).toHaveTextContent(
+      'Productos › Nuevo producto › Nueva categoría',
+    )
+    await user.type(within(dialog).getByLabelText(/^Nombre/), 'Hilos')
+    await user.click(within(dialog).getByRole('button', { name: 'Crear' }))
 
-    expect(await screen.findByText('Hilos')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Nueva categoría' })).not.toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'Categoría' })).toHaveTextContent('Hilos')
     expect(fetchMock).toHaveBeenCalledWith(
       '/categories',
       expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'Hilos' }) }),
     )
+  })
 
-    await user.click(screen.getByRole('button', { name: 'Unidad' }))
+  it('creates a unit by pressing Enter inside the dialog without submitting the product form', async () => {
+    const user = userEvent.setup()
+    mockInitialLoad(fetchMock, ADMIN_ACCOUNT)
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ id: 2, name: 'Metro', abbreviation: 'm', allows_fraction: true, status: 'active' }),
+    )
+
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Unidad' }))
     await user.click(await screen.findByRole('option', { name: '+ Crear unidad nueva…' }))
-    await user.type(screen.getByLabelText('Nombre de la unidad nueva'), 'Metro')
-    await user.type(screen.getByLabelText('Abreviatura de la unidad nueva'), 'm')
-    await user.click(screen.getByLabelText('Admite fracciones'))
-    await user.click(screen.getByRole('button', { name: 'Crear' }))
+    const dialog = screen.getByRole('dialog', { name: 'Nueva unidad' })
+    await user.type(within(dialog).getByLabelText(/^Nombre/), 'Metro')
+    await user.type(within(dialog).getByLabelText(/^Abreviatura/), 'm')
+    await user.click(within(dialog).getByLabelText('Admite fracciones'))
+    await user.keyboard('{Enter}')
 
-    expect(await screen.findByText('Metro (m)')).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledWith(
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Nueva unidad' })).not.toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'Unidad' })).toHaveTextContent('Metro (m)')
+    expect(screen.queryByText('Elegí una unidad.')).not.toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(6)
+    expect(fetchMock).toHaveBeenLastCalledWith(
       '/units',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ name: 'Metro', abbreviation: 'm', allows_fraction: true }),
       }),
     )
+  })
+
+  it('shows the server error inside the unit dialog and keeps it open', async () => {
+    const user = userEvent.setup()
+    mockInitialLoad(fetchMock, ADMIN_ACCOUNT)
+    fetchMock.mockResolvedValueOnce(jsonResponse({ detail: 'La unidad ya existe' }, 409))
+
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Unidad' }))
+    await user.click(await screen.findByRole('option', { name: '+ Crear unidad nueva…' }))
+    const dialog = screen.getByRole('dialog', { name: 'Nueva unidad' })
+    await user.type(within(dialog).getByLabelText(/^Nombre/), 'Unidad')
+    await user.type(within(dialog).getByLabelText(/^Abreviatura/), 'un')
+    await user.click(within(dialog).getByRole('button', { name: 'Crear' }))
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('La unidad ya existe')
+    expect(screen.getByRole('dialog', { name: 'Nueva unidad' })).toBeInTheDocument()
+  })
+
+  it('closes the unit dialog with Escape without creating anything', async () => {
+    const user = userEvent.setup()
+    mockInitialLoad(fetchMock, ADMIN_ACCOUNT)
+
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Unidad' }))
+    await user.click(await screen.findByRole('option', { name: '+ Crear unidad nueva…' }))
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('dialog', { name: 'Nueva unidad' })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Nuevo producto' })).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(5)
   })
 
   it('lets the user create a missing attribute inline while adding a variant', async () => {

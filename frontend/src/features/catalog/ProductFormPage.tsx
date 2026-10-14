@@ -5,9 +5,7 @@ import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import {
   adjustStock,
-  createCategory,
   createProduct,
-  createUnit,
   fetchAttributes,
   fetchCategories,
   fetchProductsPage,
@@ -33,6 +31,8 @@ import { useScrollbar } from '../../shared/useScrollbar'
 import { useAuth } from '../access/useAuth'
 import { canManageCatalog, canManageSuppliers } from '../access/roles'
 import { DuplicateWarning } from './DuplicateWarning'
+import { NewCategoryDialog } from './NewCategoryDialog'
+import { NewUnitDialog } from './NewUnitDialog'
 import { NewProductImagePicker } from './ProductImageField'
 import { VariantAttributesEditor } from './VariantAttributesEditor'
 import type { SelectedAttributeValue } from './VariantAttributesEditor'
@@ -40,8 +40,6 @@ import type { SelectedAttributeValue } from './VariantAttributesEditor'
 const LOAD_ERROR_MESSAGE = 'No se pudieron cargar los datos necesarios para el formulario.'
 const CREATE_ERROR_MESSAGE = 'No se pudo crear el producto. Intentá de nuevo.'
 const CREATE_SUCCESS_MESSAGE = 'Producto creado correctamente.'
-const CREATE_CATEGORY_ERROR_MESSAGE = 'No se pudo crear la categoría. Intentá de nuevo.'
-const CREATE_UNIT_ERROR_MESSAGE = 'No se pudo crear la unidad. Intentá de nuevo.'
 const IMAGE_UPLOAD_ERROR_MESSAGE = 'El producto se creó, pero no se pudo subir la imagen.'
 const PRICE_SAVE_ERROR_MESSAGE = 'El producto se creó, pero no se pudo guardar el precio inicial.'
 const STOCK_ADJUST_ERROR_MESSAGE = 'El producto se creó, pero no se pudo cargar el stock inicial.'
@@ -169,14 +167,7 @@ export function ProductFormPage() {
   const [imageFile, setImageFile] = useState<File | null>(null)
 
   const [creatingCategory, setCreatingCategory] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [savingNewCategory, setSavingNewCategory] = useState(false)
-  const [newCategoryError, setNewCategoryError] = useState<string | null>(null)
-
   const [creatingUnit, setCreatingUnit] = useState(false)
-  const [newUnit, setNewUnit] = useState({ name: '', abbreviation: '', allows_fraction: false })
-  const [savingNewUnit, setSavingNewUnit] = useState(false)
-  const [newUnitError, setNewUnitError] = useState<string | null>(null)
 
   const [singlePrice, setSinglePrice] = useState('')
   const [singleStock, setSingleStock] = useState('')
@@ -194,49 +185,6 @@ export function ProductFormPage() {
 
   function close() {
     navigate('/products')
-  }
-
-  async function handleCreateCategory() {
-    const trimmed = newCategoryName.trim()
-    if (trimmed === '') return
-
-    setSavingNewCategory(true)
-    setNewCategoryError(null)
-    try {
-      const created = await createCategory(trimmed)
-      setFormData((prev) => prev && { ...prev, categories: [...prev.categories, created] })
-      setCategoryId(created.id)
-      setCreatingCategory(false)
-      setNewCategoryName('')
-    } catch (error) {
-      setNewCategoryError(errorMessage(error, CREATE_CATEGORY_ERROR_MESSAGE))
-    } finally {
-      setSavingNewCategory(false)
-    }
-  }
-
-  async function handleCreateUnit() {
-    const trimmedName = newUnit.name.trim()
-    const trimmedAbbreviation = newUnit.abbreviation.trim()
-    if (trimmedName === '' || trimmedAbbreviation === '') return
-
-    setSavingNewUnit(true)
-    setNewUnitError(null)
-    try {
-      const created = await createUnit({
-        name: trimmedName,
-        abbreviation: trimmedAbbreviation,
-        allows_fraction: newUnit.allows_fraction,
-      })
-      setFormData((prev) => prev && { ...prev, units: [...prev.units, created] })
-      setUnitId(created.id)
-      setCreatingUnit(false)
-      setNewUnit({ name: '', abbreviation: '', allows_fraction: false })
-    } catch (error) {
-      setNewUnitError(errorMessage(error, CREATE_UNIT_ERROR_MESSAGE))
-    } finally {
-      setSavingNewUnit(false)
-    }
   }
 
   function effectiveVariantPrice(key: number) {
@@ -567,46 +515,6 @@ export function ProductFormPage() {
                   </span>
                 )}
 
-                {creatingCategory && (
-                  <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3">
-                    <input
-                      name="new-category-name"
-                      type="text"
-                      aria-label="Nombre de la categoría nueva"
-                      placeholder="Nombre de la categoría"
-                      value={newCategoryName}
-                      onChange={(event) => setNewCategoryName(event.target.value)}
-                      disabled={savingNewCategory}
-                      className={inputClasses}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleCreateCategory}
-                      disabled={savingNewCategory || newCategoryName.trim() === ''}
-                      className={secondaryButtonClasses}
-                    >
-                      Crear
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCreatingCategory(false)
-                        setNewCategoryName('')
-                        setNewCategoryError(null)
-                      }}
-                      disabled={savingNewCategory}
-                      className={secondaryButtonClasses}
-                    >
-                      Cancelar
-                    </button>
-                    {newCategoryError !== null && (
-                      <p role="alert" className="m-0 w-full text-base text-danger">
-                        {newCategoryError}
-                      </p>
-                    )}
-                  </div>
-                )}
-
                 <span className="text-lg font-semibold">
                   Unidad <span className="text-danger">*</span>
                 </span>
@@ -634,69 +542,6 @@ export function ProductFormPage() {
                   <span id="product-unit-error" role="alert" className="-mt-2 text-sm text-danger">
                     {unitError}
                   </span>
-                )}
-
-                {creatingUnit && (
-                  <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3">
-                    <input
-                      name="new-unit-name"
-                      type="text"
-                      aria-label="Nombre de la unidad nueva"
-                      placeholder="Nombre (ej. Kilogramo)"
-                      value={newUnit.name}
-                      onChange={(event) => setNewUnit((prev) => ({ ...prev, name: event.target.value }))}
-                      disabled={savingNewUnit}
-                      className={inputClasses}
-                    />
-                    <input
-                      name="new-unit-abbreviation"
-                      type="text"
-                      aria-label="Abreviatura de la unidad nueva"
-                      placeholder="Abreviatura (ej. kg)"
-                      value={newUnit.abbreviation}
-                      onChange={(event) => setNewUnit((prev) => ({ ...prev, abbreviation: event.target.value }))}
-                      disabled={savingNewUnit}
-                      className={`${inputClasses} w-full sm:w-40`}
-                    />
-                    <label className="flex items-center gap-2 text-base">
-                      <input
-                        name="new-unit-allows-fraction"
-                        type="checkbox"
-                        checked={newUnit.allows_fraction}
-                        onChange={(event) =>
-                          setNewUnit((prev) => ({ ...prev, allows_fraction: event.target.checked }))
-                        }
-                        disabled={savingNewUnit}
-                        className="accent-brand"
-                      />
-                      Admite fracciones
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleCreateUnit}
-                      disabled={savingNewUnit || newUnit.name.trim() === '' || newUnit.abbreviation.trim() === ''}
-                      className={secondaryButtonClasses}
-                    >
-                      Crear
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCreatingUnit(false)
-                        setNewUnit({ name: '', abbreviation: '', allows_fraction: false })
-                        setNewUnitError(null)
-                      }}
-                      disabled={savingNewUnit}
-                      className={secondaryButtonClasses}
-                    >
-                      Cancelar
-                    </button>
-                    {newUnitError !== null && (
-                      <p role="alert" className="m-0 w-full text-base text-danger">
-                        {newUnitError}
-                      </p>
-                    )}
-                  </div>
                 )}
 
                 {stockUnit !== null && (
@@ -1109,6 +954,28 @@ export function ProductFormPage() {
               </div>
             )}
           </div>
+        )}
+        {creatingCategory && (
+          <NewCategoryDialog
+            breadcrumb={['Productos', 'Nuevo producto']}
+            onClose={() => setCreatingCategory(false)}
+            onCreated={(created) => {
+              setFormData((prev) => prev && { ...prev, categories: [...prev.categories, created] })
+              setCategoryId(created.id)
+              setCreatingCategory(false)
+            }}
+          />
+        )}
+        {creatingUnit && (
+          <NewUnitDialog
+            breadcrumb={['Productos', 'Nuevo producto']}
+            onClose={() => setCreatingUnit(false)}
+            onCreated={(created) => {
+              setFormData((prev) => prev && { ...prev, units: [...prev.units, created] })
+              setUnitId(created.id)
+              setCreatingUnit(false)
+            }}
+          />
         )}
         </div>
 
