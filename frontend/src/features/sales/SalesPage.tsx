@@ -1,15 +1,14 @@
 import { useState } from 'react'
 import { NewSalePanel } from './NewSalePanel'
 import { SalesListPanel } from './SalesListPanel'
+import { UnderlineTabs, type UnderlineTab } from '../../shared/UnderlineTabs'
 
 type SalesView = 'new' | 'list'
 
-const VIEW_LABELS: Record<SalesView, string> = {
-  new: 'Nueva venta',
-  list: 'Ventas registradas',
-}
-
-const VIEWS: SalesView[] = ['new', 'list']
+const VIEW_TABS: readonly UnderlineTab<SalesView>[] = [
+  { value: 'new', label: 'Nueva venta' },
+  { value: 'list', label: 'Ventas registradas' },
+]
 
 export function SalesPage() {
   const [view, setView] = useState<SalesView>('new')
@@ -21,20 +20,8 @@ export function SalesPage() {
         <p className="mt-1 text-base opacity-60 lg:text-lg">Registrá lo que se vende en el mostrador.</p>
       </div>
 
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Qué mostrar">
-        {VIEWS.map((item) => (
-          <button
-            key={item}
-            type="button"
-            aria-pressed={view === item}
-            onClick={() => setView(item)}
-            className={`min-h-12 flex-1 rounded-lg border-2 px-4 text-lg font-bold transition-colors sm:flex-none ${
-              view === item ? 'border-brand bg-brand text-brand-contrast' : 'border-line bg-surface hover:bg-surface-brand'
-            }`}
-          >
-            {VIEW_LABELS[item]}
-          </button>
-        ))}
+      <div>
+        <UnderlineTabs tabs={VIEW_TABS} value={view} onChange={setView} />
       </div>
 
       <div hidden={view !== 'new'}>

@@ -28,6 +28,7 @@ import { DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
 import { evaluateMinimumEntry, evaluateStockEntry, formatStock, formatStockDifference } from '../../shared/presentation'
 import type { StockEntry, StockEntryMode, StockEntryRequest } from '../../shared/presentation'
 import { StockModeToggle } from '../../shared/StockModeToggle'
+import { UnderlineTabs } from '../../shared/UnderlineTabs'
 import { formatQuantity } from '../../shared/formatQuantity'
 import { STOCK_STATUS_LABELS, stockStatusClasses, stockStatusTextColor } from '../../shared/stockStatus'
 import { useLatestRequest } from '../../shared/useLatestRequest'
@@ -1026,6 +1027,11 @@ function StockTab({
 }
 
 type InventoryTab = 'stock' | 'faltantes'
+
+const INVENTORY_TABS: readonly { value: InventoryTab; label: string }[] = [
+  { value: 'stock', label: 'Stock' },
+  { value: 'faltantes', label: 'Faltantes' },
+]
 type ShortageStatusFilter = 'pending' | 'faltante' | 'pedido' | 'recibido'
 type ShortageGroupBy = 'none' | 'category' | 'provider'
 
@@ -1348,33 +1354,6 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
   )
 }
 
-function InventoryTabs({ tab, onChange }: { tab: InventoryTab; onChange: (tab: InventoryTab) => void }) {
-  return (
-    <div className="flex gap-2 border-b border-line">
-      <button
-        type="button"
-        onClick={() => onChange('stock')}
-        aria-pressed={tab === 'stock'}
-        className={`min-h-12 px-4 text-lg font-semibold transition-colors ${
-          tab === 'stock' ? 'border-b-2 border-brand text-brand' : 'text-ink/50 hover:text-ink'
-        }`}
-      >
-        Stock
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange('faltantes')}
-        aria-pressed={tab === 'faltantes'}
-        className={`min-h-12 px-4 text-lg font-semibold transition-colors ${
-          tab === 'faltantes' ? 'border-b-2 border-brand text-brand' : 'text-ink/50 hover:text-ink'
-        }`}
-      >
-        Faltantes
-      </button>
-    </div>
-  )
-}
-
 export function InventoryPage() {
   const { account } = useAuth()
   const canManage = canManageCatalog(account)
@@ -1422,7 +1401,7 @@ export function InventoryPage() {
       </div>
 
       <div>
-        <InventoryTabs tab={tab} onChange={setTab} />
+        <UnderlineTabs tabs={INVENTORY_TABS} value={tab} onChange={setTab} />
       </div>
 
       {tab === 'stock' && canManage && status === 'success' && summary.total > 0 && summary.sinStock > 0 && !bannerDismissed && (
