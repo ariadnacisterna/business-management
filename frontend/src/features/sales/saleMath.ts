@@ -33,6 +33,13 @@ export function quantityProblem(quantity: string, allowsFraction: boolean): stri
   return null
 }
 
+export function stepQuantity(quantity: string, delta: number): string | null {
+  if (quantityProblem(quantity, true) !== null) return null
+  const next = toUnits('stock', quantity) + delta * STOCK_SCALE
+  if (next <= 0) return null
+  return String(next / STOCK_SCALE)
+}
+
 export function discountProblem(discount: string, subtotalCents: number): string | null {
   if (discount.trim() === '') return null
   if (!DISCOUNT_PATTERN.test(discount)) return 'Usá como máximo 2 decimales.'

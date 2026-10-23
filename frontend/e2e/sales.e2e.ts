@@ -39,6 +39,20 @@ test('un Empleado registra una venta en efectivo y baja el stock', async ({ page
   await expect(page.getByRole('button', { name: 'Agregar Sacapuntas doble' })).toContainText('Stock: 18 u')
 })
 
+test('tocar una tarjeta dos veces suma uno y el descuento baja el total', async ({ page }) => {
+  await login(page, 'empleada')
+  await page.goto('/ventas')
+
+  await page.getByRole('textbox', { name: 'Buscar producto para vender' }).fill('Sacapuntas doble')
+  await page.getByRole('button', { name: 'Agregar Sacapuntas doble' }).click()
+  await page.getByRole('button', { name: 'Agregar Sacapuntas doble' }).click()
+  await expect(page.getByRole('textbox', { name: 'Cantidad de Sacapuntas doble' })).toHaveValue('2')
+  await page.getByRole('textbox', { name: 'Descuento' }).fill('100')
+  await expect(page.getByLabel('Total de la venta')).toHaveText('$600,00')
+  await page.getByRole('button', { name: 'Vaciar ticket' }).click()
+  await expect(page.getByLabel('Total de la venta')).toHaveText('$0,00')
+})
+
 test('una venta en fiado suma al saldo del cliente', async ({ page }) => {
   await login(page, 'empleada')
   await page.goto('/ventas')

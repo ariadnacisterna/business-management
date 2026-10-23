@@ -118,11 +118,16 @@ describe('SalesPage', () => {
 
     await user.type(screen.getByRole('textbox', { name: 'Buscar producto para vender' }), 'cinta')
     await user.click(await screen.findByRole('button', { name: 'Agregar Cinta de raso' }))
-    const quantity = screen.getByRole('textbox', { name: 'Cantidad de Cinta de raso' })
+    await user.click(screen.getByRole('button', { name: 'Agregar Cinta de raso' }))
+    expect(screen.getByRole('textbox', { name: 'Cantidad de Cinta de raso' })).toHaveValue('2')
+    await user.click(screen.getByRole('button', { name: 'Restar uno a Cinta de raso' }))
+    await user.click(screen.getByRole('button', { name: 'Sumar uno a Cinta de raso' }))
+    const quantity =screen.getByRole('textbox', { name: 'Cantidad de Cinta de raso' })
     await user.clear(quantity)
     await user.type(quantity, '3')
 
     expect(screen.getByText(/Hay 2 m en stock/)).toBeInTheDocument()
+    expect(screen.getByText(/algún producto supera el stock/)).toBeInTheDocument()
     expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$900,00')
 
     await user.click(screen.getByRole('button', { name: 'Fiado' }))
@@ -160,6 +165,14 @@ describe('SalesPage', () => {
 
     expect(screen.getByText('El descuento no puede ser mayor que el total.')).toBeInTheDocument()
     expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$300,00')
+
+    await user.clear(screen.getByRole('textbox', { name: 'Descuento' }))
+    await user.type(screen.getByRole('textbox', { name: 'Descuento' }), '50')
+    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$250,00')
+
+    await user.click(screen.getByRole('button', { name: 'Vaciar ticket' }))
+    expect(screen.getByText('Todavía no agregaste productos.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$0,00')
   })
 
   it('lets a Gerente void a sale with a reason', async () => {
