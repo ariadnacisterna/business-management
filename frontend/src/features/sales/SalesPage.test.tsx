@@ -107,6 +107,27 @@ describe('SalesPage', () => {
     vi.stubGlobal('fetch', vi.fn())
   })
 
+  it('shows product cards only after searching and returns to the prompt when the search is cleared', async () => {
+    const user = userEvent.setup()
+    routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+    })
+    renderPage(EMPLEADO)
+
+    expect(await screen.findByText('Escribí el nombre del producto para buscarlo.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Agregar Cinta de raso' })).not.toBeInTheDocument()
+
+    const search = screen.getByRole('textbox', { name: 'Buscar producto para vender' })
+    await user.type(search, 'cinta')
+    expect(await screen.findByRole('button', { name: 'Agregar Cinta de raso' })).toBeInTheDocument()
+    expect(screen.queryByText('Escribí el nombre del producto para buscarlo.')).not.toBeInTheDocument()
+
+    await user.clear(search)
+    expect(await screen.findByText('Escribí el nombre del producto para buscarlo.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Agregar Cinta de raso' })).not.toBeInTheDocument()
+  })
+
   it('adds a product, warns about the stock and registers a fiado sale', async () => {
     const user = userEvent.setup()
     const fetchMock = routeFetch({

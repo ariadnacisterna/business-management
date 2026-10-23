@@ -179,7 +179,6 @@ export function NewSalePanel() {
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_28rem]">
         <section className="flex flex-col gap-4" aria-label="Productos">
-          <h2 className="m-0 text-2xl font-bold">Buscar producto</h2>
           {variantsLoad.status === 'error' ? (
             <LoadErrorCard message="No se pudieron cargar los productos." onRetry={variantsLoad.reload} />
           ) : (
@@ -191,48 +190,53 @@ export function NewSalePanel() {
               className="[&_input]:h-14 [&_input]:text-xl"
             />
           )}
-          {shownResults.length > 0 && (
-            <ul
-              className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 2xl:grid-cols-3"
-              aria-label="Resultados de la búsqueda"
-            >
-              {shownResults.map((variant) => {
-                const inTicket = lines.some((line) => line.variant.variant_id === variant.variant_id)
-                return (
-                  <li key={variant.variant_id} className="flex">
-                    <button
-                      type="button"
-                      onClick={() => addVariant(variant)}
-                      aria-label={`Agregar ${displayName(variant)}`}
-                      className={`flex w-full flex-col gap-2 rounded-xl border bg-surface p-4 text-left transition-colors hover:bg-surface-brand ${
-                        inTicket ? 'border-2 border-brand' : 'border-line'
-                      }`}
-                    >
-                      <span className="text-xl font-bold leading-tight [overflow-wrap:anywhere]">
-                        {variant.product_name}
-                      </span>
-                      <span className="min-h-7 text-lg opacity-60 [overflow-wrap:anywhere]">
-                        {variantDescription(variant)}
-                      </span>
-                      <span className="text-2xl font-bold text-brand">${formatAmount(variant.price_amount)}</span>
-                      <span className="border-t border-line pt-2 text-lg">
-                        Stock: {formatStock(variant.quantity, variant.presentation, variant.unit_abbreviation)}
-                      </span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
+          {search.trim() === '' ? (
+            <p className="m-0 text-2xl font-semibold opacity-60">Escribí el nombre del producto para buscarlo.</p>
+          ) : (
+            <>
+              {shownResults.length > 0 && (
+                <ul
+                  className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 2xl:grid-cols-3"
+                  aria-label="Resultados de la búsqueda"
+                >
+                  {shownResults.map((variant) => {
+                    const inTicket = lines.some((line) => line.variant.variant_id === variant.variant_id)
+                    return (
+                      <li key={variant.variant_id} className="flex">
+                        <button
+                          type="button"
+                          onClick={() => addVariant(variant)}
+                          aria-label={`Agregar ${displayName(variant)}`}
+                          className={`flex w-full flex-col gap-2 rounded-xl border bg-surface p-4 text-left transition-colors hover:bg-surface-brand ${
+                            inTicket ? 'border-2 border-brand' : 'border-line'
+                          }`}
+                        >
+                          <span className="text-xl font-bold leading-tight [overflow-wrap:anywhere]">
+                            {variant.product_name}
+                          </span>
+                          <span className="min-h-7 text-lg opacity-60 [overflow-wrap:anywhere]">
+                            {variantDescription(variant)}
+                          </span>
+                          <span className="text-2xl font-bold text-brand">${formatAmount(variant.price_amount)}</span>
+                          <span className="border-t border-line pt-2 text-lg">
+                            Stock: {formatStock(variant.quantity, variant.presentation, variant.unit_abbreviation)}
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+              {searchResults.length > MAX_SEARCH_RESULTS && (
+                <p className="m-0 text-lg opacity-70">Escribí más del nombre para ver el resto de los productos.</p>
+              )}
+              {variantsLoad.status === 'success' && variants.length > 0 && searchResults.length === 0 && (
+                <p className="m-0 text-lg opacity-70">No hay productos con precio que coincidan con la búsqueda.</p>
+              )}
+            </>
           )}
-          {searchResults.length > MAX_SEARCH_RESULTS && (
-            <p className="m-0 text-lg opacity-70">Escribí más del nombre para ver el resto de los productos.</p>
-          )}
-          {variantsLoad.status === 'success' && searchResults.length === 0 && (
-            <p className="m-0 text-lg opacity-70">
-              {search.trim() === ''
-                ? 'No hay productos con precio para vender.'
-                : 'No hay productos con precio que coincidan con la búsqueda.'}
-            </p>
+          {variantsLoad.status === 'success' && variants.length === 0 && (
+            <p className="m-0 text-lg opacity-70">No hay productos con precio para vender.</p>
           )}
         </section>
 
@@ -362,7 +366,7 @@ export function NewSalePanel() {
                   onClick={() => choosePaymentMethod(method)}
                   className={`min-h-14 rounded-lg border-2 px-3 text-xl font-bold transition-colors ${
                     paymentMethod === method
-                      ? 'border-brand bg-brand text-brand-contrast'
+                      ? 'border-brand bg-surface-brand text-brand'
                       : 'border-line hover:bg-surface-brand'
                   }`}
                 >
