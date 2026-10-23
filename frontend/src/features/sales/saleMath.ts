@@ -57,6 +57,28 @@ export function discountCents(discount: string): number {
   return toUnits('price', discount)
 }
 
+export function sanitizePercent(raw: string): string {
+  const [whole, ...rest] = raw.replace(/,/g, '.').replace(/[^\d.]/g, '').split('.')
+  return rest.length > 0 ? `${whole}.${rest.join('').slice(0, 2)}` : whole
+}
+
+export function percentProblem(percent: string): string | null {
+  if (percent.trim() === '') return null
+  if (!DISCOUNT_PATTERN.test(percent)) return 'Escribí un porcentaje entre 0 y 100.'
+  if (Number(percent) > 100) return 'El descuento no puede ser mayor al 100%.'
+  return null
+}
+
+export function percentFromCents(cents: number, subtotalCents: number): string {
+  if (subtotalCents <= 0) return ''
+  return String(Math.round((cents * 10000) / subtotalCents) / 100)
+}
+
+export function percentDiscountCents(percent: string, subtotalCents: number): number {
+  if (percent.trim() === '' || percentProblem(percent) !== null) return 0
+  return Math.round((subtotalCents * Number(percent)) / 100)
+}
+
 export function centsToAmount(cents: number): string {
   return (cents / CENTS_PER_UNIT).toFixed(2)
 }

@@ -49,10 +49,31 @@ test('tocar una tarjeta dos veces suma uno y el descuento baja el total', async 
   await page.getByRole('button', { name: 'Agregar Sacapuntas doble' }).click()
   await page.getByRole('button', { name: 'Agregar Sacapuntas doble' }).click()
   await expect(page.getByRole('textbox', { name: 'Cantidad de Sacapuntas doble' })).toHaveValue('2')
-  await page.getByRole('textbox', { name: 'Descuento' }).fill('100')
+  await page.getByRole('textbox', { name: 'Descuento en pesos' }).fill('100')
   await expect(page.getByLabel('Total de la venta')).toHaveText('$600,00')
   await page.getByRole('button', { name: 'Vaciar ticket' }).click()
   await expect(page.getByText('El ticket está vacío. Buscá un producto para agregar.')).toBeVisible()
+})
+
+test('con ventas registradas, Ventas muestra los filtros', async ({ page }) => {
+  await login(page, 'empleada')
+  await page.goto('/ventas')
+  await page.getByRole('button', { name: 'Ventas registradas' }).click()
+  await expect(page.getByText('Desde', { exact: true })).toBeVisible()
+  await expect(page.getByText('Todavía no hay ventas registradas.')).toHaveCount(0)
+})
+
+test('el descuento en porcentaje se calcula sobre el total', async ({ page }) => {
+  await login(page, 'empleada')
+  await page.goto('/ventas')
+
+  await page.getByRole('textbox', { name: 'Buscar producto para vender' }).fill('Sacapuntas doble')
+  await page.getByRole('button', { name: 'Agregar Sacapuntas doble' }).click()
+  await page.getByRole('button', { name: 'Agregar Sacapuntas doble' }).click()
+  await expect(page.getByLabel('Total de la venta')).toHaveText('$700,00')
+  await page.getByRole('textbox', { name: 'Descuento en porcentaje' }).fill('10')
+  await expect(page.getByRole('textbox', { name: 'Descuento en pesos' })).toHaveValue('70.00')
+  await expect(page.getByLabel('Total de la venta')).toHaveText('$630,00')
 })
 
 test('una venta en fiado suma al saldo del cliente', async ({ page }) => {

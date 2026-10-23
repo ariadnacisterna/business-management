@@ -147,7 +147,6 @@ describe('SalesPage', () => {
     await user.type(quantity, '3')
 
     expect(screen.getByText(/Hay 2 m en stock/)).toBeInTheDocument()
-    expect(screen.getByText(/algún producto supera el stock/)).toBeInTheDocument()
     expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$900,00')
 
     await user.click(screen.getByRole('button', { name: 'Fiado' }))
@@ -171,6 +170,78 @@ describe('SalesPage', () => {
     })
   })
 
+  it('shows an empty state without filters when there are no sales yet and opens the new sale tab from it', async () => {
+    const user = userEvent.setup()
+    routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+      'GET /sales': () => jsonResponse({ items: [], total: 0, page: 1, page_size: 25 }),
+    })
+    renderPage(EMPLEADO)
+
+    await user.click(screen.getByRole('button', { name: 'Ventas registradas' }))
+    expect(await screen.findByText('Todavía no hay ventas registradas.')).toBeInTheDocument()
+    expect(screen.queryByText('Desde')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Registrar una venta' }))
+    expect(screen.getByRole('textbox', { name: 'Buscar producto para vender' })).toBeVisible()
+  })
+
+  it('shows the filters and a no-results message when the filters find no sales', async () => {
+    const user = userEvent.setup()
+    let salesCalls = 0
+    routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+      'GET /sales': () => {
+        salesCalls += 1
+        return salesCalls === 1
+          ? jsonResponse({ items: [SALE], total: 1, page: 1, page_size: 25 })
+          : jsonResponse({ items: [], total: 0, page: 1, page_size: 25 })
+      },
+    })
+    renderPage(EMPLEADO)
+
+    await user.click(screen.getByRole('button', { name: 'Ventas registradas' }))
+    expect(await screen.findByText('Desde')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Filtrar por forma de pago' }))
+    await user.click(await screen.findByRole('option', { name: 'Transferencia' }))
+    expect(await screen.findByText('No hay ventas con esos filtros.')).toBeInTheDocument()
+  })
+
+  it('applies a percentage discount and sends the amount in pesos', async () => {
+    const user = userEvent.setup()
+    const fetchMock = routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+      'POST /sales': () => jsonResponse(SALE, 201),
+    })
+    renderPage(EMPLEADO)
+
+    await user.type(screen.getByRole('textbox', { name: 'Buscar producto para vender' }), 'cinta')
+    await user.click(await screen.findByRole('button', { name: 'Agregar Cinta de raso' }))
+    const percent = screen.getByRole('textbox', { name: 'Descuento en porcentaje' })
+    await user.type(percent, '10')
+
+    expect(screen.getByRole('textbox', { name: 'Descuento en pesos' })).toHaveValue('30.00')
+    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$270,00')
+
+    await user.clear(percent)
+    await user.type(percent, '101')
+    expect(screen.getByText('El descuento no puede ser mayor al 100%.')).toBeInTheDocument()
+
+    await user.clear(percent)
+    await user.type(percent, '10')
+    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
+    await user.click(within(screen.getByRole('alertdialog', { name: 'Registrar venta' })).getByRole('button', { name: 'Registrar' }))
+
+    expect(await screen.findByText(/registrada\./)).toBeInTheDocument()
+    const postInit = fetchMock.mock.calls
+      .map(([, init]) => init as RequestInit | undefined)
+      .find((init) => init?.method === 'POST')
+    expect(JSON.parse(String(postInit?.body)).discount).toBe('30.00')
+  })
+
   it('does not let a discount go over the total', async () => {
     const user = userEvent.setup()
     routeFetch({
@@ -181,13 +252,13 @@ describe('SalesPage', () => {
 
     await user.type(screen.getByRole('textbox', { name: 'Buscar producto para vender' }), 'cinta')
     await user.click(await screen.findByRole('button', { name: 'Agregar Cinta de raso' }))
-    await user.type(screen.getByRole('textbox', { name: 'Descuento' }), '301')
+    await user.type(screen.getByRole('textbox', { name: 'Descuento en pesos' }), '301')
 
     expect(screen.getByText('El descuento no puede ser mayor que el total.')).toBeInTheDocument()
     expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$300,00')
 
-    await user.clear(screen.getByRole('textbox', { name: 'Descuento' }))
-    await user.type(screen.getByRole('textbox', { name: 'Descuento' }), '50')
+    await user.clear(screen.getByRole('textbox', { name: 'Descuento en pesos' }))
+    await user.type(screen.getByRole('textbox', { name: 'Descuento en pesos' }), '50')
     expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$250,00')
 
     await user.click(screen.getByRole('button', { name: 'Vaciar ticket' }))

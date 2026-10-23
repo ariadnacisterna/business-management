@@ -20,9 +20,13 @@ import {
   exceedsStock,
   lineTotalCents,
   matchesSearch,
+  percentDiscountCents,
+  percentFromCents,
+  percentProblem,
   PAYMENT_METHOD_LABELS,
   PAYMENT_METHODS,
   quantityProblem,
+  sanitizePercent,
   sanitizeQuantity,
   stepQuantity,
   variantDescription,
@@ -43,6 +47,8 @@ interface CartLine {
   quantity: string
 }
 
+type DiscountMode = 'pesos' | 'percent'
+
 function displayName(variant: SellableVariant): string {
   const description = variantDescription(variant)
   return description ? `${variant.product_name} (${description})` : variant.product_name
@@ -62,6 +68,7 @@ export function NewSalePanel() {
   const [search, setSearch] = useState('')
   const [lines, setLines] = useState<CartLine[]>([])
   const [discount, setDiscount] = useState('')
+  const [discountMode, setDiscountMode] = useState<DiscountMode>('pesos')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('efectivo')
   const [customerId, setCustomerId] = useState('')
   const [attempted, setAttempted] = useState(false)
@@ -77,12 +84,18 @@ export function NewSalePanel() {
   const activeCustomers = (customersLoad.data ?? []).filter((customer) => customer.status === 'active')
 
   const subtotalCents = lines.reduce((sum, line) => sum + lineTotalCents(line.quantity, line.variant.price_amount), 0)
-  const discountError = discountProblem(discount, subtotalCents)
-  const totalCents = subtotalCents - (discountError === null ? discountCents(discount) : 0)
+  const discountError = discountMode === 'pesos' ? discountProblem(discount, subtotalCents) : percentProblem(discount)
+  const discountAppliedCents =
+    discountError !== null
+      ? 0
+      : discountMode === 'pesos'
+        ? discountCents(discount)
+        : percentDiscountCents(discount, subtotalCents)
+  const totalCents = subtotalCents - discountAppliedCents
+  const otherFieldCents = discountError === null && discount.trim() !== '' ? discountAppliedCents : 0
+  const pesosText = discountMode === 'pesos' ? discount : discount.trim() === '' || discountError !== null ? '' : centsToAmount(otherFieldCents)
+  const percentText = discountMode === 'percent' ? discount : discount.trim() === '' || discountError !== null ? '' : percentFromCents(otherFieldCents, subtotalCents)
   const lineErrors = lines.map((line) => quantityProblem(line.quantity, line.variant.unit_allows_fraction))
-  const anyShort = lines.some(
-    (line, index) => lineErrors[index] === null && exceedsStock(line.quantity, line.variant.quantity),
-  )
   const customerError = paymentMethod === 'fiado' && customerId === '' ? 'Para vender en fiado elegí el cliente.' : null
   const emptyError = lines.length === 0 ? 'Agregá al menos un producto.' : null
   const canConfirm = emptyError === null && discountError === null && customerError === null && lineErrors.every((error) => error === null)
@@ -125,6 +138,7 @@ export function NewSalePanel() {
   function clearTicket() {
     setLines([])
     setDiscount('')
+    setDiscountMode('pesos')
     setPaymentMethod('efectivo')
     setCustomerId('')
     setAttempted(false)
@@ -132,6 +146,16 @@ export function NewSalePanel() {
 
   function showTicket() {
     ticketRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }
+
+  function changePesos(value: string) {
+    setDiscountMode('pesos')
+    setDiscount(value)
+  }
+
+  function changePercent(raw: string) {
+    setDiscountMode('percent')
+    setDiscount(sanitizePercent(raw))
   }
 
   function choosePaymentMethod(method: PaymentMethod) {
@@ -150,7 +174,7 @@ export function NewSalePanel() {
         lines: lines.map((line) => ({ variant_id: line.variant.variant_id, quantity: line.quantity })),
         payment_method: paymentMethod,
         customer_id: paymentMethod === 'fiado' ? Number(customerId) : undefined,
-        discount: discount.trim() === '' ? '0' : discount,
+        discount: discountAppliedCents === 0 ? '0' : centsToAmount(discountAppliedCents),
       })
       setConfirming(false)
       clearTicket()
@@ -177,8 +201,8 @@ export function NewSalePanel() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-        <section className="flex flex-col gap-4 rounded-2xl bg-surface p-4 shadow-sm" aria-label="Productos">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-x-8">
+        <section className="flex flex-col gap-4 rounded-2xl bg-surface p-3 shadow-sm" aria-label="Productos">
           <h2 className="m-0 text-2xl font-bold">Buscar producto</h2>
           {variantsLoad.status === 'error' ? (
             <LoadErrorCard message="No se pudieron cargar los productos." onRetry={variantsLoad.reload} />
@@ -206,19 +230,21 @@ export function NewSalePanel() {
                           type="button"
                           onClick={() => addVariant(variant)}
                           aria-label={`Agregar ${displayName(variant)}`}
-                          className={`flex w-full flex-col gap-2 rounded-xl border bg-surface p-4 text-left transition-colors hover:bg-surface-brand ${
+                          className={`flex h-full w-full flex-col gap-2 rounded-xl border bg-surface p-3 text-left transition-colors hover:bg-surface-brand ${
                             inTicket ? 'border-2 border-brand' : 'border-line'
                           }`}
                         >
                           <span className="text-xl font-bold leading-tight [overflow-wrap:anywhere]">
                             {variant.product_name}
                           </span>
-                          <span className="min-h-7 text-lg opacity-60 [overflow-wrap:anywhere]">
+                          <span className="text-lg opacity-60 [overflow-wrap:anywhere]">
                             {variantDescription(variant)}
                           </span>
-                          <span className="text-2xl font-bold text-brand">${formatAmount(variant.price_amount)}</span>
-                          <span className="border-t border-line pt-2 text-lg">
-                            Stock: {formatStock(variant.quantity, variant.presentation, variant.unit_abbreviation)}
+                          <span className="mt-auto flex flex-col gap-2">
+                            <span className="text-2xl font-bold text-brand">${formatAmount(variant.price_amount)}</span>
+                            <span className="border-t border-line pt-2 text-lg">
+                              Stock: {formatStock(variant.quantity, variant.presentation, variant.unit_abbreviation)}
+                            </span>
                           </span>
                         </button>
                       </li>
@@ -262,32 +288,47 @@ export function NewSalePanel() {
               {emptyError}
             </p>
           )}
-          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+          <ul className="m-0 flex list-none flex-col p-0">
             {lines.map((line, index) => {
               const name = displayName(line.variant)
               const description = variantDescription(line.variant)
               const error = lineErrors[index]
               return (
-                <li key={line.variant.variant_id} className="flex flex-col gap-2 rounded-xl border border-line p-3">
+                <li key={line.variant.variant_id} className="flex flex-col gap-2 border-b border-line py-3 last:border-b-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="m-0 text-xl font-bold leading-tight [overflow-wrap:anywhere]">
                         {line.variant.product_name}
                       </p>
-                      {description !== '' && (
-                        <p className="m-0 text-lg opacity-60 [overflow-wrap:anywhere]">{description}</p>
-                      )}
+                      <p className="m-0 text-lg opacity-60 [overflow-wrap:anywhere]">
+                        {[description, `$${formatAmount(line.variant.price_amount)} c/u`]
+                          .filter((part) => part !== '')
+                          .join(' · ')}
+                      </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => removeLine(line.variant.variant_id)}
                       aria-label={`Quitar ${name}`}
-                      className="min-h-12 shrink-0 rounded-lg border border-line px-3 text-lg font-semibold text-danger transition-colors hover:bg-danger/10"
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-danger transition-colors hover:bg-danger/10"
                     >
-                      Quitar
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-6 w-6"
+                      >
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4h8v2" />
+                        <path d="M6 6l1 14h10l1-14" />
+                      </svg>
                     </button>
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
@@ -303,7 +344,7 @@ export function NewSalePanel() {
                         inputMode={line.variant.unit_allows_fraction ? 'decimal' : 'numeric'}
                         aria-label={`Cantidad de ${name}`}
                         aria-invalid={error !== null || undefined}
-                        className="h-12 w-20 rounded-lg border border-line bg-surface px-2 text-center text-xl font-bold focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
+                        className="h-12 w-16 rounded-lg border border-line bg-surface px-2 text-center text-xl font-bold focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
                       />
                       <button
                         type="button"
@@ -315,7 +356,7 @@ export function NewSalePanel() {
                       </button>
                       <span className="text-lg">{line.variant.unit_abbreviation}</span>
                     </div>
-                    <span className="ml-auto text-2xl font-bold">
+                    <span className="text-xl font-bold text-brand">
                       {money(lineTotalCents(line.quantity, line.variant.price_amount))}
                     </span>
                   </div>
@@ -335,33 +376,54 @@ export function NewSalePanel() {
             })}
           </ul>
 
-          {anyShort && (
-            <p role="status" className="m-0 rounded-lg border-2 border-warning bg-warning/10 p-3 text-lg font-semibold">
-              Atención: algún producto supera el stock disponible.
-            </p>
-          )}
-
-          <label className="flex flex-col gap-1.5">
-            <span className="text-lg font-semibold">Descuento sobre el total (opcional)</span>
-            <PriceInput
-              value={discount}
-              onChange={setDiscount}
-              placeholder="0"
-              ariaLabel="Descuento"
-              className={`${inputClasses} pl-8`}
-            />
-          </label>
+          <div className="flex flex-col gap-4 border-t border-line pt-4">
+            <div className="flex items-baseline justify-between gap-2 text-lg">
+              <span className="font-semibold">Subtotal</span>
+              <span>{money(subtotalCents)}</span>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-lg font-semibold">Descuento sobre el total (opcional)</span>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <span className="text-lg">En $</span>
+                <PriceInput
+                  value={pesosText}
+                  onChange={changePesos}
+                  placeholder="0"
+                  ariaLabel="Descuento en pesos"
+                  className={`${inputClasses} pl-8`}
+                />
+              </div>
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <span className="text-lg">En %</span>
+                <div className="relative">
+                  <input
+                    value={percentText}
+                    onChange={(event) => changePercent(event.target.value)}
+                    inputMode="decimal"
+                    placeholder="0"
+                    aria-label="Descuento en porcentaje"
+                    className={`${inputClasses} pr-8`}
+                  />
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-lg font-bold opacity-60">
+                    %
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
           {discountError !== null && (
             <p role="alert" className="m-0 text-lg text-danger">
               {discountError}
             </p>
           )}
 
-          <div className="flex flex-wrap items-end justify-between gap-2 border-t border-line pt-4">
-            <span className="text-2xl font-bold">Total</span>
-            <span className="text-5xl font-bold [overflow-wrap:anywhere]" aria-label="Total de la venta">
-              {money(totalCents)}
-            </span>
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <span className="text-2xl font-bold">Total</span>
+              <span className="text-5xl font-bold text-brand [overflow-wrap:anywhere]" aria-label="Total de la venta">
+                {money(totalCents)}
+              </span>
+            </div>
           </div>
 
           <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
@@ -373,7 +435,7 @@ export function NewSalePanel() {
                   type="button"
                   aria-pressed={paymentMethod === method}
                   onClick={() => choosePaymentMethod(method)}
-                  className={`min-h-14 rounded-lg border-2 px-3 text-xl font-bold transition-colors ${
+                  className={`min-h-14 rounded-lg border px-3 text-lg font-bold transition-colors ${
                     paymentMethod === method
                       ? 'border-brand bg-surface-brand text-brand'
                       : 'border-line hover:bg-surface-brand'
@@ -409,7 +471,7 @@ export function NewSalePanel() {
           <button
             type="button"
             onClick={requestConfirmation}
-            className="min-h-16 rounded-lg bg-brand px-5 text-2xl font-bold text-brand-contrast transition-colors hover:bg-brand/90"
+            className="min-h-16 rounded-lg bg-brand px-5 text-lg font-bold text-brand-contrast transition-colors hover:bg-brand/90"
           >
             Confirmar venta
           </button>

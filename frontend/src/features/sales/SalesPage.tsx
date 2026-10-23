@@ -27,7 +27,7 @@ export function SalesPage() {
       <div hidden={view !== 'new'}>
         <NewSalePanel />
       </div>
-      {view === 'list' && <SalesListPanel />}
+      {view === 'list' && <SalesListPanel onNewSale={() => setView('new')} />}
     </section>
   )
 }

@@ -265,7 +265,7 @@ export function ProductsPage() {
   }, [products, sortDir])
 
   return (
-    <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:min-h-0 lg:overflow-hidden">
+    <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Productos</h1>
@@ -450,7 +450,7 @@ export function ProductsPage() {
             <div
               ref={cardScrollRef}
               onScroll={updateCardScrollbar}
-              className="scrollbar-hidden lg:min-h-0 lg:flex-1 lg:overflow-auto lg:pr-5"
+              className="scrollbar-hidden lg:flex-1 lg:overflow-auto lg:pr-5"
             >
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
               {sorted.map((product) => {

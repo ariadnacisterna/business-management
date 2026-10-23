@@ -7,6 +7,19 @@ const SCREENS = [
 ]
 
 for (const screen of SCREENS) {
+  test(`en computadora de ${screen.width} px la lista de Productos baja hasta el final con la rueda`, async ({ page }) => {
+    await page.setViewportSize(screen)
+    await login(page, 'duena')
+    await page.goto('/products')
+    await expect(page.getByRole('heading', { name: 'Productos' })).toBeVisible()
+
+    await page.mouse.move(screen.width / 2, screen.height / 2)
+    await page.mouse.wheel(0, 100000)
+    await expect
+      .poll(() => page.evaluate(() => Math.abs(window.scrollY + window.innerHeight - document.documentElement.scrollHeight)))
+      .toBeLessThanOrEqual(2)
+  })
+
   test(`en computadora de ${screen.width} px una página corta no tiene scroll vertical`, async ({ page }) => {
     await page.setViewportSize(screen)
     await login(page, 'empleada')

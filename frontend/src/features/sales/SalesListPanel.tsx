@@ -17,7 +17,7 @@ const PAGE_SIZE = 25
 
 type PaymentFilter = PaymentMethod | ''
 
-export function SalesListPanel() {
+export function SalesListPanel({ onNewSale }: { onNewSale: () => void }) {
   const { account } = useAuth()
   const canVoid = canVoidSales(account)
   const [page, setPage] = useState(1)
@@ -39,6 +39,8 @@ export function SalesListPanel() {
     [account?.active_business_id, page, dateFrom, dateTo, paymentFilter, voidCount],
   )
   const totalPages = data === undefined ? 1 : Math.max(1, Math.ceil(data.total / PAGE_SIZE))
+  const hasFilters = dateFrom !== '' || dateTo !== '' || paymentFilter !== ''
+  const noSalesYet = status === 'success' && data !== undefined && data.total === 0 && !hasFilters
 
   function changeDateFrom(value: string) {
     setDateFrom(value)
@@ -57,6 +59,7 @@ export function SalesListPanel() {
 
   return (
     <div className="flex flex-col gap-4">
+      {!noSalesYet && (
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <label className="flex min-w-0 flex-col gap-1.5">
           <span className="text-base font-semibold">Desde</span>
@@ -79,6 +82,7 @@ export function SalesListPanel() {
           />
         </div>
       </div>
+      )}
 
       {status === 'loading' && (
         <div className="flex flex-col items-center gap-3 py-12 text-center" role="status">
@@ -89,8 +93,23 @@ export function SalesListPanel() {
 
       {status === 'error' && <LoadErrorCard message="No se pudieron cargar las ventas." onRetry={reload} />}
 
-      {status === 'success' && data !== undefined && data.items.length === 0 && (
-        <p className="m-0 rounded-2xl bg-surface p-6 text-center text-lg opacity-70">No hay ventas para mostrar.</p>
+      {noSalesYet && (
+        <div className="flex flex-col items-center gap-4 rounded-2xl bg-surface p-6 text-center">
+          <p className="m-0 text-xl font-semibold">Todavía no hay ventas registradas.</p>
+          <button
+            type="button"
+            onClick={onNewSale}
+            className="min-h-16 rounded-lg bg-brand px-5 text-lg font-bold text-brand-contrast transition-colors hover:bg-brand/90"
+          >
+            Registrar una venta
+          </button>
+        </div>
+      )}
+
+      {status === 'success' && data !== undefined && data.items.length === 0 && (hasFilters || data.total > 0) && (
+        <p className="m-0 rounded-2xl bg-surface p-6 text-center text-lg opacity-70">
+          {hasFilters ? 'No hay ventas con esos filtros.' : 'No hay ventas para mostrar.'}
+        </p>
       )}
 
       {status === 'success' && data !== undefined && data.items.length > 0 && (
