@@ -55,12 +55,10 @@ describe('Sidebar', () => {
     expect(onNavigate).toHaveBeenCalled()
   })
 
-  it('renders "Ventas" as a disabled, non-navigable item', () => {
+  it('renders "Ventas" as a link to the sales screen', () => {
     renderSidebar('/products')
 
-    const item = screen.getByText('Ventas').closest('[aria-disabled]')
-    expect(item).toHaveAttribute('aria-disabled', 'true')
-    expect(screen.queryByRole('link', { name: /Ventas/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ventas' })).toHaveAttribute('href', '/ventas')
   })
 
   it('groups the sections under Catálogo, Comercial and Administración for an administrador', () => {

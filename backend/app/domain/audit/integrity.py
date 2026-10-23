@@ -6,7 +6,7 @@ from decimal import Decimal
 from sqlalchemy import RowMapping, text
 from sqlalchemy.orm import Session
 
-from app.constants.status import SHORTAGE_OPEN_STATUSES
+from app.constants.status import SHORTAGE_OPEN_STATUSES, CreditType, PaymentMethod
 from app.domain.catalog.quantities import format_quantity
 
 CONSTRAINT_DESCRIPTIONS = {
@@ -372,6 +372,90 @@ def _non_positive_credits(db: Session) -> list[IntegrityProblem]:
     ]
 
 
+def _sale_totals_not_matching_lines(db: Session) -> list[IntegrityProblem]:
+    rows = db.execute(
+        text(
+            """
+            SELECT b.name AS business_name, s.id AS sale_id, s.discount, s.total,
+                   coalesce(sum(l.line_total), 0) AS lines_total
+            FROM sale s
+            JOIN business b ON b.id = s.business_id
+            LEFT JOIN sale_line l ON l.sale_id = s.id
+            GROUP BY b.name, s.id
+            HAVING s.total <> coalesce(sum(l.line_total), 0) - s.discount
+            ORDER BY b.name, s.id
+            """
+        )
+    ).mappings()
+    return [
+        IntegrityProblem(
+            row["business_name"],
+            f"Venta N° {row['sale_id']}: el total ({_format_amount(row['total'])}) no es la suma "
+            f"de sus productos ({_format_amount(row['lines_total'])}) menos el descuento "
+            f"({_format_amount(row['discount'])}).",
+        )
+        for row in rows
+    ]
+
+
+def _expected_sale_credits(row: RowMapping) -> tuple[int, int]:
+    if row["payment_method"] != PaymentMethod.FIADO.value:
+        return 0, 0
+    return 1, 1 if row["voided_at"] is not None else 0
+
+
+def _sale_credit_problem(row: RowMapping) -> str | None:
+    expected_charges, expected_reversals = _expected_sale_credits(row)
+    if row["charges"] != expected_charges or row["matching_charges"] != expected_charges:
+        if expected_charges == 0:
+            return "no es en fiado pero tiene un cargo en la cuenta de un cliente."
+        return (
+            f"es en fiado y tiene {row['charges']} cargos en la cuenta del cliente; tiene que "
+            "tener uno solo, del mismo cliente y por el total de la venta."
+        )
+    if row["reversals"] != expected_reversals or row["matching_reversals"] != expected_reversals:
+        if expected_reversals == 0:
+            return "no está anulada en fiado pero tiene una devolución en la cuenta de un cliente."
+        return (
+            "está anulada pero el cargo en la cuenta del cliente no se devolvió una sola vez "
+            "por el total de la venta."
+        )
+    return None
+
+
+def _sale_credits_not_matching(db: Session) -> list[IntegrityProblem]:
+    rows = db.execute(
+        text(
+            f"""
+            SELECT b.name AS business_name, s.id AS sale_id, s.payment_method, s.voided_at,
+                   count(c.id) FILTER (WHERE c.type = '{CreditType.CARGO.value}') AS charges,
+                   count(c.id) FILTER (
+                       WHERE c.type = '{CreditType.CARGO.value}' AND c.amount = s.total
+                       AND c.customer_id = s.customer_id
+                   ) AS matching_charges,
+                   count(c.id) FILTER (WHERE c.type = '{CreditType.PAGO.value}') AS reversals,
+                   count(c.id) FILTER (
+                       WHERE c.type = '{CreditType.PAGO.value}' AND c.amount = s.total
+                       AND c.customer_id = s.customer_id
+                   ) AS matching_reversals
+            FROM sale s
+            JOIN business b ON b.id = s.business_id
+            LEFT JOIN credit c ON c.sale_id = s.id
+            GROUP BY b.name, s.id
+            ORDER BY b.name, s.id
+            """
+        )
+    ).mappings()
+    problems = []
+    for row in rows:
+        problem = _sale_credit_problem(row)
+        if problem is not None:
+            problems.append(
+                IntegrityProblem(row["business_name"], f"Venta N° {row['sale_id']}: {problem}")
+            )
+    return problems
+
+
 def _unvalidated_constraints(db: Session) -> list[IntegrityProblem]:
     rows = db.execute(
         text(
@@ -410,6 +494,8 @@ CHECKS = (
     _invalid_presentations,
     _duplicate_open_shortages,
     _non_positive_credits,
+    _sale_totals_not_matching_lines,
+    _sale_credits_not_matching,
     _unvalidated_constraints,
 )
 

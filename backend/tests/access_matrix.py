@@ -189,6 +189,14 @@ ENDPOINT_ACCESS_MATRIX: dict[tuple[str, str], EndpointAccess] = {
     ("POST", "/customers/{customer_id}/credits"): EndpointAccess(
         EMPLEADO, "docs/02: registrar un cargo o un pago de un cliente"
     ),
+    ("POST", "/sales"): EndpointAccess(EMPLEADO, "docs/02: registrar ventas"),
+    ("GET", "/sales"): EndpointAccess(
+        EMPLEADO, "docs/02: registrar ventas (T-085: todos ven ventas)"
+    ),
+    ("GET", "/sales/{sale_id}"): EndpointAccess(
+        EMPLEADO, "docs/02: registrar ventas (T-085: todos ven ventas)"
+    ),
+    ("POST", "/sales/{sale_id}/void"): EndpointAccess(GERENTE, "D-078: anular una venta"),
     ("GET", "/search"): EndpointAccess(EMPLEADO, "docs/02: buscar y consultar precios"),
     ("POST", "/imports/preview"): EndpointAccess(
         ADMINISTRADOR, "docs/02: importar el catalogo inicial"

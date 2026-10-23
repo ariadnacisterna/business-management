@@ -7,13 +7,14 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import sessionmaker
 
 from app.constants.roles import ADMINISTRADOR, DUENO
-from app.constants.status import CreditType, EntityStatus, ShortageStatus
+from app.constants.status import CreditType, EntityStatus, PaymentMethod, ShortageStatus
 from app.db.models import (
     Account,
     Business,
     Credit,
     Price,
     Product,
+    Sale,
     Shortage,
     StockMovement,
     Unit,
@@ -40,6 +41,8 @@ from app.domain.catalog.stock import apply_stock_adjustment
 from app.domain.catalog.units import add_unit, update_unit
 from app.domain.import_.applying import add_import
 from app.domain.pricing.prices import apply_variant_price_change
+from app.domain.sales.errors import SaleAlreadyVoided
+from app.domain.sales.sales import SaleLineInput, register_sale, void_sale
 
 WAITING_SECONDS = 0.5
 FINISH_SECONDS = 15
@@ -478,3 +481,111 @@ def test_product_unit_change_waits_for_a_decimal_adjustment_and_then_is_rejected
     assert isinstance(outcome["error"], FractionalStockBlocksUnitChange)
     check = open_session()
     assert check.get(Product, product_id).unit_id != whole_unit.id
+
+
+def _variant_for_sale(db, business_id, account_id, name, stock):
+    variant_id = _new_variant(db, business_id, account_id, name)
+    apply_variant_price_change(db, variant_id, business_id, account_id, amount=Decimal("100"))
+    apply_stock_adjustment(db, business_id, variant_id, account_id, Decimal(stock))
+    db.commit()
+    return variant_id
+
+
+def _sell(db, business_id, account_id, variant_id, quantity):
+    return register_sale(
+        db,
+        business_id,
+        account_id,
+        [SaleLineInput(variant_id, Decimal(quantity))],
+        PaymentMethod.EFECTIVO.value,
+        None,
+        Decimal(0),
+    )
+
+
+def test_two_simultaneous_sales_of_the_last_units_never_leave_stock_negative(open_session):
+    setup = open_session()
+    business, account_id = _business_and_owner(setup)
+    variant_id = _variant_for_sale(setup, business.id, account_id, "Venta simultanea", "5")
+    first, second = open_session(), open_session()
+
+    first_sale = _sell(first, business.id, account_id, variant_id, "4")
+
+    def sell_from_second():
+        sale = _sell(second, business.id, account_id, variant_id, "3")
+        second.commit()
+        return sale.id
+
+    thread, outcome = _start(sell_from_second)
+    _assert_waiting(thread)
+    first.commit()
+    _finish(thread)
+
+    assert "error" not in outcome
+    check = open_session()
+    assert check.get(Variant, variant_id).quantity == Decimal("0")
+    assert check.get(Sale, first_sale.id).insufficient_stock is False
+    second_sale = check.get(Sale, outcome["result"])
+    assert second_sale.insufficient_stock is True
+    assert second_sale.lines[0].stock_taken == Decimal("1")
+    assert find_integrity_problems(check) == []
+
+
+def test_same_sale_submission_sent_twice_at_once_registers_one_sale(open_session):
+    setup = open_session()
+    business, account_id = _business_and_owner(setup)
+    variant_id = _variant_for_sale(setup, business.id, account_id, "Venta repetida", "10")
+    first, second = open_session(), open_session()
+    first_inside = threading.Event()
+    release_first = threading.Event()
+    fingerprint = submissions.request_fingerprint(b"venta 2")
+
+    def send(db, wait_inside):
+        def perform():
+            sale = _sell(db, business.id, account_id, variant_id, "2")
+            if wait_inside:
+                first_inside.set()
+                release_first.wait(FINISH_SECONDS)
+            return {"sale_id": sale.id}
+
+        return submissions.run_once(
+            db, account_id, "clave-de-venta-repetida", "POST /sales", fingerprint, perform
+        )
+
+    first_thread, first_outcome = _start(lambda: send(first, True))
+    assert first_inside.wait(FINISH_SECONDS)
+    second_thread, second_outcome = _start(lambda: send(second, False))
+    _assert_waiting(second_thread)
+    release_first.set()
+    _finish(first_thread)
+    _finish(second_thread)
+
+    assert first_outcome["result"] == second_outcome["result"]
+    check = open_session()
+    assert check.scalar(select(func.count()).select_from(Sale)) == 1
+    assert check.get(Variant, variant_id).quantity == Decimal("8")
+
+
+def test_two_simultaneous_voids_of_the_same_sale_return_the_stock_once(open_session):
+    setup = open_session()
+    business, account_id = _business_and_owner(setup)
+    variant_id = _variant_for_sale(setup, business.id, account_id, "Venta anulada", "10")
+    sale_id = _sell(setup, business.id, account_id, variant_id, "4").id
+    setup.commit()
+    first, second = open_session(), open_session()
+
+    void_sale(first, business.id, sale_id, account_id, "Primera")
+
+    def void_from_second():
+        void_sale(second, business.id, sale_id, account_id, "Segunda")
+        second.commit()
+
+    thread, outcome = _start(void_from_second)
+    _assert_waiting(thread)
+    first.commit()
+    _finish(thread)
+
+    assert isinstance(outcome.get("error"), SaleAlreadyVoided)
+    check = open_session()
+    assert check.get(Variant, variant_id).quantity == Decimal("10")
+    assert check.get(Sale, sale_id).void_reason == "Primera"

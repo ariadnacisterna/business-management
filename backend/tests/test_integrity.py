@@ -64,6 +64,20 @@ def _product_with_history(client, cookies, name="Cinta integridad", allows_fract
     return product, variant_id, unit["id"]
 
 
+def _fiado_sale(client, cookies, variant_id, customer_id, quantity="1"):
+    return _post(
+        client,
+        cookies,
+        "/sales",
+        {
+            "lines": [{"variant_id": variant_id, "quantity": quantity}],
+            "payment_method": "fiado",
+            "customer_id": customer_id,
+            "discount": "10",
+        },
+    )
+
+
 def _descriptions(db_session):
     db_session.commit()
     return [problem.description for problem in find_integrity_problems(db_session)]
@@ -95,6 +109,9 @@ def test_data_written_by_the_application_has_no_problems(client, db_session):
     customer = _post(client, cookies, "/customers", {"name": "Cliente integridad"})
     credit = {"type": "cargo", "amount": "5"}
     _post(client, cookies, f"/customers/{customer['id']}/credits", credit)
+    _fiado_sale(client, cookies, other_variant_id, customer["id"])
+    voided = _fiado_sale(client, cookies, other_variant_id, customer["id"], quantity="20")
+    _post(client, cookies, f"/sales/{voided['id']}/void", {"reason": "Prueba"})
 
     assert _descriptions(db_session) == []
 
@@ -195,6 +212,50 @@ def test_reports_a_gap_in_the_price_history(client, db_session):
 
     assert len(descriptions) == 1
     assert "el historial de precios no es continuo" in descriptions[0]
+
+
+def test_reports_a_sale_whose_total_is_not_its_lines_minus_the_discount(client, db_session):
+    cookies = _admin_cookies(client)
+    _product, variant_id, _unit_id = _product_with_history(client, cookies)
+    customer = _post(client, cookies, "/customers", {"name": "Cliente total"})
+    sale = _fiado_sale(client, cookies, variant_id, customer["id"])
+    _execute(db_session, "UPDATE sale_line SET line_total = 50 WHERE sale_id = :id", id=sale["id"])
+
+    assert _descriptions(db_session) == [
+        f"Venta N° {sale['id']}: el total ($ 110.00) no es la suma de sus productos "
+        "($ 50.00) menos el descuento ($ 10.00)."
+    ]
+
+
+def test_reports_a_fiado_sale_without_its_charge(client, db_session):
+    cookies = _admin_cookies(client)
+    _product, variant_id, _unit_id = _product_with_history(client, cookies)
+    customer = _post(client, cookies, "/customers", {"name": "Cliente sin cargo"})
+    sale = _fiado_sale(client, cookies, variant_id, customer["id"])
+    _execute(db_session, "DELETE FROM credit WHERE sale_id = :id", id=sale["id"])
+
+    assert _descriptions(db_session) == [
+        f"Venta N° {sale['id']}: es en fiado y tiene 0 cargos en la cuenta del cliente; tiene "
+        "que tener uno solo, del mismo cliente y por el total de la venta."
+    ]
+
+
+def test_reports_a_voided_fiado_sale_whose_charge_was_not_returned(client, db_session):
+    cookies = _admin_cookies(client)
+    _product, variant_id, _unit_id = _product_with_history(client, cookies)
+    customer = _post(client, cookies, "/customers", {"name": "Cliente sin devolucion"})
+    sale = _fiado_sale(client, cookies, variant_id, customer["id"])
+    _post(client, cookies, f"/sales/{sale['id']}/void", {"reason": "Prueba"})
+    _execute(
+        db_session,
+        "DELETE FROM credit WHERE sale_id = :id AND type = 'pago'",
+        id=sale["id"],
+    )
+
+    assert _descriptions(db_session) == [
+        f"Venta N° {sale['id']}: está anulada pero el cargo en la cuenta del cliente no se "
+        "devolvió una sola vez por el total de la venta."
+    ]
 
 
 def test_reports_a_product_without_variants(client, db_session):

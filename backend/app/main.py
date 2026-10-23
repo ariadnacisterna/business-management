@@ -12,6 +12,7 @@ from app.api.catalog import router as catalog_router
 from app.api.health import router as health_router
 from app.api.imports import router as imports_router
 from app.api.pricing import router as pricing_router
+from app.api.sales import router as sales_router
 from app.api.search import router as search_router
 from app.constants.observability import (
     FIRST_SERVER_ERROR_STATUS,
@@ -81,6 +82,7 @@ def create_app(static_dir: Path = STATIC_DIR) -> FastAPI:
     application.include_router(pricing_router)
     application.include_router(search_router)
     application.include_router(imports_router)
+    application.include_router(sales_router)
 
     index_html = static_dir / "index.html"
 

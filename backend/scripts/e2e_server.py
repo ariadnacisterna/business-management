@@ -59,11 +59,14 @@ PRODUCTS = (
         Decimal("4200"),
         Decimal("15"),
     ),
+    ("Sacapuntas doble", "unit", Decimal("350"), Decimal("20")),
+    ("Pegamento en barra", "unit", Decimal("600"), Decimal("1")),
+    ("Marcador fluo", "unit", Decimal("900"), Decimal("10")),
 )
 
 PRODUCTS_WITH_SHORTAGE = ("Compas metalico",)
 
-CUSTOMERS = ("Marta Fiado", "Pedro Doble")
+CUSTOMERS = ("Marta Fiado", "Pedro Doble", "Clara Ventas")
 
 
 class UnsafeDatabaseError(RuntimeError):

@@ -56,6 +56,7 @@ def search_variants(
         )
         .options(
             selectinload(Variant.product).selectinload(Product.category),
+            selectinload(Variant.product).selectinload(Product.unit),
             selectinload(Variant.attribute_values).selectinload(AttributeValue.attribute),
         )
     )

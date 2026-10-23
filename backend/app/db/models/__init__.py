@@ -15,6 +15,7 @@ from app.db.models.product import Product
 from app.db.models.provider import Provider
 from app.db.models.provider_category import provider_category
 from app.db.models.role import Role
+from app.db.models.sale import Sale, SaleLine
 from app.db.models.shortage import Shortage
 from app.db.models.stock_movement import StockMovement
 from app.db.models.submission import Submission
@@ -39,6 +40,8 @@ __all__ = [
     "Product",
     "Provider",
     "Role",
+    "Sale",
+    "SaleLine",
     "Shortage",
     "StockMovement",
     "Submission",

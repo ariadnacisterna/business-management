@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -11,6 +12,7 @@ from app.domain.catalog.errors import InvalidStockQuantity, PresentationChanged
 from app.domain.catalog.products import (
     get_variant,
     get_variant_for_update,
+    get_variants_for_update,
     lock_product_against_unit_change,
 )
 from app.domain.catalog.quantities import (
@@ -148,20 +150,92 @@ def apply_stock_adjustment(
         raise InvalidStockQuantity("La cantidad resultante es demasiado grande")
 
     stripped_observation = observation.strip() if observation else None
-    variant.quantity = quantity_after
+    return _record_movement(db, variant, quantity_after, actor_account_id, stripped_observation)
 
-    now = datetime.now(UTC)
+
+def _record_movement(
+    db: Session,
+    variant: Variant,
+    quantity_after: Decimal,
+    actor_account_id: int,
+    observation: str | None,
+    sale_id: int | None = None,
+) -> StockMovement:
     movement = StockMovement(
         variant_id=variant.id,
-        quantity_before=quantity_before,
+        quantity_before=variant.quantity,
         quantity_after=quantity_after,
-        observation=stripped_observation or None,
+        observation=observation or None,
         created_by_account_id=actor_account_id,
-        created_at=now,
+        created_at=datetime.now(UTC),
+        sale_id=sale_id,
     )
+    variant.quantity = quantity_after
     db.add(movement)
     db.flush()
     return movement
+
+
+@dataclass(frozen=True)
+class LockedVariant:
+    variant: Variant
+    product: Product
+    unit: Unit
+
+
+def lock_variants_for_stock_change(
+    db: Session, business_id: int, variant_ids: list[int]
+) -> dict[int, LockedVariant]:
+    variants = [get_variant(db, business_id, variant_id) for variant_id in sorted(set(variant_ids))]
+    products = {
+        product_id: lock_product_against_unit_change(db, product_id)
+        for product_id in sorted({variant.product_id for variant in variants})
+    }
+    units = {
+        unit_id: lock_unit_against_changes(db, unit_id)
+        for unit_id in sorted({product.unit_id for product in products.values()})
+    }
+    locked_variants = get_variants_for_update(db, [variant.id for variant in variants])
+    return {
+        variant.id: LockedVariant(
+            variant,
+            products[variant.product_id],
+            units[products[variant.product_id].unit_id],
+        )
+        for variant in locked_variants
+    }
+
+
+def take_stock_for_sale(
+    db: Session,
+    variant: Variant,
+    quantity: Decimal,
+    actor_account_id: int,
+    sale_id: int,
+    observation: str,
+) -> Decimal:
+    taken = min(variant.quantity, quantity)
+    if taken > 0:
+        _record_movement(
+            db, variant, variant.quantity - taken, actor_account_id, observation, sale_id
+        )
+    return taken
+
+
+def return_stock_from_sale(
+    db: Session,
+    variant: Variant,
+    quantity: Decimal,
+    actor_account_id: int,
+    sale_id: int,
+    observation: str,
+) -> None:
+    if quantity == 0:
+        return
+    quantity_after = variant.quantity + quantity
+    if quantity_after > MAX_STOCK_QUANTITY:
+        raise InvalidStockQuantity("La cantidad resultante es demasiado grande")
+    _record_movement(db, variant, quantity_after, actor_account_id, observation, sale_id)
 
 
 def list_stock_movements(db: Session, business_id: int, variant_id: int) -> list[StockMovement]:

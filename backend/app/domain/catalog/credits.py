@@ -29,6 +29,7 @@ def add_credit(
     credit_type: str,
     amount: Decimal,
     actor_account_id: int,
+    sale_id: int | None = None,
 ) -> Credit:
     customer = get_customer(db, business_id, customer_id)
 
@@ -44,6 +45,7 @@ def add_credit(
         amount=amount,
         created_by_account_id=actor_account_id,
         created_at=datetime.now(UTC),
+        sale_id=sale_id,
     )
     db.add(credit)
     db.flush()

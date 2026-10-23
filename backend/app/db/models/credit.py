@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Numeric, String
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Numeric, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.constants.limits import PRICE_PRECISION, PRICE_SCALE, STATUS_MAX_LENGTH
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 CREDIT_AMOUNT_POSITIVE_CONSTRAINT_NAME = "amount_positive"
 CREDIT_TYPE_CHECK_NAME = "type_valid"
+CREDIT_SALE_UNIQUE_INDEX_NAME = "uq_credit_sale_id_type"
 
 
 class Credit(Base):
@@ -24,6 +25,13 @@ class Credit(Base):
             name=CREDIT_TYPE_CHECK_NAME,
         ),
         CheckConstraint("amount > 0", name=CREDIT_AMOUNT_POSITIVE_CONSTRAINT_NAME),
+        Index(
+            CREDIT_SALE_UNIQUE_INDEX_NAME,
+            "sale_id",
+            "type",
+            unique=True,
+            postgresql_where=text("sale_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -31,6 +39,7 @@ class Credit(Base):
     type: Mapped[str] = mapped_column(String(STATUS_MAX_LENGTH), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(PRICE_PRECISION, PRICE_SCALE), nullable=False)
     created_by_account_id: Mapped[int] = mapped_column(ForeignKey("account.id"), nullable=False)
+    sale_id: Mapped[int | None] = mapped_column(ForeignKey("sale.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     customer: Mapped["Customer"] = relationship(back_populates="credits")

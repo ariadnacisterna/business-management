@@ -7,7 +7,7 @@ from httpx import Cookies
 
 from app.constants.access import CSRF_HEADER_NAME, CSRF_SAFE_METHODS, INVALID_CSRF_DETAIL
 from app.constants.roles import ADMINISTRADOR, DUENO, EMPLEADO, GERENTE, ROLE_HIERARCHY, ROLE_RANK
-from app.constants.status import CreditType, EntityStatus, ShortageStatus
+from app.constants.status import CreditType, EntityStatus, PaymentMethod, ShortageStatus
 from app.core.config import get_settings
 from app.db.models import Account, Business, BusinessAccess, Role
 from app.main import app
@@ -52,6 +52,7 @@ REQUEST_BODIES_FOR_ID_PROBES: dict[tuple[str, str], dict] = {
     ("POST", "/customers/{customer_id}/credits"): {
         "json": {"type": CreditType.CARGO.value, "amount": "10"}
     },
+    ("POST", "/sales/{sale_id}/void"): {"json": {"reason": "Prueba de acceso"}},
 }
 
 
@@ -328,6 +329,17 @@ def _create_other_business_data(client, cookies, business_id: int) -> dict[str, 
         f"/customers/{customer['id']}/credits",
         {"type": CreditType.CARGO.value, "amount": "100"},
     )
+    sale = _write(
+        client,
+        cookies,
+        "POST",
+        "/sales",
+        {
+            "lines": [{"variant_id": variant_id, "quantity": "1"}],
+            "payment_method": PaymentMethod.FIADO.value,
+            "customer_id": customer["id"],
+        },
+    )
     account = _create_account(
         client, cookies, f"{marker} cuenta", OTHER_BUSINESS_ACCOUNT_USER_NAME, EMPLEADO
     )
@@ -343,6 +355,7 @@ def _create_other_business_data(client, cookies, business_id: int) -> dict[str, 
         "provider_id": provider["id"],
         "shortage_id": shortage["id"],
         "customer_id": customer["id"],
+        "sale_id": sale["id"],
     }
 
 
@@ -524,6 +537,33 @@ def _requests_referencing_another_business(
             ),
         ),
         ("variant_id", lambda ref: ("POST", "/shortages", {"json": {"variant_id": ref}})),
+        (
+            "variant_id",
+            lambda ref: (
+                "POST",
+                "/sales",
+                {
+                    "json": {
+                        "lines": [{"variant_id": ref, "quantity": "1"}],
+                        "payment_method": PaymentMethod.EFECTIVO.value,
+                    }
+                },
+            ),
+        ),
+        (
+            "customer_id",
+            lambda ref: (
+                "POST",
+                "/sales",
+                {
+                    "json": {
+                        "lines": [{"variant_id": own["variant_id"], "quantity": "1"}],
+                        "payment_method": PaymentMethod.FIADO.value,
+                        "customer_id": ref,
+                    }
+                },
+            ),
+        ),
         (
             "business_id",
             lambda ref: ("POST", "/auth/active-business", {"json": {"business_id": ref}}),

@@ -20,6 +20,7 @@ const CustomersPage = lazyWithReload(() => import('./features/customers/Customer
 const DashboardPage = lazyWithReload(() => import('./features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })))
 const InventoryPage = lazyWithReload(() => import('./features/inventory/InventoryPage').then((m) => ({ default: m.InventoryPage })))
 const PricingPage = lazyWithReload(() => import('./features/pricing/PricingPage').then((m) => ({ default: m.PricingPage })))
+const SalesPage = lazyWithReload(() => import('./features/sales/SalesPage').then((m) => ({ default: m.SalesPage })))
 const SettingsPage = lazyWithReload(() => import('./features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const SuppliersPage = lazyWithReload(() => import('./features/suppliers/SuppliersPage').then((m) => ({ default: m.SuppliersPage })))
 
@@ -84,6 +85,7 @@ export function App() {
               <Route path="/precios" element={<Loadable><PricingPage /></Loadable>} />
               <Route path="/inventario" element={<Loadable><InventoryPage /></Loadable>} />
               <Route path="/proveedores" element={<SuppliersRoute />} />
+              <Route path="/ventas" element={<Loadable><SalesPage /></Loadable>} />
               <Route path="/clientes" element={<Loadable><CustomersPage /></Loadable>} />
               <Route path="/cuentas" element={<AccountsRoute />} />
               <Route path="/configuraciones" element={<Loadable><SettingsPage /></Loadable>} />

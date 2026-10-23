@@ -20,6 +20,12 @@ class CreditType(enum.StrEnum):
     PAGO = "pago"
 
 
+class PaymentMethod(enum.StrEnum):
+    EFECTIVO = "efectivo"
+    TRANSFERENCIA = "transferencia"
+    FIADO = "fiado"
+
+
 class StockStatus(enum.StrEnum):
     SIN_STOCK = "sin_stock"
     STOCK_BAJO = "stock_bajo"

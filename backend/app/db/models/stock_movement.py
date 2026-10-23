@@ -46,6 +46,7 @@ class StockMovement(Base):
     )
     observation: Mapped[str | None] = mapped_column(String(OBSERVATION_MAX_LENGTH), nullable=True)
     created_by_account_id: Mapped[int] = mapped_column(ForeignKey("account.id"), nullable=False)
+    sale_id: Mapped[int | None] = mapped_column(ForeignKey("sale.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     variant: Mapped["Variant"] = relationship(back_populates="stock_movements")

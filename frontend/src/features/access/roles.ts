@@ -51,3 +51,7 @@ export function canManageCustomers(account: Account | null): boolean {
 export function canViewCustomerHistory(account: Account | null): boolean {
   return hasMinimumRole(account, 'Gerente')
 }
+
+export function canVoidSales(account: Account | null): boolean {
+  return hasMinimumRole(account, 'Gerente')
+}

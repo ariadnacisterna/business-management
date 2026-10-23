@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.api.catalog import PresentationSchema, _presentation_response
 from app.db.models import Account, Business, Variant
 from app.db.session import get_db
 from app.domain.access.permissions import get_active_business, get_current_user
@@ -28,6 +29,10 @@ class SearchResultItem(BaseModel):
     label: str | None
     attribute_values: list[AttributeValueSummary]
     price_amount: Decimal
+    unit_abbreviation: str
+    unit_allows_fraction: bool
+    quantity: Decimal
+    presentation: PresentationSchema | None
 
 
 class SearchResponse(BaseModel):
@@ -51,6 +56,10 @@ def _search_result_item(variant: Variant, price_amount: Decimal) -> SearchResult
             for value in variant.attribute_values
         ],
         price_amount=price_amount,
+        unit_abbreviation=variant.product.unit.abbreviation,
+        unit_allows_fraction=variant.product.unit.allows_fraction,
+        quantity=variant.quantity,
+        presentation=_presentation_response(variant.product),
     )
 
 

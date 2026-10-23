@@ -239,3 +239,63 @@ export interface ManagedAccount {
   role: string | null
   businesses: Business[]
 }
+
+export type PaymentMethod = 'efectivo' | 'transferencia' | 'fiado'
+
+export interface SellableVariant {
+  variant_id: number
+  product_id: number
+  product_name: string
+  category_name: string
+  label: string | null
+  attribute_values: { attribute_id: number; attribute_name: string; value: string }[]
+  price_amount: string
+  unit_abbreviation: string
+  unit_allows_fraction: boolean
+  quantity: string
+  presentation: Presentation | null
+}
+
+export interface SaleLine {
+  id: number
+  variant_id: number
+  product_id: number
+  product_name: string
+  variant_description: string
+  unit_abbreviation: string
+  quantity: string
+  unit_price: string
+  line_total: string
+  stock_taken: string
+  insufficient_stock: boolean
+}
+
+export interface SaleSummary {
+  id: number
+  created_at: string
+  created_by_account_id: number
+  created_by_account_name: string
+  payment_method: PaymentMethod
+  customer_id: number | null
+  customer_name: string | null
+  subtotal: string
+  discount: string
+  total: string
+  insufficient_stock: boolean
+  line_count: number
+  voided_at: string | null
+  voided_by_account_id: number | null
+  voided_by_account_name: string | null
+  void_reason: string | null
+}
+
+export interface Sale extends SaleSummary {
+  lines: SaleLine[]
+}
+
+export interface SalePage {
+  items: SaleSummary[]
+  total: number
+  page: number
+  page_size: number
+}

@@ -41,7 +41,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Comercial',
     items: [
-      { to: '/ventas', label: 'Ventas', icon: 'sales', disabled: true },
+      { to: '/ventas', label: 'Ventas', icon: 'sales' },
       { to: '/clientes', label: 'Clientes', icon: 'customers' },
       { to: '/proveedores', label: 'Proveedores', icon: 'suppliers', minRole: 'Administrador' },
     ],
