@@ -3,10 +3,11 @@
 @theme {
   --color-brand: #af1405;
   --color-brand-contrast: #fff;
-  --color-surface-brand: #fffae8;
+  --color-surface-brand: #f3f4f6;
   --color-success: #2e7d32;
   --color-success-soft: #e5f4e6;
   --color-danger: #c62828;
+  --color-danger-soft: #f1c9c9;
   --color-warning: #e65100;
   --color-info: #1565c0;
   --color-line: #d9d8db;

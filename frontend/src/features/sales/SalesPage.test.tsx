@@ -115,16 +115,15 @@ describe('SalesPage', () => {
     })
     renderPage(EMPLEADO)
 
-    expect(await screen.findByText('Escribí el nombre del producto para buscarlo.')).toBeInTheDocument()
+    expect(await screen.findByRole('textbox', { name: 'Buscar producto para vender' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Agregar Cinta de raso' })).not.toBeInTheDocument()
+    expect(screen.getByText('El ticket está vacío. Buscá un producto para agregar.')).toBeInTheDocument()
 
     const search = screen.getByRole('textbox', { name: 'Buscar producto para vender' })
     await user.type(search, 'cinta')
     expect(await screen.findByRole('button', { name: 'Agregar Cinta de raso' })).toBeInTheDocument()
-    expect(screen.queryByText('Escribí el nombre del producto para buscarlo.')).not.toBeInTheDocument()
 
     await user.clear(search)
-    expect(await screen.findByText('Escribí el nombre del producto para buscarlo.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Agregar Cinta de raso' })).not.toBeInTheDocument()
   })
 
@@ -192,8 +191,8 @@ describe('SalesPage', () => {
     expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$250,00')
 
     await user.click(screen.getByRole('button', { name: 'Vaciar ticket' }))
-    expect(screen.getByText('Todavía no agregaste productos.')).toBeInTheDocument()
-    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$0,00')
+    expect(screen.getByText('El ticket está vacío. Buscá un producto para agregar.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Total de la venta')).not.toBeInTheDocument()
   })
 
   it('lets a Gerente void a sale with a reason', async () => {

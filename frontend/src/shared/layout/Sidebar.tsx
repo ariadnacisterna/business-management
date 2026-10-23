@@ -66,7 +66,7 @@ function NavEntry({
       {!collapsed && <span className="min-w-0 flex-1">{item.label}</span>}
       {item.to === '/inventario' && lowStockCount > 0 && (
         <span
-          className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-[#f1c9c9] px-1.5 text-sm font-bold text-danger ${
+          className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-danger-soft px-1.5 text-sm font-bold text-danger ${
             collapsed ? 'absolute -right-1 -top-1' : ''
           }`}
         >

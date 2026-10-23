@@ -42,7 +42,7 @@ test('un Empleado registra una venta en efectivo y baja el stock', async ({ page
 test('tocar una tarjeta dos veces suma uno y el descuento baja el total', async ({ page }) => {
   await login(page, 'empleada')
   await page.goto('/ventas')
-  await expect(page.getByText('Escribí el nombre del producto para buscarlo.')).toBeVisible()
+  await expect(page.getByText('El ticket está vacío. Buscá un producto para agregar.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Agregar Sacapuntas doble' })).toHaveCount(0)
 
   await page.getByRole('textbox', { name: 'Buscar producto para vender' }).fill('Sacapuntas doble')
@@ -52,7 +52,7 @@ test('tocar una tarjeta dos veces suma uno y el descuento baja el total', async 
   await page.getByRole('textbox', { name: 'Descuento' }).fill('100')
   await expect(page.getByLabel('Total de la venta')).toHaveText('$600,00')
   await page.getByRole('button', { name: 'Vaciar ticket' }).click()
-  await expect(page.getByLabel('Total de la venta')).toHaveText('$0,00')
+  await expect(page.getByText('El ticket está vacío. Buscá un producto para agregar.')).toBeVisible()
 })
 
 test('una venta en fiado suma al saldo del cliente', async ({ page }) => {

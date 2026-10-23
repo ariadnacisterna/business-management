@@ -29,7 +29,7 @@ export function DashboardPage() {
   const pendingTotal = balances.data ?? 0
 
   return (
-    <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
+    <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div>
         <h1 className="text-3xl font-bold">Panel</h1>
         <p className="mt-1 text-base opacity-60 lg:text-lg">Resumen general del negocio</p>

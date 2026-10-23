@@ -177,8 +177,9 @@ export function NewSalePanel() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_28rem]">
-        <section className="flex flex-col gap-4" aria-label="Productos">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <section className="flex flex-col gap-4 rounded-2xl bg-surface p-4 shadow-sm" aria-label="Productos">
+          <h2 className="m-0 text-2xl font-bold">Buscar producto</h2>
           {variantsLoad.status === 'error' ? (
             <LoadErrorCard message="No se pudieron cargar los productos." onRetry={variantsLoad.reload} />
           ) : (
@@ -190,9 +191,7 @@ export function NewSalePanel() {
               className="[&_input]:h-14 [&_input]:text-xl"
             />
           )}
-          {search.trim() === '' ? (
-            <p className="m-0 text-2xl font-semibold opacity-60">Escribí el nombre del producto para buscarlo.</p>
-          ) : (
+          {search.trim() !== '' && (
             <>
               {shownResults.length > 0 && (
                 <ul
@@ -240,6 +239,17 @@ export function NewSalePanel() {
           )}
         </section>
 
+        {lines.length === 0 ? (
+          <div
+            ref={ticketRef}
+            role="region"
+            aria-label="Ticket"
+            className="flex scroll-mt-4 flex-col gap-4 rounded-2xl bg-surface p-4 shadow-sm lg:sticky lg:top-4"
+          >
+            <h2 className="m-0 text-2xl font-bold">Ticket</h2>
+            <p className="m-0 py-6 text-center text-lg opacity-60">El ticket está vacío. Buscá un producto para agregar.</p>
+          </div>
+        ) : (
         <div
           ref={ticketRef}
           role="region"
@@ -247,7 +257,6 @@ export function NewSalePanel() {
           className="flex scroll-mt-4 flex-col gap-4 rounded-2xl bg-surface p-4 shadow-sm lg:sticky lg:top-4"
         >
           <h2 className="m-0 text-2xl font-bold">Ticket</h2>
-          {lines.length === 0 && <p className="m-0 text-lg opacity-70">Todavía no agregaste productos.</p>}
           {attempted && emptyError !== null && (
             <p role="alert" className="m-0 text-lg text-danger">
               {emptyError}
@@ -413,6 +422,7 @@ export function NewSalePanel() {
             Vaciar ticket
           </button>
         </div>
+        )}
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-between gap-3 border-t border-line bg-surface px-4 py-3 shadow-lg lg:hidden">

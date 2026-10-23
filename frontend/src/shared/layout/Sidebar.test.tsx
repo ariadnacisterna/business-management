@@ -203,7 +203,7 @@ describe('Sidebar', () => {
     renderSidebar('/products')
 
     const badge = await screen.findByText('3')
-    expect(badge).toHaveClass('bg-[#f1c9c9]')
+    expect(badge).toHaveClass('bg-danger-soft')
     expect(badge).toHaveClass('text-danger')
 
     lowStockCount = 9

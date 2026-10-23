@@ -135,7 +135,7 @@ export function CategoriesPage() {
   }
 
   return (
-    <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
+    <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex max-w-2xl flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold">Categorías</h1>
         {canManage && !creating && (

@@ -215,7 +215,7 @@ function AttributesContent() {
   const selectedAttribute = attributes.find((attribute) => attribute.id === selectedId) ?? null
 
   return (
-    <section className="-m-4 flex min-h-[calc(100svh-4rem)] flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
+    <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex max-w-3xl flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold">Atributos</h1>
         {canManage && !creatingAttribute && (
