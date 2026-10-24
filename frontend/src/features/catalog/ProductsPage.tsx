@@ -16,12 +16,14 @@ import { canManageCatalog } from '../access/roles'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { Dialog } from '../../shared/Dialog'
+import { AdjustStockModal } from './AdjustStockModal'
 import { HighlightedText } from '../../shared/HighlightedText'
 import { EyeIcon, PencilIcon } from '../../shared/icons'
 import { Pagination } from '../../shared/Pagination'
 import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
 import { HEADER_ACTION_BUTTON_CLASSES } from '../../shared/headerActionButton'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
+import type { RowMenuItem } from '../../shared/RowMenu'
 import { RowMenu } from '../../shared/RowMenu'
 import { SearchInput } from '../../shared/SearchInput'
 import { SelectMenu } from '../../shared/SelectMenu'
@@ -54,6 +56,8 @@ interface Filters {
 }
 
 const DEFAULT_FILTERS: Filters = { page: 1, pageSize: 25, categoryId: 'all', status: 'all' }
+
+type VariantPurpose = 'shortage' | 'stock'
 
 
 const STOCK_STATUS_RANK: Record<string, number> = { sin_stock: 0, stock_bajo: 1, normal: 2 }
@@ -106,8 +110,9 @@ export function ProductsPage() {
   const stockRows = auxiliary.data?.[2] ?? NO_STOCK_ROWS
   const stockByVariant = useMemo(() => new Map(stockRows.map((row) => [row.variant_id, row])), [stockRows])
   const [confirmingProduct, setConfirmingProduct] = useState<Product | null>(null)
-  const [pickingVariantForShortage, setPickingVariantForShortage] = useState<Product | null>(null)
+  const [pickingVariant, setPickingVariant] = useState<{ product: Product; purpose: VariantPurpose } | null>(null)
   const [confirmingShortage, setConfirmingShortage] = useState<{ product: Product; variant: Variant } | null>(null)
+  const [adjustingStock, setAdjustingStock] = useState<{ product: Product; variant: Variant } | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
 
@@ -186,15 +191,23 @@ export function ProductsPage() {
     }
   }
 
-  function openMarkAsShortage(product: Product) {
+  function startVariantAction(product: Product, variant: Variant, purpose: VariantPurpose) {
+    if (purpose === 'shortage') {
+      setConfirmingShortage({ product, variant })
+    } else {
+      setAdjustingStock({ product, variant })
+    }
+  }
+
+  function chooseVariant(product: Product, purpose: VariantPurpose) {
     const activeVariants = product.variants.filter((variant) => variant.status === 'active')
     if (activeVariants.length > 1) {
-      setPickingVariantForShortage(product)
+      setPickingVariant({ product, purpose })
       return
     }
     const variant = activeVariants[0] ?? product.variants[0]
     if (variant === undefined) return
-    setConfirmingShortage({ product, variant })
+    startVariantAction(product, variant, purpose)
   }
 
   async function confirmMarkAsShortage() {
@@ -211,10 +224,20 @@ export function ProductsPage() {
     }
   }
 
-  function productRowMenuItems(product: Product) {
-    return [
+  function productRowMenuItems(product: Product): RowMenuItem[] {
+    const viewGroup: RowMenuItem[] = [
       { label: 'Ver detalle', icon: <EyeIcon />, onClick: () => navigate(`/products/${product.id}`) },
-      { label: 'Marcar como faltante', icon: '⚠', onClick: () => openMarkAsShortage(product) },
+      ...(canManage
+        ? [
+            {
+              label: 'Editar producto',
+              icon: <PencilIcon />,
+              onClick: () => navigate(`/products/${product.id}?edit=1`),
+            },
+          ]
+        : []),
+    ]
+    const stockGroup: RowMenuItem[] = [
       ...(canManage
         ? [
             {
@@ -225,24 +248,28 @@ export function ProductsPage() {
             {
               label: 'Actualizar stock',
               icon: <span className="text-lg font-semibold">#</span>,
-              onClick: () => {},
-              disabled: true,
-            },
-            {
-              label: 'Editar producto',
-              icon: <PencilIcon />,
-              onClick: () => navigate(`/products/${product.id}?edit=1`),
-            },
-            {
-              label: product.status === 'active' ? 'Desactivar' : 'Activar',
-              icon: '⊘',
-              danger: product.status === 'active',
-              success: product.status !== 'active',
-              onClick: () => setConfirmingProduct(product),
+              onClick: () => chooseVariant(product, 'stock'),
             },
           ]
         : []),
+      { label: 'Marcar como faltante', icon: '⚠', onClick: () => chooseVariant(product, 'shortage') },
     ]
+    const statusGroup: RowMenuItem[] = canManage
+      ? [
+          {
+            label: product.status === 'active' ? 'Desactivar' : 'Activar',
+            icon: '⊘',
+            danger: product.status === 'active',
+            success: product.status !== 'active',
+            onClick: () => setConfirmingProduct(product),
+          },
+        ]
+      : []
+    return [viewGroup, stockGroup, statusGroup]
+      .filter((group) => group.length > 0)
+      .flatMap((group, groupIndex) =>
+        group.map((item, itemIndex) => (groupIndex > 0 && itemIndex === 0 ? { ...item, divider: true } : item)),
+      )
   }
 
   function toggleSort() {
@@ -265,7 +292,7 @@ export function ProductsPage() {
   }, [products, sortDir])
 
   return (
-    <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
+    <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:min-h-0">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Productos</h1>
@@ -553,7 +580,6 @@ export function ProductsPage() {
                 <thead ref={theadRef} className="sticky top-0 z-10">
                   <tr className="table-header border-b border-line">
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Imagen</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Código</th>
                     <th
                       aria-sort={sortDir === 'asc' ? 'ascending' : 'descending'}
                       className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60"
@@ -586,11 +612,13 @@ export function ProductsPage() {
                       <td className="px-4 py-3.5">
                         <ProductThumbnail imageUrl={product.image_url} name={product.name} sizeClassName="h-12 w-12" />
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3.5 text-lg italic opacity-40">Próximamente</td>
                       <td className="max-w-xs px-4 py-3.5 [overflow-wrap:anywhere]">
                         <Link to={`/products/${product.id}`} className="text-lg font-semibold hover:text-brand">
                           <HighlightedText text={product.name} query={appliedSearch} />
                         </Link>
+                        {product.code && (
+                          <p className="mt-0.5 text-base opacity-50 [overflow-wrap:anywhere]">{product.code}</p>
+                        )}
                       </td>
                       <td className="max-w-xs py-3.5 pl-8 pr-4 text-lg opacity-70 [overflow-wrap:anywhere]">{categoryName(product.category_id)}</td>
                       <td className="px-4 py-3.5 text-lg opacity-70">
@@ -671,36 +699,38 @@ export function ProductsPage() {
 
       <Outlet context={{ onProductUpdated: applyProductUpdate }} />
 
-      {pickingVariantForShortage !== null && (
+      {pickingVariant !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-ink/20 backdrop-blur-sm"
-            onClick={() => setPickingVariantForShortage(null)}
+            onClick={() => setPickingVariant(null)}
             aria-hidden="true"
           />
           <Dialog
             label="Elegir variante"
-            onClose={() => setPickingVariantForShortage(null)}
+            onClose={() => setPickingVariant(null)}
             className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
           >
             <div className="flex items-start justify-between">
               <h2 className="m-0 text-2xl font-bold">Elegir variante</h2>
-              <CloseButton onClose={() => setPickingVariantForShortage(null)} />
+              <CloseButton onClose={() => setPickingVariant(null)} />
             </div>
             <p className="m-0 text-base opacity-60">
-              ¿Qué variante de "{pickingVariantForShortage.name}" querés marcar como faltante?
+              {pickingVariant.purpose === 'shortage'
+                ? `¿Qué variante de "${pickingVariant.product.name}" querés marcar como faltante?`
+                : `¿De qué variante de "${pickingVariant.product.name}" querés actualizar el stock?`}
             </p>
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
-              {pickingVariantForShortage.variants
+              {pickingVariant.product.variants
                 .filter((variant) => variant.status === 'active')
                 .map((variant) => (
                   <li key={variant.id}>
                     <button
                       type="button"
                       onClick={() => {
-                        const product = pickingVariantForShortage
-                        setPickingVariantForShortage(null)
-                        setConfirmingShortage({ product, variant })
+                        const { product, purpose } = pickingVariant
+                        setPickingVariant(null)
+                        startVariantAction(product, variant, purpose)
                       }}
                       className="flex w-full items-center justify-between gap-3 rounded-lg border border-line px-4 py-3 text-left text-base transition-colors hover:border-brand hover:bg-surface-brand"
                     >
@@ -711,6 +741,22 @@ export function ProductsPage() {
             </ul>
           </Dialog>
         </div>
+      )}
+
+      {adjustingStock !== null && (
+        <AdjustStockModal
+          product={adjustingStock.product}
+          categoryName={categoryName(adjustingStock.product.category_id)}
+          variant={adjustingStock.variant}
+          currentStock={stockByVariant.get(adjustingStock.variant.id)}
+          allowDecimals={units.find((unit) => unit.id === adjustingStock.product.unit_id)?.allows_fraction ?? false}
+          unitAbbreviation={unitAbbreviation(adjustingStock.product.unit_id)}
+          onClose={() => setAdjustingStock(null)}
+          onSuccess={() => {
+            setAdjustingStock(null)
+            auxiliary.reload()
+          }}
+        />
       )}
 
       {confirmingShortage !== null && (

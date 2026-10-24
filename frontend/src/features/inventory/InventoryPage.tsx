@@ -1388,7 +1388,7 @@ export function InventoryPage({ view }: { view: InventoryTab }) {
   }
 
   return (
-    <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
+    <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:min-h-0">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">{tab === 'stock' ? 'Inventario' : 'Faltantes'}</h1>

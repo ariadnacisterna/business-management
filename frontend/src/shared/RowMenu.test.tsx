@@ -28,4 +28,22 @@ describe('RowMenu', () => {
     expect(trigger).toHaveFocus()
     expect(onEdit).not.toHaveBeenCalled()
   })
+
+  it('draws a divider before the items marked with divider', async () => {
+    const user = userEvent.setup()
+    render(
+      <RowMenu
+        title="Cinta bebé"
+        items={[
+          { label: 'Ver detalle', onClick: vi.fn() },
+          { label: 'Desactivar', onClick: vi.fn(), divider: true },
+        ]}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Acciones para Cinta bebé' }))
+
+    expect(screen.getAllByRole('separator')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'Desactivar' }).previousElementSibling).toBe(screen.getByRole('separator'))
+  })
 })

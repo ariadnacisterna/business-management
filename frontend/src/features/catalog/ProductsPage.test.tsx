@@ -453,6 +453,74 @@ describe('ProductsPage', () => {
     expect(await screen.findByRole('heading', { name: 'Detalle de producto' })).toBeInTheDocument()
   })
 
+  it('groups the row menu actions and enables "Actualizar stock" for an administrator', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[0])
+
+    const actionLabels = ['Ver detalle', 'Editar producto', 'Cambiar precio', 'Actualizar stock', 'Marcar como faltante', 'Desactivar']
+    const actions = screen
+      .getAllByRole('button')
+      .map((button) => actionLabels.find((label) => button.textContent?.endsWith(label)))
+      .filter((label) => label !== undefined)
+    expect(actions).toEqual([
+      'Ver detalle',
+      'Editar producto',
+      'Cambiar precio',
+      'Actualizar stock',
+      'Marcar como faltante',
+      'Desactivar',
+    ])
+    expect(screen.getByRole('button', { name: 'Actualizar stock' })).toBeEnabled()
+    expect(screen.getAllByRole('separator')).toHaveLength(2)
+  })
+
+  it('opens the stock adjustment from the row menu', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT)
+
+    await screen.findByText('Cinta bebé')
+    await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[0])
+    await user.click(screen.getByRole('button', { name: 'Actualizar stock' }))
+
+    expect(await screen.findByRole('dialog', { name: 'Actualizar stock de Cinta bebé' })).toBeInTheDocument()
+  })
+
+  it('asks which variant to adjust when the product has several', async () => {
+    const user = userEvent.setup()
+    const productWithVariants: Product = {
+      ...PRODUCTS[1],
+      variants: [
+        PRODUCTS[1].variants[0],
+        { ...PRODUCTS[1].variants[0], id: 12, label: 'Crudo' },
+      ],
+    }
+    renderPage(ADMIN_ACCOUNT, '/products', [PRODUCTS[0], productWithVariants])
+
+    await screen.findByText('Tela de lino')
+    await user.click(screen.getAllByRole('button', { name: /Acciones para/ })[1])
+    await user.click(screen.getByRole('button', { name: 'Actualizar stock' }))
+
+    const picker = await screen.findByRole('dialog', { name: 'Elegir variante' })
+    await user.click(within(picker).getByRole('button', { name: 'Crudo' }))
+
+    expect(await screen.findByRole('dialog', { name: 'Actualizar stock de Tela de lino' })).toBeInTheDocument()
+  })
+
+  it('shows the product code under its name in the table, with no placeholder', async () => {
+    const user = userEvent.setup()
+    renderPage(ADMIN_ACCOUNT, '/products', [{ ...PRODUCTS[0], code: 'CIN-001' }, PRODUCTS[1]])
+
+    await screen.findByText('Cinta bebé')
+    await user.click(screen.getByLabelText('Ver como tabla'))
+
+    expect(screen.getByText('CIN-001')).toBeInTheDocument()
+    expect(screen.queryByText('Próximamente')).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Código' })).not.toBeInTheDocument()
+  })
+
   it('deactivates a product from the row menu and updates its status', async () => {
     const user = userEvent.setup()
     const fetchMock = fetch as ReturnType<typeof vi.fn>

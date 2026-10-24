@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 const VIEWPORT_MARGIN = 8
@@ -11,6 +11,7 @@ export interface RowMenuItem {
   success?: boolean
   icon?: ReactNode
   disabled?: boolean
+  divider?: boolean
 }
 
 interface Props {
@@ -125,8 +126,9 @@ export function RowMenu({ title, subtitle, items }: Props) {
               </div>
               <div className="py-1.5">
                 {items.map((item) => (
+                  <Fragment key={item.label}>
+                  {item.divider === true && <div role="separator" className="my-1.5 border-t border-line" />}
                   <button
-                    key={item.label}
                     type="button"
                     disabled={item.disabled === true}
                     onClick={() => {
@@ -160,6 +162,7 @@ export function RowMenu({ title, subtitle, items }: Props) {
                       {item.disabled === true && <span className="ml-1 opacity-70">(próximamente)</span>}
                     </span>
                   </button>
+                  </Fragment>
                 ))}
               </div>
             </div>

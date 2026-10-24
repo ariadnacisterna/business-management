@@ -68,6 +68,7 @@ export interface Product {
   variants: Variant[]
   provider_id: number | null
   presentation?: Presentation | null
+  code?: string | null
 }
 
 export interface Provider {

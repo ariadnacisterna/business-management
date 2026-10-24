@@ -497,14 +497,16 @@ export function NewSalePanel() {
 
             <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
               <legend className="mb-2 text-lg font-semibold">Forma de pago</legend>
-              <div className="grid grid-cols-3 gap-2">
-                {PAYMENT_METHODS.map((method) => (
+              <div className="grid grid-cols-2 gap-2">
+                {PAYMENT_METHODS.map((method, index) => (
                   <button
                     key={method}
                     type="button"
                     aria-pressed={paymentMethod === method}
                     onClick={() => choosePaymentMethod(method)}
                     className={`min-h-14 min-w-0 whitespace-nowrap rounded-lg border px-2 text-lg font-bold transition-colors ${
+                      index === PAYMENT_METHODS.length - 1 ? 'col-span-2' : ''
+                    } ${
                       paymentMethod === method
                         ? 'border-brand bg-surface-brand text-brand'
                         : 'border-line hover:bg-surface-brand'

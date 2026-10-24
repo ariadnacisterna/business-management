@@ -20,11 +20,11 @@ export function AppLayout() {
   )?.name
 
   return (
-    <div className="flex min-h-svh bg-surface text-ink">
+    <div className="flex min-h-svh bg-surface text-ink lg:h-svh">
       <WelcomeModal />
       <Sidebar isOpen={sidebarOpen} onNavigate={() => setSidebarOpen(false)} account={account} />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col lg:min-h-0">
         <header className="sticky top-0 z-20 flex min-h-16 items-center gap-4 border-b border-line bg-surface px-4 py-2 md:relative md:z-auto md:px-6">
           <button
             type="button"
@@ -62,7 +62,7 @@ export function AppLayout() {
           </div>
         </header>
 
-        <main className="flex flex-1 flex-col p-4 md:p-6">
+        <main className="flex flex-1 flex-col p-4 md:p-6 lg:min-h-0 lg:overflow-y-auto">
           <Outlet />
         </main>
       </div>
