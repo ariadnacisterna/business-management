@@ -152,7 +152,7 @@ export function SalesListPanel() {
                 <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Forma de pago</th>
                 <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Vendedor</th>
                 <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Estado</th>
-                <th className="whitespace-nowrap px-4 py-3 text-right text-sm font-bold uppercase tracking-wide opacity-60">Total</th>
+                <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Total</th>
                 <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>
               </tr>
             </thead>
@@ -208,7 +208,7 @@ export function SalesListPanel() {
                       </span>
                     </td>
                     <td
-                      className={`whitespace-nowrap px-4 py-3 text-right text-xl font-bold text-brand ${voided ? 'line-through' : ''}`}
+                      className={`whitespace-nowrap px-4 py-3 text-left text-xl font-bold text-brand ${voided ? 'line-through' : ''}`}
                     >
                       {formatAmount(sale.total)}
                     </td>
