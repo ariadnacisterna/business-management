@@ -117,7 +117,7 @@ describe('SalesPage', () => {
 
     expect(await screen.findByRole('textbox', { name: 'Buscar producto para vender' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Agregar Cinta de raso' })).not.toBeInTheDocument()
-    expect(screen.getByText('El ticket está vacío. Buscá un producto para agregar.')).toBeInTheDocument()
+    expect(screen.getByText('El carrito está vacío')).toBeInTheDocument()
 
     const search = screen.getByRole('textbox', { name: 'Buscar producto para vender' })
     await user.type(search, 'cinta')
@@ -138,7 +138,8 @@ describe('SalesPage', () => {
 
     await user.type(screen.getByRole('textbox', { name: 'Buscar producto para vender' }), 'cinta')
     await user.click(await screen.findByRole('button', { name: 'Agregar Cinta de raso' }))
-    await user.click(screen.getByRole('button', { name: 'Agregar Cinta de raso' }))
+    await user.type(screen.getByRole('textbox', { name: 'Buscar producto para vender' }), 'cinta')
+    await user.click(await screen.findByRole('button', { name: 'Agregar Cinta de raso' }))
     expect(screen.getByRole('textbox', { name: 'Cantidad de Cinta de raso' })).toHaveValue('2')
     await user.click(screen.getByRole('button', { name: 'Restar uno a Cinta de raso' }))
     await user.click(screen.getByRole('button', { name: 'Sumar uno a Cinta de raso' }))
@@ -146,14 +147,14 @@ describe('SalesPage', () => {
     await user.clear(quantity)
     await user.type(quantity, '3')
 
-    expect(screen.getByText(/Hay 2 m en stock/)).toBeInTheDocument()
+    expect(screen.getByText(/Stock insuficiente: hay 2 m/)).toBeInTheDocument()
     expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$900,00')
 
     await user.click(screen.getByRole('button', { name: 'Fiado' }))
     await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
     expect(screen.getByText('Para vender en fiado elegí el cliente.')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Cliente del fiado' }))
+    await user.click(screen.getByRole('button', { name: 'Cliente' }))
     await user.click(await screen.findByRole('option', { name: 'Clara Ventas' }))
     await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
     await user.click(within(screen.getByRole('alertdialog', { name: 'Registrar venta' })).getByRole('button', { name: 'Registrar' }))
@@ -170,7 +171,21 @@ describe('SalesPage', () => {
     })
   })
 
-  it('shows an empty state without filters when there are no sales yet and opens the new sale tab from it', async () => {
+  it('shows only the loading indicator, without filters, while the sales list loads for the first time', async () => {
+    const user = userEvent.setup()
+    routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+      'GET /sales': () => new Promise<Response>(() => {}) as unknown as Response,
+    })
+    renderPage(EMPLEADO)
+
+    await user.click(screen.getByRole('button', { name: 'Ventas registradas' }))
+    expect(await screen.findByText('Cargando…')).toBeInTheDocument()
+    expect(screen.queryByText('Desde')).not.toBeInTheDocument()
+  })
+
+  it('shows an empty state without filters when there are no sales yet', async () => {
     const user = userEvent.setup()
     routeFetch({
       'GET /search': () => jsonResponse({ results: VARIANTS }),
@@ -180,11 +195,9 @@ describe('SalesPage', () => {
     renderPage(EMPLEADO)
 
     await user.click(screen.getByRole('button', { name: 'Ventas registradas' }))
-    expect(await screen.findByText('Todavía no hay ventas registradas.')).toBeInTheDocument()
+    expect(await screen.findByText('No hay ventas registradas')).toBeInTheDocument()
+    expect(screen.getByText('Cuando registres una venta, va a aparecer acá.')).toBeInTheDocument()
     expect(screen.queryByText('Desde')).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Registrar una venta' }))
-    expect(screen.getByRole('textbox', { name: 'Buscar producto para vender' })).toBeVisible()
   })
 
   it('shows the filters and a no-results message when the filters find no sales', async () => {
@@ -261,9 +274,9 @@ describe('SalesPage', () => {
     await user.type(screen.getByRole('textbox', { name: 'Descuento en pesos' }), '50')
     expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$250,00')
 
-    await user.click(screen.getByRole('button', { name: 'Vaciar ticket' }))
-    expect(screen.getByText('El ticket está vacío. Buscá un producto para agregar.')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Total de la venta')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Vaciar carrito' }))
+    expect(screen.getByText('El carrito está vacío')).toBeInTheDocument()
+    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$0,00')
   })
 
   it('lets a Gerente void a sale with a reason', async () => {

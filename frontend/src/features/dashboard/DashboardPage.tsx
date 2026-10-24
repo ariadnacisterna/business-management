@@ -1,8 +1,5 @@
-import { fetchCustomerBalances } from '../../api/catalog'
-import type { CustomerBalanceSummary } from '../../api/types'
 import { useAuth } from '../access/useAuth'
 import { fetchStockSummary, type StockSummary } from '../inventory/stockRows'
-import { formatAmount } from '../../shared/formatAmount'
 import { NavIconGlyph } from '../../shared/layout/NavIcon'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { useLoad } from '../../shared/useLoad'
@@ -11,22 +8,12 @@ import { LoginAlertsNotice } from './LoginAlertsNotice'
 const EMPTY_SUMMARY: StockSummary = { total: 0, stockBajo: 0, sinStock: 0 }
 const STOCK_LOAD_ERROR_MESSAGE = 'No se pudo cargar el resumen del inventario.'
 
-function pendingCreditTotal(balances: CustomerBalanceSummary[]): number {
-  return balances.reduce((sum, item) => {
-    const value = Number(item.balance)
-    return value > 0 ? sum + value : sum
-  }, 0)
-}
-
 export function DashboardPage() {
   const { account } = useAuth()
   const businessId = account?.active_business_id
   const stock = useLoad(() => fetchStockSummary(), [businessId])
-  const balances = useLoad(() => fetchCustomerBalances().then(pendingCreditTotal), [businessId])
   const status = stock.status
   const summary = stock.data ?? EMPTY_SUMMARY
-  const balanceStatus = balances.status
-  const pendingTotal = balances.data ?? 0
 
   return (
     <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
@@ -36,29 +23,6 @@ export function DashboardPage() {
       </div>
 
       <LoginAlertsNotice key={businessId} />
-
-      <div className="rounded-xl border border-line bg-surface p-5">
-        <p className="text-sm font-bold uppercase tracking-wide opacity-50">Fiado pendiente</p>
-        {balanceStatus === 'loading' && (
-          <div className="mt-1 flex items-center gap-3" role="status">
-            <span className="h-6 w-6 animate-spin rounded-full border-4 border-line border-t-brand" />
-            <p className="text-xl font-semibold">Cargando…</p>
-          </div>
-        )}
-        {balanceStatus === 'success' && <p className="mt-1 text-3xl font-bold">${formatAmount(String(pendingTotal))}</p>}
-        {balanceStatus === 'error' && (
-          <div className="mt-1 flex flex-wrap items-center gap-3" role="alert">
-            <p className="m-0 text-xl font-semibold text-danger">No se pudo cargar</p>
-            <button
-              type="button"
-              onClick={balances.reload}
-              className="min-h-11 rounded-lg border border-danger px-4 text-base font-bold text-danger transition-colors hover:bg-danger/10"
-            >
-              Reintentar
-            </button>
-          </div>
-        )}
-      </div>
 
       {status === 'loading' && (
         <div className="flex flex-col items-center gap-3 py-12 text-center" role="status">

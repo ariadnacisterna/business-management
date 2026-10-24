@@ -19,7 +19,7 @@ const API_PATH_PREFIXES = [
   '/shortages',
 ]
 
-const SPA_ROUTE_PREFIXES = ['/products', '/categories', '/units', '/attributes']
+const SPA_ROUTE_PREFIXES = ['/products', '/categories', '/units', '/attributes', '/sales']
 
 function bypassDocumentNavigations(req: IncomingMessage) {
   if (req.headers.accept?.includes('text/html')) return '/index.html'

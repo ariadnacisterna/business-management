@@ -68,7 +68,6 @@ describe('Sidebar', () => {
     expect(catalogo.getAllByRole('link').map((link) => link.textContent)).toEqual([
       'Productos',
       'Precios',
-      'Inventario',
     ])
 
     const comercial = within(screen.getByRole('group', { name: 'Comercial' }))
@@ -115,10 +114,10 @@ describe('Sidebar', () => {
     expect(screen.getAllByRole('separator')).toHaveLength(3)
   })
 
-  it('renders "Inventario" as a navigable link for every role', () => {
+  it('renders "Inventario" as a disclosure button for every role', () => {
     renderSidebar('/products')
 
-    expect(screen.getByRole('link', { name: 'Inventario' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Inventario' })).toBeInTheDocument()
   })
 
   it('renders "Precios" as a navigable link', () => {
@@ -168,7 +167,7 @@ describe('Sidebar', () => {
     renderSidebar('/products', false, vi.fn(), { ...ADMINISTRADOR_ACCOUNT, role: 'Empleado' })
 
     expect(screen.queryByText('Panel')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Inventario' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Inventario' })).toBeInTheDocument()
     expect(screen.queryByText('Proveedores')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Productos' })).toBeInTheDocument()
     expect(screen.getByText('Ventas')).toBeInTheDocument()
@@ -222,7 +221,7 @@ describe('Sidebar', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    renderSidebar('/products')
+    renderSidebar('/inventario/faltantes')
 
     const badge = await screen.findByText('2')
     expect(badge).toHaveClass('bg-warning/20')
@@ -264,7 +263,7 @@ describe('Sidebar', () => {
     renderSidebar('/products')
 
     window.dispatchEvent(new Event('stock-updated'))
-    const inventoryLink = screen.getByRole('link', { name: /Inventario/ })
+    const inventoryLink = screen.getByRole('button', { name: /Inventario/ })
     expect(await within(inventoryLink).findByText('2')).toBeInTheDocument()
 
     answerFirst(new Response(JSON.stringify({ count: 9 }), { headers: { 'Content-Type': 'application/json' } }))

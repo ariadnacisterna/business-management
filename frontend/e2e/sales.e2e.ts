@@ -42,17 +42,18 @@ test('un Empleado registra una venta en efectivo y baja el stock', async ({ page
 test('tocar una tarjeta dos veces suma uno y el descuento baja el total', async ({ page }) => {
   await login(page, 'empleada')
   await page.goto('/ventas')
-  await expect(page.getByText('El ticket está vacío. Buscá un producto para agregar.')).toBeVisible()
+  await expect(page.getByText('El carrito está vacío')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Agregar Sacapuntas doble' })).toHaveCount(0)
 
   await page.getByRole('textbox', { name: 'Buscar producto para vender' }).fill('Sacapuntas doble')
   await page.getByRole('button', { name: 'Agregar Sacapuntas doble' }).click()
+  await page.getByRole('textbox', { name: 'Buscar producto para vender' }).fill('Sacapuntas doble')
   await page.getByRole('button', { name: 'Agregar Sacapuntas doble' }).click()
   await expect(page.getByRole('textbox', { name: 'Cantidad de Sacapuntas doble' })).toHaveValue('2')
   await page.getByRole('textbox', { name: 'Descuento en pesos' }).fill('100')
   await expect(page.getByLabel('Total de la venta')).toHaveText('$600,00')
-  await page.getByRole('button', { name: 'Vaciar ticket' }).click()
-  await expect(page.getByText('El ticket está vacío. Buscá un producto para agregar.')).toBeVisible()
+  await page.getByRole('button', { name: 'Vaciar carrito' }).click()
+  await expect(page.getByText('El carrito está vacío')).toBeVisible()
 })
 
 test('con ventas registradas, Ventas muestra los filtros', async ({ page }) => {
@@ -60,7 +61,7 @@ test('con ventas registradas, Ventas muestra los filtros', async ({ page }) => {
   await page.goto('/ventas')
   await page.getByRole('button', { name: 'Ventas registradas' }).click()
   await expect(page.getByText('Desde', { exact: true })).toBeVisible()
-  await expect(page.getByText('Todavía no hay ventas registradas.')).toHaveCount(0)
+  await expect(page.getByText('No hay ventas registradas', { exact: true })).toHaveCount(0)
 })
 
 test('el descuento en porcentaje se calcula sobre el total', async ({ page }) => {
@@ -69,6 +70,7 @@ test('el descuento en porcentaje se calcula sobre el total', async ({ page }) =>
 
   await page.getByRole('textbox', { name: 'Buscar producto para vender' }).fill('Sacapuntas doble')
   await page.getByRole('button', { name: 'Agregar Sacapuntas doble' }).click()
+  await page.getByRole('textbox', { name: 'Buscar producto para vender' }).fill('Sacapuntas doble')
   await page.getByRole('button', { name: 'Agregar Sacapuntas doble' }).click()
   await expect(page.getByLabel('Total de la venta')).toHaveText('$700,00')
   await page.getByRole('textbox', { name: 'Descuento en porcentaje' }).fill('10')
@@ -82,7 +84,7 @@ test('una venta en fiado suma al saldo del cliente', async ({ page }) => {
 
   await addProduct(page, 'Marcador fluo', '1')
   await page.getByRole('button', { name: 'Fiado' }).click()
-  await page.getByRole('button', { name: 'Cliente del fiado' }).click()
+  await page.getByRole('button', { name: 'Cliente' }).click()
   await page.getByRole('option', { name: 'Clara Ventas' }).click()
   await confirmSale(page)
 
@@ -97,7 +99,7 @@ test('se vende aunque no alcance el stock y la venta queda marcada', async ({ pa
   await page.goto('/ventas')
 
   await addProduct(page, 'Pegamento en barra', '3')
-  await expect(page.getByRole('main')).toContainText('Hay 1 u en stock')
+  await expect(page.getByRole('main')).toContainText('Stock insuficiente: hay 1 u')
   await confirmSale(page)
 
   await expect(page.getByRole('alert').filter({ hasText: 'sin stock suficiente' })).toBeVisible()

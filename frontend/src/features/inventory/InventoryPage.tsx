@@ -20,6 +20,7 @@ import { FieldRow } from '../../shared/FieldRow'
 import { ProductThumbnail } from '../../shared/ProductThumbnail'
 import { FiltersButton, FiltersSheet } from '../../shared/FiltersSheet'
 import { PencilIcon } from '../../shared/icons'
+import { NavIconGlyph } from '../../shared/layout/NavIcon'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { Pagination } from '../../shared/Pagination'
 import { SearchInput } from '../../shared/SearchInput'
@@ -28,7 +29,6 @@ import { DeltaPreview, SignedDeltaInput } from '../../shared/SignedDeltaInput'
 import { evaluateMinimumEntry, evaluateStockEntry, formatStock, formatStockDifference } from '../../shared/presentation'
 import type { StockEntry, StockEntryMode, StockEntryRequest } from '../../shared/presentation'
 import { StockModeToggle } from '../../shared/StockModeToggle'
-import { UnderlineTabs } from '../../shared/UnderlineTabs'
 import { formatQuantity } from '../../shared/formatQuantity'
 import { STOCK_STATUS_LABELS, stockStatusClasses, stockStatusTextColor } from '../../shared/stockStatus'
 import { useLatestRequest } from '../../shared/useLatestRequest'
@@ -1028,10 +1028,6 @@ function StockTab({
 
 type InventoryTab = 'stock' | 'faltantes'
 
-const INVENTORY_TABS: readonly { value: InventoryTab; label: string }[] = [
-  { value: 'stock', label: 'Stock' },
-  { value: 'faltantes', label: 'Faltantes' },
-]
 type ShortageStatusFilter = 'pending' | 'faltante' | 'pedido' | 'recibido'
 type ShortageGroupBy = 'none' | 'category' | 'provider'
 
@@ -1217,7 +1213,7 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
         value={providerFilter}
         onChange={setProviderFilter}
         ariaLabel="Filtrar por proveedor"
-        className="w-full lg:w-56"
+        className="w-full lg:w-72"
         options={[
           { value: 'all', label: 'Todos los proveedores' },
           ...providerOptions.map(([value, label]) => ({ value, label })),
@@ -1245,8 +1241,12 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
     </>
   )
 
+  const showControls = !(status === 'success' && filteredItems.length === 0 && !hasActiveFilters)
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
+      {showControls && (
+        <>
       <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen} section="Inventario">
         {filterControls}
       </FiltersSheet>
@@ -1263,6 +1263,8 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
         </div>
         <div className="hidden flex-wrap items-center gap-3 lg:flex">{filterControls}</div>
       </div>
+        </>
+      )}
 
       {status === 'loading' && (
         <div className="flex flex-col items-center gap-3 py-12 text-center" role="status">
@@ -1281,7 +1283,8 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
       )}
 
       {status === 'success' && filteredItems.length === 0 && !hasActiveFilters && (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-16 text-center">
+          <NavIconGlyph icon="inventory" className="h-10 w-10 opacity-40" />
           <p className="text-xl font-semibold opacity-70">No hay faltantes pendientes</p>
           <p className="text-lg opacity-50">Cuando se marque un producto como faltante, va a aparecer acá.</p>
         </div>
@@ -1354,7 +1357,7 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
   )
 }
 
-export function InventoryPage() {
+export function InventoryPage({ view }: { view: InventoryTab }) {
   const { account } = useAuth()
   const canManage = canManageCatalog(account)
 
@@ -1375,7 +1378,7 @@ export function InventoryPage() {
   const [criticalSignal, setCriticalSignal] = useState(0)
   const [dismissedSinStock, setDismissedSinStock] = useState<number | null>(null)
   const bannerDismissed = dismissedSinStock === summary.sinStock
-  const [tab, setTab] = useState<InventoryTab>('stock')
+  const tab = view
 
   function refreshSummary() {
     fetchStockSummary()
@@ -1388,8 +1391,8 @@ export function InventoryPage() {
     <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Inventario</h1>
-          {canManage && (
+          <h1 className="text-3xl font-bold">{tab === 'stock' ? 'Inventario' : 'Faltantes'}</h1>
+          {canManage && tab === 'stock' && (
             <div className="mt-1 flex flex-col text-base opacity-60 sm:flex-row sm:flex-wrap sm:items-center sm:gap-1.5 lg:text-lg">
               <span className="whitespace-nowrap">{summary.stockBajo} con stock bajo</span>
               <span className="hidden sm:inline">·</span>
@@ -1400,9 +1403,6 @@ export function InventoryPage() {
         {status === 'success' && tab === 'stock' && summary.total > 0 && <ViewToggle mode={viewMode} onChange={setViewMode} />}
       </div>
 
-      <div>
-        <UnderlineTabs tabs={INVENTORY_TABS} value={tab} onChange={setTab} />
-      </div>
 
       {tab === 'stock' && canManage && status === 'success' && summary.total > 0 && summary.sinStock > 0 && !bannerDismissed && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger/10 py-3 pl-4 pr-1">

@@ -77,21 +77,21 @@ function summaryFor(rows: { status: string }[]) {
   }
 }
 
-function renderPage(account: unknown = GERENTE_ACCOUNT, stockRow = STOCK_ROW) {
+function renderPage(account: unknown = GERENTE_ACCOUNT, stockRow = STOCK_ROW, view: 'stock' | 'faltantes' = 'stock') {
   const fetchMock = fetch as ReturnType<typeof vi.fn>
   fetchMock
     .mockResolvedValueOnce(jsonResponse(account))
     .mockResolvedValueOnce(jsonResponse(CATEGORIES))
     .mockResolvedValueOnce(jsonResponse(UNITS))
     .mockResolvedValueOnce(jsonResponse(summaryFor([stockRow])))
-    .mockResolvedValueOnce(jsonResponse(stockPage([stockRow])))
+  if (view === 'stock') fetchMock.mockResolvedValueOnce(jsonResponse(stockPage([stockRow])))
 
   return render(
     <MemoryRouter>
       <ToastProvider>
         <AuthProvider>
           <ReadyGate>
-            <InventoryPage />
+            <InventoryPage view={view} />
           </ReadyGate>
         </AuthProvider>
       </ToastProvider>
@@ -113,7 +113,7 @@ describe('InventoryPage', () => {
         <ToastProvider>
           <AuthProvider>
             <ReadyGate>
-              <InventoryPage />
+              <InventoryPage view="stock" />
             </ReadyGate>
           </AuthProvider>
         </ToastProvider>
@@ -501,7 +501,7 @@ describe('InventoryPage', () => {
         <ToastProvider>
           <AuthProvider>
             <ReadyGate>
-              <InventoryPage />
+              <InventoryPage view="stock" />
             </ReadyGate>
           </AuthProvider>
         </ToastProvider>
@@ -561,7 +561,7 @@ describe('InventoryPage', () => {
         <ToastProvider>
           <AuthProvider>
             <ReadyGate>
-              <InventoryPage />
+              <InventoryPage view="stock" />
             </ReadyGate>
           </AuthProvider>
         </ToastProvider>
@@ -758,26 +758,22 @@ describe('InventoryPage', () => {
     }
 
     it('switches to the Faltantes tab and lists pending shortages', async () => {
-      const user = userEvent.setup()
       const fetchMock = fetch as ReturnType<typeof vi.fn>
-      renderPage()
+      renderPage(GERENTE_ACCOUNT, STOCK_ROW, 'faltantes')
 
-      await screen.findAllByText('Hilo blanco')
+      await screen.findByRole('heading', { name: 'Faltantes' })
       fetchMock.mockResolvedValueOnce(jsonResponse([SHORTAGE]))
-      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
 
       expect(await screen.findByText('Distribuidora Norte')).toBeInTheDocument()
       expect(screen.getByText('● Faltante')).toBeInTheDocument()
     })
 
     it('does not call fetchProviders when loading the Faltantes tab', async () => {
-      const user = userEvent.setup()
       const fetchMock = fetch as ReturnType<typeof vi.fn>
-      renderPage(EMPLEADO_ACCOUNT)
+      renderPage(EMPLEADO_ACCOUNT, STOCK_ROW, 'faltantes')
 
-      await screen.findAllByText('Hilo blanco')
+      await screen.findByRole('heading', { name: 'Faltantes' })
       fetchMock.mockResolvedValueOnce(jsonResponse([SHORTAGE]))
-      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
 
       await screen.findByText('Distribuidora Norte')
       const calledProviders = fetchMock.mock.calls.some((call) => String(call[0]).includes('/providers'))
@@ -787,13 +783,12 @@ describe('InventoryPage', () => {
     it('filters shortages by product name using the search box', async () => {
       const user = userEvent.setup()
       const fetchMock = fetch as ReturnType<typeof vi.fn>
-      renderPage()
+      renderPage(GERENTE_ACCOUNT, STOCK_ROW, 'faltantes')
 
-      await screen.findAllByText('Hilo blanco')
+      await screen.findByRole('heading', { name: 'Faltantes' })
       fetchMock.mockResolvedValueOnce(
         jsonResponse([SHORTAGE, { ...SHORTAGE, id: 2, product_name: 'Botón dorado' }]),
       )
-      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
       await screen.findByText('Hilo blanco')
       expect(screen.getByText('Botón dorado')).toBeInTheDocument()
 
@@ -806,11 +801,10 @@ describe('InventoryPage', () => {
     it('opens the filters sheet and filters from inside it', async () => {
       const user = userEvent.setup()
       const fetchMock = fetch as ReturnType<typeof vi.fn>
-      renderPage()
+      renderPage(GERENTE_ACCOUNT, STOCK_ROW, 'faltantes')
 
-      await screen.findAllByText('Hilo blanco')
+      await screen.findByRole('heading', { name: 'Faltantes' })
       fetchMock.mockResolvedValueOnce(jsonResponse([SHORTAGE]))
-      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
       await screen.findByText('Distribuidora Norte')
 
       await user.click(screen.getByRole('button', { name: 'Filtros' }))
@@ -824,26 +818,22 @@ describe('InventoryPage', () => {
     })
 
     it('shows an empty state when there are no pending shortages', async () => {
-      const user = userEvent.setup()
       const fetchMock = fetch as ReturnType<typeof vi.fn>
-      renderPage()
+      renderPage(GERENTE_ACCOUNT, STOCK_ROW, 'faltantes')
 
-      await screen.findAllByText('Hilo blanco')
+      await screen.findByRole('heading', { name: 'Faltantes' })
       fetchMock.mockResolvedValueOnce(jsonResponse([]))
-      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
 
       expect(await screen.findByText('No hay faltantes pendientes')).toBeInTheDocument()
       expect(screen.queryByText('No hay faltantes que coincidan.')).not.toBeInTheDocument()
     })
 
     it('says no shortage matches only when a filter is active', async () => {
-      const user = userEvent.setup()
       const fetchMock = fetch as ReturnType<typeof vi.fn>
-      renderPage()
+      renderPage(GERENTE_ACCOUNT, STOCK_ROW, 'faltantes')
 
-      await screen.findAllByText('Hilo blanco')
+      await screen.findByRole('heading', { name: 'Faltantes' })
       fetchMock.mockResolvedValueOnce(jsonResponse([SHORTAGE]))
-      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
       await screen.findByText('Hilo blanco')
 
       fireEvent.change(screen.getByLabelText('Buscar producto'), { target: { value: 'inexistente' } })
@@ -855,11 +845,10 @@ describe('InventoryPage', () => {
     it('groups shortages by provider when selected', async () => {
       const user = userEvent.setup()
       const fetchMock = fetch as ReturnType<typeof vi.fn>
-      renderPage()
+      renderPage(GERENTE_ACCOUNT, STOCK_ROW, 'faltantes')
 
-      await screen.findAllByText('Hilo blanco')
+      await screen.findByRole('heading', { name: 'Faltantes' })
       fetchMock.mockResolvedValueOnce(jsonResponse([SHORTAGE, { ...SHORTAGE, id: 2, product_name: 'Hilo negro', provider_id: null, provider_name: null }]))
-      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
       await screen.findByText('Hilo blanco')
 
       await user.click(screen.getByRole('button', { name: 'Agrupar faltantes' }))
@@ -872,11 +861,10 @@ describe('InventoryPage', () => {
     it('advances a shortage from Faltante to Pedido', async () => {
       const user = userEvent.setup()
       const fetchMock = fetch as ReturnType<typeof vi.fn>
-      renderPage()
+      renderPage(GERENTE_ACCOUNT, STOCK_ROW, 'faltantes')
 
-      await screen.findAllByText('Hilo blanco')
+      await screen.findByRole('heading', { name: 'Faltantes' })
       fetchMock.mockResolvedValueOnce(jsonResponse([SHORTAGE]))
-      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
       await screen.findByText('Distribuidora Norte')
 
       await user.click(screen.getByRole('button', { name: 'Marcar como Pedido' }))
@@ -895,11 +883,10 @@ describe('InventoryPage', () => {
     it('cancels a Pedido shortage back to Faltante', async () => {
       const user = userEvent.setup()
       const fetchMock = fetch as ReturnType<typeof vi.fn>
-      renderPage()
+      renderPage(GERENTE_ACCOUNT, STOCK_ROW, 'faltantes')
 
-      await screen.findAllByText('Hilo blanco')
+      await screen.findByRole('heading', { name: 'Faltantes' })
       fetchMock.mockResolvedValueOnce(jsonResponse([{ ...SHORTAGE, status: 'pedido' }]))
-      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
       await screen.findByText('Distribuidora Norte')
 
       await user.click(screen.getByRole('button', { name: 'Cancelar' }))
@@ -912,13 +899,11 @@ describe('InventoryPage', () => {
     })
 
     it('does not show advance or cancel actions for a received shortage', async () => {
-      const user = userEvent.setup()
       const fetchMock = fetch as ReturnType<typeof vi.fn>
-      renderPage()
+      renderPage(GERENTE_ACCOUNT, STOCK_ROW, 'faltantes')
 
-      await screen.findAllByText('Hilo blanco')
+      await screen.findByRole('heading', { name: 'Faltantes' })
       fetchMock.mockResolvedValueOnce(jsonResponse([{ ...SHORTAGE, status: 'recibido' }]))
-      await user.click(screen.getByRole('button', { name: 'Faltantes' }))
       await screen.findByText('Distribuidora Norte')
 
       expect(screen.queryByRole('button', { name: /Marcar como/ })).not.toBeInTheDocument()

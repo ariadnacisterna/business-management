@@ -11,6 +11,11 @@ export type NavIcon =
   | 'customers'
   | 'settings'
 
+export interface NavChild {
+  to: string
+  label: string
+}
+
 export interface NavItem {
   to: string
   label: string
@@ -18,6 +23,7 @@ export interface NavItem {
   end?: boolean
   disabled?: boolean
   minRole?: Role
+  children?: NavChild[]
 }
 
 export interface NavGroup {
@@ -35,7 +41,15 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/products', label: 'Productos', icon: 'products' },
       { to: '/precios', label: 'Precios', icon: 'prices' },
-      { to: '/inventario', label: 'Inventario', icon: 'inventory' },
+      {
+        to: '/inventario/stock',
+        label: 'Inventario',
+        icon: 'inventory',
+        children: [
+          { to: '/inventario/stock', label: 'Stock' },
+          { to: '/inventario/faltantes', label: 'Faltantes' },
+        ],
+      },
     ],
   },
   {

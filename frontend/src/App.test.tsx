@@ -248,7 +248,6 @@ describe('App', () => {
       .mockResolvedValueOnce(jsonResponse({ count: 0 }))
       .mockResolvedValueOnce(jsonResponse({ count: 0 }))
       .mockResolvedValueOnce(jsonResponse({ count: 0 }))
-      .mockResolvedValueOnce(jsonResponse({ count: 0 }))
       .mockResolvedValueOnce(
         jsonResponse({ ...DUENO_TWO_BUSINESS_ACCOUNT, active_business_id: 2 }),
       )

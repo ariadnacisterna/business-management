@@ -86,7 +86,7 @@ test('el campo de stock en metros no muestra el signo de pesos', async ({ page }
 })
 
 test('avanzar el estado de un faltante', async ({ page }) => {
-  await page.getByRole('button', { name: 'Faltantes' }).click()
+  await page.goto('/inventario/faltantes')
   await page.getByRole('button', { name: 'Marcar como Pedido' }).click()
   const dialog = page.getByRole('alertdialog', { name: 'Avanzar faltante' })
   await expect(dialog).toContainText('"Compas metalico" va a pasar de Faltante a Pedido.')
@@ -110,6 +110,6 @@ test('marcar un producto como faltante desde Productos', async ({ page }) => {
   await page.getByRole('alertdialog', { name: 'Marcar como faltante' }).getByRole('button', { name: 'Aceptar' }).click()
   await expect(successToast(page, 'La variante ahora figura como faltante.')).toBeVisible()
   await page.goto('/inventario')
-  await page.getByRole('button', { name: 'Faltantes' }).click()
+  await page.goto('/inventario/faltantes')
   await expect(page.getByRole('main')).toContainText('Tijera escolar')
 })

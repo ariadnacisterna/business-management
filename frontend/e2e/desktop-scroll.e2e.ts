@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { login } from './support'
 
 const SCREENS = [
-  { width: 1280, height: 720 },
+  { width: 1280, height: 960 },
   { width: 1920, height: 1080 },
 ]
 

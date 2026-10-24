@@ -83,7 +83,9 @@ export function App() {
                 <Route path=":productId" element={<Loadable><ProductDetailPage /></Loadable>} />
               </Route>
               <Route path="/precios" element={<Loadable><PricingPage /></Loadable>} />
-              <Route path="/inventario" element={<Loadable><InventoryPage /></Loadable>} />
+              <Route path="/inventario" element={<Navigate to="/inventario/stock" replace />} />
+              <Route path="/inventario/stock" element={<Loadable><InventoryPage view="stock" /></Loadable>} />
+              <Route path="/inventario/faltantes" element={<Loadable><InventoryPage view="faltantes" /></Loadable>} />
               <Route path="/proveedores" element={<SuppliersRoute />} />
               <Route path="/ventas" element={<Loadable><SalesPage /></Loadable>} />
               <Route path="/clientes" element={<Loadable><CustomersPage /></Loadable>} />

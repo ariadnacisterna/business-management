@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { fetchSales } from '../../api/sales'
 import type { PaymentMethod } from '../../api/types'
 import { DatePicker } from '../../shared/DatePicker'
+import { EmptyState } from '../../shared/EmptyState'
+import { NavIconGlyph } from '../../shared/layout/NavIcon'
+import { PageLoading } from '../../shared/PageLoading'
 import { formatAmount } from '../../shared/formatAmount'
 import { formatDateTime } from '../../shared/formatDateTime'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
@@ -17,7 +20,7 @@ const PAGE_SIZE = 25
 
 type PaymentFilter = PaymentMethod | ''
 
-export function SalesListPanel({ onNewSale }: { onNewSale: () => void }) {
+export function SalesListPanel() {
   const { account } = useAuth()
   const canVoid = canVoidSales(account)
   const [page, setPage] = useState(1)
@@ -41,6 +44,7 @@ export function SalesListPanel({ onNewSale }: { onNewSale: () => void }) {
   const totalPages = data === undefined ? 1 : Math.max(1, Math.ceil(data.total / PAGE_SIZE))
   const hasFilters = dateFrom !== '' || dateTo !== '' || paymentFilter !== ''
   const noSalesYet = status === 'success' && data !== undefined && data.total === 0 && !hasFilters
+  const showFilters = !noSalesYet && !(status === 'loading' && data === undefined)
 
   function changeDateFrom(value: string) {
     setDateFrom(value)
@@ -59,7 +63,7 @@ export function SalesListPanel({ onNewSale }: { onNewSale: () => void }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {!noSalesYet && (
+      {showFilters && (
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <label className="flex min-w-0 flex-col gap-1.5">
           <span className="text-base font-semibold">Desde</span>
@@ -84,26 +88,16 @@ export function SalesListPanel({ onNewSale }: { onNewSale: () => void }) {
       </div>
       )}
 
-      {status === 'loading' && (
-        <div className="flex flex-col items-center gap-3 py-12 text-center" role="status">
-          <span className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-brand" />
-          <p className="text-xl font-semibold">Cargando…</p>
-        </div>
-      )}
+      {status === 'loading' && <PageLoading />}
 
       {status === 'error' && <LoadErrorCard message="No se pudieron cargar las ventas." onRetry={reload} />}
 
       {noSalesYet && (
-        <div className="flex flex-col items-center gap-4 rounded-2xl bg-surface p-6 text-center">
-          <p className="m-0 text-xl font-semibold">Todavía no hay ventas registradas.</p>
-          <button
-            type="button"
-            onClick={onNewSale}
-            className="min-h-16 rounded-lg bg-brand px-5 text-lg font-bold text-brand-contrast transition-colors hover:bg-brand/90"
-          >
-            Registrar una venta
-          </button>
-        </div>
+        <EmptyState
+          icon={<NavIconGlyph icon="sales" className="h-10 w-10 opacity-40" />}
+          title="No hay ventas registradas"
+          description="Cuando registres una venta, va a aparecer acá."
+        />
       )}
 
       {status === 'success' && data !== undefined && data.items.length === 0 && (hasFilters || data.total > 0) && (

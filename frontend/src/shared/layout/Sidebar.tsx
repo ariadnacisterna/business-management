@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { useEffect, useId, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { fetchLowStockCount, fetchShortageCount } from '../../api/catalog'
 import type { Account } from '../../api/types'
 import { hasMinimumRole } from '../../features/access/roles'
@@ -46,6 +46,10 @@ function NavEntry({
     )
   }
 
+  if (item.children !== undefined && !collapsed) {
+    return <NavDisclosure item={item} onNavigate={onNavigate} lowStockCount={lowStockCount} shortageCount={shortageCount} />
+  }
+
   return (
     <NavLink
       to={item.to}
@@ -64,25 +68,98 @@ function NavEntry({
     >
       <NavIconGlyph icon={item.icon} className="h-6 w-6 shrink-0" />
       {!collapsed && <span className="min-w-0 flex-1">{item.label}</span>}
-      {item.to === '/inventario' && lowStockCount > 0 && (
-        <span
-          className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-danger-soft px-1.5 text-sm font-bold text-danger ${
-            collapsed ? 'absolute -right-1 -top-1' : ''
-          }`}
-        >
-          {lowStockCount}
-        </span>
-      )}
-      {item.to === '/inventario' && shortageCount > 0 && (
-        <span
-          className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-warning/20 px-1.5 text-sm font-bold text-warning ${
-            collapsed ? 'absolute -right-1 -bottom-1' : ''
-          }`}
-        >
-          {shortageCount}
-        </span>
+      {item.children !== undefined && lowStockCount > 0 && (
+        <CountBadge tone="danger" count={lowStockCount} className={collapsed ? 'absolute -right-1 -top-1' : ''} />
       )}
     </NavLink>
+  )
+}
+
+function CountBadge({ count, tone, className = '' }: { count: number; tone: 'danger' | 'warning'; className?: string }) {
+  const toneClasses = tone === 'danger' ? 'bg-danger-soft text-danger' : 'bg-warning/20 text-warning'
+  return (
+    <span
+      className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1.5 text-sm font-bold ${toneClasses} ${className}`}
+    >
+      {count}
+    </span>
+  )
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`h-5 w-5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  )
+}
+
+function NavDisclosure({
+  item,
+  onNavigate,
+  lowStockCount,
+  shortageCount,
+}: {
+  item: NavItem
+  onNavigate: () => void
+  lowStockCount: number
+  shortageCount: number
+}) {
+  const location = useLocation()
+  const children = item.children ?? []
+  const insideGroup = children.some((child) => location.pathname.startsWith(child.to))
+  const [manualOpen, setManualOpen] = useState<boolean | null>(null)
+  const open = manualOpen ?? insideGroup
+  const panelId = useId()
+
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setManualOpen(!open)}
+        className="flex min-h-14 w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-lg font-medium text-surface/70 transition-colors hover:bg-surface/10 hover:text-surface"
+      >
+        <NavIconGlyph icon={item.icon} className="h-6 w-6 shrink-0" />
+        <span className="min-w-0 flex-1">{item.label}</span>
+        {!open && lowStockCount > 0 && <CountBadge tone="danger" count={lowStockCount} />}
+        <ChevronIcon open={open} />
+      </button>
+      {open && (
+        <div id={panelId} className="mt-1 flex flex-col gap-1 pl-6">
+          {children.map((child) => (
+            <NavLink
+              key={child.to}
+              to={child.to}
+              onClick={onNavigate}
+              className={({ isActive }) =>
+                `flex min-h-14 items-center gap-3 rounded-lg px-4 py-3 text-lg font-medium transition-colors ${
+                  isActive ? 'bg-brand text-brand-contrast shadow-md' : 'text-surface/70 hover:bg-surface/10 hover:text-surface'
+                }`
+              }
+            >
+              <span className="min-w-0 flex-1">{child.label}</span>
+              {child.to === '/inventario/stock' && lowStockCount > 0 && (
+                <CountBadge tone="danger" count={lowStockCount} />
+              )}
+              {child.to === '/inventario/faltantes' && shortageCount > 0 && (
+                <CountBadge tone="warning" count={shortageCount} />
+              )}
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
