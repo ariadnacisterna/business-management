@@ -15,7 +15,7 @@ async function confirmSale(page: Page) {
 }
 
 async function openLatestSale(page: Page) {
-  await page.getByRole('button', { name: 'Ventas registradas' }).click()
+  await page.goto('/ventas/registradas')
   await page.getByRole('button', { name: /^Ver venta N° / }).first().click()
   return page.getByRole('dialog', { name: /^Venta N° / })
 }
@@ -34,7 +34,7 @@ test('un Empleado registra una venta en efectivo y baja el stock', async ({ page
   await expect(sale).toContainText('$700,00')
   await sale.getByRole('button', { name: 'Cerrar' }).click()
 
-  await page.getByRole('button', { name: 'Nueva venta' }).click()
+  await page.goto('/ventas/nueva')
   await page.getByRole('textbox', { name: 'Buscar producto para vender' }).fill('Sacapuntas doble')
   await expect(page.getByRole('button', { name: 'Agregar Sacapuntas doble' })).toContainText('Stock: 18 u')
 })
@@ -59,7 +59,7 @@ test('tocar una tarjeta dos veces suma uno y el descuento baja el total', async 
 test('con ventas registradas, Ventas muestra los filtros', async ({ page }) => {
   await login(page, 'empleada')
   await page.goto('/ventas')
-  await page.getByRole('button', { name: 'Ventas registradas' }).click()
+  await page.goto('/ventas/registradas')
   await expect(page.getByText('Desde', { exact: true })).toBeVisible()
   await expect(page.getByText('No hay ventas registradas', { exact: true })).toHaveCount(0)
 })
@@ -147,7 +147,7 @@ test.describe('en un celular con letra Enorme', () => {
     await expectNoHorizontalScroll(page)
     await confirmSale(page)
 
-    await page.getByRole('button', { name: 'Ventas registradas' }).click()
+    await page.goto('/ventas/registradas')
     await expect(page.getByRole('button', { name: /^Ver venta N° / }).first()).toBeVisible()
     await expectNoHorizontalScroll(page)
   })

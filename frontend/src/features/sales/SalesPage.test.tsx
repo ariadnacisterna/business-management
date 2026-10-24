@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Account, Sale } from '../../api/types'
 import { ToastProvider } from '../../shared/Toast'
 import { AuthContext, type AuthContextValue } from '../access/useAuth'
-import { SalesPage } from './SalesPage'
+import { SalesPage, type SalesView } from './SalesPage'
 
 const EMPLEADO: Account = {
   id: 1,
@@ -89,13 +89,13 @@ function routeFetch(handlers: Record<string, (init?: RequestInit) => Response>) 
   return fetchMock
 }
 
-function renderPage(account: Account) {
+function renderPage(account: Account, view: SalesView = 'new') {
   const value = { account, status: 'ready' } as AuthContextValue
   return render(
     <MemoryRouter>
       <ToastProvider>
         <AuthContext.Provider value={value}>
-          <SalesPage />
+          <SalesPage view={view} />
         </AuthContext.Provider>
       </ToastProvider>
     </MemoryRouter>,
@@ -172,29 +172,25 @@ describe('SalesPage', () => {
   })
 
   it('shows only the loading indicator, without filters, while the sales list loads for the first time', async () => {
-    const user = userEvent.setup()
     routeFetch({
       'GET /search': () => jsonResponse({ results: VARIANTS }),
       'GET /customers': () => jsonResponse(CUSTOMERS),
       'GET /sales': () => new Promise<Response>(() => {}) as unknown as Response,
     })
-    renderPage(EMPLEADO)
+    renderPage(EMPLEADO, 'list')
 
-    await user.click(screen.getByRole('button', { name: 'Ventas registradas' }))
     expect(await screen.findByText('Cargando…')).toBeInTheDocument()
     expect(screen.queryByText('Desde')).not.toBeInTheDocument()
   })
 
   it('shows an empty state without filters when there are no sales yet', async () => {
-    const user = userEvent.setup()
     routeFetch({
       'GET /search': () => jsonResponse({ results: VARIANTS }),
       'GET /customers': () => jsonResponse(CUSTOMERS),
       'GET /sales': () => jsonResponse({ items: [], total: 0, page: 1, page_size: 25 }),
     })
-    renderPage(EMPLEADO)
+    renderPage(EMPLEADO, 'list')
 
-    await user.click(screen.getByRole('button', { name: 'Ventas registradas' }))
     expect(await screen.findByText('No hay ventas registradas')).toBeInTheDocument()
     expect(screen.getByText('Cuando registres una venta, va a aparecer acá.')).toBeInTheDocument()
     expect(screen.queryByText('Desde')).not.toBeInTheDocument()
@@ -213,9 +209,8 @@ describe('SalesPage', () => {
           : jsonResponse({ items: [], total: 0, page: 1, page_size: 25 })
       },
     })
-    renderPage(EMPLEADO)
+    renderPage(EMPLEADO, 'list')
 
-    await user.click(screen.getByRole('button', { name: 'Ventas registradas' }))
     expect(await screen.findByText('Desde')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Filtrar por forma de pago' }))
     await user.click(await screen.findByRole('option', { name: 'Transferencia' }))
@@ -295,9 +290,8 @@ describe('SalesPage', () => {
       'GET /sales/5': () => jsonResponse(SALE),
       'POST /sales/5/void': () => jsonResponse(voided),
     })
-    renderPage(GERENTE)
+    renderPage(GERENTE, 'list')
 
-    await user.click(screen.getByRole('button', { name: 'Ventas registradas' }))
     await user.click(await screen.findByRole('button', { name: 'Ver venta N° 5' }))
     const dialog = await screen.findByRole('dialog', { name: 'Venta N° 5' })
     await user.click(await within(dialog).findByRole('button', { name: 'Anular venta' }))
@@ -319,9 +313,8 @@ describe('SalesPage', () => {
       'GET /sales': () => jsonResponse({ items: [SALE], total: 1, page: 1, page_size: 25 }),
       'GET /sales/5': () => jsonResponse(SALE),
     })
-    renderPage(EMPLEADO)
+    renderPage(EMPLEADO, 'list')
 
-    await user.click(screen.getByRole('button', { name: 'Ventas registradas' }))
     await user.click(await screen.findByRole('button', { name: 'Ver venta N° 5' }))
     const dialog = await screen.findByRole('dialog', { name: 'Venta N° 5' })
 

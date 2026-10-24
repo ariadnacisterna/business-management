@@ -163,7 +163,7 @@ function AccountFormModal({
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <Breadcrumb
-                segments={isCreate ? ['Cuentas', 'Nueva cuenta'] : ['Cuentas', initialValues.name, 'Editar cuenta']}
+                segments={isCreate ? ['Usuarios', 'Nueva cuenta'] : ['Usuarios', initialValues.name, 'Editar cuenta']}
               />
             </div>
             <CloseButton onClose={onCancel} />
@@ -279,7 +279,7 @@ function AccountFormModal({
                 : `Se van a guardar los datos de "${initialValues.name}" sin cambios.`
           }
           confirmLabel="Guardar"
-          breadcrumb={isCreate ? ['Cuentas', 'Nueva cuenta'] : ['Cuentas', initialValues.name, 'Editar cuenta']}
+          breadcrumb={isCreate ? ['Usuarios', 'Nueva cuenta'] : ['Usuarios', initialValues.name, 'Editar cuenta']}
           onConfirm={confirmSubmit}
           onCancel={() => setConfirming(false)}
         />
@@ -352,7 +352,7 @@ function ResetPasswordModal({
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <Breadcrumb segments={['Cuentas', accountName, 'Restablecer contraseña']} />
+              <Breadcrumb segments={['Usuarios', accountName, 'Restablecer contraseña']} />
             </div>
             <CloseButton onClose={onCancel} />
           </div>
@@ -601,7 +601,7 @@ export function AccountsPage() {
     <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Cuentas</h1>
+          <h1 className="text-3xl font-bold">Usuarios</h1>
           <p className="mt-1 text-base opacity-60 lg:text-lg">{accounts.length} cuentas registradas</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -689,7 +689,7 @@ export function AccountsPage() {
         if (status !== 'success') return null
         return (
           <>
-            <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen} section="Cuentas">
+            <FiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen} section="Usuarios">
               {filterControls}
             </FiltersSheet>
             <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
@@ -1010,7 +1010,7 @@ export function AccountsPage() {
           confirmLabel={confirmingAccount.status === 'active' ? 'Desactivar' : 'Activar'}
           danger={confirmingAccount.status === 'active'}
           breadcrumb={[
-            'Cuentas',
+            'Usuarios',
             confirmingAccount.name,
             confirmingAccount.status === 'active' ? 'Desactivar cuenta' : 'Activar cuenta',
           ]}

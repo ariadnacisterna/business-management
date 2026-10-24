@@ -186,7 +186,7 @@ describe('DashboardPage', () => {
     expect(alert).toHaveTextContent('Ana Pérez (usuario ana): se bloqueó la entrada 3 veces')
     expect(alert).toHaveTextContent('Beto Gómez (usuario beto): se bloqueó la entrada 1 vez')
     expect(alert).toHaveTextContent('En las últimas 24 horas')
-    expect(alert).toHaveTextContent('cambiale la contraseña desde Cuentas')
+    expect(alert).toHaveTextContent('cambiale la contraseña desde Usuarios')
   })
 
   it('keeps the rest of the panel working when the access alert cannot be loaded', async () => {

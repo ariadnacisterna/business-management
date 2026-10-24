@@ -8,7 +8,7 @@ test('un Empleado no ve Panel, Proveedores ni Cuentas en el menú', async ({ pag
   await expect(navigation.getByRole('link', { name: 'Clientes' })).toBeVisible()
   await expect(navigation.getByRole('link', { name: 'Panel' })).toHaveCount(0)
   await expect(navigation.getByRole('link', { name: 'Proveedores' })).toHaveCount(0)
-  await expect(navigation.getByRole('link', { name: 'Cuentas' })).toHaveCount(0)
+  await expect(navigation.getByRole('link', { name: 'Usuarios' })).toHaveCount(0)
 })
 
 test('un Empleado que escribe la dirección de Cuentas, Proveedores o el Panel vuelve a Productos', async ({ page }) => {

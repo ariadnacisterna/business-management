@@ -58,34 +58,32 @@ describe('Sidebar', () => {
   it('renders "Ventas" as a link to the sales screen', () => {
     renderSidebar('/products')
 
-    expect(screen.getByRole('link', { name: 'Ventas' })).toHaveAttribute('href', '/ventas')
+    expect(screen.getByRole('link', { name: 'Venta' })).toHaveAttribute('href', '/ventas/nueva')
   })
 
-  it('groups the sections under Catálogo, Comercial and Administración for an administrador', () => {
+  it('groups the sections under Operación, Catálogo, Personas and Análisis for an administrador', () => {
     renderSidebar('/products')
 
+    const operacion = within(screen.getByRole('group', { name: 'Operación' }))
+    expect(operacion.getAllByRole('link').map((link) => link.textContent)).toEqual(['Venta', 'Historial de ventas'])
+
     const catalogo = within(screen.getByRole('group', { name: 'Catálogo' }))
-    expect(catalogo.getAllByRole('link').map((link) => link.textContent)).toEqual([
-      'Productos',
-      'Precios',
-    ])
+    expect(catalogo.getAllByRole('link').map((link) => link.textContent)).toEqual(['Productos', 'Precios'])
 
-    const comercial = within(screen.getByRole('group', { name: 'Comercial' }))
-    expect(comercial.getByText('Ventas')).toBeInTheDocument()
-    expect(comercial.getByRole('link', { name: 'Clientes' })).toBeInTheDocument()
-    expect(comercial.getByRole('link', { name: 'Proveedores' })).toBeInTheDocument()
+    const personas = within(screen.getByRole('group', { name: 'Personas' }))
+    expect(personas.getAllByRole('link').map((link) => link.textContent)).toEqual(['Proveedores', 'Clientes', 'Usuarios'])
 
-    const administracion = within(screen.getByRole('group', { name: 'Administración' }))
-    expect(administracion.getByRole('link', { name: 'Cuentas' })).toBeInTheDocument()
+    const analisis = within(screen.getByRole('group', { name: 'Análisis' }))
+    expect(analisis.getByRole('link', { name: 'Panel' })).toBeInTheDocument()
   })
 
   it('does not render a group with no visible items for the role', () => {
     renderSidebar('/products', false, vi.fn(), { ...ADMINISTRADOR_ACCOUNT, role: 'Gerente' })
 
-    expect(screen.queryByRole('group', { name: 'Administración' })).not.toBeInTheDocument()
-    expect(screen.queryByText('Administración')).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Análisis' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Análisis')).not.toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Catálogo' })).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Comercial' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Operación' })).toBeInTheDocument()
   })
 
   it('shows "Configuración" as a link for every role', () => {
@@ -170,12 +168,12 @@ describe('Sidebar', () => {
     expect(screen.getByRole('button', { name: 'Inventario' })).toBeInTheDocument()
     expect(screen.queryByText('Proveedores')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Productos' })).toBeInTheDocument()
-    expect(screen.getByText('Ventas')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Venta' })).toBeInTheDocument()
   })
 
-  it('shows "Cuentas" only for administrador and above', () => {
+  it('shows "Usuarios" only for administrador and above', () => {
     renderSidebar('/products')
-    expect(screen.getByRole('link', { name: 'Cuentas' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Usuarios' })).toBeInTheDocument()
   })
 
   it('shows "Proveedores" only for administrador and above', () => {
@@ -183,12 +181,12 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: 'Proveedores' })).toBeInTheDocument()
   })
 
-  it('hides "Cuentas" for gerente and empleado', () => {
+  it('hides "Usuarios" for gerente and empleado', () => {
     renderSidebar('/products', false, vi.fn(), { ...ADMINISTRADOR_ACCOUNT, role: 'Gerente' })
-    expect(screen.queryByText('Cuentas')).not.toBeInTheDocument()
+    expect(screen.queryByText('Usuarios')).not.toBeInTheDocument()
 
     renderSidebar('/products', false, vi.fn(), { ...ADMINISTRADOR_ACCOUNT, role: 'Empleado' })
-    expect(screen.queryAllByText('Cuentas')).toHaveLength(0)
+    expect(screen.queryAllByText('Usuarios')).toHaveLength(0)
   })
 
   it('shows the low-stock badge using the sin-stock danger color and refreshes it when stock changes', async () => {

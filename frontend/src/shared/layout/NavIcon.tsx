@@ -17,6 +17,9 @@ const CONTENT: Record<NavIcon, ReactNode> = {
     </>
   ),
   inventory: <path d="M3 6l9-4 9 4-9 4-9-4Zm0 6l9 4 9-4M3 16l9 4 9-4" />,
+  receipt: (
+    <path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2Zm3 5h6M9 11h6M9 15h4" />
+  ),
   sales: (
     <path d="M3 4h2l2.4 12.2a2 2 0 0 0 2 1.8h7.2a2 2 0 0 0 2-1.6L21 8H6M9 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm8 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" />
   ),

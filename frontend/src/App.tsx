@@ -87,7 +87,9 @@ export function App() {
               <Route path="/inventario/stock" element={<Loadable><InventoryPage view="stock" /></Loadable>} />
               <Route path="/inventario/faltantes" element={<Loadable><InventoryPage view="faltantes" /></Loadable>} />
               <Route path="/proveedores" element={<SuppliersRoute />} />
-              <Route path="/ventas" element={<Loadable><SalesPage /></Loadable>} />
+              <Route path="/ventas" element={<Navigate to="/ventas/nueva" replace />} />
+              <Route path="/ventas/nueva" element={<Loadable><SalesPage view="new" /></Loadable>} />
+              <Route path="/ventas/registradas" element={<Loadable><SalesPage view="list" /></Loadable>} />
               <Route path="/clientes" element={<Loadable><CustomersPage /></Loadable>} />
               <Route path="/cuentas" element={<AccountsRoute />} />
               <Route path="/configuraciones" element={<Loadable><SettingsPage /></Loadable>} />

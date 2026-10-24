@@ -555,7 +555,7 @@ export function NewSalePanel() {
       {confirming && (
         <ConfirmDialog
           title="Registrar venta"
-          breadcrumb={['Ventas', 'Nueva venta']}
+          breadcrumb={['Ventas', 'Venta']}
           description={`Total ${money(totalCents)} en ${PAYMENT_METHOD_LABELS[paymentMethod].toLowerCase()}${
             paymentMethod === 'fiado' && activeCustomerName !== undefined ? ` a ${activeCustomerName}` : ''
           }.`}

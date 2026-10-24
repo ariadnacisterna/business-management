@@ -36,7 +36,7 @@ export function LoginAlertsNotice() {
       <p className="mt-3 text-lg font-semibold">Qué hacer:</p>
       <ul className="mt-1 flex list-disc flex-col gap-1 pl-6 text-lg">
         <li>Avisale a esa persona y preguntale si fue ella, por ejemplo porque se olvidó la contraseña.</li>
-        <li>Si no fue ella, cambiale la contraseña desde Cuentas y pasale la nueva en persona.</li>
+        <li>Si no fue ella, cambiale la contraseña desde Usuarios y pasale la nueva en persona.</li>
       </ul>
     </div>
   )

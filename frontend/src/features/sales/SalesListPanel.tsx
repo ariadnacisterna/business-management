@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { fetchSales } from '../../api/sales'
 import type { PaymentMethod } from '../../api/types'
 import { DatePicker } from '../../shared/DatePicker'
+import { useNavigate } from 'react-router-dom'
 import { EmptyState } from '../../shared/EmptyState'
 import { NavIconGlyph } from '../../shared/layout/NavIcon'
 import { PageLoading } from '../../shared/PageLoading'
@@ -21,6 +22,7 @@ const PAGE_SIZE = 25
 type PaymentFilter = PaymentMethod | ''
 
 export function SalesListPanel() {
+  const navigate = useNavigate()
   const { account } = useAuth()
   const canVoid = canVoidSales(account)
   const [page, setPage] = useState(1)
@@ -97,6 +99,15 @@ export function SalesListPanel() {
           icon={<NavIconGlyph icon="sales" className="h-10 w-10 opacity-40" />}
           title="No hay ventas registradas"
           description="Cuando registres una venta, va a aparecer acá."
+          action={
+            <button
+              type="button"
+              onClick={() => navigate('/ventas/nueva')}
+              className="min-h-14 rounded-lg bg-brand px-5 text-lg font-bold text-brand-contrast transition-colors hover:bg-brand/90"
+            >
+              Ir a Venta
+            </button>
+          }
         />
       )}
 
@@ -107,7 +118,7 @@ export function SalesListPanel() {
       )}
 
       {status === 'success' && data !== undefined && data.items.length > 0 && (
-        <ul className="m-0 flex list-none flex-col gap-3 p-0" aria-label="Ventas registradas">
+        <ul className="m-0 flex list-none flex-col gap-3 p-0" aria-label="Historial de ventas">
           {data.items.map((sale) => (
             <li key={sale.id}>
               <button

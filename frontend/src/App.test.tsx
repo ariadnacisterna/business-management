@@ -315,7 +315,7 @@ describe('App', () => {
     renderApp(['/cuentas'])
 
     expect(await screen.findByText('Ada')).toBeInTheDocument()
-    expect(screen.queryByText('Cuentas')).not.toBeInTheDocument()
+    expect(screen.queryByText('Usuarios')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /nueva cuenta/i })).not.toBeInTheDocument()
   })
 
@@ -326,8 +326,8 @@ describe('App', () => {
 
     renderApp(['/cuentas'])
 
-    expect(await screen.findByRole('heading', { name: 'Cuentas' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Cuentas' })).toHaveAttribute('aria-current', 'page')
+    expect(await screen.findByRole('heading', { name: 'Usuarios' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Usuarios' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('returns to the login screen after logging out', async () => {

@@ -6,6 +6,7 @@ export type NavIcon =
   | 'prices'
   | 'inventory'
   | 'sales'
+  | 'receipt'
   | 'suppliers'
   | 'accounts'
   | 'customers'
@@ -33,8 +34,11 @@ export interface NavGroup {
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    label: null,
-    items: [{ to: '/', label: 'Panel', icon: 'panel', end: true, minRole: 'Administrador' }],
+    label: 'Operación',
+    items: [
+      { to: '/ventas/nueva', label: 'Venta', icon: 'sales' },
+      { to: '/ventas/registradas', label: 'Historial de ventas', icon: 'receipt' },
+    ],
   },
   {
     label: 'Catálogo',
@@ -53,16 +57,16 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Comercial',
+    label: 'Personas',
     items: [
-      { to: '/ventas', label: 'Ventas', icon: 'sales' },
-      { to: '/clientes', label: 'Clientes', icon: 'customers' },
       { to: '/proveedores', label: 'Proveedores', icon: 'suppliers', minRole: 'Administrador' },
+      { to: '/clientes', label: 'Clientes', icon: 'customers' },
+      { to: '/cuentas', label: 'Usuarios', icon: 'accounts', minRole: 'Administrador' },
     ],
   },
   {
-    label: 'Administración',
-    items: [{ to: '/cuentas', label: 'Cuentas', icon: 'accounts', minRole: 'Administrador' }],
+    label: 'Análisis',
+    items: [{ to: '/', label: 'Panel', icon: 'panel', end: true, minRole: 'Administrador' }],
   },
 ]
 

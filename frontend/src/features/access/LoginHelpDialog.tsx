@@ -21,7 +21,7 @@ export function LoginHelpDialog({ onClose }: Props) {
           <CloseButton onClose={onClose} className="-mr-3 -mt-3" />
         </div>
         <p className="m-0 text-lg opacity-70">
-          Para restablecer tu contraseña, pedile a un Administrador o Dueño que lo haga desde Cuentas. No se envían
+          Para restablecer tu contraseña, pedile a un Administrador o Dueño que lo haga desde Usuarios. No se envían
           correos ni hay recuperación automática.
         </p>
 
