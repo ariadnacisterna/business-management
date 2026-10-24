@@ -35,10 +35,13 @@ def add_shortage(db: Session, business_id: int, variant_id: int, actor_account_i
     variant = get_variant_for_update(db, business_id, variant_id)
     if _has_open_shortage(db, variant.id):
         raise DuplicateOpenShortage
+    return _create_shortage(db, variant.id, actor_account_id)
 
+
+def _create_shortage(db: Session, variant_id: int, actor_account_id: int) -> Shortage:
     now = datetime.now(UTC)
     shortage = Shortage(
-        variant_id=variant.id,
+        variant_id=variant_id,
         status=ShortageStatus.FALTANTE.value,
         created_by_account_id=actor_account_id,
         created_at=now,
@@ -48,6 +51,25 @@ def add_shortage(db: Session, business_id: int, variant_id: int, actor_account_i
     db.add(shortage)
     db.flush()
     return shortage
+
+
+def open_shortage_if_missing(db: Session, variant_id: int, actor_account_id: int) -> None:
+    if not _has_open_shortage(db, variant_id):
+        _create_shortage(db, variant_id, actor_account_id)
+
+
+def receive_open_shortages(db: Session, variant_id: int, actor_account_id: int) -> None:
+    open_shortages = db.scalars(
+        select(Shortage)
+        .where(Shortage.variant_id == variant_id, Shortage.status.in_(SHORTAGE_OPEN_STATUSES))
+        .with_for_update()
+    ).all()
+    now = datetime.now(UTC)
+    for shortage in open_shortages:
+        shortage.status = ShortageStatus.RECIBIDO.value
+        shortage.updated_by_account_id = actor_account_id
+        shortage.updated_at = now
+    db.flush()
 
 
 def get_shortage(db: Session, business_id: int, shortage_id: int) -> Shortage:

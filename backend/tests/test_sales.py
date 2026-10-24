@@ -451,3 +451,81 @@ def test_search_includes_what_the_sale_screen_needs(client):
     assert item["unit_allows_fraction"] is True
     assert Decimal(item["quantity"]) == Decimal("4")
     assert item["presentation"] is None
+
+
+def _shortage_statuses(client, cookies, variant_id):
+    found = []
+    for status in ("faltante", "pedido", "recibido"):
+        response = client.get(f"/shortages?status={status}", cookies=cookies)
+        found += [item["status"] for item in response.json() if item["variant_id"] == variant_id]
+    return found
+
+
+def _adjust(client, cookies, variant_id, delta):
+    return _write(
+        client, cookies, "POST", f"/variants/{variant_id}/stock/adjustments", {"delta": delta}
+    )
+
+
+def test_a_sale_that_leaves_zero_stock_opens_a_shortage_for_the_seller(client):
+    admin_cookies = _admin_cookies(client)
+    _product, variant_id = _variant(client, admin_cookies, "Faltante venta", stock="2")
+    empleado = _cookies_for(client, admin_cookies, EMPLEADO, "empleado-faltante-venta")
+    assert _shortage_statuses(client, admin_cookies, variant_id) == []
+
+    assert _sell(client, empleado, [(variant_id, "2")]).status_code == 201
+
+    response = client.get("/shortages", cookies=admin_cookies).json()
+    mine = [item for item in response if item["variant_id"] == variant_id]
+    assert [item["status"] for item in mine] == ["faltante"]
+    seller = client.get("/auth/me", cookies=empleado).json()
+    assert mine[0]["created_by_account_id"] == seller["id"]
+
+
+def test_an_adjustment_that_leaves_zero_stock_opens_a_shortage(client):
+    cookies = _admin_cookies(client)
+    _product, variant_id = _variant(client, cookies, "Faltante ajuste", stock="4")
+
+    _adjust(client, cookies, variant_id, "-4")
+
+    assert _shortage_statuses(client, cookies, variant_id) == ["faltante"]
+
+
+def test_reaching_zero_with_an_open_shortage_does_not_duplicate_it(client):
+    cookies = _admin_cookies(client)
+    _product, variant_id = _variant(client, cookies, "Faltante previo", stock="4")
+    _write(client, cookies, "POST", "/shortages", {"variant_id": variant_id})
+
+    _adjust(client, cookies, variant_id, "-4")
+
+    assert _shortage_statuses(client, cookies, variant_id) == ["faltante"]
+
+
+def test_a_variant_already_at_zero_does_not_get_a_shortage_from_a_sale(client):
+    cookies = _admin_cookies(client)
+    _product, variant_id = _variant(client, cookies, "Ya en cero", stock=None)
+
+    assert _sell(client, cookies, [(variant_id, "1")]).status_code == 201
+
+    assert _shortage_statuses(client, cookies, variant_id) == []
+
+
+def test_restocking_marks_the_open_shortages_as_received(client):
+    cookies = _admin_cookies(client)
+    _product, variant_id = _variant(client, cookies, "Reposicion", stock="3")
+    _adjust(client, cookies, variant_id, "-3")
+
+    _adjust(client, cookies, variant_id, "5")
+
+    assert _shortage_statuses(client, cookies, variant_id) == ["recibido"]
+
+
+def test_voiding_a_sale_that_emptied_the_stock_receives_its_shortage(client):
+    cookies = _admin_cookies(client)
+    _product, variant_id = _variant(client, cookies, "Anula faltante", stock="3")
+    sale = _sell(client, cookies, [(variant_id, "3")]).json()
+    assert _shortage_statuses(client, cookies, variant_id) == ["faltante"]
+
+    _write(client, cookies, "POST", f"/sales/{sale['id']}/void", {"reason": "Error"})
+
+    assert _shortage_statuses(client, cookies, variant_id) == ["recibido"]

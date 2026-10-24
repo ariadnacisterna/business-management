@@ -589,3 +589,26 @@ def test_two_simultaneous_voids_of_the_same_sale_return_the_stock_once(open_sess
     check = open_session()
     assert check.get(Variant, variant_id).quantity == Decimal("10")
     assert check.get(Sale, sale_id).void_reason == "Primera"
+
+
+def test_two_simultaneous_sales_that_empty_the_stock_open_one_shortage(open_session):
+    setup = open_session()
+    business, account_id = _business_and_owner(setup)
+    variant_id = _variant_for_sale(setup, business.id, account_id, "Faltante doble venta", "1")
+    first, second = open_session(), open_session()
+
+    _sell(first, business.id, account_id, variant_id, "1")
+
+    def sell_from_second():
+        _sell(second, business.id, account_id, variant_id, "1")
+        second.commit()
+
+    thread, outcome = _start(sell_from_second)
+    _assert_waiting(thread)
+    first.commit()
+    _finish(thread)
+
+    assert "error" not in outcome
+    check = open_session()
+    count = select(func.count()).select_from(Shortage).where(Shortage.variant_id == variant_id)
+    assert check.scalar(count) == 1
