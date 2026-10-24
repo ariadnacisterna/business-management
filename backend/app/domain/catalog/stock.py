@@ -20,6 +20,7 @@ from app.domain.catalog.quantities import (
     format_stock_amount,
     validate_quantity_for_unit,
 )
+from app.domain.catalog.shortages import open_shortage_if_missing, receive_open_shortages
 from app.domain.catalog.units import lock_unit_against_changes
 
 
@@ -170,9 +171,14 @@ def _record_movement(
         created_at=datetime.now(UTC),
         sale_id=sale_id,
     )
+    quantity_before = variant.quantity
     variant.quantity = quantity_after
     db.add(movement)
     db.flush()
+    if quantity_before > 0 and quantity_after == 0:
+        open_shortage_if_missing(db, variant.id, actor_account_id)
+    elif quantity_before == 0 and quantity_after > 0:
+        receive_open_shortages(db, variant.id, actor_account_id)
     return movement
 
 
