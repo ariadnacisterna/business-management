@@ -11,6 +11,7 @@ import {
 } from '../../api/catalog'
 import { errorMessage } from '../../api/client'
 import type { Credit, Customer } from '../../api/types'
+import { TABLE_CLASSES, TABLE_HEAD_CLASSES, TABLE_ROW_CLASSES } from '../../shared/tableRows'
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
@@ -777,11 +778,11 @@ export function CustomersPage() {
       {status === 'success' && filteredCustomers.length > 0 && (
         <>
           {viewMode === 'table' && (
-          <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-            <table className="w-full min-w-[720px]">
-              <thead>
-                <tr className="border-b border-line bg-surface-brand/40">
-                  <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
+          <div className="overflow-x-auto rounded-xl">
+            <table className={`${TABLE_CLASSES} min-w-[720px]`}>
+              <thead className={TABLE_HEAD_CLASSES}>
+                <tr>
+                  <th className="w-full min-w-56 px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
                     Nombre
                   </th>
                   <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
@@ -796,12 +797,12 @@ export function CustomersPage() {
                   <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
                     Estado
                   </th>
-                  <th className="px-4 py-2.5" />
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedCustomers.map((customer) => (
-                  <tr key={customer.id} className="border-t border-line">
+                  <tr key={customer.id} className={TABLE_ROW_CLASSES}>
                     <td className="max-w-xs px-4 py-3 text-base font-medium [overflow-wrap:anywhere]">{customer.name}</td>
                     <td className="max-w-xs px-4 py-3 text-base opacity-70 [overflow-wrap:anywhere]">{customer.phone ?? '—'}</td>
                     <td className="max-w-xs px-4 py-3 text-base opacity-70 [overflow-wrap:anywhere]">{customer.address ?? '—'}</td>

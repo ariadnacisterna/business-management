@@ -11,6 +11,7 @@ import {
 } from '../../api/catalog'
 import { errorMessage } from '../../api/client'
 import type { Category, Provider } from '../../api/types'
+import { TABLE_CLASSES, TABLE_HEAD_CLASSES, TABLE_ROW_CLASSES } from '../../shared/tableRows'
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
@@ -634,11 +635,11 @@ export function SuppliersPage() {
           {status === 'success' && filteredProviders.length > 0 && (
             <>
               {viewMode === 'table' && (
-              <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-                <table className="w-full min-w-[760px]">
-                  <thead>
-                    <tr className="border-b border-line bg-surface-brand/40">
-                      <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
+              <div className="overflow-x-auto rounded-xl">
+                <table className={`${TABLE_CLASSES} min-w-[760px]`}>
+                  <thead className={TABLE_HEAD_CLASSES}>
+                    <tr>
+                      <th className="w-full min-w-56 px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
                         Nombre
                       </th>
                       <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
@@ -653,12 +654,12 @@ export function SuppliersPage() {
                       <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
                         Estado
                       </th>
-                      {canManage && <th className="px-4 py-2.5" />}
+                      {canManage && <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedProviders.map((provider) => (
-                      <tr key={provider.id} className="border-t border-line">
+                      <tr key={provider.id} className={TABLE_ROW_CLASSES}>
                         <td className="max-w-xs px-4 py-3 text-base font-medium [overflow-wrap:anywhere]">{provider.name}</td>
                         <td className="max-w-xs px-4 py-3 text-base opacity-70 [overflow-wrap:anywhere]">
                           {provider.contact_name ?? '—'}

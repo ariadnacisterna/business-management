@@ -12,6 +12,7 @@ import { errorMessage } from '../../api/client'
 import type { Category, Price, Product, Variant } from '../../api/types'
 import { useAuth } from '../access/useAuth'
 import { canManageCatalog } from '../access/roles'
+import { TABLE_CLASSES, TABLE_HEAD_CLASSES, TABLE_SCROLL_GUTTER_CLASSES, TABLE_ROW_CLASSES, TABLE_GROUP_ROW_CLASSES } from '../../shared/tableRows'
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { CloseButton } from '../../shared/CloseButton'
@@ -701,17 +702,17 @@ export function PricingPage() {
           )}
 
           {viewMode === 'table' && (
-          <div className="relative flex min-h-0 shrink flex-col overflow-hidden rounded-xl border border-line bg-surface">
+          <div className="relative flex min-h-0 shrink flex-col overflow-hidden rounded-xl">
             <div
               ref={tableScrollRef}
               onScroll={updateScrollbar}
-              className="scrollbar-hidden min-h-0 flex-1 overflow-auto"
+              className={`scrollbar-hidden min-h-0 flex-1 overflow-auto ${TABLE_SCROLL_GUTTER_CLASSES}`}
             >
-              <table className="w-full min-w-[1000px]">
-                <thead ref={theadRef} className="sticky top-0 z-10">
-                  <tr className="table-header border-b border-line">
+              <table className={`${TABLE_CLASSES} min-w-[1000px]`}>
+                <thead ref={theadRef} className={TABLE_HEAD_CLASSES}>
+                  <tr>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Imagen</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Producto</th>
+                    <th className="w-full min-w-56 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Producto</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Categoría</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Variante</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Precio actual</th>
@@ -734,7 +735,7 @@ export function PricingPage() {
                     return (
                       <Fragment key={product.id}>
                         {showApplyAll && (
-                          <tr key={`${product.id}-apply-all`} className="border-t border-line bg-surface-brand/40">
+                          <tr key={`${product.id}-apply-all`} className={TABLE_GROUP_ROW_CLASSES}>
                             <td colSpan={4} className="px-4 py-3 text-lg font-semibold [overflow-wrap:anywhere]">
                               <HighlightedText text={product.name} query={appliedSearch} />
                               <span className="ml-2 text-base font-normal opacity-60">
@@ -761,7 +762,7 @@ export function PricingPage() {
                           const currentPrice = pricesByVariant.get(variant.id) ?? null
                           const draft = draftFor(variant.id)
                               return (
-                            <tr key={variant.id} data-testid="price-row" className="border-t border-line transition-colors hover:bg-surface-brand/60">
+                            <tr key={variant.id} data-testid="price-row" className={TABLE_ROW_CLASSES}>
                               <td className="px-4 py-3.5">
                                 <ProductThumbnail imageUrl={product.image_url} name={product.name} sizeClassName="h-12 w-12" />
                               </td>

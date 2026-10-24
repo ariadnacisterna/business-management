@@ -39,6 +39,7 @@
 }
 
 :root {
+  --table-backdrop: color-mix(in srgb, var(--color-line) 10%, var(--color-surface));
   font: 1rem/1.45 system-ui, 'Segoe UI', Roboto, sans-serif;
   color-scheme: light;
 }
@@ -67,6 +68,23 @@ button,
 input,
 select {
   font-family: inherit;
+}
+
+.table-head th {
+  background-color: color-mix(in srgb, var(--color-ink) 6%, var(--color-surface));
+  box-shadow:
+    0 2px 0 0 rgb(0 0 0 / 0.07),
+    0 8px 0 0 var(--table-backdrop);
+}
+
+.table-head th:first-child {
+  border-top-left-radius: 0.75rem;
+  border-bottom-left-radius: 0.75rem;
+}
+
+.table-head th:last-child {
+  border-top-right-radius: 0.75rem;
+  border-bottom-right-radius: 0.75rem;
 }
 
 .table-header {

@@ -11,6 +11,7 @@ import { errorMessage } from '../../api/client'
 import type { ManagedAccount } from '../../api/types'
 import { ROLE_BADGE_CLASSES, ROLES, type Role } from '../access/roles'
 import { useAuth } from '../access/useAuth'
+import { TABLE_CLASSES, TABLE_HEAD_CLASSES, TABLE_SCROLL_GUTTER_CLASSES, TABLE_ROW_CLASSES } from '../../shared/tableRows'
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
@@ -850,18 +851,18 @@ export function AccountsPage() {
         )}
 
         {viewMode === 'table' && (
-        <div className="relative flex min-h-0 shrink flex-col overflow-hidden rounded-xl border border-line bg-surface">
+        <div className="relative flex min-h-0 shrink flex-col overflow-hidden rounded-xl">
           <div
             ref={tableScrollRef}
             onScroll={updateScrollbar}
-            className="scrollbar-hidden min-h-0 flex-1 overflow-auto"
+            className={`scrollbar-hidden min-h-0 flex-1 overflow-auto ${TABLE_SCROLL_GUTTER_CLASSES}`}
           >
-            <table className="w-full min-w-[900px]">
-              <thead ref={theadRef} className="sticky top-0 z-10">
-                <tr className="table-header border-b border-line">
+            <table className={`${TABLE_CLASSES} min-w-[900px]`}>
+              <thead ref={theadRef} className={TABLE_HEAD_CLASSES}>
+                <tr>
                   <th
                     aria-sort={sortDir === 'asc' ? 'ascending' : 'descending'}
-                    className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60"
+                    className="w-full min-w-56 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60"
                   >
                     <button
                       type="button"
@@ -878,12 +879,12 @@ export function AccountsPage() {
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Rol</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Negocio</th>
                   <th className="whitespace-nowrap py-3 pl-8 pr-4 text-left text-sm font-bold uppercase tracking-wide opacity-60">Estado</th>
-                  <th className="px-4 py-3" />
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {paginated.map((account) => (
-                  <tr key={account.id} className="border-t border-line transition-colors hover:bg-surface-brand/60">
+                  <tr key={account.id} className={TABLE_ROW_CLASSES}>
                     <td className="max-w-xs px-4 py-3.5 [overflow-wrap:anywhere]">
                       <div className="flex items-center gap-3">
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-bold text-brand-contrast">

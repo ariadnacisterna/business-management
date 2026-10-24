@@ -768,6 +768,29 @@ describe('InventoryPage', () => {
       expect(screen.getByText('● Faltante')).toBeInTheDocument()
     })
 
+    it('switches the Faltantes tab between cards and table keeping the same data', async () => {
+      const user = userEvent.setup()
+      const fetchMock = fetch as ReturnType<typeof vi.fn>
+      renderPage(GERENTE_ACCOUNT, STOCK_ROW, 'faltantes')
+
+      await screen.findByRole('heading', { name: 'Faltantes' })
+      fetchMock.mockResolvedValueOnce(jsonResponse([SHORTAGE]))
+      await screen.findByText('Distribuidora Norte')
+      expect(screen.queryByRole('table')).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Ver como tabla' }))
+
+      expect(screen.getByRole('table')).toBeInTheDocument()
+      expect(screen.getByText('Hilo blanco')).toBeInTheDocument()
+      expect(screen.getByText('Distribuidora Norte')).toBeInTheDocument()
+      expect(screen.getByText('● Faltante')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Marcar como Pedido' })).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Ver como tarjetas' }))
+
+      expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    })
+
     it('does not call fetchProviders when loading the Faltantes tab', async () => {
       const fetchMock = fetch as ReturnType<typeof vi.fn>
       renderPage(EMPLEADO_ACCOUNT, STOCK_ROW, 'faltantes')

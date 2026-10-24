@@ -127,7 +127,7 @@ export function RowMenu({ title, subtitle, items }: Props) {
               <div className="py-1.5">
                 {items.map((item) => (
                   <Fragment key={item.label}>
-                  {item.divider === true && <div role="separator" className="my-1.5 border-t border-line" />}
+                  {item.divider === true && <div role="separator" className="my-1 border-t border-line/30" />}
                   <button
                     type="button"
                     disabled={item.disabled === true}

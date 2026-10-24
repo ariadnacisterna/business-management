@@ -113,3 +113,15 @@ test('marcar un producto como faltante desde Productos', async ({ page }) => {
   await page.goto('/inventario/faltantes')
   await expect(page.getByRole('main')).toContainText('Tijera escolar')
 })
+
+test('los faltantes se ven también como tabla con filas en barras separadas', async ({ page }) => {
+  await page.goto('/inventario/faltantes')
+  await page.getByRole('button', { name: 'Ver como tabla' }).click()
+  const row = page.getByRole('row').filter({ hasText: 'Tijera escolar' })
+  await expect(row).toBeVisible()
+  await expect(row.getByRole('button', { name: 'Marcar como Pedido' })).toBeVisible()
+  const cell = row.locator('td').first()
+  await expect(cell).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  const radius = await cell.evaluate((el) => getComputedStyle(el).borderTopLeftRadius)
+  expect(parseFloat(radius)).toBeGreaterThan(0)
+})

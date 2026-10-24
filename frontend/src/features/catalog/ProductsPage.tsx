@@ -13,6 +13,7 @@ import { errorMessage } from '../../api/client'
 import type { Category, Product, StockRow, Unit, Variant } from '../../api/types'
 import { useAuth } from '../access/useAuth'
 import { canManageCatalog } from '../access/roles'
+import { TABLE_CLASSES, TABLE_HEAD_CLASSES, TABLE_SCROLL_GUTTER_CLASSES, TABLE_ROW_CLASSES } from '../../shared/tableRows'
 import { CloseButton } from '../../shared/CloseButton'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { Dialog } from '../../shared/Dialog'
@@ -570,19 +571,19 @@ export function ProductsPage() {
           )}
 
           {viewMode === 'table' && (
-          <div className="relative flex min-h-0 shrink flex-col overflow-hidden rounded-xl border border-line bg-surface">
+          <div className="relative flex min-h-0 shrink flex-col overflow-hidden rounded-xl">
             <div
               ref={tableScrollRef}
               onScroll={updateScrollbar}
-              className="scrollbar-hidden min-h-0 flex-1 overflow-auto"
+              className={`scrollbar-hidden min-h-0 flex-1 overflow-auto ${TABLE_SCROLL_GUTTER_CLASSES}`}
             >
-              <table className="w-full min-w-[900px]">
-                <thead ref={theadRef} className="sticky top-0 z-10">
-                  <tr className="table-header border-b border-line">
+              <table className={`${TABLE_CLASSES} min-w-[900px]`}>
+                <thead ref={theadRef} className={TABLE_HEAD_CLASSES}>
+                  <tr>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Imagen</th>
                     <th
                       aria-sort={sortDir === 'asc' ? 'ascending' : 'descending'}
-                      className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60"
+                      className="w-full min-w-56 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60"
                     >
                       <button
                         type="button"
@@ -601,14 +602,14 @@ export function ProductsPage() {
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Precio</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Stock</th>
                     <th className="whitespace-nowrap py-3 pl-8 pr-4 text-left text-sm font-bold uppercase tracking-wide opacity-60">Estado</th>
-                    <th className="px-4 py-3" />
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                 {sorted.map((product) => {
                   const isUndifferentiated = product.variants.length === 1 && product.variants[0].is_implicit
                   return (
-                    <tr key={product.id} className="border-t border-line transition-colors hover:bg-surface-brand/60">
+                    <tr key={product.id} className={TABLE_ROW_CLASSES}>
                       <td className="px-4 py-3.5">
                         <ProductThumbnail imageUrl={product.image_url} name={product.name} sizeClassName="h-12 w-12" />
                       </td>

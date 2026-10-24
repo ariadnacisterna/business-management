@@ -12,6 +12,7 @@ import {
 } from '../../api/catalog'
 import { errorMessage } from '../../api/client'
 import type { Category, Shortage, Stock, StockMovement, Unit } from '../../api/types'
+import { TABLE_CLASSES, TABLE_HEAD_CLASSES, TABLE_SCROLL_GUTTER_CLASSES, TABLE_ROW_CLASSES } from '../../shared/tableRows'
 import { Breadcrumb } from '../../shared/Breadcrumb'
 import { ConfirmDialog } from '../../shared/ConfirmDialog'
 import { CloseButton } from '../../shared/CloseButton'
@@ -644,17 +645,17 @@ function StockTab({
       )}
 
       {status === 'success' && items.length > 0 && viewMode === 'table' && (
-        <div className="relative flex min-h-0 shrink flex-col overflow-hidden rounded-xl border border-line bg-surface lg:flex-1">
+        <div className="relative flex min-h-0 shrink flex-col overflow-hidden rounded-xl lg:flex-1">
           <div
             ref={tableScrollRef}
             onScroll={updateScrollbar}
-            className="scrollbar-hidden min-h-0 overflow-auto lg:flex-1"
+            className={`scrollbar-hidden min-h-0 overflow-auto lg:flex-1 ${TABLE_SCROLL_GUTTER_CLASSES}`}
           >
-            <table className="w-full min-w-[1100px]">
-              <thead ref={theadRef} className="sticky top-0 z-10">
-                <tr className="table-header border-b border-line">
+            <table className={`${TABLE_CLASSES} min-w-[1100px]`}>
+              <thead ref={theadRef} className={TABLE_HEAD_CLASSES}>
+                <tr>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Imagen</th>
-                  <th className="w-64 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Producto</th>
+                  <th className="w-full min-w-64 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Producto</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Categoría</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Variante</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Stock actual</th>
@@ -665,26 +666,26 @@ function StockTab({
                   {canManage && (
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Último cambio</th>
                   )}
-                  {canManage && <th className="px-4 py-3" />}
+                  {canManage && <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>}
                 </tr>
               </thead>
               <tbody>
                 {items.map((row) => (
-                  <tr key={row.variant_id} className="border-t border-line transition-colors hover:bg-surface-brand/60">
+                  <tr key={row.variant_id} className={TABLE_ROW_CLASSES}>
                     <td className="px-4 py-3">
                       <ProductThumbnail imageUrl={row.image_url} name={row.product_name} sizeClassName="h-12 w-12" />
                     </td>
-                    <td className="w-64 max-w-xs px-4 py-3 text-lg font-medium [overflow-wrap:anywhere]">{row.product_name}</td>
+                    <td className="px-4 py-3 text-lg font-medium [overflow-wrap:anywhere]">{row.product_name}</td>
                     <td className="max-w-xs px-4 py-3 text-lg opacity-70 [overflow-wrap:anywhere]">{categoryName(row.category_id)}</td>
                     <td className="max-w-xs px-4 py-3 text-lg opacity-70 [overflow-wrap:anywhere]">{variantDisplayLabel(row)}</td>
                     <td className="whitespace-nowrap px-4 py-3">
                       <span className="inline-flex items-center gap-1">
                         {row.presentation ? (
-                          <span className="min-w-[64px] text-xl font-bold text-brand">
+                          <span className="text-xl font-bold text-brand">
                             {formatStock(row.quantity, row.presentation, unitAbbreviation(row.unit_id))}
                           </span>
                         ) : (
-                          <span className="inline-flex min-w-[64px] items-baseline gap-1">
+                          <span className="inline-flex items-baseline gap-1">
                             <span className="text-xl font-bold text-brand">{formatQuantity(row.quantity)}</span>
                             <span className="text-lg opacity-70">{unitAbbreviation(row.unit_id)}</span>
                           </span>
@@ -710,11 +711,11 @@ function StockTab({
                       <td className="whitespace-nowrap px-4 py-3">
                         <span className="inline-flex items-center gap-1">
                           {row.presentation ? (
-                            <span className="min-w-[64px] text-lg font-semibold">
+                            <span className="text-lg font-semibold">
                               {formatStock(row.effective_minimum_quantity, row.presentation, unitAbbreviation(row.unit_id))}
                             </span>
                           ) : (
-                            <span className="inline-flex min-w-[64px] items-baseline gap-1 text-lg">
+                            <span className="inline-flex items-baseline gap-1 text-lg">
                               <span className="font-semibold">{formatQuantity(row.effective_minimum_quantity)}</span>
                               <span className="opacity-70">{unitAbbreviation(row.unit_id)}</span>
                             </span>
@@ -1060,7 +1061,7 @@ interface ShortageActionState {
   description: string
 }
 
-function ShortagesTab({ categories }: { categories: Category[] }) {
+function ShortagesTab({ categories, viewMode }: { categories: Category[]; viewMode: ViewMode }) {
   const { showSuccess, showError } = useToast()
   const [searchInput, setSearchInput] = useState('')
   const [statusFilter, setStatusFilter] = useState<ShortageStatusFilter>('pending')
@@ -1241,6 +1242,32 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
     </>
   )
 
+  function renderShortageActions(item: Shortage, next: string | null, className: string) {
+    if (next === null && item.status !== 'pedido') return null
+    return (
+      <div className={className}>
+        {next !== null && (
+          <button
+            type="button"
+            onClick={() => requestAdvance(item)}
+            className="min-h-12 flex-1 rounded-lg bg-brand px-3 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90"
+          >
+            Marcar como {SHORTAGE_STATUS_LABELS[next] ?? next}
+          </button>
+        )}
+        {item.status === 'pedido' && (
+          <button
+            type="button"
+            onClick={() => requestCancel(item)}
+            className="min-h-12 flex-1 rounded-lg border border-line px-3 text-base font-semibold transition-colors hover:bg-surface-brand"
+          >
+            Cancelar
+          </button>
+        )}
+      </div>
+    )
+  }
+
   const showControls = !(status === 'success' && filteredItems.length === 0 && !hasActiveFilters)
 
   return (
@@ -1295,49 +1322,65 @@ function ShortagesTab({ categories }: { categories: Category[] }) {
           {groups.map((group) => (
             <div key={group.key} className="flex flex-col gap-3">
               {group.label !== '' && <h2 className="m-0 text-xl font-bold">{group.label}</h2>}
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
-                {group.items.map((item) => {
-                  const next = nextShortageStatus(item.status)
-                  return (
-                    <div key={item.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <p className="m-0 min-w-0 text-xl font-bold leading-tight [overflow-wrap:anywhere]">{item.product_name}</p>
-                        <span
-                          className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-base font-semibold ${shortageStatusClasses(item.status)}`}
-                        >
-                          ● {SHORTAGE_STATUS_LABELS[item.status] ?? item.status}
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <FieldRow label="Categoría" value={categoryName(item.category_id)} />
-                        <FieldRow label="Proveedor" value={item.provider_name ?? 'Sin proveedor'} />
-                      </div>
-                      {(next !== null || item.status === 'pedido') && (
-                        <div className="flex flex-wrap gap-2">
-                          {next !== null && (
-                            <button
-                              type="button"
-                              onClick={() => requestAdvance(item)}
-                              className="min-h-12 flex-1 rounded-lg bg-brand px-3 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90"
-                            >
-                              Marcar como {SHORTAGE_STATUS_LABELS[next] ?? next}
-                            </button>
-                          )}
-                          {item.status === 'pedido' && (
-                            <button
-                              type="button"
-                              onClick={() => requestCancel(item)}
-                              className="min-h-12 flex-1 rounded-lg border border-line px-3 text-base font-semibold transition-colors hover:bg-surface-brand"
-                            >
-                              Cancelar
-                            </button>
-                          )}
+              {viewMode === 'cards' && (
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
+                  {group.items.map((item) => {
+                    const next = nextShortageStatus(item.status)
+                    return (
+                      <div key={item.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="m-0 min-w-0 text-xl font-bold leading-tight [overflow-wrap:anywhere]">{item.product_name}</p>
+                          <span
+                            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-base font-semibold ${shortageStatusClasses(item.status)}`}
+                          >
+                            ● {SHORTAGE_STATUS_LABELS[item.status] ?? item.status}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                        <div className="flex flex-col gap-1.5">
+                          <FieldRow label="Categoría" value={categoryName(item.category_id)} />
+                          <FieldRow label="Proveedor" value={item.provider_name ?? 'Sin proveedor'} />
+                        </div>
+                        {renderShortageActions(item, next, 'flex flex-wrap gap-2')}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              {viewMode === 'table' && (
+                <div className="overflow-x-auto rounded-xl">
+                  <table className={`${TABLE_CLASSES} min-w-[760px]`}>
+                    <thead className={TABLE_HEAD_CLASSES}>
+                      <tr>
+                        <th className="w-full min-w-56 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Producto</th>
+                        <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Estado</th>
+                        <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Categoría</th>
+                        <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Proveedor</th>
+                        <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.items.map((item) => {
+                        const next = nextShortageStatus(item.status)
+                        return (
+                          <tr key={item.id} className={TABLE_ROW_CLASSES}>
+                            <td className="max-w-xs px-4 py-3 text-lg font-medium [overflow-wrap:anywhere]">{item.product_name}</td>
+                            <td className="whitespace-nowrap px-4 py-3">
+                              <span
+                                className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-base font-semibold ${shortageStatusClasses(item.status)}`}
+                              >
+                                ● {SHORTAGE_STATUS_LABELS[item.status] ?? item.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-lg opacity-70 [overflow-wrap:anywhere]">{categoryName(item.category_id)}</td>
+                            <td className="px-4 py-3 text-lg opacity-70 [overflow-wrap:anywhere]">{item.provider_name ?? 'Sin proveedor'}</td>
+                            <td className="px-4 py-3">{renderShortageActions(item, next, 'flex flex-nowrap justify-end gap-2')}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -1400,7 +1443,7 @@ export function InventoryPage({ view }: { view: InventoryTab }) {
             </div>
           )}
         </div>
-        {status === 'success' && tab === 'stock' && summary.total > 0 && <ViewToggle mode={viewMode} onChange={setViewMode} />}
+        {status === 'success' && (tab === 'faltantes' || summary.total > 0) && <ViewToggle mode={viewMode} onChange={setViewMode} />}
       </div>
 
 
@@ -1482,7 +1525,7 @@ export function InventoryPage({ view }: { view: InventoryTab }) {
         />
       )}
 
-      {tab === 'faltantes' && status === 'success' && <ShortagesTab categories={categories} />}
+      {tab === 'faltantes' && status === 'success' && <ShortagesTab categories={categories} viewMode={viewMode} />}
     </section>
   )
 }

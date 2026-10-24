@@ -66,3 +66,36 @@ for (const screen of SCREENS) {
     }
   })
 }
+
+for (const screen of SCREENS) {
+  test(`en computadora de ${screen.width} px la tabla de Productos tiene filas en barras y el encabezado queda fijo tras bajar`, async ({ page }) => {
+    await page.setViewportSize(screen)
+    await login(page, 'duena')
+    await page.goto('/products')
+    await page.getByRole('button', { name: 'Ver como tabla' }).click()
+    const firstRow = page.locator('tbody tr').first()
+    await expect(firstRow).toBeVisible()
+    const cell = firstRow.locator('td').first()
+    const radius = await cell.evaluate((el) => getComputedStyle(el).borderTopLeftRadius)
+    expect(parseFloat(radius)).toBeGreaterThan(0)
+    const boxes = await page.locator('tbody tr').evaluateAll((rows) =>
+      rows.slice(0, 2).map((row) => {
+        const rect = row.getBoundingClientRect()
+        return { top: rect.top, bottom: rect.bottom }
+      }),
+    )
+    expect(boxes[1].top).toBeGreaterThan(boxes[0].bottom)
+
+    const header = page.locator('thead th').first()
+    const before = await header.boundingBox()
+    await page.mouse.move(screen.width / 2, screen.height / 2)
+    await page.mouse.wheel(0, 600)
+    await page.waitForTimeout(300)
+    await expect(header).toBeVisible()
+    const after = await header.boundingBox()
+    expect(Math.abs(after!.y - before!.y)).toBeLessThanOrEqual(10)
+    const scrolled = await page.locator('tbody tr').first().evaluate((el) => el.getBoundingClientRect().bottom)
+    expect(scrolled).toBeLessThan(after!.y)
+    await page.screenshot({ path: `test-results/t102-productos-tabla-${screen.width}.png` })
+  })
+}
