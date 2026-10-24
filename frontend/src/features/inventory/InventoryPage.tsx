@@ -655,7 +655,7 @@ function StockTab({
               <thead ref={theadRef} className={TABLE_HEAD_CLASSES}>
                 <tr>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Imagen</th>
-                  <th className="w-full min-w-64 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Producto</th>
+                  <th className="w-[28%] min-w-56 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Producto</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Categoría</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Variante</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Stock actual</th>
@@ -666,7 +666,7 @@ function StockTab({
                   {canManage && (
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Último cambio</th>
                   )}
-                  {canManage && <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>}
+                  {canManage && <th className="whitespace-nowrap px-4 py-3 text-center text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>}
                 </tr>
               </thead>
               <tbody>
@@ -675,9 +675,9 @@ function StockTab({
                     <td className="px-4 py-3">
                       <ProductThumbnail imageUrl={row.image_url} name={row.product_name} sizeClassName="h-12 w-12" />
                     </td>
-                    <td className="px-4 py-3 text-lg font-medium [overflow-wrap:anywhere]">{row.product_name}</td>
-                    <td className="max-w-xs px-4 py-3 text-lg opacity-70 [overflow-wrap:anywhere]">{categoryName(row.category_id)}</td>
-                    <td className="max-w-xs px-4 py-3 text-lg opacity-70 [overflow-wrap:anywhere]">{variantDisplayLabel(row)}</td>
+                    <td className="px-4 py-3 text-lg font-semibold [overflow-wrap:anywhere]">{row.product_name}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-lg opacity-70">{categoryName(row.category_id)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-lg opacity-70">{variantDisplayLabel(row)}</td>
                     <td className="whitespace-nowrap px-4 py-3">
                       <span className="inline-flex items-center gap-1">
                         {row.presentation ? (
@@ -732,7 +732,7 @@ function StockTab({
                       </td>
                     )}
                     {canManage && (
-                      <td className="max-w-xs px-4 py-3 text-lg opacity-70 [overflow-wrap:anywhere]">{lastChangeLabel(row)}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-lg opacity-70">{lastChangeLabel(row)}</td>
                     )}
                     {canManage && (
                       <td className="px-4 py-3 text-center">
@@ -1250,7 +1250,7 @@ function ShortagesTab({ categories, viewMode }: { categories: Category[]; viewMo
           <button
             type="button"
             onClick={() => requestAdvance(item)}
-            className="min-h-12 flex-1 rounded-lg bg-brand px-3 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90"
+            className="min-h-12 flex-1 whitespace-nowrap rounded-lg bg-brand px-3 text-base font-bold text-brand-contrast transition-colors hover:bg-brand/90"
           >
             Marcar como {SHORTAGE_STATUS_LABELS[next] ?? next}
           </button>
@@ -1259,7 +1259,7 @@ function ShortagesTab({ categories, viewMode }: { categories: Category[]; viewMo
           <button
             type="button"
             onClick={() => requestCancel(item)}
-            className="min-h-12 flex-1 rounded-lg border border-line px-3 text-base font-semibold transition-colors hover:bg-surface-brand"
+            className="min-h-12 flex-1 whitespace-nowrap rounded-lg border border-line px-3 text-base font-semibold transition-colors hover:bg-surface-brand"
           >
             Cancelar
           </button>
@@ -1351,11 +1351,11 @@ function ShortagesTab({ categories, viewMode }: { categories: Category[]; viewMo
                   <table className={`${TABLE_CLASSES} min-w-[760px]`}>
                     <thead className={TABLE_HEAD_CLASSES}>
                       <tr>
-                        <th className="w-full min-w-56 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Producto</th>
+                        <th className="w-[28%] min-w-56 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Producto</th>
                         <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Estado</th>
                         <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Categoría</th>
                         <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Proveedor</th>
-                        <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>
+                        <th className="whitespace-nowrap px-4 py-3 text-center text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1363,7 +1363,7 @@ function ShortagesTab({ categories, viewMode }: { categories: Category[]; viewMo
                         const next = nextShortageStatus(item.status)
                         return (
                           <tr key={item.id} className={TABLE_ROW_CLASSES}>
-                            <td className="max-w-xs px-4 py-3 text-lg font-medium [overflow-wrap:anywhere]">{item.product_name}</td>
+                            <td className="max-w-xs px-4 py-3 text-lg font-semibold [overflow-wrap:anywhere]">{item.product_name}</td>
                             <td className="whitespace-nowrap px-4 py-3">
                               <span
                                 className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-base font-semibold ${shortageStatusClasses(item.status)}`}
@@ -1371,8 +1371,8 @@ function ShortagesTab({ categories, viewMode }: { categories: Category[]; viewMo
                                 ● {SHORTAGE_STATUS_LABELS[item.status] ?? item.status}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-lg opacity-70 [overflow-wrap:anywhere]">{categoryName(item.category_id)}</td>
-                            <td className="px-4 py-3 text-lg opacity-70 [overflow-wrap:anywhere]">{item.provider_name ?? 'Sin proveedor'}</td>
+                            <td className="whitespace-nowrap px-4 py-3 text-lg opacity-70">{categoryName(item.category_id)}</td>
+                            <td className="whitespace-nowrap px-4 py-3 text-lg opacity-70">{item.provider_name ?? 'Sin proveedor'}</td>
                             <td className="px-4 py-3">{renderShortageActions(item, next, 'flex flex-nowrap justify-end gap-2')}</td>
                           </tr>
                         )

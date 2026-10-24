@@ -583,7 +583,7 @@ export function ProductsPage() {
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Imagen</th>
                     <th
                       aria-sort={sortDir === 'asc' ? 'ascending' : 'descending'}
-                      className="w-full min-w-56 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60"
+                      className="w-[28%] min-w-56 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60"
                     >
                       <button
                         type="button"
@@ -602,7 +602,7 @@ export function ProductsPage() {
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Precio</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Stock</th>
                     <th className="whitespace-nowrap py-3 pl-8 pr-4 text-left text-sm font-bold uppercase tracking-wide opacity-60">Estado</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-center text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -625,7 +625,7 @@ export function ProductsPage() {
                       <td className="px-4 py-3.5 text-lg opacity-70">
                         {isUndifferentiated ? '—' : product.variants.length}
                       </td>
-                      <td className="max-w-xs px-4 py-3.5 text-lg opacity-70 [overflow-wrap:anywhere]">{unitName(product.unit_id)}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-lg opacity-70">{unitName(product.unit_id)}</td>
                       <td className="whitespace-nowrap px-4 py-3.5 text-lg">
                         {(() => {
                           const priceInfo = productPriceInfo(product)
@@ -662,7 +662,7 @@ export function ProductsPage() {
                           ● {product.status === 'active' ? 'Activo' : 'Inactivo'}
                         </span>
                       </td>
-                      <td className="py-3.5 pl-4 pr-8 text-center">
+                      <td className="px-4 py-3 text-center">
                         <RowMenu title={product.name} items={productRowMenuItems(product)} />
                       </td>
                     </tr>

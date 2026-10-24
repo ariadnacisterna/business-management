@@ -1,3 +1,4 @@
+import { formatPrice } from '../../shared/formatPrice'
 import { PresentationFields } from '../../shared/PresentationFields'
 import { EMPTY_PRESENTATION_DRAFT, draftToPresentation, presentationDraftError } from '../../shared/presentationDraft'
 import { describePresentation, evaluateMinimumEntry, formatStock, presentationLabel } from '../../shared/presentation'
@@ -545,7 +546,7 @@ export function ProductFormPage() {
 
             {step === 1 && (
               <form onSubmit={handleContinueStep1} className="flex flex-col gap-3">
-                <label htmlFor="product-name" className="text-lg font-semibold">
+                <label htmlFor="product-name" className="text-base font-semibold">
                   Nombre <span className="text-danger">*</span>
                 </label>
                 <input
@@ -944,7 +945,7 @@ export function ProductFormPage() {
                     <div className="grid grid-cols-1 gap-2 text-lg sm:grid-cols-3">
                       <div>
                         <p className="m-0 text-sm uppercase tracking-wide opacity-60">Precio</p>
-                        <p className="m-0 font-bold text-brand">${singlePrice || '0.00'}</p>
+                        <p className="m-0 font-bold text-brand">{formatPrice(singlePrice || 0)}</p>
                       </div>
                       <div>
                         <p className="m-0 text-sm uppercase tracking-wide opacity-60">Stock actual</p>
@@ -962,7 +963,7 @@ export function ProductFormPage() {
                           <p className="m-0 font-bold">{draft.label.trim() !== '' ? draft.label : `Variante ${index + 1}`}</p>
                           <div className="mt-1 grid grid-cols-1 gap-2 text-base sm:grid-cols-3">
                             <span>
-                              Precio: <span className="font-bold text-brand">${effectiveVariantPrice(draft.key) || '0.00'}</span>
+                              Precio: <span className="font-bold text-brand">{formatPrice(effectiveVariantPrice(draft.key) || 0)}</span>
                             </span>
                             <span>Stock actual: {describeStockText(variantStocks[draft.key] ?? '')}</span>
                             <span>Stock mínimo: {describeStockText(variantMinimums[draft.key] ?? '')}</span>

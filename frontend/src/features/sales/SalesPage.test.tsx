@@ -148,7 +148,7 @@ describe('SalesPage', () => {
     await user.type(quantity, '3')
 
     expect(screen.getByText(/Stock insuficiente: hay 2 m/)).toBeInTheDocument()
-    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$900,00')
+    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$ 900,00')
 
     await user.click(screen.getByRole('button', { name: 'Fiado' }))
     await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
@@ -217,6 +217,27 @@ describe('SalesPage', () => {
     expect(await screen.findByText('No hay ventas con esos filtros.')).toBeInTheDocument()
   })
 
+  it('shows the sales count, the Normal label and clears the applied filters', async () => {
+    const user = userEvent.setup()
+    routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+      'GET /sales': () => jsonResponse({ items: [{ ...SALE, insufficient_stock: false }], total: 1, page: 1, page_size: 25 }),
+    })
+    renderPage(EMPLEADO, 'list')
+
+    expect(await screen.findByText('1 venta registrada')).toBeInTheDocument()
+    expect(screen.getByText('● Normal')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Limpiar filtros' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Filtrar por forma de pago' }))
+    await user.click(await screen.findByRole('option', { name: 'Transferencia' }))
+    await user.click(await screen.findByRole('button', { name: 'Limpiar filtros' }))
+
+    expect(screen.queryByRole('button', { name: 'Limpiar filtros' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Filtrar por forma de pago' })).toHaveTextContent('Todas')
+  })
+
   it('applies a percentage discount and sends the amount in pesos', async () => {
     const user = userEvent.setup()
     const fetchMock = routeFetch({
@@ -232,7 +253,7 @@ describe('SalesPage', () => {
     await user.type(percent, '10')
 
     expect(screen.getByRole('textbox', { name: 'Descuento en pesos' })).toHaveValue('30.00')
-    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$270,00')
+    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$ 270,00')
 
     await user.clear(percent)
     await user.type(percent, '101')
@@ -263,15 +284,15 @@ describe('SalesPage', () => {
     await user.type(screen.getByRole('textbox', { name: 'Descuento en pesos' }), '301')
 
     expect(screen.getByText('El descuento no puede ser mayor que el total.')).toBeInTheDocument()
-    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$300,00')
+    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$ 300,00')
 
     await user.clear(screen.getByRole('textbox', { name: 'Descuento en pesos' }))
     await user.type(screen.getByRole('textbox', { name: 'Descuento en pesos' }), '50')
-    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$250,00')
+    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$ 250,00')
 
     await user.click(screen.getByRole('button', { name: 'Vaciar carrito' }))
     expect(screen.getByText('El carrito está vacío')).toBeInTheDocument()
-    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$0,00')
+    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$ 0,00')
   })
 
   it('lets a Gerente void a sale with a reason', async () => {

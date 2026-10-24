@@ -68,7 +68,7 @@ export function NewUnitDialog({ breadcrumb, onCreated, onClose }: Props) {
         </div>
 
         <div className="flex flex-col gap-2">
-          <label htmlFor="new-unit-name" className="text-lg font-semibold">
+          <label htmlFor="new-unit-name" className="text-base font-semibold">
             Nombre <span className="text-danger">*</span>
           </label>
           <input
@@ -84,7 +84,7 @@ export function NewUnitDialog({ breadcrumb, onCreated, onClose }: Props) {
         </div>
 
         <div className="flex flex-col gap-2">
-          <label htmlFor="new-unit-abbreviation" className="text-lg font-semibold">
+          <label htmlFor="new-unit-abbreviation" className="text-base font-semibold">
             Abreviatura <span className="text-danger">*</span>
           </label>
           <input

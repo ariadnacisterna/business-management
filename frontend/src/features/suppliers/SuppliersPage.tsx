@@ -639,7 +639,7 @@ export function SuppliersPage() {
                 <table className={`${TABLE_CLASSES} min-w-[760px]`}>
                   <thead className={TABLE_HEAD_CLASSES}>
                     <tr>
-                      <th className="w-full min-w-56 px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
+                      <th className="w-[28%] min-w-56 px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
                         Nombre
                       </th>
                       <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
@@ -654,16 +654,20 @@ export function SuppliersPage() {
                       <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
                         Estado
                       </th>
-                      {canManage && <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>}
+                      {canManage && <th className="whitespace-nowrap px-4 py-3 text-center text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedProviders.map((provider) => (
                       <tr key={provider.id} className={TABLE_ROW_CLASSES}>
-                        <td className="max-w-xs px-4 py-3 text-base font-medium [overflow-wrap:anywhere]">{provider.name}</td>
-                        <td className="max-w-xs px-4 py-3 text-base opacity-70 [overflow-wrap:anywhere]">
+                        <td className="max-w-xs px-4 py-3 text-lg font-semibold [overflow-wrap:anywhere]">{provider.name}</td>
+                        <td className="max-w-[16rem] whitespace-nowrap px-4 py-3 text-lg opacity-70">
                           {provider.contact_name ?? '—'}
-                          {provider.email !== null && <div className="text-sm opacity-60">{provider.email}</div>}
+                          {provider.email !== null && (
+                            <div className="truncate text-sm opacity-60" title={provider.email}>
+                              {provider.email}
+                            </div>
+                          )}
                           {provider.phone !== null && <div className="text-sm opacity-60">{provider.phone}</div>}
                         </td>
                         <td className="max-w-xs px-4 py-3 [overflow-wrap:anywhere]">
@@ -685,7 +689,7 @@ export function SuppliersPage() {
                             <span className="text-sm opacity-40">Sin categorías</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-base opacity-70">
+                        <td className="px-4 py-3 text-lg opacity-70">
                           {provider.last_purchase_at !== null ? formatISODateDisplay(provider.last_purchase_at) : '—'}
                         </td>
                         <td className="px-4 py-3">
@@ -698,7 +702,7 @@ export function SuppliersPage() {
                           </span>
                         </td>
                         {canManage && (
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-4 py-3 text-center">
                             <RowMenu title={provider.name} items={providerRowMenuItems(provider)} />
                           </td>
                         )}

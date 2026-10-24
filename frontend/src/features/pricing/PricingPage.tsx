@@ -712,7 +712,7 @@ export function PricingPage() {
                 <thead ref={theadRef} className={TABLE_HEAD_CLASSES}>
                   <tr>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Imagen</th>
-                    <th className="w-full min-w-56 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Producto</th>
+                    <th className="w-[28%] min-w-56 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Producto</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Categoría</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Variante</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Precio actual</th>
@@ -722,9 +722,7 @@ export function PricingPage() {
                     {canManage && (
                       <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Último cambio</th>
                     )}
-                    <th className="px-4 py-3">
-                      <span className="sr-only">Historial</span>
-                    </th>
+                    <th className="whitespace-nowrap px-4 py-3 text-center text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -769,8 +767,8 @@ export function PricingPage() {
                               <td className="max-w-xs px-4 py-3.5 text-lg font-semibold [overflow-wrap:anywhere]">
                                 <HighlightedText text={product.name} query={appliedSearch} />
                               </td>
-                              <td className="max-w-xs px-4 py-3.5 text-lg opacity-70 [overflow-wrap:anywhere]">{categoryName(product.category_id)}</td>
-                              <td className="max-w-xs px-4 py-3.5 text-lg opacity-70 [overflow-wrap:anywhere]">{variantLabel(variant)}</td>
+                              <td className="whitespace-nowrap px-4 py-3 text-lg opacity-70">{categoryName(product.category_id)}</td>
+                              <td className="whitespace-nowrap px-4 py-3 text-lg opacity-70">{variantLabel(variant)}</td>
                               <td className="whitespace-nowrap px-4 py-3.5 text-lg">
                                 {currentPrice !== null ? (
                                   <span className="font-bold text-brand">{formatPrice(currentPrice.amount)}</span>
@@ -793,7 +791,7 @@ export function PricingPage() {
                                 </td>
                               )}
                               {canManage && (
-                                <td className="max-w-xs px-4 py-3.5 text-lg opacity-70 [overflow-wrap:anywhere]">{lastChangeLabel(variant.id)}</td>
+                                <td className="whitespace-nowrap px-4 py-3 text-lg opacity-70">{lastChangeLabel(variant.id)}</td>
                               )}
                               <td className="px-4 py-3.5 text-center">
                                 <button

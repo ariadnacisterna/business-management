@@ -60,7 +60,7 @@ function displayName(variant: SellableVariant): string {
 }
 
 function money(cents: number): string {
-  return `$${formatAmount(centsToAmount(cents))}`
+  return formatAmount(centsToAmount(cents))
 }
 
 function CartIcon() {
@@ -298,7 +298,7 @@ export function NewSalePanel() {
                               {variantDescription(variant)}
                             </span>
                             <span className="mt-auto flex flex-col gap-2">
-                              <span className="text-2xl font-bold text-brand">${formatAmount(variant.price_amount)}</span>
+                              <span className="text-2xl font-bold text-brand">{formatAmount(variant.price_amount)}</span>
                               <span className="border-t border-line pt-2 text-lg">
                                 Stock: {formatStock(variant.quantity, variant.presentation, variant.unit_abbreviation)}
                               </span>
@@ -352,7 +352,7 @@ export function NewSalePanel() {
                           {line.variant.product_name}
                         </p>
                         <p className="m-0 text-lg opacity-60 [overflow-wrap:anywhere]">
-                          {[description, `$${formatAmount(line.variant.price_amount)} c/u`]
+                          {[description, `${formatAmount(line.variant.price_amount)} c/u`]
                             .filter((part) => part !== '')
                             .join(' · ')}
                         </p>

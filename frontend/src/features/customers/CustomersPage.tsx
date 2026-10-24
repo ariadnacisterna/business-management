@@ -296,7 +296,7 @@ function CustomerPaymentModal({
         <div className="rounded-xl border border-line bg-surface-brand/40 px-4 py-3">
           <p className="m-0 text-sm font-semibold uppercase tracking-wide opacity-60">Saldo actual</p>
           <p className={`m-0 text-2xl font-bold ${Number(balance) > 0 ? 'text-danger' : ''}`}>
-            ${formatAmount(balance)}
+            {formatAmount(balance)}
           </p>
         </div>
 
@@ -400,12 +400,12 @@ function CustomerHistoryModal({ customer, onClose }: { customer: Customer; onClo
                   <li key={credit.id} className="flex flex-col gap-1 rounded-lg border border-line px-4 py-3">
                     <div className="flex items-center justify-between text-lg">
                       <span className={`font-bold ${credit.type === 'cargo' ? 'text-danger' : 'text-success'}`}>
-                        {credit.type === 'cargo' ? '+' : '-'}${formatAmount(credit.amount)}
+                        {credit.type === 'cargo' ? '+' : '-'}{formatAmount(credit.amount)}
                       </span>
                       <span className="opacity-60">{formatDateTime(credit.created_at)}</span>
                     </div>
                     <p className="m-0 text-base opacity-70">
-                      ${formatAmount(String(before))} → ${formatAmount(String(after))}
+                      {formatAmount(String(before))} → {formatAmount(String(after))}
                     </p>
                     <p className="m-0 text-base opacity-70">Tipo: {CREDIT_TYPE_LABELS[credit.type] ?? credit.type}</p>
                     <p className="m-0 text-base opacity-70">Cambiado por: {firstName(credit.created_by_account_name)}</p>
@@ -782,7 +782,7 @@ export function CustomersPage() {
             <table className={`${TABLE_CLASSES} min-w-[720px]`}>
               <thead className={TABLE_HEAD_CLASSES}>
                 <tr>
-                  <th className="w-full min-w-56 px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
+                  <th className="w-[28%] min-w-56 px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
                     Nombre
                   </th>
                   <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
@@ -797,20 +797,20 @@ export function CustomersPage() {
                   <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
                     Estado
                   </th>
-                  <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-center text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedCustomers.map((customer) => (
                   <tr key={customer.id} className={TABLE_ROW_CLASSES}>
-                    <td className="max-w-xs px-4 py-3 text-base font-medium [overflow-wrap:anywhere]">{customer.name}</td>
-                    <td className="max-w-xs px-4 py-3 text-base opacity-70 [overflow-wrap:anywhere]">{customer.phone ?? '—'}</td>
-                    <td className="max-w-xs px-4 py-3 text-base opacity-70 [overflow-wrap:anywhere]">{customer.address ?? '—'}</td>
+                    <td className="max-w-xs px-4 py-3 text-lg font-semibold [overflow-wrap:anywhere]">{customer.name}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-lg opacity-70">{customer.phone ?? '—'}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-lg opacity-70">{customer.address ?? '—'}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`text-base font-semibold ${Number(balanceFor(customer.id)) > 0 ? 'text-danger' : 'opacity-60'}`}
                       >
-                        ${formatAmount(balanceFor(customer.id))}
+                        {formatAmount(balanceFor(customer.id))}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -822,7 +822,7 @@ export function CustomersPage() {
                         ● {customer.status === 'active' ? 'Activo' : 'Inactivo'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-center">
                       <RowMenu title={customer.name} items={customerRowMenuItems(customer, true)} />
                     </td>
                   </tr>
@@ -847,7 +847,7 @@ export function CustomersPage() {
                     <span
                       className={`whitespace-nowrap text-2xl font-bold ${Number(balanceFor(customer.id)) > 0 ? 'text-danger' : 'opacity-60'}`}
                     >
-                      ${formatAmount(balanceFor(customer.id))}
+                      {formatAmount(balanceFor(customer.id))}
                     </span>
                     {canManage && <RowMenu title={customer.name} items={customerRowMenuItems(customer, false)} />}
                   </div>

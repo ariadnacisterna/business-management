@@ -48,9 +48,9 @@ function SaleBody({ sale }: { sale: Sale }) {
             </span>
             <span className="flex flex-wrap justify-between gap-x-4">
               <span>
-                {formatQuantity(line.quantity)} {line.unit_abbreviation} × ${formatAmount(line.unit_price)}
+                {formatQuantity(line.quantity)} {line.unit_abbreviation} × {formatAmount(line.unit_price)}
               </span>
-              <span className="font-bold">${formatAmount(line.line_total)}</span>
+              <span className="font-bold">{formatAmount(line.line_total)}</span>
             </span>
             {line.insufficient_stock && (
               <span className="text-base font-semibold text-warning">
@@ -64,17 +64,17 @@ function SaleBody({ sale }: { sale: Sale }) {
       <dl className="m-0 flex flex-col gap-1">
         <div className="flex justify-between gap-4">
           <dt className="opacity-60">Subtotal</dt>
-          <dd className="m-0">${formatAmount(sale.subtotal)}</dd>
+          <dd className="m-0">{formatAmount(sale.subtotal)}</dd>
         </div>
         {Number(sale.discount) > 0 && (
           <div className="flex justify-between gap-4">
             <dt className="opacity-60">Descuento de {sale.created_by_account_name}</dt>
-            <dd className="m-0">−${formatAmount(sale.discount)}</dd>
+            <dd className="m-0">-{formatAmount(sale.discount)}</dd>
           </div>
         )}
         <div className="flex justify-between gap-4 text-2xl font-bold">
           <dt>Total</dt>
-          <dd className="m-0">${formatAmount(sale.total)}</dd>
+          <dd className="m-0">{formatAmount(sale.total)}</dd>
         </div>
       </dl>
 

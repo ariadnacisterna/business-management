@@ -58,7 +58,7 @@ export function NewCategoryDialog({ breadcrumb, onCreated, onClose }: Props) {
         </div>
 
         <div className="flex flex-col gap-2">
-          <label htmlFor="new-category-name" className="text-lg font-semibold">
+          <label htmlFor="new-category-name" className="text-base font-semibold">
             Nombre <span className="text-danger">*</span>
           </label>
           <input

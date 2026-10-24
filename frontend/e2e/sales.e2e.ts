@@ -25,13 +25,13 @@ test('un Empleado registra una venta en efectivo y baja el stock', async ({ page
   await page.goto('/ventas')
 
   await addProduct(page, 'Sacapuntas doble', '2')
-  await expect(page.getByLabel('Total de la venta')).toHaveText('$700,00')
+  await expect(page.getByLabel('Total de la venta')).toHaveText('$ 700,00')
   await confirmSale(page)
 
   const sale = await openLatestSale(page)
   await expect(sale).toContainText('Sacapuntas doble')
   await expect(sale).toContainText('Efectivo')
-  await expect(sale).toContainText('$700,00')
+  await expect(sale).toContainText('$ 700,00')
   await sale.getByRole('button', { name: 'Cerrar' }).click()
 
   await page.goto('/ventas/nueva')
@@ -51,7 +51,7 @@ test('tocar una tarjeta dos veces suma uno y el descuento baja el total', async 
   await page.getByRole('button', { name: 'Agregar Sacapuntas doble' }).click()
   await expect(page.getByRole('textbox', { name: 'Cantidad de Sacapuntas doble' })).toHaveValue('2')
   await page.getByRole('textbox', { name: 'Descuento en pesos' }).fill('100')
-  await expect(page.getByLabel('Total de la venta')).toHaveText('$600,00')
+  await expect(page.getByLabel('Total de la venta')).toHaveText('$ 600,00')
   await page.getByRole('button', { name: 'Vaciar carrito' }).click()
   await expect(page.getByText('El carrito está vacío')).toBeVisible()
 })
@@ -72,10 +72,10 @@ test('el descuento en porcentaje se calcula sobre el total', async ({ page }) =>
   await page.getByRole('button', { name: 'Agregar Sacapuntas doble' }).click()
   await page.getByRole('textbox', { name: 'Buscar producto para vender' }).fill('Sacapuntas doble')
   await page.getByRole('button', { name: 'Agregar Sacapuntas doble' }).click()
-  await expect(page.getByLabel('Total de la venta')).toHaveText('$700,00')
+  await expect(page.getByLabel('Total de la venta')).toHaveText('$ 700,00')
   await page.getByRole('textbox', { name: 'Descuento en porcentaje' }).fill('10')
   await expect(page.getByRole('textbox', { name: 'Descuento en pesos' })).toHaveValue('70.00')
-  await expect(page.getByLabel('Total de la venta')).toHaveText('$630,00')
+  await expect(page.getByLabel('Total de la venta')).toHaveText('$ 630,00')
 })
 
 test('una venta en fiado suma al saldo del cliente', async ({ page }) => {
@@ -91,7 +91,7 @@ test('una venta en fiado suma al saldo del cliente', async ({ page }) => {
   await page.goto('/clientes')
   await page.getByRole('textbox', { name: 'Buscar clientes' }).fill('Clara Ventas')
   await expect(page.getByRole('textbox', { name: /^Importe para / })).toHaveCount(1)
-  await expect(page.getByRole('main')).toContainText('$900,00')
+  await expect(page.getByRole('main')).toContainText('$ 900,00')
 })
 
 test('se vende aunque no alcance el stock y la venta queda marcada', async ({ page }) => {
@@ -143,7 +143,7 @@ test.describe('en un celular con letra Enorme', () => {
 
     await addProduct(page, 'Marcador fluo', '2')
     await page.getByRole('button', { name: 'Transferencia' }).click()
-    await expect(page.getByLabel('Total de la venta')).toHaveText('$1.800,00')
+    await expect(page.getByLabel('Total de la venta')).toHaveText('$ 1.800,00')
     await expectNoHorizontalScroll(page)
     await confirmSale(page)
 
@@ -151,4 +151,16 @@ test.describe('en un celular con letra Enorme', () => {
     await expect(page.getByRole('button', { name: /^Ver venta N° / }).first()).toBeVisible()
     await expectNoHorizontalScroll(page)
   })
+})
+
+test('el Historial de ventas muestra la cantidad y permite limpiar los filtros', async ({ page }) => {
+  await login(page, 'empleada')
+  await page.goto('/ventas/registradas')
+  await expect(page.getByText(/ventas? registradas?$/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Limpiar filtros' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Filtrar por forma de pago' }).click()
+  await page.getByRole('option', { name: 'Transferencia' }).click()
+  await page.getByRole('button', { name: 'Limpiar filtros' }).click()
+  await expect(page.getByRole('button', { name: 'Limpiar filtros' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Filtrar por forma de pago' })).toContainText('Todas')
 })

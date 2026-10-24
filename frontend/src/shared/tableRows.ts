@@ -1,4 +1,4 @@
-export const TABLE_CLASSES = 'w-full border-separate border-spacing-x-0 border-spacing-y-2'
+export const TABLE_CLASSES = 'w-full -mt-2 border-separate border-spacing-x-0 border-spacing-y-2'
 export const TABLE_HEAD_CLASSES = 'table-head sticky top-0 z-10 bg-[var(--table-backdrop)]'
 export const TABLE_SCROLL_GUTTER_CLASSES = 'pr-5'
 const ROW_SHAPE_CLASSES =

@@ -237,7 +237,7 @@ export function UnitsPage() {
                     {label}
                   </th>
                 ))}
-                {canManage && <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>}
+                {canManage && <th className="whitespace-nowrap px-4 py-3 text-center text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>}
               </tr>
             </thead>
             <tbody className={STACKED_BODY_CLASSES}>

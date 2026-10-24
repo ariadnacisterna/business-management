@@ -286,7 +286,7 @@ function AttributesContent() {
                 <th className="px-4 py-2.5 text-left text-sm font-semibold uppercase tracking-wide opacity-60">
                   Estado
                 </th>
-                <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>
+                <th className="whitespace-nowrap px-4 py-3 text-center text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>
               </tr>
             </thead>
             <tbody className={STACKED_BODY_CLASSES}>

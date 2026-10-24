@@ -93,7 +93,7 @@ for (const screen of SCREENS) {
     await page.waitForTimeout(300)
     await expect(header).toBeVisible()
     const after = await header.boundingBox()
-    expect(Math.abs(after!.y - before!.y)).toBeLessThanOrEqual(10)
+    expect(Math.abs(after!.y - before!.y)).toBeLessThanOrEqual(0.5)
     const scrolled = await page.locator('tbody tr').first().evaluate((el) => el.getBoundingClientRect().bottom)
     expect(scrolled).toBeLessThan(after!.y)
     await page.screenshot({ path: `test-results/t102-productos-tabla-${screen.width}.png` })

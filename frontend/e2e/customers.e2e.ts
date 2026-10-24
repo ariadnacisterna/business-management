@@ -29,7 +29,7 @@ test('un Gerente da de alta un cliente', async ({ page }) => {
   await page.reload()
   await searchCustomer(page, 'Rosa Nueva')
   await expect(page.getByRole('main')).toContainText('15-0000-1111')
-  await expect(page.getByRole('main')).toContainText('$0,00')
+  await expect(page.getByRole('main')).toContainText('$ 0,00')
 })
 
 test('un Empleado registra un fiado y un pago y el saldo queda bien', async ({ page }) => {
@@ -39,15 +39,15 @@ test('un Empleado registra un fiado y un pago y el saldo queda bien', async ({ p
 
   await (await registerMovement(page, 'Marta Fiado', 'Fiado', '1500')).click()
   await expect(successToast(page, 'Fiado registrado.')).toBeVisible()
-  await expect(page.getByRole('main')).toContainText('$1.500,00')
+  await expect(page.getByRole('main')).toContainText('$ 1.500,00')
 
   await (await registerMovement(page, 'Marta Fiado', 'Pago', '400')).click()
   await expect(successToast(page, 'Pago registrado.')).toBeVisible()
-  await expect(page.getByRole('main')).toContainText('$1.100,00')
+  await expect(page.getByRole('main')).toContainText('$ 1.100,00')
 
   await page.reload()
   await searchCustomer(page, 'Marta Fiado')
-  await expect(page.getByRole('main')).toContainText('$1.100,00')
+  await expect(page.getByRole('main')).toContainText('$ 1.100,00')
 })
 
 test('doble clic al registrar un fiado lo registra una sola vez', async ({ page }) => {
@@ -61,5 +61,5 @@ test('doble clic al registrar un fiado lo registra una sola vez', async ({ page 
 
   await page.reload()
   await searchCustomer(page, 'Pedro Doble')
-  await expect(page.getByRole('main')).toContainText('$700,00')
+  await expect(page.getByRole('main')).toContainText('$ 700,00')
 })

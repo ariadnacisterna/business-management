@@ -157,7 +157,7 @@ export function ChangePriceModal({
 
         {isInitialPrice ? (
           <div>
-            <label htmlFor="new-price-amount" className="text-lg font-semibold uppercase tracking-wide opacity-70">
+            <label htmlFor="new-price-amount" className="text-base font-semibold">
               Precio inicial (ARS) <span className="text-danger">*</span>
             </label>
             <div className="mt-1.5">
@@ -175,7 +175,7 @@ export function ChangePriceModal({
           </div>
         ) : (
           <div>
-            <label htmlFor="new-price-delta" className="text-lg font-semibold uppercase tracking-wide opacity-70">
+            <label htmlFor="new-price-delta" className="text-base font-semibold">
               {wholePrice ? 'Precio nuevo (ARS)' : 'Cuánto sumar o restar (ARS)'} <span className="text-danger">*</span>
             </label>
             <div className="mt-1.5">

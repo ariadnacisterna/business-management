@@ -1,24 +1,10 @@
-const integerFormatter = new Intl.NumberFormat('es-AR', {
-  style: 'currency',
-  currency: 'ARS',
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-})
-
-const decimalFormatter = new Intl.NumberFormat('es-AR', {
-  style: 'currency',
-  currency: 'ARS',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})
-
-export function formatPrice(amount: number | string): string {
+export function formatMoney(amount: number | string): string {
   const value = typeof amount === 'string' ? Number(amount) : amount
-  const hasDecimals = Math.round(value * 100) % 100 !== 0
-  return hasDecimals ? decimalFormatter.format(value) : integerFormatter.format(value)
+  if (Number.isNaN(value)) return String(amount)
+  const digits = Math.abs(value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const isZero = Math.round(Math.abs(value) * 100) === 0
+  return `${value < 0 && !isZero ? '-' : ''}$ ${digits}`
 }
 
-export function formatPriceExact(amount: number | string): string {
-  const value = typeof amount === 'string' ? Number(amount) : amount
-  return decimalFormatter.format(value)
-}
+export const formatPrice = formatMoney
+export const formatPriceExact = formatMoney

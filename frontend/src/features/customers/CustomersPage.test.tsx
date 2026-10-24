@@ -115,8 +115,8 @@ describe('CustomersPage', () => {
     expect((await screen.findAllByText('Ana Gómez')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Beto Ruiz').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Calle Falsa 123').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('$150,00').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('$0,00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$ 150,00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$ 0,00').length).toBeGreaterThan(0)
   })
 
   it('shows the card/table view toggle once there are customers, and switches views', async () => {
@@ -377,7 +377,7 @@ describe('CustomersPage', () => {
     await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
 
     expect(await screen.findByText('Saldo actual')).toBeInTheDocument()
-    expect(screen.getAllByText('$150,00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$ 150,00').length).toBeGreaterThan(0)
   })
 
   it('shows the movement history in the history view', async () => {
@@ -391,7 +391,7 @@ describe('CustomersPage', () => {
     await user.click(screen.getAllByRole('button', { name: 'Ver historial' })[0])
 
     expect(await screen.findByText('Tipo: Fiado')).toBeInTheDocument()
-    expect(screen.getByText('+$150,00')).toBeInTheDocument()
+    expect(screen.getByText('+$ 150,00')).toBeInTheDocument()
     expect(screen.getByText('Cambiado por: Empleada')).toBeInTheDocument()
 
     const dialog = screen.getByRole('dialog', { name: 'Historial de Ana Gómez' })
@@ -424,7 +424,7 @@ describe('CustomersPage', () => {
 
     expect(screen.queryByText('Último cambio')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Ver historial' })).not.toBeInTheDocument()
-    expect(screen.getAllByText('$150,00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$ 150,00').length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Importe para Ana Gómez')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Actualizar' }).length).toBeGreaterThan(0)
   })
@@ -471,7 +471,7 @@ describe('CustomersPage', () => {
     await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Actualizar' }))
 
     expect(await screen.findByText('¡Listo!')).toBeInTheDocument()
-    expect(screen.getAllByText('$200,00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$ 200,00').length).toBeGreaterThan(0)
     expect(screen.getByText(/por Empleada/)).toBeInTheDocument()
   })
 

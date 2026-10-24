@@ -210,9 +210,9 @@ describe('PricingPage', () => {
 
     expect(await screen.findByText('Cinta bebé')).toBeInTheDocument()
     expect(screen.getAllByText('Botones surtidos').length).toBeGreaterThan(0)
-    expect(screen.getByText('$ 150')).toBeInTheDocument()
-    expect(screen.getByText('$ 10')).toBeInTheDocument()
-    expect(screen.getByText('$ 20')).toBeInTheDocument()
+    expect(screen.getByText('$ 150,00')).toBeInTheDocument()
+    expect(screen.getByText('$ 10,00')).toBeInTheDocument()
+    expect(screen.getByText('$ 20,00')).toBeInTheDocument()
     expect(screen.getAllByText(/por Ada$/).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Cintas').length).toBeGreaterThan(0)
   })
@@ -360,7 +360,7 @@ describe('PricingPage', () => {
     await user.click(screen.getByRole('button', { name: 'Confirmar' }))
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
-    expect(await screen.findByText(/^\$\s175$/)).toBeInTheDocument()
+    expect(await screen.findByText(/^\$\s175,00$/)).toBeInTheDocument()
     const lastCall = fetchMock.mock.calls.at(-1)
     expect(lastCall?.[0]).toBe('/variants/10/price')
     expect(JSON.parse(lastCall?.[1]?.body as string)).toEqual({ delta: '25.00' })
@@ -487,7 +487,7 @@ describe('PricingPage', () => {
     const lastCall = fetchMock.mock.calls.at(-1)
     expect(lastCall?.[0]).toBe('/variants/10/price')
     expect(JSON.parse(lastCall?.[1]?.body as string)).toEqual({ amount: '80' })
-    expect(await screen.findByText(/^\$\s80$/)).toBeInTheDocument()
+    expect(await screen.findByText(/^\$\s80,00$/)).toBeInTheDocument()
   })
 
   it('offers "apply to all variants" and applies the difference to each variant', async () => {
@@ -515,8 +515,8 @@ describe('PricingPage', () => {
     await user.click(screen.getByRole('button', { name: 'Confirmar' }))
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
-    expect(await screen.findByText(/^\$\s15$/)).toBeInTheDocument()
-    expect(await screen.findByText(/^\$\s25$/)).toBeInTheDocument()
+    expect(await screen.findByText(/^\$\s15,00$/)).toBeInTheDocument()
+    expect(await screen.findByText(/^\$\s25,00$/)).toBeInTheDocument()
     const lastCall = fetchMock.mock.calls.at(-1)
     expect(lastCall?.[0]).toBe('/products/2/price')
     expect(JSON.parse(lastCall?.[1]?.body as string)).toEqual({ delta: '5.00' })
@@ -620,9 +620,9 @@ describe('PricingPage', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Historial de precios de Cinta bebé' })
     expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Precios › Cinta bebé › Historial de precios')
     const [newestEntry, oldestEntry] = within(dialog).getAllByRole('listitem')
-    expect(within(newestEntry).getByText('$ 150')).toBeInTheDocument()
-    expect(within(newestEntry).getByText('$ 100 → $ 150')).toBeInTheDocument()
-    expect(within(oldestEntry).getByText('$ 100', { selector: 'span' })).toBeInTheDocument()
+    expect(within(newestEntry).getByText('$ 150,00')).toBeInTheDocument()
+    expect(within(newestEntry).getByText('$ 100,00 → $ 150,00')).toBeInTheDocument()
+    expect(within(oldestEntry).getByText('$ 100,00', { selector: 'span' })).toBeInTheDocument()
     expect(within(dialog).getAllByText('Cambiado por: Ada')).toHaveLength(2)
 
     const accountRequests = fetchMock.mock.calls.filter((call) => String(call[0]).includes('/accounts/'))
@@ -692,7 +692,7 @@ describe('PricingPage', () => {
     await user.click(screen.getByRole('button', { name: 'Ver historial de precios de Cinta bebé Estándar' }))
 
     const dialog = await screen.findByRole('dialog', { name: 'Historial de precios de Cinta bebé' })
-    expect((await within(dialog).findAllByText('$ 150')).length).toBeGreaterThan(0)
+    expect((await within(dialog).findAllByText('$ 150,00')).length).toBeGreaterThan(0)
   })
 
   it('keeps the history of the last variant opened when an older answer arrives late', async () => {
@@ -710,12 +710,12 @@ describe('PricingPage', () => {
     fetchMock.mockResolvedValueOnce(jsonResponse([priceBody(2000, 20, '10.00')]))
     await user.click(screen.getByRole('button', { name: 'Ver historial de precios de Botones surtidos Chico' }))
     const dialog = await screen.findByRole('dialog', { name: 'Historial de precios de Botones surtidos' })
-    expect((await within(dialog).findAllByText('$ 10')).length).toBeGreaterThan(0)
+    expect((await within(dialog).findAllByText('$ 10,00')).length).toBeGreaterThan(0)
 
     slowHistory.resolve(jsonResponse([priceBody(3000, 10, '999.00')]))
     await new Promise((resolve) => setTimeout(resolve, 0))
 
-    expect(within(dialog).queryByText('$ 999')).not.toBeInTheDocument()
+    expect(within(dialog).queryByText('$ 999,00')).not.toBeInTheDocument()
     expect(screen.getByRole('dialog', { name: 'Historial de precios de Botones surtidos' })).toBeInTheDocument()
   })
 })

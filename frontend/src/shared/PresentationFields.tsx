@@ -35,7 +35,7 @@ export function PresentationFields({ draft, onChange, unitAbbreviation, allowDec
         <>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-lg">
-              <span className="font-semibold">Nombre en singular</span>
+              <span className="text-base font-semibold">Nombre en singular</span>
               <input
                 name="presentation-name"
                 type="text"
@@ -53,7 +53,7 @@ export function PresentationFields({ draft, onChange, unitAbbreviation, allowDec
               />
             </label>
             <label className="flex flex-col gap-1.5 text-lg">
-              <span className="font-semibold">Nombre en plural</span>
+              <span className="text-base font-semibold">Nombre en plural</span>
               <input
                 name="presentation-plural-name"
                 type="text"
@@ -66,7 +66,7 @@ export function PresentationFields({ draft, onChange, unitAbbreviation, allowDec
             </label>
           </div>
           <label className="flex flex-col gap-1.5 text-lg">
-            <span className="font-semibold">
+            <span className="text-base font-semibold">
               Cuánto trae cada {draft.name.trim() === '' ? 'presentación' : draft.name.trim()}
               {unitAbbreviation === '' ? '' : ` (en ${unitAbbreviation})`}
             </span>

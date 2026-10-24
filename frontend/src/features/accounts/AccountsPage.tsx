@@ -625,7 +625,7 @@ export function AccountsPage() {
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            Nueva cuenta
+            Nuevo usuario
           </button>
         </div>
       </div>
@@ -862,7 +862,7 @@ export function AccountsPage() {
                 <tr>
                   <th
                     aria-sort={sortDir === 'asc' ? 'ascending' : 'descending'}
-                    className="w-full min-w-56 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60"
+                    className="w-[28%] min-w-56 px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60"
                   >
                     <button
                       type="button"
@@ -879,7 +879,7 @@ export function AccountsPage() {
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Rol</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Negocio</th>
                   <th className="whitespace-nowrap py-3 pl-8 pr-4 text-left text-sm font-bold uppercase tracking-wide opacity-60">Estado</th>
-                  <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-center text-sm font-bold uppercase tracking-wide opacity-60">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -895,7 +895,7 @@ export function AccountsPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="max-w-xs px-4 py-3.5 text-lg opacity-70 [overflow-wrap:anywhere]">
+                    <td className="whitespace-nowrap px-4 py-3 text-lg opacity-70">
                       <HighlightedText text={account.user_name} query={searchInput} />
                     </td>
                     <td className="px-4 py-3.5">
@@ -933,7 +933,7 @@ export function AccountsPage() {
                         ● {account.status === 'active' ? 'Activo' : 'Inactivo'}
                       </span>
                     </td>
-                    <td className="py-3.5 pl-4 pr-8 text-center">
+                    <td className="px-4 py-3 text-center">
                       <RowMenu title={account.name} items={accountRowMenuItems(account)} />
                     </td>
                   </tr>

@@ -140,7 +140,7 @@ export function AdjustStockModal({
         )}
 
         <div>
-          <label htmlFor="adjust-stock-delta" className="text-lg font-semibold uppercase tracking-wide opacity-70">
+          <label htmlFor="adjust-stock-delta" className="text-base font-semibold">
             {wholeQuantity ? 'Cantidad nueva' : 'Cuánto sumar o restar'} <span className="text-danger">*</span>
           </label>
           <div className="mt-1.5">

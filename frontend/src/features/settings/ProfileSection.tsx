@@ -65,7 +65,7 @@ function EditNameModal({
         </div>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-lg font-semibold">Nombre</span>
+          <span className="text-base font-semibold">Nombre</span>
           <input
             name="profile-name"
             type="text"

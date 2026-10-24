@@ -574,8 +574,8 @@ describe('ProductFormPage', () => {
       await user.type(screen.getByLabelText('Precio de la variante 2'), '250')
       await user.click(screen.getByRole('button', { name: 'Continuar' }))
 
-      expect(screen.getByText('Rosa', { selector: 'p' }).closest('li')).toHaveTextContent('Precio: $100')
-      expect(screen.getByText('Negra', { selector: 'p' }).closest('li')).toHaveTextContent('Precio: $250')
+      expect(screen.getByText('Rosa', { selector: 'p' }).closest('li')).toHaveTextContent('Precio: $ 100,00')
+      expect(screen.getByText('Negra', { selector: 'p' }).closest('li')).toHaveTextContent('Precio: $ 250,00')
     })
 
     it('goes back to the shared price when the option is turned off, without losing what was typed', async () => {
@@ -593,7 +593,7 @@ describe('ProductFormPage', () => {
       expect(screen.getByLabelText('Precio para todas las variantes')).toHaveValue('100')
 
       await user.click(screen.getByRole('button', { name: 'Continuar' }))
-      expect(screen.getByText('Negra', { selector: 'p' }).closest('li')).toHaveTextContent('Precio: $100')
+      expect(screen.getByText('Negra', { selector: 'p' }).closest('li')).toHaveTextContent('Precio: $ 100,00')
     })
   })
 
