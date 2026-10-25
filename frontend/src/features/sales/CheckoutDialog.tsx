@@ -182,9 +182,8 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
     <>
     <SaleDialogShell title="Confirmar venta" onClose={onCancel} onSubmit={submit} onKeyDown={handleKeyDown} widthClass="max-w-6xl" fitHeight>
       <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto md:min-h-[calc(70svh-8rem)] md:overflow-hidden">
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-10">
-      <div className="flex min-h-0 min-w-0 flex-col gap-6">
-        <section aria-label="Resumen de la venta" className="flex min-h-0 min-w-0 flex-col gap-4 md:pr-2">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)_auto] md:gap-x-10 md:gap-y-6">
+        <section aria-label="Resumen de la venta" className="flex min-h-0 min-w-0 flex-col gap-4 md:col-start-1 md:row-start-1 md:pr-2">
           <h3 className="m-0 text-xl font-bold">Resumen</h3>
           <ul className="scrollbar-clean m-0 flex min-h-0 list-none flex-col overflow-y-auto p-0">
             {lines.map((line) => (
@@ -198,7 +197,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
             ))}
           </ul>
         </section>
-        <div className="flex shrink-0 flex-col gap-5 border-t border-line pt-6 text-lg">
+        <div className="flex min-w-0 flex-col gap-5 border-t border-line pt-6 text-lg md:col-start-1 md:row-start-2">
           <div className="flex items-center justify-between gap-3">
             <span className="font-semibold">Descuento</span>
             <DiscountFields pesosText={pesosText} percentText={percentText} onChangePesos={onChangePesos} onChangePercent={onChangePercent} />
@@ -224,12 +223,10 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
             </p>
           )}
         </div>
-      </div>
 
-        <div aria-hidden="true" className="hidden w-px bg-line md:block" />
+        <div aria-hidden="true" className="hidden w-px bg-line md:col-start-2 md:row-span-2 md:row-start-1 md:block" />
 
-        <div className="flex min-h-0 min-w-0 flex-col gap-6">
-        <section aria-label="Formas de pago" className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 md:pl-2">
+        <section aria-label="Formas de pago" className="flex min-h-0 min-w-0 flex-col gap-6 md:col-start-3 md:row-start-1 md:pl-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="m-0 text-xl font-bold">Forma de pago</h3>
             <button
@@ -297,9 +294,10 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
             </div>
           )}
 
-          <div className="mt-auto flex flex-col gap-6">
+        </section>
+        <div aria-label="Detalle del pago" role="group" className="flex min-w-0 flex-col gap-6 border-t border-line pt-6 md:col-start-3 md:row-start-2 md:pl-2">
           {cash > 0 && (
-            <div className="flex flex-col gap-5 border-t border-line pt-6">
+            <div className="flex flex-col gap-5">
               <label className="flex flex-wrap items-center justify-between gap-3">
                 <span className="text-xl font-semibold">Paga con</span>
                 <div className="w-48">
@@ -319,6 +317,13 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
                   {money(change === null ? 0 : Math.abs(change))}
                 </span>
               </div>
+            </div>
+          )}
+
+          {plan.parts.some((part) => part.method === 'transferencia') && (
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <span className="text-xl font-semibold">Alias</span>
+              <span className="text-lg opacity-50">Próximamente</span>
             </div>
           )}
 
@@ -343,8 +348,6 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
               )}
             </div>
           )}
-          </div>
-        </section>
         </div>
       </div>
       <div className="grid shrink-0 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-10">
