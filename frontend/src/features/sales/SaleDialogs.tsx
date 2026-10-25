@@ -8,7 +8,8 @@ import { formatAmount } from '../../shared/formatAmount'
 import { PriceInput } from '../../shared/PriceInput'
 import { formatStock } from '../../shared/presentation'
 import { ProductPicker } from './ProductPicker'
-import { amountProblem, paymentSummary, variantDescription } from './saleMath'
+import { formatMoney } from '../../shared/formatPrice'
+import { amountProblem, PAYMENT_METHOD_LABELS, paymentSummary, variantDescription } from './saleMath'
 
 export const FREE_LINE_MAX_LENGTH = 100
 
@@ -27,12 +28,14 @@ interface ShellProps {
   widthClass: string
   fixedHeight?: boolean
   fitHeight?: boolean
+  heading?: string
+  icon?: ReactNode
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void
   onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void
   children: ReactNode
 }
 
-export function SaleDialogShell({ title, onClose, widthClass, fixedHeight = false, fitHeight = false, onSubmit, onKeyDown, children }: ShellProps) {
+export function SaleDialogShell({ title, onClose, widthClass, fixedHeight = false, fitHeight = false, heading, icon, onSubmit, onKeyDown, children }: ShellProps) {
   useEffect(() => {
     window.dispatchEvent(new Event(CLOSE_FLOATING_MENUS_EVENT))
   }, [])
@@ -54,7 +57,8 @@ export function SaleDialogShell({ title, onClose, widthClass, fixedHeight = fals
             </div>
             <CloseButton onClose={onClose} />
           </div>
-          <h2 className="m-0 text-2xl font-bold">{title}</h2>
+          {icon}
+          <h2 className="m-0 text-2xl font-bold">{heading ?? title}</h2>
         </div>
         {children}
       </Dialog>
@@ -169,33 +173,54 @@ export function FreeAmountDialog({
   )
 }
 
-export function SaleRegisteredDialog({ sale, onNewSale }: { sale: Sale; onNewSale: () => void }) {
+function CheckIcon() {
   return (
-    <SaleDialogShell title="Venta registrada" onClose={onNewSale} widthClass="max-w-md">
-      <div className="flex flex-col items-center gap-2 rounded-xl bg-success-soft p-5 text-center">
-        <p className="m-0 text-xl font-bold text-success">Venta N° {sale.id}</p>
-        <p className="m-0 text-lg opacity-70">Total</p>
-        <p className="m-0 text-4xl font-bold [overflow-wrap:anywhere]" aria-label="Total registrado">
-          {formatAmount(sale.total)}
-        </p>
-        <p className="m-0 text-lg [overflow-wrap:anywhere]">{paymentSummary(sale.payments)}</p>
+    <span aria-hidden="true" className="flex h-16 w-16 items-center justify-center rounded-full bg-success-soft text-success">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-9 w-9">
+        <polyline points="5 12.5 10 17.5 19 7" />
+      </svg>
+    </span>
+  )
+}
+
+export function SaleRegisteredDialog({ sale, onNewSale }: { sale: Sale; onNewSale: () => void }) {
+  const split = sale.payments.length > 1
+  return (
+    <SaleDialogShell title="Venta registrada" heading={`Venta N.º ${sale.id} registrada`} icon={<CheckIcon />} onClose={onNewSale} widthClass="max-w-md">
+      <div className="flex flex-col gap-3 text-lg">
+        <div className="flex items-baseline justify-between gap-3 border-b border-line-soft pb-3">
+          <span className="font-semibold">Total</span>
+          <span className="text-2xl font-bold text-brand [overflow-wrap:anywhere]" aria-label="Total registrado">
+            {formatAmount(sale.total)}
+          </span>
+        </div>
+        <div className="flex items-start justify-between gap-3 border-b border-line-soft pb-3">
+          <span className="font-semibold">Forma de pago</span>
+          {split ? (
+            <ul className="m-0 flex list-none flex-col gap-1 p-0 text-right">
+              {sale.payments.map((payment) => (
+                <li key={payment.method}>
+                  {PAYMENT_METHOD_LABELS[payment.method]} {formatMoney(payment.amount)}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span className="text-right">{paymentSummary(sale.payments)}</span>
+          )}
+        </div>
+        {sale.customer_name !== null && (
+          <div className="flex items-start justify-between gap-3">
+            <span className="font-semibold">Cliente</span>
+            <span className="text-right [overflow-wrap:anywhere]">{sale.customer_name}</span>
+          </div>
+        )}
       </div>
-      <div className="flex flex-col gap-1">
-        <button
-          type="button"
-          disabled
-          aria-describedby="sale-print-soon"
-          className="min-h-14 rounded-lg border border-line px-4 text-lg font-semibold disabled:opacity-50"
-        >
-          Imprimir comprobante
-        </button>
-        <p id="sale-print-soon" className="m-0 text-center text-base opacity-70">
-          Próximamente
-        </p>
-      </div>
-      <div className="flex">
-        <button type="button" onClick={onNewSale} autoFocus className={primaryButtonClasses.replace(' disabled:cursor-wait', '')}>
+      <div className="flex flex-col gap-3">
+        <button type="button" onClick={onNewSale} autoFocus className={`${primaryButtonClasses.replace(' disabled:cursor-wait', '')} w-full`}>
           Nueva venta
+        </button>
+        <button type="button" disabled className={`${secondaryButtonClasses} w-full disabled:cursor-not-allowed disabled:opacity-60`}>
+          Imprimir comprobante <span className="font-normal opacity-60">(próximamente)</span>
         </button>
       </div>
     </SaleDialogShell>
