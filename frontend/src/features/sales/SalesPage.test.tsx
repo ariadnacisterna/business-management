@@ -169,8 +169,7 @@ describe('SalesPage', () => {
     const checkout = screen.getByRole('dialog', { name: 'Confirmar venta' })
     expect(within(checkout).getByLabelText('Total a cobrar')).toHaveTextContent('$ 900,00')
     await user.click(within(checkout).getByRole('button', { name: /^Fiado/ }))
-    await user.click(within(checkout).getByRole('button', { name: 'Confirmar venta' }))
-    expect(within(checkout).getByText('Para vender en fiado elegí el cliente.')).toBeInTheDocument()
+    expect(within(checkout).getByRole('button', { name: 'Confirmar venta' })).toBeDisabled()
 
     await user.click(within(checkout).getByRole('button', { name: 'Cliente del fiado' }))
     await user.click(await screen.findByRole('option', { name: 'Clara Ventas' }))

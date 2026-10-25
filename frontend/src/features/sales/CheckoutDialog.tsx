@@ -20,7 +20,7 @@ import { amountCents, centsToAmount, PAYMENT_METHOD_LABELS, PAYMENT_METHODS } fr
 import { formatMoney } from '../../shared/formatPrice'
 
 const NEW_CUSTOMER_VALUE = '__new_customer__'
-const FIADO_CUSTOMER_MESSAGE = 'Para vender en fiado elegí el cliente.'
+const FIADO_CUSTOMER_MESSAGE = 'Elegí el cliente'
 
 export interface CheckoutLine {
   key: string
@@ -113,6 +113,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
   const missing = mode === 'split' && plan.remainingCents > 0
   const emptyActive = mode === 'split' ? splitActive.filter((method) => amountCents(split[method]) <= 0) : []
   const splitBlocked = mode === 'split' && (plan.parts.length === 0 || plan.remainingCents !== 0 || emptyActive.length > 0)
+  const blocked = splitBlocked || customerError !== null
 
   function chooseCustomer(value: string) {
     if (value === NEW_CUSTOMER_VALUE) {
@@ -160,7 +161,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
   async function submit(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault()
     setAttempted(true)
-    if (problem !== null || splitBlocked || savingRef.current) return
+    if (problem !== null || blocked || savingRef.current) return
     savingRef.current = true
     setSaving(true)
     try {
@@ -221,9 +222,9 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
               {money(totalCents)}
             </span>
           </div>
-          {attempted && problem !== null && !splitBlocked && (
+          {attempted && plan.problem !== null && !splitBlocked && (
             <p role="alert" className="m-0 text-lg text-danger">
-              {problem}
+              {plan.problem}
             </p>
           )}
         </div>
@@ -355,6 +356,11 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
                   ...(canCreateCustomer ? [{ value: NEW_CUSTOMER_VALUE, label: '+ Nuevo cliente' }] : []),
                 ]}
               />
+              {attempted && customerError !== null && (
+                <p role="alert" className="m-0 text-base text-danger">
+                  {customerError}
+                </p>
+              )}
               {!canCreateCustomer && (
                 <p className="m-0 text-base opacity-60">Si el cliente no está, pedile a un Gerente que lo cree.</p>
               )}
@@ -363,7 +369,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
         </div>
       </div>
       <div className="grid shrink-0 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-10">
-        <button type="submit" disabled={saving || splitBlocked} aria-busy={saving} className={`${primaryButtonClasses} w-full`}>
+        <button type="submit" disabled={saving || blocked} aria-busy={saving} className={`${primaryButtonClasses} w-full`}>
           Confirmar venta
         </button>
         <div aria-hidden="true" className="hidden w-px md:block" />
