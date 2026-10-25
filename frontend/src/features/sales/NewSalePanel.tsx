@@ -42,7 +42,7 @@ const stepButtonClasses =
   'flex h-14 w-14 items-center justify-center rounded-lg border border-line text-lg font-bold transition-colors hover:bg-surface-brand'
 
 const searchToolButtonClasses =
-  'flex h-14 flex-1 items-center justify-center gap-2 rounded-lg border-2 border-brand bg-surface px-4 text-lg font-semibold text-brand transition-colors hover:bg-surface-brand sm:flex-none'
+  'flex h-14 flex-1 items-center justify-center gap-2 rounded-lg border border-line bg-surface px-4 text-lg font-bold text-ink transition-colors hover:bg-surface-brand sm:flex-none'
 
 const lineGridClasses = 'md:grid md:grid-cols-[minmax(0,1fr)_14rem_4.5rem_8.5rem_3rem] md:items-center md:gap-x-2'
 
@@ -95,6 +95,42 @@ function requestLine(line: CartLine): NewSaleLine {
   return line.kind === 'product'
     ? { variant_id: line.variant.variant_id, quantity: line.quantity }
     : { description: line.description, amount: line.amount }
+}
+
+function PriceIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-5 w-5"
+    >
+      <line x1="12" y1="2" x2="12" y2="22" />
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  )
+}
+
+function PlusIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-5 w-5"
+    >
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  )
 }
 
 function CartIcon() {
@@ -311,11 +347,11 @@ export function NewSalePanel() {
               </div>
               <div className="flex shrink-0 gap-2">
                 <button type="button" onClick={() => setDialog('price')} className={searchToolButtonClasses}>
-                  <span aria-hidden="true" className="text-2xl font-bold leading-none text-brand">$</span>
+                  <PriceIcon />
                   Consultar precio
                 </button>
                 <button type="button" onClick={() => setDialog('free')} className={searchToolButtonClasses}>
-                  <span aria-hidden="true" className="text-2xl font-bold leading-none text-brand">+</span>
+                  <PlusIcon />
                   Agregar monto
                 </button>
               </div>
