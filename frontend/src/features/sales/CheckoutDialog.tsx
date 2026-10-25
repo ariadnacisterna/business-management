@@ -199,13 +199,14 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
 
         <div aria-hidden="true" className="hidden w-px bg-line md:block" />
 
-        <section aria-label="Formas de pago" className="scrollbar-clean flex min-h-0 min-w-0 flex-col gap-3 md:overflow-y-auto md:pr-2">
+        <div className="flex min-h-0 min-w-0 flex-col gap-3">
+        <section aria-label="Formas de pago" className="scrollbar-clean flex min-h-0 min-w-0 flex-1 flex-col gap-3 md:overflow-y-auto md:pr-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="m-0 text-xl font-bold">Forma de pago</h3>
             <button
               type="button"
               onClick={toggleMode}
-              className="min-h-12 rounded-lg border-2 border-brand px-3 text-lg font-semibold text-brand transition-colors hover:bg-surface-brand"
+              className="min-h-12 rounded-lg border border-line bg-surface px-3 text-lg font-medium text-ink transition-colors hover:bg-surface-brand"
             >
               {mode === 'single' ? 'Repartir entre varias' : 'Pagar con una sola'}
             </button>
@@ -313,40 +314,41 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
             </div>
           )}
         </section>
-      </div>
 
-      <div className="flex shrink-0 flex-col gap-3 border-t border-line pt-3 text-lg">
-        <div className="flex items-center justify-between gap-3">
-          <span className="font-semibold">Descuento</span>
-          <DiscountFields pesosText={pesosText} percentText={percentText} onChangePesos={onChangePesos} onChangePercent={onChangePercent} />
+        <div className="flex shrink-0 flex-col gap-3 border-t border-line pt-3 text-lg">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-semibold">Descuento</span>
+            <DiscountFields pesosText={pesosText} percentText={percentText} onChangePesos={onChangePesos} onChangePercent={onChangePercent} />
+          </div>
+          {discountError !== null && (
+            <p role="alert" className="m-0 text-lg text-danger">
+              {discountError}
+            </p>
+          )}
+          <div className="flex justify-between gap-3">
+            <span className="opacity-70">Subtotal</span>
+            <span>{money(subtotalCents)}</span>
+          </div>
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <span className="text-2xl font-bold">Total</span>
+            <span className="text-3xl font-bold text-brand [overflow-wrap:anywhere]" aria-label="Total a cobrar">
+              {money(totalCents)}
+            </span>
+          </div>
+          {attempted && problem !== null && (
+            <p role="alert" className="m-0 text-lg text-danger">
+              {problem}
+            </p>
+          )}
+          <div className="flex items-center justify-between gap-3">
+            <button type="submit" disabled={saving} aria-busy={saving} className={primaryButtonClasses}>
+              Confirmar venta
+            </button>
+            <button type="button" onClick={onCancel} className={secondaryButtonClasses}>
+              Cancelar
+            </button>
+          </div>
         </div>
-        {discountError !== null && (
-          <p role="alert" className="m-0 text-lg text-danger">
-            {discountError}
-          </p>
-        )}
-        <div className="flex justify-between gap-3">
-          <span className="opacity-70">Subtotal</span>
-          <span>{money(subtotalCents)}</span>
-        </div>
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <span className="text-2xl font-bold">Total</span>
-          <span className="text-3xl font-bold text-brand [overflow-wrap:anywhere]" aria-label="Total a cobrar">
-            {money(totalCents)}
-          </span>
-        </div>
-        {attempted && problem !== null && (
-          <p role="alert" className="m-0 text-lg text-danger">
-            {problem}
-          </p>
-        )}
-        <div className="flex flex-wrap gap-2">
-          <button type="submit" disabled={saving} aria-busy={saving} className={primaryButtonClasses}>
-            Confirmar venta
-          </button>
-          <button type="button" onClick={onCancel} className={secondaryButtonClasses}>
-            Cancelar
-          </button>
         </div>
       </div>
     </SaleDialogShell>

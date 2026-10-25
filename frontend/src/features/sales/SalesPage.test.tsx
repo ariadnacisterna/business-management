@@ -511,6 +511,21 @@ describe('SalesPage', () => {
     expect(screen.getByRole('textbox', { name: 'Descuento en porcentaje' })).toHaveValue('10')
   })
 
+  it('disables confirming an empty cart without showing an error', async () => {
+    const user = userEvent.setup()
+    routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+    })
+    renderPage(EMPLEADO)
+
+    const confirm = screen.getByRole('button', { name: 'Confirmar venta' })
+    expect(confirm).toBeDisabled()
+    await user.click(confirm)
+    expect(screen.queryByRole('dialog', { name: 'Confirmar venta' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Agregá al menos un producto.')).not.toBeInTheDocument()
+  })
+
   it('closes the checkout with Esc without registering the sale', async () => {
     const user = userEvent.setup()
     const fetchMock = routeFetch({

@@ -178,7 +178,6 @@ export function NewSalePanel() {
   const [lines, setLines] = useState<CartLine[]>([])
   const [discount, setDiscount] = useState('')
   const [discountMode, setDiscountMode] = useState<DiscountMode>('pesos')
-  const [attempted, setAttempted] = useState(false)
   const [dialog, setDialog] = useState<OpenDialog>('none')
   const [registeredSale, setRegisteredSale] = useState<Sale | null>(null)
   const [lastSale, setLastSale] = useState<Sale | null>(null)
@@ -209,8 +208,7 @@ export function NewSalePanel() {
   const lineErrors = lines.map((line) =>
     line.kind === 'product' ? quantityProblem(line.quantity, line.variant.unit_allows_fraction) : null,
   )
-  const emptyError = lines.length === 0 ? 'Agregá al menos un producto.' : null
-  const canConfirm = emptyError === null && discountError === null && lineErrors.every((error) => error === null)
+  const canConfirm = lines.length > 0 && discountError === null && lineErrors.every((error) => error === null)
   const productIds = lines.flatMap((line) => (line.kind === 'product' ? [line.variant.variant_id] : []))
 
   function addVariant(variant: SellableVariant) {
@@ -255,7 +253,6 @@ export function NewSalePanel() {
     setLines([])
     setDiscount('')
     setDiscountMode('pesos')
-    setAttempted(false)
   }
 
   function showTicket() {
@@ -273,7 +270,6 @@ export function NewSalePanel() {
   }
 
   function requestConfirmation() {
-    setAttempted(true)
     if (canConfirm) setDialog('checkout')
   }
 
@@ -475,11 +471,6 @@ export function NewSalePanel() {
                 })}
               </ul>
             )}
-            {attempted && emptyError !== null && (
-              <p role="alert" className="m-0 text-lg text-danger">
-                {emptyError}
-              </p>
-            )}
             </div>
             </div>
             {cartScrollbar.visible && (
@@ -534,6 +525,7 @@ export function NewSalePanel() {
             <button
               type="button"
               onClick={requestConfirmation}
+              disabled={lines.length === 0}
               className="min-h-14 rounded-lg bg-brand px-5 text-lg font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40"
             >
               Confirmar venta
