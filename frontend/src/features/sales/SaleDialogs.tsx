@@ -26,12 +26,13 @@ interface ShellProps {
   onClose: () => void
   widthClass: string
   fixedHeight?: boolean
+  fitHeight?: boolean
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void
   onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void
   children: ReactNode
 }
 
-export function SaleDialogShell({ title, onClose, widthClass, fixedHeight = false, onSubmit, onKeyDown, children }: ShellProps) {
+export function SaleDialogShell({ title, onClose, widthClass, fixedHeight = false, fitHeight = false, onSubmit, onKeyDown, children }: ShellProps) {
   useEffect(() => {
     window.dispatchEvent(new Event(CLOSE_FLOATING_MENUS_EVENT))
   }, [])
@@ -44,7 +45,7 @@ export function SaleDialogShell({ title, onClose, widthClass, fixedHeight = fals
         onClose={onClose}
         onSubmit={onSubmit}
         noValidate
-        className={`scrollbar-clean relative flex ${fixedHeight ? 'max-h-[min(70svh,calc(100svh-2rem))] overflow-hidden' : 'max-h-[calc(100svh-2rem)] overflow-y-auto'} w-full ${widthClass} flex-col gap-4 rounded-2xl bg-surface p-5 shadow-2xl sm:p-6`}
+        className={`scrollbar-clean relative flex ${fitHeight ? 'max-h-[calc(100svh-4rem)] overflow-hidden' : fixedHeight ? 'max-h-[min(70svh,calc(100svh-2rem))] overflow-hidden' : 'max-h-[calc(100svh-2rem)] overflow-y-auto'} w-full ${widthClass} flex-col ${fitHeight ? 'gap-6 p-6 sm:p-8' : 'gap-4 p-5 sm:p-6'} rounded-2xl bg-surface shadow-2xl`}
       >
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-3">

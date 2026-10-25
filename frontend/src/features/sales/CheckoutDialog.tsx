@@ -180,15 +180,15 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
 
   return (
     <>
-    <SaleDialogShell title="Confirmar venta" onClose={onCancel} onSubmit={submit} onKeyDown={handleKeyDown} widthClass="max-w-6xl" fixedHeight>
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto md:overflow-hidden">
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-8">
-      <div className="flex min-h-0 min-w-0 flex-col gap-3">
-        <section aria-label="Resumen de la venta" className="scrollbar-clean flex min-h-0 min-w-0 flex-1 flex-col gap-3 md:overflow-y-auto md:pr-2">
+    <SaleDialogShell title="Confirmar venta" onClose={onCancel} onSubmit={submit} onKeyDown={handleKeyDown} widthClass="max-w-6xl" fitHeight>
+      <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto md:min-h-[calc(70svh-8rem)] md:overflow-hidden">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-10">
+      <div className="flex min-h-0 min-w-0 flex-col gap-6">
+        <section aria-label="Resumen de la venta" className="flex min-h-0 min-w-0 flex-col gap-4 md:pr-2">
           <h3 className="m-0 text-xl font-bold">Resumen</h3>
-          <ul className="m-0 flex list-none flex-col p-0">
+          <ul className="scrollbar-clean m-0 flex min-h-0 list-none flex-col overflow-y-auto p-0">
             {lines.map((line) => (
-              <li key={line.key} className="flex items-start justify-between gap-3 border-b border-line-soft py-2 last:border-b-0">
+              <li key={line.key} className="flex items-start justify-between gap-3 border-b border-line-soft py-3 last:border-b-0">
                 <span className="min-w-0">
                   <span className="block text-lg font-semibold leading-tight [overflow-wrap:anywhere]">{line.name}</span>
                   <span className="block text-base opacity-70 [overflow-wrap:anywhere]">{line.detail}</span>
@@ -198,7 +198,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
             ))}
           </ul>
         </section>
-        <div className="flex shrink-0 flex-col gap-3 border-t border-line pt-3 text-lg">
+        <div className="flex shrink-0 flex-col gap-5 border-t border-line pt-6 text-lg">
           <div className="flex items-center justify-between gap-3">
             <span className="font-semibold">Descuento</span>
             <DiscountFields pesosText={pesosText} percentText={percentText} onChangePesos={onChangePesos} onChangePercent={onChangePercent} />
@@ -228,8 +228,8 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
 
         <div aria-hidden="true" className="hidden w-px bg-line md:block" />
 
-        <div className="flex min-h-0 min-w-0 flex-col gap-3">
-        <section aria-label="Formas de pago" className="scrollbar-clean flex min-h-0 min-w-0 flex-1 flex-col gap-3 md:overflow-y-auto md:pr-2">
+        <div className="flex min-h-0 min-w-0 flex-col gap-6">
+        <section aria-label="Formas de pago" className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 md:pl-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="m-0 text-xl font-bold">Forma de pago</h3>
             <button
@@ -241,7 +241,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
             </button>
           </div>
 
-          <ul className="m-0 grid list-none grid-cols-3 gap-3 p-0">
+          <ul className="m-0 grid list-none grid-cols-3 gap-4 p-0">
             {PAYMENT_METHODS.map((method) => {
               const selected = mode === 'single' ? singleMethod === method : splitActive.includes(method)
               const amount = tileAmount(method)
@@ -265,7 +265,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
           </ul>
 
           {mode === 'split' && splitActive.length > 0 && (
-            <ul className="m-0 flex list-none flex-col gap-2 p-0">
+            <ul className="m-0 flex list-none flex-col gap-4 p-0">
               {PAYMENT_METHODS.filter((method) => splitActive.includes(method)).map((method) => (
                 <li key={method} className="grid grid-cols-1 items-center gap-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] sm:gap-3">
                   <span className="text-lg font-bold">{PAYMENT_METHOD_LABELS[method]}</span>
@@ -297,10 +297,11 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
             </div>
           )}
 
+          <div className="mt-auto flex flex-col gap-6">
           {cash > 0 && (
-            <div className="flex flex-col gap-2 border-t border-line-soft pt-4">
+            <div className="flex flex-col gap-5 border-t border-line pt-6">
               <label className="flex flex-wrap items-center justify-between gap-3">
-                <span className="text-lg font-semibold">Paga con</span>
+                <span className="text-xl font-semibold">Paga con</span>
                 <div className="w-48">
                   <PriceInput
                     value={paidWith}
@@ -314,8 +315,8 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
               </label>
               <div className="flex flex-wrap items-baseline justify-end gap-3" aria-live="polite">
                 <span className="text-xl font-semibold">{change !== null && change < 0 ? 'Falta' : 'Vuelto'}</span>
-                <span className="text-4xl font-bold text-brand [overflow-wrap:anywhere]" data-testid="change-amount">
-                  {change === null ? '—' : money(Math.abs(change))}
+                <span className={`text-4xl font-bold [overflow-wrap:anywhere] ${change === null ? 'text-ink opacity-50' : 'text-brand'}`} data-testid="change-amount">
+                  {money(change === null ? 0 : Math.abs(change))}
                 </span>
               </div>
             </div>
@@ -342,10 +343,11 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
               )}
             </div>
           )}
+          </div>
         </section>
         </div>
       </div>
-      <div className="grid shrink-0 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-8">
+      <div className="grid shrink-0 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-10">
         <button type="submit" disabled={saving} aria-busy={saving} className={`${primaryButtonClasses} w-full`}>
           Confirmar venta
         </button>
