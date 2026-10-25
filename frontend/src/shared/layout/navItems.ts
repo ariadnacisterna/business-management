@@ -75,3 +75,8 @@ export const SETTINGS_ITEM: NavItem = {
   label: 'Configuración',
   icon: 'settings',
 }
+
+export function sectionOf(label: string): string | null {
+  const group = NAV_GROUPS.find((candidate) => candidate.items.some((item) => item.label === label))
+  return group?.label ?? null
+}

@@ -1,10 +1,14 @@
+import { sectionOf } from './layout/navItems'
+
 interface Props {
   segments: string[]
 }
 
 export function Breadcrumb({ segments }: Props) {
-  const last = segments[segments.length - 1]
-  const rest = segments.slice(0, -1)
+  const section = segments.length > 0 ? sectionOf(segments[0]) : null
+  const full = section === null ? segments : [section, ...segments]
+  const last = full[full.length - 1]
+  const rest = full.slice(0, -1)
   return (
     <p className="m-0 min-w-0 text-base opacity-60 [overflow-wrap:anywhere]">
       {rest.map((segment, index) => (

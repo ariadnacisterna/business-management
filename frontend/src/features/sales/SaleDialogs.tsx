@@ -25,12 +25,13 @@ interface ShellProps {
   title: string
   onClose: () => void
   widthClass: string
+  fixedHeight?: boolean
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void
   onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void
   children: ReactNode
 }
 
-export function SaleDialogShell({ title, onClose, widthClass, onSubmit, onKeyDown, children }: ShellProps) {
+export function SaleDialogShell({ title, onClose, widthClass, fixedHeight = false, onSubmit, onKeyDown, children }: ShellProps) {
   useEffect(() => {
     window.dispatchEvent(new Event(CLOSE_FLOATING_MENUS_EVENT))
   }, [])
@@ -43,12 +44,12 @@ export function SaleDialogShell({ title, onClose, widthClass, onSubmit, onKeyDow
         onClose={onClose}
         onSubmit={onSubmit}
         noValidate
-        className={`scrollbar-clean relative flex max-h-[calc(100svh-2rem)] w-full ${widthClass} flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-5 shadow-2xl sm:p-6`}
+        className={`scrollbar-clean relative flex ${fixedHeight ? 'max-h-[min(70svh,calc(100svh-2rem))] overflow-hidden' : 'max-h-[calc(100svh-2rem)] overflow-y-auto'} w-full ${widthClass} flex-col gap-4 rounded-2xl bg-surface p-5 shadow-2xl sm:p-6`}
       >
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <Breadcrumb segments={['Ventas', 'Venta', title]} />
+              <Breadcrumb segments={['Venta', title]} />
             </div>
             <CloseButton onClose={onClose} />
           </div>
@@ -69,8 +70,8 @@ export function PriceCheckDialog({ variants, onClose }: { variants: SellableVari
   const [checked, setChecked] = useState<SellableVariant | null>(null)
 
   return (
-    <SaleDialogShell title="Consultar precio" onClose={onClose} widthClass="max-w-5xl">
-      <p className="m-0 text-lg opacity-70">Buscá el producto para ver su precio y su stock. No se agrega a la venta.</p>
+    <SaleDialogShell title="Consultar precio" onClose={onClose} widthClass="max-w-5xl" fixedHeight>
+      <p className="m-0 shrink-0 text-lg opacity-70">Buscá el producto para ver su precio y su stock. No se agrega a la venta.</p>
       <ProductPicker
         variants={variants}
         onPick={setChecked}
@@ -78,12 +79,13 @@ export function PriceCheckDialog({ variants, onClose }: { variants: SellableVari
         placeholder="Buscar producto"
         optionLabel={(variant) => `Consultar ${displayName(variant)}`}
         autoFocus
+        inline
       />
       {checked !== null && (
         <section
           aria-label="Precio consultado"
           aria-live="polite"
-          className="flex flex-col gap-2 rounded-xl border-2 border-brand bg-surface-brand p-4"
+          className="flex shrink-0 flex-col gap-2 rounded-xl border-2 border-brand bg-surface-brand p-4"
         >
           <p className="m-0 text-xl font-bold [overflow-wrap:anywhere]">{displayName(checked)}</p>
           <p className="m-0 text-3xl font-bold text-brand">{formatAmount(checked.price_amount)}</p>
@@ -92,7 +94,7 @@ export function PriceCheckDialog({ variants, onClose }: { variants: SellableVari
           </p>
         </section>
       )}
-      <div className="flex">
+      <div className="flex shrink-0">
         <button type="button" onClick={onClose} className={secondaryButtonClasses}>
           Cerrar
         </button>

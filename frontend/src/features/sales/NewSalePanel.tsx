@@ -42,7 +42,7 @@ const stepButtonClasses =
   'flex h-14 w-14 items-center justify-center rounded-lg border border-line text-lg font-bold transition-colors hover:bg-surface-brand'
 
 const searchToolButtonClasses =
-  'flex h-14 flex-1 items-center justify-center gap-2 rounded-lg border border-line bg-surface px-4 text-lg font-bold text-ink transition-colors hover:bg-surface-brand sm:flex-none'
+  'flex h-14 flex-1 items-center justify-center gap-2 rounded-lg border border-line bg-surface px-4 text-lg font-medium text-ink transition-colors hover:bg-surface-brand sm:flex-none'
 
 const lineGridClasses = 'md:grid md:grid-cols-[minmax(0,1fr)_14rem_4.5rem_8.5rem_3rem] md:items-center md:gap-x-2'
 

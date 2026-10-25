@@ -528,4 +528,69 @@ describe('SalesPage', () => {
     expect(within(dialog).getByText('Varios')).toBeInTheDocument()
     expect(within(dialog).getByText('Monto libre')).toBeInTheDocument()
   })
+
+  async function openFiadoCheckout(user: User) {
+    await addCinta(user)
+    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
+    const checkout = screen.getByRole('dialog', { name: 'Confirmar venta' })
+    await user.click(within(checkout).getByRole('button', { name: /^Fiado/ }))
+    return checkout
+  }
+
+  it('lets a manager create a customer from the checkout and picks it', async () => {
+    const user = userEvent.setup()
+    const fetchMock = routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+      'POST /customers': () => jsonResponse({ id: 9, name: 'Nora Nueva', phone: '381555', address: null, status: 'active' }, 201),
+    })
+    renderPage(GERENTE)
+
+    const checkout = await openFiadoCheckout(user)
+    await user.click(within(checkout).getByRole('button', { name: 'Cliente del fiado' }))
+    await user.click(await screen.findByRole('option', { name: '+ Nuevo cliente' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Nuevo cliente' })
+    await user.type(within(dialog).getByLabelText(/Nombre/), 'Nora Nueva')
+    await user.type(within(dialog).getByLabelText('Teléfono'), '381555')
+    await user.click(within(dialog).getByRole('button', { name: 'Crear cliente' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Nuevo cliente' })).not.toBeInTheDocument()
+    expect(within(checkout).getByRole('button', { name: 'Cliente del fiado' })).toHaveTextContent('Nora Nueva')
+    expect(postedBody(fetchMock)).toEqual({ name: 'Nora Nueva', phone: '381555' })
+  })
+
+  it('shows a server error inside the new customer dialog', async () => {
+    const user = userEvent.setup()
+    routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+      'POST /customers': () => jsonResponse({ detail: 'Ya existe un cliente con ese nombre.' }, 409),
+    })
+    renderPage(GERENTE)
+
+    const checkout = await openFiadoCheckout(user)
+    await user.click(within(checkout).getByRole('button', { name: 'Cliente del fiado' }))
+    await user.click(await screen.findByRole('option', { name: '+ Nuevo cliente' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Nuevo cliente' })
+    await user.type(within(dialog).getByLabelText(/Nombre/), 'Clara Ventas')
+    await user.click(within(dialog).getByRole('button', { name: 'Crear cliente' }))
+
+    expect(await within(dialog).findByRole('alert')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Confirmar venta' })).toBeInTheDocument()
+  })
+
+  it('tells an employee to ask a manager instead of offering to create a customer', async () => {
+    const user = userEvent.setup()
+    routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+    })
+    renderPage(EMPLEADO)
+
+    const checkout = await openFiadoCheckout(user)
+    expect(within(checkout).getByText('Si el cliente no está, pedile a un Gerente que lo cree.')).toBeInTheDocument()
+    await user.click(within(checkout).getByRole('button', { name: 'Cliente del fiado' }))
+    expect(await screen.findByRole('option', { name: 'Clara Ventas' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: '+ Nuevo cliente' })).not.toBeInTheDocument()
+  })
 })

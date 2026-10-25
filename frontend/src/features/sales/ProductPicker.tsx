@@ -16,6 +16,7 @@ interface Props {
   inputRef?: Ref<HTMLInputElement>
   autoFocus?: boolean
   selectedIds?: number[]
+  inline?: boolean
 }
 
 export function ProductPicker({
@@ -27,6 +28,7 @@ export function ProductPicker({
   inputRef,
   autoFocus = false,
   selectedIds = [],
+  inline = false,
 }: Props) {
   const listId = useId()
   const [query, setQuery] = useState('')
@@ -39,7 +41,7 @@ export function ProductPicker({
     [variants, query],
   )
   const results = matches.slice(0, MAX_RESULTS)
-  const expanded = open && query.trim() !== ''
+  const expanded = (inline || open) && query.trim() !== ''
   const active = Math.min(activeIndex, Math.max(results.length - 1, 0))
   const { scrollRef, scrollbar, updateScrollbar, handleThumbPointerDown } = useScrollbar([
     results.length,
@@ -87,7 +89,8 @@ export function ProductPicker({
   }
 
   return (
-    <div className="relative">
+    <div className={inline ? 'flex min-h-0 flex-col gap-2' : 'relative'}>
+      <div className="relative shrink-0">
       <svg
         aria-hidden="true"
         viewBox="0 0 24 24"
@@ -119,13 +122,20 @@ export function ProductPicker({
         autoFocus={autoFocus}
         className="h-14 w-full rounded-lg border border-line bg-surface pl-10 pr-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
       />
+      </div>
       {expanded && (
-        <div className="absolute inset-x-0 top-full z-30 mt-1 rounded-xl border border-line bg-surface shadow-xl">
-          <div className="relative">
+        <div
+          className={
+            inline
+              ? 'flex min-h-0 flex-col rounded-xl border border-line bg-surface shadow-xl'
+              : 'absolute inset-x-0 top-full z-30 mt-1 rounded-xl border border-line bg-surface shadow-xl'
+          }
+        >
+          <div className={inline ? 'relative flex min-h-0 flex-col' : 'relative'}>
             <div
               ref={scrollRef}
               onScroll={updateScrollbar}
-              className={`scrollbar-hidden max-h-[50vh] overflow-y-auto rounded-xl ${scrollbar.visible ? 'pr-5' : ''}`}
+              className={`scrollbar-hidden ${inline ? 'min-h-0 flex-1' : 'max-h-[50vh]'} overflow-y-auto rounded-xl ${scrollbar.visible ? 'pr-5' : ''}`}
             >
               <div>
           {results.length > 0 ? (
