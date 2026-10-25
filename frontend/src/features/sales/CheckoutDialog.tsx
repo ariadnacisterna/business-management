@@ -181,8 +181,10 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
   return (
     <>
     <SaleDialogShell title="Confirmar venta" onClose={onCancel} onSubmit={submit} onKeyDown={handleKeyDown} widthClass="max-w-6xl" fixedHeight>
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-8 md:overflow-hidden">
-        <section aria-label="Resumen de la venta" className="scrollbar-clean flex min-h-0 min-w-0 flex-col gap-3 md:overflow-y-auto md:pr-2">
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto md:overflow-hidden">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-8">
+      <div className="flex min-h-0 min-w-0 flex-col gap-3">
+        <section aria-label="Resumen de la venta" className="scrollbar-clean flex min-h-0 min-w-0 flex-1 flex-col gap-3 md:overflow-y-auto md:pr-2">
           <h3 className="m-0 text-xl font-bold">Resumen</h3>
           <ul className="m-0 flex list-none flex-col p-0">
             {lines.map((line) => (
@@ -196,6 +198,33 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
             ))}
           </ul>
         </section>
+        <div className="flex shrink-0 flex-col gap-3 border-t border-line pt-3 text-lg">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-semibold">Descuento</span>
+            <DiscountFields pesosText={pesosText} percentText={percentText} onChangePesos={onChangePesos} onChangePercent={onChangePercent} />
+          </div>
+          {discountError !== null && (
+            <p role="alert" className="m-0 text-lg text-danger">
+              {discountError}
+            </p>
+          )}
+          <div className="flex justify-between gap-3">
+            <span className="opacity-70">Subtotal</span>
+            <span>{money(subtotalCents)}</span>
+          </div>
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <span className="text-2xl font-bold">Total</span>
+            <span className="text-3xl font-bold text-brand [overflow-wrap:anywhere]" aria-label="Total a cobrar">
+              {money(totalCents)}
+            </span>
+          </div>
+          {attempted && problem !== null && (
+            <p role="alert" className="m-0 text-lg text-danger">
+              {problem}
+            </p>
+          )}
+        </div>
+      </div>
 
         <div aria-hidden="true" className="hidden w-px bg-line md:block" />
 
@@ -314,43 +343,18 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
             </div>
           )}
         </section>
-
-        <div className="flex shrink-0 flex-col gap-3 border-t border-line pt-3 text-lg">
-          <div className="flex items-center justify-between gap-3">
-            <span className="font-semibold">Descuento</span>
-            <DiscountFields pesosText={pesosText} percentText={percentText} onChangePesos={onChangePesos} onChangePercent={onChangePercent} />
-          </div>
-          {discountError !== null && (
-            <p role="alert" className="m-0 text-lg text-danger">
-              {discountError}
-            </p>
-          )}
-          <div className="flex justify-between gap-3">
-            <span className="opacity-70">Subtotal</span>
-            <span>{money(subtotalCents)}</span>
-          </div>
-          <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <span className="text-2xl font-bold">Total</span>
-            <span className="text-3xl font-bold text-brand [overflow-wrap:anywhere]" aria-label="Total a cobrar">
-              {money(totalCents)}
-            </span>
-          </div>
-          {attempted && problem !== null && (
-            <p role="alert" className="m-0 text-lg text-danger">
-              {problem}
-            </p>
-          )}
-          <div className="flex items-center justify-between gap-3">
-            <button type="submit" disabled={saving} aria-busy={saving} className={primaryButtonClasses}>
-              Confirmar venta
-            </button>
-            <button type="button" onClick={onCancel} className={secondaryButtonClasses}>
-              Cancelar
-            </button>
-          </div>
-        </div>
         </div>
       </div>
+      <div className="grid shrink-0 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-8">
+        <button type="submit" disabled={saving} aria-busy={saving} className={`${primaryButtonClasses} w-full`}>
+          Confirmar venta
+        </button>
+        <div aria-hidden="true" className="hidden w-px md:block" />
+        <button type="button" onClick={onCancel} className={`${secondaryButtonClasses} w-full`}>
+          Cancelar
+        </button>
+      </div>
+    </div>
     </SaleDialogShell>
     {creatingCustomer && <NewCustomerDialog onCreated={handleCustomerCreated} onClose={() => setCreatingCustomer(false)} />}
     </>
