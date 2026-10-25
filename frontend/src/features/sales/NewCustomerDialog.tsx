@@ -11,12 +11,13 @@ import { fieldClasses, primaryButtonClasses, secondaryButtonClasses } from './Sa
 const CREATE_ERROR_MESSAGE = 'No se pudo crear el cliente. Intentá de nuevo.'
 
 interface Props {
+  initialName?: string
   onCreated: (customer: Customer) => void
   onClose: () => void
 }
 
-export function NewCustomerDialog({ onCreated, onClose }: Props) {
-  const [name, setName] = useState('')
+export function NewCustomerDialog({ initialName = '', onCreated, onClose }: Props) {
+  const [name, setName] = useState(initialName)
   const [phone, setPhone] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)

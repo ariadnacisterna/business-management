@@ -5,7 +5,7 @@ import { useAuth } from '../access/useAuth'
 import { NewCustomerDialog } from './NewCustomerDialog'
 import { DiscountFields } from './DiscountFields'
 import { PriceInput } from '../../shared/PriceInput'
-import { SelectMenu } from '../../shared/SelectMenu'
+import { CustomerPicker } from './CustomerPicker'
 import {
   cashCents,
   changeCents,
@@ -19,7 +19,6 @@ import { fieldClasses, primaryButtonClasses, SaleDialogShell, secondaryButtonCla
 import { amountCents, centsToAmount, PAYMENT_METHOD_LABELS, PAYMENT_METHODS } from './saleMath'
 import { formatMoney } from '../../shared/formatPrice'
 
-const NEW_CUSTOMER_VALUE = '__new_customer__'
 const FIADO_CUSTOMER_MESSAGE = 'Elegí el cliente'
 
 export interface CheckoutLine {
@@ -101,6 +100,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
   const canCreateCustomer = canManageCustomers(account)
   const [createdCustomers, setCreatedCustomers] = useState<Customer[]>([])
   const [creatingCustomer, setCreatingCustomer] = useState(false)
+  const [newCustomerName, setNewCustomerName] = useState('')
   const allCustomers = [...customers, ...createdCustomers]
 
   const plan = paymentPlan(mode, singleMethod, split, totalCents, PAYMENT_METHODS)
@@ -115,12 +115,9 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
   const splitBlocked = mode === 'split' && (plan.parts.length === 0 || plan.remainingCents !== 0 || emptyActive.length > 0)
   const blocked = splitBlocked || customerError !== null
 
-  function chooseCustomer(value: string) {
-    if (value === NEW_CUSTOMER_VALUE) {
-      setCreatingCustomer(true)
-      return
-    }
-    setCustomerId(value)
+  function startCreatingCustomer(name: string) {
+    setNewCustomerName(name)
+    setCreatingCustomer(true)
   }
 
   function handleCustomerCreated(customer: Customer) {
@@ -345,16 +342,13 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
               <span className="text-lg font-semibold">
                 Cliente <span className="text-danger">*</span>
               </span>
-              <SelectMenu
+              <CustomerPicker
+                customers={allCustomers}
                 value={customerId}
-                onChange={chooseCustomer}
-                ariaLabel="Cliente del fiado"
+                onChange={setCustomerId}
+                onCreate={canCreateCustomer ? startCreatingCustomer : null}
                 hasError={attempted && customerError !== null}
-                options={[
-                  { value: '', label: 'Elegí el cliente' },
-                  ...allCustomers.map((customer) => ({ value: String(customer.id), label: customer.name })),
-                  ...(canCreateCustomer ? [{ value: NEW_CUSTOMER_VALUE, label: '+ Nuevo cliente' }] : []),
-                ]}
+                ariaLabel="Cliente del fiado"
               />
               {attempted && customerError !== null && (
                 <p role="alert" className="m-0 text-base text-danger">
@@ -379,7 +373,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
       </div>
     </div>
     </SaleDialogShell>
-    {creatingCustomer && <NewCustomerDialog onCreated={handleCustomerCreated} onClose={() => setCreatingCustomer(false)} />}
+    {creatingCustomer && <NewCustomerDialog initialName={newCustomerName} onCreated={handleCustomerCreated} onClose={() => setCreatingCustomer(false)} />}
     </>
   )
 }
