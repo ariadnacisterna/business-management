@@ -2,8 +2,8 @@ import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import type { Customer, PaymentMethod, SalePayment } from '../../api/types'
 import { canManageCustomers } from '../access/roles'
 import { useAuth } from '../access/useAuth'
-import { useScrollbar } from '../../shared/useScrollbar'
 import { NewCustomerDialog } from './NewCustomerDialog'
+import { DiscountFields } from './DiscountFields'
 import { PriceInput } from '../../shared/PriceInput'
 import { SelectMenu } from '../../shared/SelectMenu'
 import {
@@ -37,7 +37,11 @@ export interface CheckoutResult {
 interface Props {
   lines: CheckoutLine[]
   subtotalCents: number
-  discountCents: number
+  discountError: string | null
+  pesosText: string
+  percentText: string
+  onChangePesos: (value: string) => void
+  onChangePercent: (raw: string) => void
   totalCents: number
   customers: Customer[]
   onConfirm: (result: CheckoutResult) => Promise<void>
@@ -48,10 +52,46 @@ function money(cents: number): string {
   return formatMoney(cents / 100)
 }
 
-export function CheckoutDialog({ lines, subtotalCents, discountCents, totalCents, customers, onConfirm, onCancel }: Props) {
+function PaymentIcon({ method }: { method: PaymentMethod }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-10 w-10"
+    >
+      {method === 'efectivo' && (
+        <>
+          <rect x="2" y="6" width="20" height="12" rx="2" />
+          <circle cx="12" cy="12" r="2.5" />
+          <path d="M6 12h.01M18 12h.01" />
+        </>
+      )}
+      {method === 'transferencia' && (
+        <>
+          <path d="M4 8h14M14 4l4 4-4 4" />
+          <path d="M20 16H6M10 12l-4 4 4 4" />
+        </>
+      )}
+      {method === 'fiado' && (
+        <>
+          <path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V4z" />
+          <path d="M9 9h6M9 13h6" />
+        </>
+      )}
+    </svg>
+  )
+}
+
+export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText, percentText, onChangePesos, onChangePercent, totalCents, customers, onConfirm, onCancel }: Props) {
   const [mode, setMode] = useState<PaymentMode>('single')
   const [singleMethod, setSingleMethod] = useState<PaymentMethod>('efectivo')
   const [split, setSplit] = useState<SplitAmounts>(EMPTY_SPLIT)
+  const [splitActive, setSplitActive] = useState<PaymentMethod[]>([])
   const [paidWith, setPaidWith] = useState('')
   const [customerId, setCustomerId] = useState('')
   const [attempted, setAttempted] = useState(false)
@@ -61,7 +101,6 @@ export function CheckoutDialog({ lines, subtotalCents, discountCents, totalCents
   const canCreateCustomer = canManageCustomers(account)
   const [createdCustomers, setCreatedCustomers] = useState<Customer[]>([])
   const [creatingCustomer, setCreatingCustomer] = useState(false)
-  const { scrollRef, scrollbar, updateScrollbar, handleThumbPointerDown } = useScrollbar([lines.length])
   const allCustomers = [...customers, ...createdCustomers]
 
   const plan = paymentPlan(mode, singleMethod, split, totalCents, PAYMENT_METHODS)
@@ -88,10 +127,26 @@ export function CheckoutDialog({ lines, subtotalCents, discountCents, totalCents
   function toggleMode() {
     if (mode === 'single') {
       setSplit(EMPTY_SPLIT)
+      setSplitActive([])
       setMode('split')
       return
     }
     setMode('single')
+  }
+
+  function toggleSplitMethod(method: PaymentMethod) {
+    if (splitActive.includes(method)) {
+      setSplitActive((current) => current.filter((item) => item !== method))
+      setSplit((current) => ({ ...current, [method]: '' }))
+      return
+    }
+    setSplitActive((current) => [...current, method])
+  }
+
+  function tileAmount(method: PaymentMethod): string | null {
+    const part = plan.parts.find((item) => item.method === method)
+    if (part === undefined || part.cents <= 0) return null
+    return money(part.cents)
   }
 
   function changeSplit(method: PaymentMethod, value: string) {
@@ -125,16 +180,10 @@ export function CheckoutDialog({ lines, subtotalCents, discountCents, totalCents
 
   return (
     <>
-    <SaleDialogShell title="Confirmar venta" onClose={onCancel} onSubmit={submit} onKeyDown={handleKeyDown} widthClass="max-w-5xl">
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
-        <section aria-label="Resumen de la venta" className="flex min-w-0 flex-col gap-3">
+    <SaleDialogShell title="Confirmar venta" onClose={onCancel} onSubmit={submit} onKeyDown={handleKeyDown} widthClass="max-w-6xl" fixedHeight>
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-8 md:overflow-hidden">
+        <section aria-label="Resumen de la venta" className="scrollbar-clean flex min-h-0 min-w-0 flex-col gap-3 md:overflow-y-auto md:pr-2">
           <h3 className="m-0 text-xl font-bold">Resumen</h3>
-          <div className="relative">
-          <div
-            ref={scrollRef}
-            onScroll={updateScrollbar}
-            className={`scrollbar-hidden max-h-[40vh] overflow-y-auto ${scrollbar.visible ? 'pr-5' : ''}`}
-          >
           <ul className="m-0 flex list-none flex-col p-0">
             {lines.map((line) => (
               <li key={line.key} className="flex items-start justify-between gap-3 border-b border-line-soft py-2 last:border-b-0">
@@ -146,39 +195,11 @@ export function CheckoutDialog({ lines, subtotalCents, discountCents, totalCents
               </li>
             ))}
           </ul>
-          </div>
-          {scrollbar.visible && (
-            <div aria-hidden="true" className="pointer-events-none absolute bottom-0 right-0 top-0 w-3 rounded-full bg-line/40">
-              <div
-                onPointerDown={handleThumbPointerDown}
-                onMouseDown={(event) => event.preventDefault()}
-                className="pointer-events-auto absolute right-0 w-3 cursor-grab rounded-full bg-brand active:cursor-grabbing"
-                style={{ top: scrollbar.thumbTop, height: scrollbar.thumbHeight }}
-              />
-            </div>
-          )}
-          </div>
-          <dl className="m-0 flex flex-col gap-1 border-t border-line pt-3 text-lg">
-            <div className="flex justify-between gap-3">
-              <dt className="opacity-70">Subtotal</dt>
-              <dd className="m-0">{money(subtotalCents)}</dd>
-            </div>
-            {discountCents > 0 && (
-              <div className="flex justify-between gap-3">
-                <dt className="opacity-70">Descuento</dt>
-                <dd className="m-0">-{money(discountCents)}</dd>
-              </div>
-            )}
-            <div className="flex flex-wrap items-baseline justify-between gap-3">
-              <dt className="text-2xl font-bold">Total</dt>
-              <dd className="m-0 text-3xl font-bold text-brand [overflow-wrap:anywhere]" aria-label="Total a cobrar">
-                {money(totalCents)}
-              </dd>
-            </div>
-          </dl>
         </section>
 
-        <section aria-label="Formas de pago" className="flex min-w-0 flex-col gap-3">
+        <div aria-hidden="true" className="hidden w-px bg-line md:block" />
+
+        <section aria-label="Formas de pago" className="scrollbar-clean flex min-h-0 min-w-0 flex-col gap-3 md:overflow-y-auto md:pr-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="m-0 text-xl font-bold">Forma de pago</h3>
             <button
@@ -190,23 +211,32 @@ export function CheckoutDialog({ lines, subtotalCents, discountCents, totalCents
             </button>
           </div>
 
-          <ul className="m-0 flex list-none flex-col gap-2 p-0">
-            {PAYMENT_METHODS.map((method) =>
-              mode === 'single' ? (
+          <ul className="m-0 grid list-none grid-cols-3 gap-3 p-0">
+            {PAYMENT_METHODS.map((method) => {
+              const selected = mode === 'single' ? singleMethod === method : splitActive.includes(method)
+              const amount = tileAmount(method)
+              return (
                 <li key={method}>
                   <button
                     type="button"
-                    aria-pressed={singleMethod === method}
-                    onClick={() => setSingleMethod(method)}
-                    className={`flex min-h-14 w-full flex-wrap items-center justify-between gap-x-3 rounded-lg border-2 px-4 text-left text-lg font-bold transition-colors ${
-                      singleMethod === method ? 'border-brand bg-surface-brand text-brand' : 'border-line hover:bg-surface-brand'
+                    aria-pressed={selected}
+                    onClick={() => (mode === 'single' ? setSingleMethod(method) : toggleSplitMethod(method))}
+                    className={`flex min-h-32 w-full flex-col items-center justify-center gap-1 rounded-xl border-2 px-2 py-3 text-center text-lg font-bold transition-colors ${
+                      selected ? 'border-brand bg-surface-brand text-brand' : 'border-line hover:bg-surface-brand'
                     }`}
                   >
+                    <PaymentIcon method={method} />
                     <span>{PAYMENT_METHOD_LABELS[method]}</span>
-                    {singleMethod === method && <span>{money(totalCents)}</span>}
+                    {selected && amount !== null && <span className="text-base [overflow-wrap:anywhere]">{amount}</span>}
                   </button>
                 </li>
-              ) : (
+              )
+            })}
+          </ul>
+
+          {mode === 'split' && splitActive.length > 0 && (
+            <ul className="m-0 flex list-none flex-col gap-2 p-0">
+              {PAYMENT_METHODS.filter((method) => splitActive.includes(method)).map((method) => (
                 <li key={method} className="grid grid-cols-1 items-center gap-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] sm:gap-3">
                   <span className="text-lg font-bold">{PAYMENT_METHOD_LABELS[method]}</span>
                   <PriceInput
@@ -217,9 +247,9 @@ export function CheckoutDialog({ lines, subtotalCents, discountCents, totalCents
                     className={`${fieldClasses} pl-8`}
                   />
                 </li>
-              ),
-            )}
-          </ul>
+              ))}
+            </ul>
+          )}
 
           {mode === 'split' && (
             <div
@@ -285,13 +315,31 @@ export function CheckoutDialog({ lines, subtotalCents, discountCents, totalCents
         </section>
       </div>
 
-      {attempted && problem !== null && (
-        <p role="alert" className="m-0 text-lg text-danger">
-          {problem}
-        </p>
-      )}
-
-      <div className="flex flex-col gap-2">
+      <div className="flex shrink-0 flex-col gap-3 border-t border-line pt-3 text-lg">
+        <div className="flex items-center justify-between gap-3">
+          <span className="font-semibold">Descuento</span>
+          <DiscountFields pesosText={pesosText} percentText={percentText} onChangePesos={onChangePesos} onChangePercent={onChangePercent} />
+        </div>
+        {discountError !== null && (
+          <p role="alert" className="m-0 text-lg text-danger">
+            {discountError}
+          </p>
+        )}
+        <div className="flex justify-between gap-3">
+          <span className="opacity-70">Subtotal</span>
+          <span>{money(subtotalCents)}</span>
+        </div>
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <span className="text-2xl font-bold">Total</span>
+          <span className="text-3xl font-bold text-brand [overflow-wrap:anywhere]" aria-label="Total a cobrar">
+            {money(totalCents)}
+          </span>
+        </div>
+        {attempted && problem !== null && (
+          <p role="alert" className="m-0 text-lg text-danger">
+            {problem}
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           <button type="submit" disabled={saving} aria-busy={saving} className={primaryButtonClasses}>
             Confirmar venta
@@ -300,7 +348,6 @@ export function CheckoutDialog({ lines, subtotalCents, discountCents, totalCents
             Cancelar
           </button>
         </div>
-        <p className="m-0 text-center text-base opacity-60">Enter confirma · Esc cancela</p>
       </div>
     </SaleDialogShell>
     {creatingCustomer && <NewCustomerDialog onCreated={handleCustomerCreated} onClose={() => setCreatingCustomer(false)} />}

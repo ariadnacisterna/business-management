@@ -6,12 +6,12 @@ import type { Sale, SellableVariant } from '../../api/types'
 import { EmptyState } from '../../shared/EmptyState'
 import { formatAmount } from '../../shared/formatAmount'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
-import { PriceInput } from '../../shared/PriceInput'
 import { formatStock } from '../../shared/presentation'
 import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { useAuth } from '../access/useAuth'
 import { CheckoutDialog, type CheckoutLine, type CheckoutResult } from './CheckoutDialog'
+import { DiscountFields } from './DiscountFields'
 import { ProductPicker } from './ProductPicker'
 import { useScrollbar } from '../../shared/useScrollbar'
 import { FreeAmountDialog, PriceCheckDialog, SaleRegisteredDialog } from './SaleDialogs'
@@ -34,9 +34,6 @@ import {
 
 const SAVE_ERROR_MESSAGE = 'No se pudo registrar la venta. Intentá de nuevo.'
 const NO_VARIANTS: SellableVariant[] = []
-
-const inputClasses =
-  'h-14 w-full rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
 
 const stepButtonClasses =
   'flex h-14 w-14 items-center justify-center rounded-lg border border-line text-lg font-bold transition-colors hover:bg-surface-brand'
@@ -515,32 +512,7 @@ export function NewSalePanel() {
             <div className="flex flex-col gap-4 border-t border-line pt-4">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-lg font-semibold">Descuento</span>
-                <div className="grid w-64 max-w-full grid-cols-2 gap-2">
-                  <div className="flex min-w-0 flex-col">
-                    <PriceInput
-                      value={pesosText}
-                      onChange={changePesos}
-                      placeholder="0"
-                      ariaLabel="Descuento en pesos"
-                      className={`${inputClasses} pl-8`}
-                    />
-                  </div>
-                  <div className="flex min-w-0 flex-col">
-                    <div className="relative">
-                      <input
-                        value={percentText}
-                        onChange={(event) => changePercent(event.target.value)}
-                        inputMode="decimal"
-                        placeholder="0"
-                        aria-label="Descuento en porcentaje"
-                        className={`${inputClasses} pr-8`}
-                      />
-                      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-lg font-bold opacity-60">
-                        %
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                <DiscountFields pesosText={pesosText} percentText={percentText} onChangePesos={changePesos} onChangePercent={changePercent} />
               </div>
               {discountError !== null && (
                 <p role="alert" className="m-0 text-lg text-danger">
@@ -600,7 +572,11 @@ export function NewSalePanel() {
         <CheckoutDialog
           lines={lines.map(checkoutLine)}
           subtotalCents={subtotalCents}
-          discountCents={discountAppliedCents}
+          discountError={discountError}
+          pesosText={pesosText}
+          percentText={percentText}
+          onChangePesos={changePesos}
+          onChangePercent={changePercent}
           totalCents={totalCents}
           customers={activeCustomers}
           onConfirm={confirmSale}

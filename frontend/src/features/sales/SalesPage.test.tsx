@@ -459,6 +459,8 @@ describe('SalesPage', () => {
 
     await user.click(within(checkout).getByRole('button', { name: 'Repartir entre varias' }))
     expect(within(checkout).getByText('Falta asignar')).toBeInTheDocument()
+    await user.click(within(checkout).getByRole('button', { name: 'Efectivo' }))
+    await user.click(within(checkout).getByRole('button', { name: 'Transferencia' }))
     await user.type(within(checkout).getByRole('textbox', { name: 'Importe en efectivo' }), '200')
     expect(within(checkout).getByText('$ 400,00')).toBeInTheDocument()
     await user.click(within(checkout).getByRole('button', { name: 'Confirmar venta' }))
@@ -479,6 +481,34 @@ describe('SalesPage', () => {
     ])
     expect(body.customer_id).toBeUndefined()
     expect(JSON.stringify(body)).not.toContain('500')
+  })
+
+  it('applies the discount from the checkout and keeps it in sync with the cart', async () => {
+    const user = userEvent.setup()
+    routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+    })
+    renderPage(EMPLEADO)
+    await addCinta(user)
+    await user.click(screen.getByRole('button', { name: 'Sumar uno a Cinta de raso' }))
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
+    const checkout = screen.getByRole('dialog', { name: 'Confirmar venta' })
+    await user.type(within(checkout).getByRole('textbox', { name: 'Descuento en porcentaje' }), '10')
+    expect(within(checkout).getByRole('textbox', { name: 'Descuento en pesos' })).toHaveValue('60.00')
+    expect(within(checkout).getByLabelText('Total a cobrar')).toHaveTextContent('$ 540,00')
+
+    await user.click(within(checkout).getByRole('button', { name: 'Repartir entre varias' }))
+    expect(within(checkout).getByText('Falta asignar')).toBeInTheDocument()
+    expect(within(checkout).getByText('$ 540,00', { selector: 'span.text-2xl' })).toBeInTheDocument()
+    await user.click(within(checkout).getByRole('button', { name: 'Efectivo' }))
+    await user.type(within(checkout).getByRole('textbox', { name: 'Importe en efectivo' }), '200')
+    expect(within(checkout).getByText('$ 340,00', { selector: 'span.text-2xl' })).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('textbox', { name: 'Descuento en pesos' })).toHaveValue('60.00')
+    expect(screen.getByRole('textbox', { name: 'Descuento en porcentaje' })).toHaveValue('10')
   })
 
   it('closes the checkout with Esc without registering the sale', async () => {
