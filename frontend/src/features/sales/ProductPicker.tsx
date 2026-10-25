@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type R
 import type { SellableVariant } from '../../api/types'
 import { formatAmount } from '../../shared/formatAmount'
 import { formatStock } from '../../shared/presentation'
+import { useScrollbar } from '../../shared/useScrollbar'
 import { matchesSearch, variantDescription } from './saleMath'
 
 const MAX_RESULTS = 24
@@ -40,6 +41,10 @@ export function ProductPicker({
   const results = matches.slice(0, MAX_RESULTS)
   const expanded = open && query.trim() !== ''
   const active = Math.min(activeIndex, Math.max(results.length - 1, 0))
+  const { scrollRef, scrollbar, updateScrollbar, handleThumbPointerDown } = useScrollbar([
+    results.length,
+    expanded,
+  ])
 
   useEffect(() => {
     if (expanded) optionRefs.current[active]?.scrollIntoView?.({ block: 'nearest' })
@@ -115,7 +120,14 @@ export function ProductPicker({
         className="h-14 w-full rounded-lg border border-line bg-surface pl-10 pr-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
       />
       {expanded && (
-        <div className="absolute inset-x-0 top-full z-30 mt-1 max-h-[min(60vh,32rem)] overflow-y-auto rounded-xl border border-line bg-surface shadow-xl">
+        <div className="absolute inset-x-0 top-full z-30 mt-1 rounded-xl border border-line bg-surface shadow-xl">
+          <div className="relative">
+            <div
+              ref={scrollRef}
+              onScroll={updateScrollbar}
+              className={`scrollbar-hidden max-h-[50vh] overflow-y-auto rounded-xl ${scrollbar.visible ? 'pr-5' : ''}`}
+            >
+              <div>
           {results.length > 0 ? (
             <ul id={listId} role="listbox" aria-label="Resultados de la búsqueda" className="m-0 list-none p-1">
               {results.map((variant, index) => {
@@ -164,6 +176,23 @@ export function ProductPicker({
               Escribí más del nombre para ver el resto de los productos.
             </p>
           )}
+              </div>
+            </div>
+            {scrollbar.visible && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute right-0 top-0 w-3 rounded-full bg-line/40"
+                style={{ bottom: 0 }}
+              >
+                <div
+                  onPointerDown={handleThumbPointerDown}
+                  onMouseDown={(event) => event.preventDefault()}
+                  className="pointer-events-auto absolute right-0 w-3 cursor-grab rounded-full bg-brand active:cursor-grabbing"
+                  style={{ top: scrollbar.thumbTop, height: scrollbar.thumbHeight }}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

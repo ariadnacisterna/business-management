@@ -13,6 +13,7 @@ import { useToast } from '../../shared/useToast'
 import { useAuth } from '../access/useAuth'
 import { CheckoutDialog, type CheckoutLine, type CheckoutResult } from './CheckoutDialog'
 import { ProductPicker } from './ProductPicker'
+import { useScrollbar } from '../../shared/useScrollbar'
 import { FreeAmountDialog, PriceCheckDialog, SaleRegisteredDialog } from './SaleDialogs'
 import {
   amountCents,
@@ -40,8 +41,8 @@ const inputClasses =
 const stepButtonClasses =
   'flex h-14 w-14 items-center justify-center rounded-lg border border-line text-lg font-bold transition-colors hover:bg-surface-brand'
 
-const toolButtonClasses =
-  'min-h-14 flex-1 rounded-lg border-2 border-brand bg-surface px-4 text-lg font-semibold text-brand transition-colors hover:bg-surface-brand'
+const searchToolButtonClasses =
+  'flex h-14 flex-1 items-center justify-center gap-2 rounded-lg border-2 border-brand bg-surface px-4 text-lg font-semibold text-brand transition-colors hover:bg-surface-brand sm:flex-none'
 
 const lineGridClasses = 'md:grid md:grid-cols-[minmax(0,1fr)_14rem_4.5rem_8.5rem_3rem] md:items-center md:gap-x-2'
 
@@ -268,8 +269,15 @@ export function NewSalePanel() {
 
   const shortLines = lastSale?.lines.filter((line) => line.insufficient_stock) ?? []
 
+  const {
+    scrollRef: cartScrollRef,
+    scrollbar: cartScrollbar,
+    updateScrollbar: updateCartScrollbar,
+    handleThumbPointerDown: handleCartThumbPointerDown,
+  } = useScrollbar([lines.length])
+
   return (
-    <div className="flex flex-col gap-4 pb-28 lg:pb-0">
+    <div className="flex flex-col gap-4 pb-28 lg:min-h-0 lg:flex-1 lg:pb-0">
       {lastSale !== null && lastSale.insufficient_stock && (
         <div role="alert" className="rounded-2xl border-2 border-warning bg-warning/10 p-4 text-lg">
           <p className="m-0 font-bold">Venta N° {lastSale.id} registrada sin stock suficiente</p>
@@ -280,44 +288,57 @@ export function NewSalePanel() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-x-8">
-        <div className="flex min-w-0 flex-col gap-4">
+      <div className="grid grid-cols-1 items-start gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:grid-rows-[minmax(0,1fr)] lg:items-stretch lg:gap-x-8">
+        <div className="flex min-w-0 flex-col gap-4 lg:min-h-0">
           <section className="flex flex-col gap-4 rounded-2xl bg-surface p-3 shadow-sm" aria-label="Productos">
             <h2 className="m-0 text-2xl font-bold">Buscar producto</h2>
             <p className="m-0 text-lg opacity-60">Escribí el nombre y elegilo de la lista con el mouse o con las flechas y Enter</p>
-            {variantsLoad.status === 'error' ? (
-              <LoadErrorCard message="No se pudieron cargar los productos." onRetry={variantsLoad.reload} />
-            ) : (
-              <ProductPicker
-                variants={variants}
-                onPick={addVariant}
-                ariaLabel="Buscar producto para vender"
-                placeholder="Buscar producto"
-                optionLabel={(variant) => `Agregar ${displayName(variant)}`}
-                inputRef={searchRef}
-                selectedIds={productIds}
-              />
-            )}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+              <div className="min-w-0 flex-1">
+                {variantsLoad.status === 'error' ? (
+                  <LoadErrorCard message="No se pudieron cargar los productos." onRetry={variantsLoad.reload} />
+                ) : (
+                  <ProductPicker
+                    variants={variants}
+                    onPick={addVariant}
+                    ariaLabel="Buscar producto para vender"
+                    placeholder="Buscar producto"
+                    optionLabel={(variant) => `Agregar ${displayName(variant)}`}
+                    inputRef={searchRef}
+                    selectedIds={productIds}
+                  />
+                )}
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button type="button" onClick={() => setDialog('price')} className={searchToolButtonClasses}>
+                  <span aria-hidden="true" className="text-2xl font-bold leading-none text-brand">$</span>
+                  Consultar precio
+                </button>
+                <button type="button" onClick={() => setDialog('free')} className={searchToolButtonClasses}>
+                  <span aria-hidden="true" className="text-2xl font-bold leading-none text-brand">+</span>
+                  Agregar monto
+                </button>
+              </div>
+            </div>
             {variantsLoad.status === 'success' && variants.length === 0 && (
               <p className="m-0 text-lg opacity-70">No hay productos con precio para vender.</p>
             )}
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setDialog('price')} className={toolButtonClasses}>
-                Consultar precio
-              </button>
-              <button type="button" onClick={() => setDialog('free')} className={toolButtonClasses}>
-                Agregar monto
-              </button>
-            </div>
           </section>
 
           <div
             ref={ticketRef}
             role="region"
             aria-label="Carrito"
-            className="flex scroll-mt-4 flex-col gap-4 rounded-2xl bg-surface p-4 shadow-sm"
+            className="flex scroll-mt-4 flex-col gap-4 rounded-2xl bg-surface p-4 shadow-sm lg:min-h-0 lg:flex-1 lg:overflow-hidden"
           >
             <h2 className="m-0 text-2xl font-bold">Carrito</h2>
+            <div className="relative flex min-h-0 flex-col lg:flex-1">
+            <div
+              ref={cartScrollRef}
+              onScroll={updateCartScrollbar}
+              className={`scrollbar-hidden lg:absolute lg:inset-0 lg:overflow-y-auto ${cartScrollbar.visible ? 'lg:pr-5' : ''}`}
+            >
+            <div className="flex flex-col gap-4">
             {lines.length === 0 ? (
               <EmptyState
                 icon={<CartIcon />}
@@ -426,6 +447,23 @@ export function NewSalePanel() {
                 {emptyError}
               </p>
             )}
+            </div>
+            </div>
+            {cartScrollbar.visible && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute right-0 top-0 hidden w-3 rounded-full bg-line/40 lg:block"
+                style={{ bottom: 0 }}
+              >
+                <div
+                  onPointerDown={handleCartThumbPointerDown}
+                  onMouseDown={(event) => event.preventDefault()}
+                  className="pointer-events-auto absolute right-0 w-3 cursor-grab rounded-full bg-brand active:cursor-grabbing"
+                  style={{ top: cartScrollbar.thumbTop, height: cartScrollbar.thumbHeight }}
+                />
+              </div>
+            )}
+            </div>
           </div>
         </div>
 

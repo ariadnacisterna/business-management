@@ -43,7 +43,7 @@ export function SaleDialogShell({ title, onClose, widthClass, onSubmit, onKeyDow
         onClose={onClose}
         onSubmit={onSubmit}
         noValidate
-        className={`relative flex max-h-[calc(100svh-2rem)] w-full ${widthClass} flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-5 shadow-2xl sm:p-6`}
+        className={`scrollbar-clean relative flex max-h-[calc(100svh-2rem)] w-full ${widthClass} flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-5 shadow-2xl sm:p-6`}
       >
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-3">
@@ -69,7 +69,7 @@ export function PriceCheckDialog({ variants, onClose }: { variants: SellableVari
   const [checked, setChecked] = useState<SellableVariant | null>(null)
 
   return (
-    <SaleDialogShell title="Consultar precio" onClose={onClose} widthClass="max-w-xl">
+    <SaleDialogShell title="Consultar precio" onClose={onClose} widthClass="max-w-5xl">
       <p className="m-0 text-lg opacity-70">Buscá el producto para ver su precio y su stock. No se agrega a la venta.</p>
       <ProductPicker
         variants={variants}
