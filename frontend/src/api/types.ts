@@ -259,11 +259,12 @@ export interface SellableVariant {
 
 export interface SaleLine {
   id: number
-  variant_id: number
-  product_id: number
-  product_name: string
+  variant_id: number | null
+  product_id: number | null
+  product_name: string | null
   variant_description: string
-  unit_abbreviation: string
+  description: string | null
+  unit_abbreviation: string | null
   quantity: string
   unit_price: string
   line_total: string
@@ -271,12 +272,17 @@ export interface SaleLine {
   insufficient_stock: boolean
 }
 
+export interface SalePayment {
+  method: PaymentMethod
+  amount: string
+}
+
 export interface SaleSummary {
   id: number
   created_at: string
   created_by_account_id: number
   created_by_account_name: string
-  payment_method: PaymentMethod
+  payments: SalePayment[]
   customer_id: number | null
   customer_name: string | null
   subtotal: string

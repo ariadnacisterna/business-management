@@ -11,7 +11,7 @@ import { formatQuantity } from '../../shared/formatQuantity'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
-import { PAYMENT_METHOD_LABELS } from './saleMath'
+import { PAYMENT_METHOD_LABELS, saleLineName } from './saleMath'
 
 const VOID_ERROR_MESSAGE = 'No se pudo anular la venta. Intentá de nuevo.'
 
@@ -27,10 +27,6 @@ function SaleBody({ sale }: { sale: Sale }) {
           <dt className="inline opacity-60">Vendió: </dt>
           <dd className="m-0 inline [overflow-wrap:anywhere]">{sale.created_by_account_name}</dd>
         </div>
-        <div>
-          <dt className="inline opacity-60">Forma de pago: </dt>
-          <dd className="m-0 inline">{PAYMENT_METHOD_LABELS[sale.payment_method]}</dd>
-        </div>
         {sale.customer_name !== null && (
           <div>
             <dt className="inline opacity-60">Cliente: </dt>
@@ -42,13 +38,12 @@ function SaleBody({ sale }: { sale: Sale }) {
       <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-label="Productos vendidos">
         {sale.lines.map((line) => (
           <li key={line.id} className="flex flex-col gap-1 rounded-lg border border-line p-3">
-            <span className="font-semibold [overflow-wrap:anywhere]">
-              {line.product_name}
-              {line.variant_description ? ` (${line.variant_description})` : ''}
-            </span>
+            <span className="font-semibold [overflow-wrap:anywhere]">{saleLineName(line)}</span>
             <span className="flex flex-wrap justify-between gap-x-4">
               <span>
-                {formatQuantity(line.quantity)} {line.unit_abbreviation} × {formatAmount(line.unit_price)}
+                {line.description !== null
+                  ? 'Monto libre'
+                  : `${formatQuantity(line.quantity)} ${line.unit_abbreviation ?? ''} × ${formatAmount(line.unit_price)}`}
               </span>
               <span className="font-bold">{formatAmount(line.line_total)}</span>
             </span>
@@ -77,6 +72,18 @@ function SaleBody({ sale }: { sale: Sale }) {
           <dd className="m-0">{formatAmount(sale.total)}</dd>
         </div>
       </dl>
+
+      <section aria-label="Formas de pago" className="flex flex-col gap-1 border-t border-line pt-3">
+        <h3 className="m-0 text-lg font-bold">Forma de pago</h3>
+        <ul className="m-0 flex list-none flex-col gap-1 p-0">
+          {sale.payments.map((payment) => (
+            <li key={payment.method} className="flex justify-between gap-4">
+              <span>{PAYMENT_METHOD_LABELS[payment.method]}</span>
+              <span className="font-semibold">{formatAmount(payment.amount)}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       {sale.voided_at !== null && (
         <div className="rounded-lg border-2 border-danger bg-danger/10 p-3">
@@ -166,7 +173,7 @@ export function SaleDetailDialog({
         {voiding && (
           <div className="flex flex-col gap-2 rounded-lg border border-line p-3">
             <p className="m-0 text-lg">
-              Al anularla se devuelve el stock y, si fue en fiado, se descuenta de la cuenta del cliente. No se puede
+              Al anularla se devuelve el stock y, si una parte fue en fiado, se descuenta de la cuenta del cliente. No se puede
               deshacer.
             </p>
             <label className="flex flex-col gap-1.5">

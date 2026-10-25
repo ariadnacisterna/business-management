@@ -1,9 +1,11 @@
 import { apiFetch } from './client'
-import type { PaymentMethod, Sale, SalePage, SellableVariant } from './types'
+import type { PaymentMethod, Sale, SalePage, SalePayment, SellableVariant } from './types'
+
+export type NewSaleLine = { variant_id: number; quantity: string } | { description: string; amount: string }
 
 export interface NewSale {
-  lines: { variant_id: number; quantity: string }[]
-  payment_method: PaymentMethod
+  lines: NewSaleLine[]
+  payments: SalePayment[]
   customer_id?: number
   discount: string
 }

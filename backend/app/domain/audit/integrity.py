@@ -398,8 +398,67 @@ def _sale_totals_not_matching_lines(db: Session) -> list[IntegrityProblem]:
     ]
 
 
+def _sale_payments_not_matching_total(db: Session) -> list[IntegrityProblem]:
+    rows = db.execute(
+        text(
+            """
+            SELECT b.name AS business_name, s.id AS sale_id, s.total,
+                   count(p.id) AS payment_count, coalesce(sum(p.amount), 0) AS paid
+            FROM sale s
+            JOIN business b ON b.id = s.business_id
+            LEFT JOIN sale_payment p ON p.sale_id = s.id
+            GROUP BY b.name, s.id
+            HAVING count(p.id) = 0 OR s.total <> coalesce(sum(p.amount), 0)
+            ORDER BY b.name, s.id
+            """
+        )
+    ).mappings()
+    return [
+        IntegrityProblem(
+            row["business_name"],
+            f"Venta N° {row['sale_id']}: "
+            + (
+                "no tiene ninguna forma de pago (tiene que tener al menos una)."
+                if row["payment_count"] == 0
+                else f"sus formas de pago suman {_format_amount(row['paid'])} pero el total es "
+                f"{_format_amount(row['total'])} (tienen que sumar exactamente el total)."
+            ),
+        )
+        for row in rows
+    ]
+
+
+def _sale_customers_not_matching_fiado(db: Session) -> list[IntegrityProblem]:
+    rows = db.execute(
+        text(
+            f"""
+            SELECT b.name AS business_name, s.id AS sale_id, s.customer_id,
+                   bool_or(p.method = '{PaymentMethod.FIADO.value}') AS has_fiado
+            FROM sale s
+            JOIN business b ON b.id = s.business_id
+            JOIN sale_payment p ON p.sale_id = s.id
+            GROUP BY b.name, s.id
+            HAVING bool_or(p.method = '{PaymentMethod.FIADO.value}') = (s.customer_id IS NULL)
+            ORDER BY b.name, s.id
+            """
+        )
+    ).mappings()
+    return [
+        IntegrityProblem(
+            row["business_name"],
+            f"Venta N° {row['sale_id']}: "
+            + (
+                "tiene una parte en fiado pero no tiene cliente."
+                if row["has_fiado"]
+                else "tiene un cliente elegido pero ninguna parte en fiado."
+            ),
+        )
+        for row in rows
+    ]
+
+
 def _expected_sale_credits(row: RowMapping) -> tuple[int, int]:
-    if row["payment_method"] != PaymentMethod.FIADO.value:
+    if row["fiado_amount"] is None:
         return 0, 0
     return 1, 1 if row["voided_at"] is not None else 0
 
@@ -408,17 +467,17 @@ def _sale_credit_problem(row: RowMapping) -> str | None:
     expected_charges, expected_reversals = _expected_sale_credits(row)
     if row["charges"] != expected_charges or row["matching_charges"] != expected_charges:
         if expected_charges == 0:
-            return "no es en fiado pero tiene un cargo en la cuenta de un cliente."
+            return "no tiene parte en fiado pero tiene un cargo en la cuenta de un cliente."
         return (
-            f"es en fiado y tiene {row['charges']} cargos en la cuenta del cliente; tiene que "
-            "tener uno solo, del mismo cliente y por el total de la venta."
+            f"tiene una parte en fiado y {row['charges']} cargos en la cuenta del cliente; tiene "
+            "que tener uno solo, del mismo cliente y por el importe en fiado."
         )
     if row["reversals"] != expected_reversals or row["matching_reversals"] != expected_reversals:
         if expected_reversals == 0:
-            return "no está anulada en fiado pero tiene una devolución en la cuenta de un cliente."
+            return "no está anulada con fiado pero tiene una devolución en la cuenta de un cliente."
         return (
             "está anulada pero el cargo en la cuenta del cliente no se devolvió una sola vez "
-            "por el total de la venta."
+            "por el importe en fiado."
         )
     return None
 
@@ -427,21 +486,24 @@ def _sale_credits_not_matching(db: Session) -> list[IntegrityProblem]:
     rows = db.execute(
         text(
             f"""
-            SELECT b.name AS business_name, s.id AS sale_id, s.payment_method, s.voided_at,
+            SELECT b.name AS business_name, s.id AS sale_id, f.amount AS fiado_amount,
+                   s.voided_at,
                    count(c.id) FILTER (WHERE c.type = '{CreditType.CARGO.value}') AS charges,
                    count(c.id) FILTER (
-                       WHERE c.type = '{CreditType.CARGO.value}' AND c.amount = s.total
+                       WHERE c.type = '{CreditType.CARGO.value}' AND c.amount = f.amount
                        AND c.customer_id = s.customer_id
                    ) AS matching_charges,
                    count(c.id) FILTER (WHERE c.type = '{CreditType.PAGO.value}') AS reversals,
                    count(c.id) FILTER (
-                       WHERE c.type = '{CreditType.PAGO.value}' AND c.amount = s.total
+                       WHERE c.type = '{CreditType.PAGO.value}' AND c.amount = f.amount
                        AND c.customer_id = s.customer_id
                    ) AS matching_reversals
             FROM sale s
             JOIN business b ON b.id = s.business_id
+            LEFT JOIN sale_payment f
+                ON f.sale_id = s.id AND f.method = '{PaymentMethod.FIADO.value}'
             LEFT JOIN credit c ON c.sale_id = s.id
-            GROUP BY b.name, s.id
+            GROUP BY b.name, s.id, f.amount
             ORDER BY b.name, s.id
             """
         )
@@ -495,6 +557,8 @@ CHECKS = (
     _duplicate_open_shortages,
     _non_positive_credits,
     _sale_totals_not_matching_lines,
+    _sale_payments_not_matching_total,
+    _sale_customers_not_matching_fiado,
     _sale_credits_not_matching,
     _unvalidated_constraints,
 )

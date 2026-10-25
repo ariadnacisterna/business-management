@@ -42,7 +42,13 @@ from app.domain.catalog.units import add_unit, update_unit
 from app.domain.import_.applying import add_import
 from app.domain.pricing.prices import apply_variant_price_change
 from app.domain.sales.errors import SaleAlreadyVoided
-from app.domain.sales.sales import SaleLineInput, register_sale, void_sale
+from app.domain.sales.sales import (
+    FreeLineInput,
+    PaymentInput,
+    SaleLineInput,
+    register_sale,
+    void_sale,
+)
 
 WAITING_SECONDS = 0.5
 FINISH_SECONDS = 15
@@ -497,7 +503,7 @@ def _sell(db, business_id, account_id, variant_id, quantity):
         business_id,
         account_id,
         [SaleLineInput(variant_id, Decimal(quantity))],
-        PaymentMethod.EFECTIVO.value,
+        [PaymentInput(PaymentMethod.EFECTIVO.value, Decimal(quantity) * 100)],
         None,
         Decimal(0),
     )
@@ -612,3 +618,45 @@ def test_two_simultaneous_sales_that_empty_the_stock_open_one_shortage(open_sess
     check = open_session()
     count = select(func.count()).select_from(Shortage).where(Shortage.variant_id == variant_id)
     assert check.scalar(count) == 1
+
+
+def test_two_simultaneous_voids_of_a_split_sale_return_the_fiado_part_once(open_session):
+    setup = open_session()
+    business, account_id = _business_and_owner(setup)
+    variant_id = _variant_for_sale(setup, business.id, account_id, "Reparto anulado", "10")
+    customer = add_customer(setup, business.id, "Cliente reparto simultaneo", account_id)
+    sale_id = register_sale(
+        setup,
+        business.id,
+        account_id,
+        [SaleLineInput(variant_id, Decimal("3")), FreeLineInput("Varios", Decimal("50"))],
+        [
+            PaymentInput(PaymentMethod.EFECTIVO.value, Decimal("150")),
+            PaymentInput(PaymentMethod.FIADO.value, Decimal("200")),
+        ],
+        customer.id,
+        Decimal(0),
+    ).id
+    setup.commit()
+    first, second = open_session(), open_session()
+
+    void_sale(first, business.id, sale_id, account_id, "Primera")
+
+    def void_from_second():
+        void_sale(second, business.id, sale_id, account_id, "Segunda")
+        second.commit()
+
+    thread, outcome = _start(void_from_second)
+    _assert_waiting(thread)
+    first.commit()
+    _finish(thread)
+
+    assert isinstance(outcome.get("error"), SaleAlreadyVoided)
+    check = open_session()
+    assert check.get(Variant, variant_id).quantity == Decimal("10")
+    credits = check.scalars(select(Credit).where(Credit.sale_id == sale_id)).all()
+    assert sorted((credit.type, credit.amount) for credit in credits) == [
+        (CreditType.CARGO.value, Decimal("200")),
+        (CreditType.PAGO.value, Decimal("200")),
+    ]
+    assert find_integrity_problems(check) == []

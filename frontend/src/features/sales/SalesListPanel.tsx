@@ -18,7 +18,7 @@ import { useLoad } from '../../shared/useLoad'
 import { useAuth } from '../access/useAuth'
 import { canVoidSales } from '../access/roles'
 import { SaleDetailDialog } from './SaleDetailDialog'
-import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS, startOfDayIso, startOfNextDayIso } from './saleMath'
+import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS, paymentSummary, startOfDayIso, startOfNextDayIso } from './saleMath'
 
 const PAGE_SIZE = 25
 
@@ -186,7 +186,7 @@ export function SalesListPanel() {
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-lg opacity-80">{formatDateTime(sale.created_at)}</td>
                     <td className="px-4 py-3 text-lg [overflow-wrap:anywhere]">{sale.customer_name ?? 'Consumidor final'}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-lg opacity-80">{PAYMENT_METHOD_LABELS[sale.payment_method]}</td>
+                    <td className="px-4 py-3 text-lg opacity-80">{paymentSummary(sale.payments)}</td>
                     <td className="px-4 py-3 text-lg opacity-80 [overflow-wrap:anywhere]">{sale.created_by_account_name}</td>
                     <td className="px-4 py-3">
                       <span className="flex flex-wrap gap-2">

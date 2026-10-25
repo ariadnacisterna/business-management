@@ -1,31 +1,29 @@
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { fetchCustomers } from '../../api/catalog'
 import { errorMessage } from '../../api/client'
-import { createSale, fetchSellableVariants } from '../../api/sales'
-import type { PaymentMethod, Sale, SellableVariant } from '../../api/types'
-import { ConfirmDialog } from '../../shared/ConfirmDialog'
+import { createSale, fetchSellableVariants, type NewSaleLine } from '../../api/sales'
+import type { Sale, SellableVariant } from '../../api/types'
 import { EmptyState } from '../../shared/EmptyState'
 import { formatAmount } from '../../shared/formatAmount'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { PriceInput } from '../../shared/PriceInput'
 import { formatStock } from '../../shared/presentation'
-import { SearchInput } from '../../shared/SearchInput'
-import { SelectMenu } from '../../shared/SelectMenu'
 import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
 import { useAuth } from '../access/useAuth'
+import { CheckoutDialog, type CheckoutLine, type CheckoutResult } from './CheckoutDialog'
+import { ProductPicker } from './ProductPicker'
+import { FreeAmountDialog, PriceCheckDialog, SaleRegisteredDialog } from './SaleDialogs'
 import {
+  amountCents,
   centsToAmount,
   discountCents,
   discountProblem,
   exceedsStock,
   lineTotalCents,
-  matchesSearch,
   percentDiscountCents,
   percentFromCents,
   percentProblem,
-  PAYMENT_METHOD_LABELS,
-  PAYMENT_METHODS,
   quantityProblem,
   sanitizePercent,
   sanitizeQuantity,
@@ -33,11 +31,8 @@ import {
   variantDescription,
 } from './saleMath'
 
-const MAX_SEARCH_RESULTS = 24
 const SAVE_ERROR_MESSAGE = 'No se pudo registrar la venta. Intentá de nuevo.'
 const NO_VARIANTS: SellableVariant[] = []
-const CONSUMER_FINAL_LABEL = 'Consumidor final'
-const FIADO_CUSTOMER_MESSAGE = 'Para vender en fiado elegí el cliente.'
 
 const inputClasses =
   'h-14 w-full rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10'
@@ -45,14 +40,30 @@ const inputClasses =
 const stepButtonClasses =
   'flex h-14 w-14 items-center justify-center rounded-lg border border-line text-lg font-bold transition-colors hover:bg-surface-brand'
 
+const toolButtonClasses =
+  'min-h-14 flex-1 rounded-lg border-2 border-brand bg-surface px-4 text-lg font-semibold text-brand transition-colors hover:bg-surface-brand'
+
 const lineGridClasses = 'md:grid md:grid-cols-[minmax(0,1fr)_14rem_4.5rem_8.5rem_3rem] md:items-center md:gap-x-2'
 
-interface CartLine {
+interface ProductLine {
+  kind: 'product'
+  key: string
   variant: SellableVariant
   quantity: string
 }
 
+interface FreeLine {
+  kind: 'free'
+  key: string
+  description: string
+  amount: string
+}
+
+type CartLine = ProductLine | FreeLine
+
 type DiscountMode = 'pesos' | 'percent'
+
+type OpenDialog = 'none' | 'price' | 'free' | 'checkout'
 
 function displayName(variant: SellableVariant): string {
   const description = variantDescription(variant)
@@ -61,6 +72,28 @@ function displayName(variant: SellableVariant): string {
 
 function money(cents: number): string {
   return formatAmount(centsToAmount(cents))
+}
+
+function cartLineCents(line: CartLine): number {
+  return line.kind === 'product' ? lineTotalCents(line.quantity, line.variant.price_amount) : amountCents(line.amount)
+}
+
+function cartLineName(line: CartLine): string {
+  return line.kind === 'product' ? displayName(line.variant) : line.description
+}
+
+function checkoutLine(line: CartLine): CheckoutLine {
+  const detail =
+    line.kind === 'product'
+      ? `${line.quantity} ${line.variant.unit_abbreviation} × ${formatAmount(line.variant.price_amount)}`
+      : 'Monto libre'
+  return { key: line.key, name: cartLineName(line), detail, totalCents: cartLineCents(line) }
+}
+
+function requestLine(line: CartLine): NewSaleLine {
+  return line.kind === 'product'
+    ? { variant_id: line.variant.variant_id, quantity: line.quantity }
+    : { description: line.description, amount: line.amount }
 }
 
 function CartIcon() {
@@ -103,30 +136,25 @@ function TrashIcon() {
 
 export function NewSalePanel() {
   const { account } = useAuth()
-  const { showSuccess, showError } = useToast()
+  const { showError } = useToast()
   const variantsLoad = useLoad(fetchSellableVariants, [account?.active_business_id])
   const customersLoad = useLoad(fetchCustomers, [account?.active_business_id])
   const variants = variantsLoad.data ?? NO_VARIANTS
 
-  const [search, setSearch] = useState('')
   const [lines, setLines] = useState<CartLine[]>([])
   const [discount, setDiscount] = useState('')
   const [discountMode, setDiscountMode] = useState<DiscountMode>('pesos')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('efectivo')
-  const [customerId, setCustomerId] = useState('')
   const [attempted, setAttempted] = useState(false)
-  const [confirming, setConfirming] = useState(false)
+  const [dialog, setDialog] = useState<OpenDialog>('none')
+  const [registeredSale, setRegisteredSale] = useState<Sale | null>(null)
   const [lastSale, setLastSale] = useState<Sale | null>(null)
   const ticketRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+  const freeKeyRef = useRef(0)
 
-  const searchResults = useMemo(
-    () => variants.filter((variant) => search.trim() === '' || matchesSearch(variant, search)),
-    [variants, search],
-  )
-  const shownResults = searchResults.slice(0, MAX_SEARCH_RESULTS)
   const activeCustomers = (customersLoad.data ?? []).filter((customer) => customer.status === 'active')
 
-  const subtotalCents = lines.reduce((sum, line) => sum + lineTotalCents(line.quantity, line.variant.price_amount), 0)
+  const subtotalCents = lines.reduce((sum, line) => sum + cartLineCents(line), 0)
   const discountError = discountMode === 'pesos' ? discountProblem(discount, subtotalCents) : percentProblem(discount)
   const discountAppliedCents =
     discountError !== null
@@ -144,57 +172,55 @@ export function NewSalePanel() {
       : discount.trim() === '' || discountError !== null
         ? ''
         : percentFromCents(otherFieldCents, subtotalCents)
-  const lineErrors = lines.map((line) => quantityProblem(line.quantity, line.variant.unit_allows_fraction))
-  const customerError = paymentMethod === 'fiado' && customerId === '' ? FIADO_CUSTOMER_MESSAGE : null
+  const lineErrors = lines.map((line) =>
+    line.kind === 'product' ? quantityProblem(line.quantity, line.variant.unit_allows_fraction) : null,
+  )
   const emptyError = lines.length === 0 ? 'Agregá al menos un producto.' : null
-  const canConfirm =
-    emptyError === null &&
-    discountError === null &&
-    customerError === null &&
-    lineErrors.every((error) => error === null)
+  const canConfirm = emptyError === null && discountError === null && lineErrors.every((error) => error === null)
+  const productIds = lines.flatMap((line) => (line.kind === 'product' ? [line.variant.variant_id] : []))
 
   function addVariant(variant: SellableVariant) {
     setLines((current) => {
-      const existing = current.find((line) => line.variant.variant_id === variant.variant_id)
-      if (existing === undefined) return [...current, { variant, quantity: '1' }]
+      const existing = current.find(
+        (line): line is ProductLine => line.kind === 'product' && line.variant.variant_id === variant.variant_id,
+      )
+      if (existing === undefined) {
+        return [...current, { kind: 'product', key: `v${variant.variant_id}`, variant, quantity: '1' }]
+      }
       return current.map((line) =>
-        line === existing ? { ...line, quantity: stepQuantity(line.quantity, 1) ?? line.quantity } : line,
+        line === existing ? { ...existing, quantity: stepQuantity(existing.quantity, 1) ?? existing.quantity } : line,
       )
     })
-    setSearch('')
     setLastSale(null)
   }
 
-  function stepLine(variantId: number, delta: number) {
-    setLines((current) =>
-      current.map((line) =>
-        line.variant.variant_id === variantId
-          ? { ...line, quantity: stepQuantity(line.quantity, delta) ?? line.quantity }
-          : line,
-      ),
-    )
+  function addFreeAmount(description: string, amount: string) {
+    freeKeyRef.current += 1
+    setLines((current) => [...current, { kind: 'free', key: `f${freeKeyRef.current}`, description, amount }])
+    setLastSale(null)
+    setDialog('none')
   }
 
-  function changeQuantity(variantId: number, raw: string) {
-    setLines((current) =>
-      current.map((line) =>
-        line.variant.variant_id === variantId
-          ? { ...line, quantity: sanitizeQuantity(raw, line.variant.unit_allows_fraction) }
-          : line,
-      ),
-    )
+  function updateProductLine(key: string, change: (line: ProductLine) => ProductLine) {
+    setLines((current) => current.map((line) => (line.key === key && line.kind === 'product' ? change(line) : line)))
   }
 
-  function removeLine(variantId: number) {
-    setLines((current) => current.filter((line) => line.variant.variant_id !== variantId))
+  function stepLine(key: string, delta: number) {
+    updateProductLine(key, (line) => ({ ...line, quantity: stepQuantity(line.quantity, delta) ?? line.quantity }))
+  }
+
+  function changeQuantity(key: string, raw: string) {
+    updateProductLine(key, (line) => ({ ...line, quantity: sanitizeQuantity(raw, line.variant.unit_allows_fraction) }))
+  }
+
+  function removeLine(key: string) {
+    setLines((current) => current.filter((line) => line.key !== key))
   }
 
   function clearTicket() {
     setLines([])
     setDiscount('')
     setDiscountMode('pesos')
-    setPaymentMethod('efectivo')
-    setCustomerId('')
     setAttempted(false)
   }
 
@@ -212,37 +238,35 @@ export function NewSalePanel() {
     setDiscount(sanitizePercent(raw))
   }
 
-  function choosePaymentMethod(method: PaymentMethod) {
-    setPaymentMethod(method)
-    if (method !== 'fiado') setCustomerId('')
-  }
-
   function requestConfirmation() {
     setAttempted(true)
-    if (canConfirm) setConfirming(true)
+    if (canConfirm) setDialog('checkout')
   }
 
-  async function confirmSale() {
+  async function confirmSale(result: CheckoutResult) {
     try {
       const sale = await createSale({
-        lines: lines.map((line) => ({ variant_id: line.variant.variant_id, quantity: line.quantity })),
-        payment_method: paymentMethod,
-        customer_id: paymentMethod === 'fiado' ? Number(customerId) : undefined,
+        lines: lines.map(requestLine),
+        payments: result.payments,
+        customer_id: result.customerId,
         discount: discountAppliedCents === 0 ? '0' : centsToAmount(discountAppliedCents),
       })
-      setConfirming(false)
+      setDialog('none')
       clearTicket()
       setLastSale(sale)
+      setRegisteredSale(sale)
       variantsLoad.reload()
-      showSuccess(`Venta N° ${sale.id} registrada.`)
     } catch (error) {
-      setConfirming(false)
       showError(errorMessage(error, SAVE_ERROR_MESSAGE))
     }
   }
 
+  function startNewSale() {
+    setRegisteredSale(null)
+    window.setTimeout(() => searchRef.current?.focus(), 0)
+  }
+
   const shortLines = lastSale?.lines.filter((line) => line.insufficient_stock) ?? []
-  const activeCustomerName = activeCustomers.find((customer) => String(customer.id) === customerId)?.name
 
   return (
     <div className="flex flex-col gap-4 pb-28 lg:pb-0">
@@ -260,66 +284,31 @@ export function NewSalePanel() {
         <div className="flex min-w-0 flex-col gap-4">
           <section className="flex flex-col gap-4 rounded-2xl bg-surface p-3 shadow-sm" aria-label="Productos">
             <h2 className="m-0 text-2xl font-bold">Buscar producto</h2>
-            <p className="m-0 text-lg opacity-60">Escribí el nombre del producto</p>
+            <p className="m-0 text-lg opacity-60">Escribí el nombre y elegilo de la lista con el mouse o con las flechas y Enter</p>
             {variantsLoad.status === 'error' ? (
               <LoadErrorCard message="No se pudieron cargar los productos." onRetry={variantsLoad.reload} />
             ) : (
-              <SearchInput
-                value={search}
-                onChange={setSearch}
-                placeholder="Buscar producto"
+              <ProductPicker
+                variants={variants}
+                onPick={addVariant}
                 ariaLabel="Buscar producto para vender"
-                className="[&_input]:h-14 [&_input]:text-lg"
+                placeholder="Buscar producto"
+                optionLabel={(variant) => `Agregar ${displayName(variant)}`}
+                inputRef={searchRef}
+                selectedIds={productIds}
               />
-            )}
-            {search.trim() !== '' && (
-              <>
-                {shownResults.length > 0 && (
-                  <ul
-                    className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 2xl:grid-cols-3"
-                    aria-label="Resultados de la búsqueda"
-                  >
-                    {shownResults.map((variant) => {
-                      const inTicket = lines.some((line) => line.variant.variant_id === variant.variant_id)
-                      return (
-                        <li key={variant.variant_id} className="flex">
-                          <button
-                            type="button"
-                            onClick={() => addVariant(variant)}
-                            aria-label={`Agregar ${displayName(variant)}`}
-                            className={`flex h-full w-full flex-col gap-2 rounded-xl border bg-surface p-3 text-left transition-colors hover:bg-surface-brand ${
-                              inTicket ? 'border-2 border-brand' : 'border-line'
-                            }`}
-                          >
-                            <span className="text-xl font-bold leading-tight [overflow-wrap:anywhere]">
-                              {variant.product_name}
-                            </span>
-                            <span className="text-lg opacity-60 [overflow-wrap:anywhere]">
-                              {variantDescription(variant)}
-                            </span>
-                            <span className="mt-auto flex flex-col gap-2">
-                              <span className="text-2xl font-bold text-brand">{formatAmount(variant.price_amount)}</span>
-                              <span className="border-t border-line pt-2 text-lg">
-                                Stock: {formatStock(variant.quantity, variant.presentation, variant.unit_abbreviation)}
-                              </span>
-                            </span>
-                          </button>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-                {searchResults.length > MAX_SEARCH_RESULTS && (
-                  <p className="m-0 text-lg opacity-70">Escribí más del nombre para ver el resto de los productos.</p>
-                )}
-                {variantsLoad.status === 'success' && variants.length > 0 && searchResults.length === 0 && (
-                  <p className="m-0 text-lg opacity-70">No hay productos con precio que coincidan con la búsqueda.</p>
-                )}
-              </>
             )}
             {variantsLoad.status === 'success' && variants.length === 0 && (
               <p className="m-0 text-lg opacity-70">No hay productos con precio para vender.</p>
             )}
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setDialog('price')} className={toolButtonClasses}>
+                Consultar precio
+              </button>
+              <button type="button" onClick={() => setDialog('free')} className={toolButtonClasses}>
+                Agregar monto
+              </button>
+            </div>
           </section>
 
           <div
@@ -338,13 +327,35 @@ export function NewSalePanel() {
             ) : (
               <ul className="m-0 flex list-none flex-col p-0">
                 {lines.map((line, index) => {
-                  const name = displayName(line.variant)
-                  const description = variantDescription(line.variant)
+                  const name = cartLineName(line)
                   const error = lineErrors[index]
+                  if (line.kind === 'free') {
+                    return (
+                      <li
+                        key={line.key}
+                        className={`flex flex-wrap items-center gap-x-2 gap-y-2 border-b border-line-soft py-3 last:border-b-0 ${lineGridClasses}`}
+                      >
+                        <div className="min-w-0 w-full md:col-span-3 md:w-auto">
+                          <p className="m-0 text-lg font-bold leading-tight [overflow-wrap:anywhere]">{line.description}</p>
+                          <p className="m-0 text-lg opacity-60">Monto libre</p>
+                        </div>
+                        <span className="ml-auto text-right text-lg font-bold text-brand md:ml-0">{money(cartLineCents(line))}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeLine(line.key)}
+                          aria-label={`Quitar ${name}`}
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-danger transition-colors hover:bg-danger/10"
+                        >
+                          <TrashIcon />
+                        </button>
+                      </li>
+                    )
+                  }
+                  const description = variantDescription(line.variant)
                   const shortStock = error === null && exceedsStock(line.quantity, line.variant.quantity)
                   return (
                     <li
-                      key={line.variant.variant_id}
+                      key={line.key}
                       className={`flex flex-wrap items-center gap-x-2 gap-y-2 border-b border-line-soft py-3 last:border-b-0 ${lineGridClasses}`}
                     >
                       <div className="min-w-0 w-full md:w-auto">
@@ -367,7 +378,7 @@ export function NewSalePanel() {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => stepLine(line.variant.variant_id, -1)}
+                          onClick={() => stepLine(line.key, -1)}
                           aria-label={`Restar uno a ${name}`}
                           className={stepButtonClasses}
                         >
@@ -375,7 +386,7 @@ export function NewSalePanel() {
                         </button>
                         <input
                           value={line.quantity}
-                          onChange={(event) => changeQuantity(line.variant.variant_id, event.target.value)}
+                          onChange={(event) => changeQuantity(line.key, event.target.value)}
                           inputMode={line.variant.unit_allows_fraction ? 'decimal' : 'numeric'}
                           aria-label={`Cantidad de ${name}`}
                           aria-invalid={error !== null || undefined}
@@ -383,7 +394,7 @@ export function NewSalePanel() {
                         />
                         <button
                           type="button"
-                          onClick={() => stepLine(line.variant.variant_id, 1)}
+                          onClick={() => stepLine(line.key, 1)}
                           aria-label={`Sumar uno a ${name}`}
                           className={stepButtonClasses}
                         >
@@ -391,12 +402,10 @@ export function NewSalePanel() {
                         </button>
                       </div>
                       <span className="text-left text-lg">{line.variant.unit_abbreviation}</span>
-                      <span className="text-right text-lg font-bold text-brand">
-                        {money(lineTotalCents(line.quantity, line.variant.price_amount))}
-                      </span>
+                      <span className="text-right text-lg font-bold text-brand">{money(cartLineCents(line))}</span>
                       <button
                         type="button"
-                        onClick={() => removeLine(line.variant.variant_id)}
+                        onClick={() => removeLine(line.key)}
                         aria-label={`Quitar ${name}`}
                         className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-danger transition-colors hover:bg-danger/10"
                       >
@@ -421,30 +430,11 @@ export function NewSalePanel() {
         </div>
 
         <div className="flex min-w-0 flex-col gap-4">
-          <section className="flex flex-col gap-3 rounded-2xl bg-surface p-4 shadow-sm" aria-label="Cliente">
-            <h2 className="m-0 text-2xl font-bold">Cliente</h2>
-            <SelectMenu
-              value={customerId}
-              onChange={setCustomerId}
-              ariaLabel="Cliente"
-              hasError={customerError !== null}
-              options={[
-                { value: '', label: CONSUMER_FINAL_LABEL },
-                ...activeCustomers.map((customer) => ({ value: String(customer.id), label: customer.name })),
-              ]}
-            />
-            {customerError !== null && (
-              <p role="alert" className="m-0 text-lg text-danger">
-                {customerError}
-              </p>
-            )}
-          </section>
-
           <section className="flex flex-col gap-4 rounded-2xl bg-surface p-4 shadow-sm" aria-label="Resumen">
             <div className="flex items-baseline justify-between gap-2">
               <h2 className="m-0 text-2xl font-bold">Resumen</h2>
               <span className="text-lg opacity-60">
-                {lines.length} {lines.length === 1 ? 'producto' : 'productos'}
+                {lines.length} {lines.length === 1 ? 'línea' : 'líneas'}
               </span>
             </div>
 
@@ -495,33 +485,9 @@ export function NewSalePanel() {
               </div>
             </div>
 
-            <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-              <legend className="mb-2 text-lg font-semibold">Forma de pago</legend>
-              <div className="grid grid-cols-2 gap-2">
-                {PAYMENT_METHODS.map((method, index) => (
-                  <button
-                    key={method}
-                    type="button"
-                    aria-pressed={paymentMethod === method}
-                    onClick={() => choosePaymentMethod(method)}
-                    className={`min-h-14 min-w-0 whitespace-nowrap rounded-lg border px-2 text-lg font-bold transition-colors ${
-                      index === PAYMENT_METHODS.length - 1 ? 'col-span-2' : ''
-                    } ${
-                      paymentMethod === method
-                        ? 'border-brand bg-surface-brand text-brand'
-                        : 'border-line hover:bg-surface-brand'
-                    }`}
-                  >
-                    {PAYMENT_METHOD_LABELS[method]}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-
             <button
               type="button"
               onClick={requestConfirmation}
-              disabled={customerError !== null}
               className="min-h-14 rounded-lg bg-brand px-5 text-lg font-bold text-brand-contrast transition-colors hover:bg-brand/90 disabled:opacity-40"
             >
               Confirmar venta
@@ -541,7 +507,7 @@ export function NewSalePanel() {
       <div className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-between gap-3 border-t border-line bg-surface px-4 py-3 shadow-lg lg:hidden">
         <div className="min-w-0">
           <p className="m-0 text-base opacity-70">
-            {lines.length} {lines.length === 1 ? 'producto' : 'productos'}
+            {lines.length} {lines.length === 1 ? 'línea' : 'líneas'}
           </p>
           <p className="m-0 text-2xl font-bold [overflow-wrap:anywhere]">{money(totalCents)}</p>
         </div>
@@ -554,18 +520,20 @@ export function NewSalePanel() {
         </button>
       </div>
 
-      {confirming && (
-        <ConfirmDialog
-          title="Registrar venta"
-          breadcrumb={['Ventas', 'Venta']}
-          description={`Total ${money(totalCents)} en ${PAYMENT_METHOD_LABELS[paymentMethod].toLowerCase()}${
-            paymentMethod === 'fiado' && activeCustomerName !== undefined ? ` a ${activeCustomerName}` : ''
-          }.`}
-          confirmLabel="Registrar"
+      {dialog === 'price' && <PriceCheckDialog variants={variants} onClose={() => setDialog('none')} />}
+      {dialog === 'free' && <FreeAmountDialog onAdd={addFreeAmount} onClose={() => setDialog('none')} />}
+      {dialog === 'checkout' && (
+        <CheckoutDialog
+          lines={lines.map(checkoutLine)}
+          subtotalCents={subtotalCents}
+          discountCents={discountAppliedCents}
+          totalCents={totalCents}
+          customers={activeCustomers}
           onConfirm={confirmSale}
-          onCancel={() => setConfirming(false)}
+          onCancel={() => setDialog('none')}
         />
       )}
+      {registeredSale !== null && <SaleRegisteredDialog sale={registeredSale} onNewSale={startNewSale} />}
     </div>
   )
 }

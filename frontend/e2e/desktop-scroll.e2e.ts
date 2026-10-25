@@ -43,7 +43,7 @@ for (const screen of SCREENS) {
     await page.setViewportSize(screen)
     await login(page, 'empleada')
     await page.goto('/ventas')
-    await expect(page.getByRole('textbox', { name: 'Buscar producto para vender' })).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Buscar producto para vender' })).toBeVisible()
 
     const overflow = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)
     expect(overflow).toBeLessThanOrEqual(0)
@@ -57,9 +57,13 @@ for (const screen of SCREENS) {
     await login(page, 'empleada')
     await page.goto('/ventas/nueva')
     await expect(page.locator('html')).toHaveCSS('font-size', LARGEST_FONT_SIZE)
+    await page.getByRole('combobox', { name: 'Buscar producto para vender' }).fill('Marcador fluo')
+    await page.getByRole('option', { name: 'Agregar Marcador fluo' }).click()
+    await page.getByRole('button', { name: 'Confirmar venta' }).click()
+    const checkout = page.getByRole('dialog', { name: 'Confirmar venta' })
 
-    for (const name of ['Efectivo', 'Transferencia', 'Fiado']) {
-      const button = page.getByRole('button', { name, exact: true })
+    for (const name of [/^Efectivo/, /^Transferencia/, /^Fiado/]) {
+      const button = checkout.getByRole('button', { name })
       await expect(button).toBeVisible()
       const fits = await button.evaluate((element) => element.scrollWidth <= element.clientWidth)
       expect(fits).toBe(true)

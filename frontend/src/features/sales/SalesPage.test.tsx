@@ -42,7 +42,7 @@ const SALE: Sale = {
   created_at: '2026-10-23T12:00:00Z',
   created_by_account_id: 1,
   created_by_account_name: 'Empleada de prueba',
-  payment_method: 'fiado',
+  payments: [{ method: 'fiado', amount: '900.00' }],
   customer_id: 7,
   customer_name: 'Clara Ventas',
   subtotal: '900.00',
@@ -61,6 +61,7 @@ const SALE: Sale = {
       product_id: 1,
       product_name: 'Cinta de raso',
       variant_description: '',
+      description: null,
       unit_abbreviation: 'm',
       quantity: '3.000',
       unit_price: '300.00',
@@ -102,12 +103,26 @@ function renderPage(account: Account, view: SalesView = 'new') {
   )
 }
 
+type User = ReturnType<typeof userEvent.setup>
+
+async function addCinta(user: User) {
+  await user.type(screen.getByRole('combobox', { name: 'Buscar producto para vender' }), 'cinta')
+  await user.click(await screen.findByRole('option', { name: 'Agregar Cinta de raso' }))
+}
+
+function postedBody(fetchMock: ReturnType<typeof vi.fn>) {
+  const postInit = fetchMock.mock.calls
+    .map(([, init]) => init as RequestInit | undefined)
+    .find((init) => init?.method === 'POST')
+  return JSON.parse(String(postInit?.body))
+}
+
 describe('SalesPage', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
   })
 
-  it('shows product cards only after searching and returns to the prompt when the search is cleared', async () => {
+  it('shows the search results in a dropdown only while searching', async () => {
     const user = userEvent.setup()
     routeFetch({
       'GET /search': () => jsonResponse({ results: VARIANTS }),
@@ -115,16 +130,17 @@ describe('SalesPage', () => {
     })
     renderPage(EMPLEADO)
 
-    expect(await screen.findByRole('textbox', { name: 'Buscar producto para vender' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Agregar Cinta de raso' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('combobox', { name: 'Buscar producto para vender' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Agregar Cinta de raso' })).not.toBeInTheDocument()
     expect(screen.getByText('El carrito está vacío')).toBeInTheDocument()
 
-    const search = screen.getByRole('textbox', { name: 'Buscar producto para vender' })
+    const search = screen.getByRole('combobox', { name: 'Buscar producto para vender' })
     await user.type(search, 'cinta')
-    expect(await screen.findByRole('button', { name: 'Agregar Cinta de raso' })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: 'Agregar Cinta de raso' })).toBeInTheDocument()
+    expect(search).toHaveAttribute('aria-expanded', 'true')
 
     await user.clear(search)
-    expect(screen.queryByRole('button', { name: 'Agregar Cinta de raso' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Agregar Cinta de raso' })).not.toBeInTheDocument()
   })
 
   it('adds a product, warns about the stock and registers a fiado sale', async () => {
@@ -136,10 +152,9 @@ describe('SalesPage', () => {
     })
     renderPage(EMPLEADO)
 
-    await user.type(screen.getByRole('textbox', { name: 'Buscar producto para vender' }), 'cinta')
-    await user.click(await screen.findByRole('button', { name: 'Agregar Cinta de raso' }))
-    await user.type(screen.getByRole('textbox', { name: 'Buscar producto para vender' }), 'cinta')
-    await user.click(await screen.findByRole('button', { name: 'Agregar Cinta de raso' }))
+    await addCinta(user)
+    expect(screen.queryByRole('option', { name: 'Agregar Cinta de raso' })).not.toBeInTheDocument()
+    await addCinta(user)
     expect(screen.getByRole('textbox', { name: 'Cantidad de Cinta de raso' })).toHaveValue('2')
     await user.click(screen.getByRole('button', { name: 'Restar uno a Cinta de raso' }))
     await user.click(screen.getByRole('button', { name: 'Sumar uno a Cinta de raso' }))
@@ -150,22 +165,31 @@ describe('SalesPage', () => {
     expect(screen.getByText(/Stock insuficiente: hay 2 m/)).toBeInTheDocument()
     expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$ 900,00')
 
-    await user.click(screen.getByRole('button', { name: 'Fiado' }))
     await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
-    expect(screen.getByText('Para vender en fiado elegí el cliente.')).toBeInTheDocument()
+    const checkout = screen.getByRole('dialog', { name: 'Confirmar venta' })
+    expect(within(checkout).getByLabelText('Total a cobrar')).toHaveTextContent('$ 900,00')
+    await user.click(within(checkout).getByRole('button', { name: /^Fiado/ }))
+    await user.click(within(checkout).getByRole('button', { name: 'Confirmar venta' }))
+    expect(within(checkout).getByText('Para vender en fiado elegí el cliente.')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Cliente' }))
+    await user.click(within(checkout).getByRole('button', { name: 'Cliente del fiado' }))
     await user.click(await screen.findByRole('option', { name: 'Clara Ventas' }))
-    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
-    await user.click(within(screen.getByRole('alertdialog', { name: 'Registrar venta' })).getByRole('button', { name: 'Registrar' }))
+    await user.click(within(checkout).getByRole('button', { name: 'Confirmar venta' }))
 
-    expect(await screen.findByText('Venta N° 5 registrada sin stock suficiente')).toBeInTheDocument()
+    const registered = await screen.findByRole('dialog', { name: 'Venta registrada' })
+    expect(within(registered).getByText('Venta N° 5')).toBeInTheDocument()
+    expect(within(registered).getByLabelText('Total registrado')).toHaveTextContent('$ 900,00')
+    expect(within(registered).getByRole('button', { name: 'Imprimir comprobante' })).toBeDisabled()
+    expect(within(registered).getByText('Próximamente')).toBeInTheDocument()
+    await user.click(within(registered).getByRole('button', { name: 'Nueva venta' }))
+    expect(screen.queryByRole('dialog', { name: 'Venta registrada' })).not.toBeInTheDocument()
+    expect(screen.getByText('Venta N° 5 registrada sin stock suficiente')).toBeInTheDocument()
     const postInit = fetchMock.mock.calls
       .map(([, init]) => init as RequestInit | undefined)
       .find((init) => init?.method === 'POST')
     expect(JSON.parse(String(postInit?.body))).toEqual({
       lines: [{ variant_id: 10, quantity: '3' }],
-      payment_method: 'fiado',
+      payments: [{ method: 'fiado', amount: '900.00' }],
       customer_id: 7,
       discount: '0',
     })
@@ -247,8 +271,7 @@ describe('SalesPage', () => {
     })
     renderPage(EMPLEADO)
 
-    await user.type(screen.getByRole('textbox', { name: 'Buscar producto para vender' }), 'cinta')
-    await user.click(await screen.findByRole('button', { name: 'Agregar Cinta de raso' }))
+    await addCinta(user)
     const percent = screen.getByRole('textbox', { name: 'Descuento en porcentaje' })
     await user.type(percent, '10')
 
@@ -262,9 +285,9 @@ describe('SalesPage', () => {
     await user.clear(percent)
     await user.type(percent, '10')
     await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
-    await user.click(within(screen.getByRole('alertdialog', { name: 'Registrar venta' })).getByRole('button', { name: 'Registrar' }))
+    await user.click(within(screen.getByRole('dialog', { name: 'Confirmar venta' })).getByRole('button', { name: 'Confirmar venta' }))
 
-    expect(await screen.findByText(/registrada\./)).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Venta registrada' })).toBeInTheDocument()
     const postInit = fetchMock.mock.calls
       .map(([, init]) => init as RequestInit | undefined)
       .find((init) => init?.method === 'POST')
@@ -279,8 +302,7 @@ describe('SalesPage', () => {
     })
     renderPage(EMPLEADO)
 
-    await user.type(screen.getByRole('textbox', { name: 'Buscar producto para vender' }), 'cinta')
-    await user.click(await screen.findByRole('button', { name: 'Agregar Cinta de raso' }))
+    await addCinta(user)
     await user.type(screen.getByRole('textbox', { name: 'Descuento en pesos' }), '301')
 
     expect(screen.getByText('El descuento no puede ser mayor que el total.')).toBeInTheDocument()
@@ -341,5 +363,169 @@ describe('SalesPage', () => {
 
     expect(await within(dialog).findByText('Clara Ventas')).toBeInTheDocument()
     expect(within(dialog).queryByRole('button', { name: 'Anular venta' })).not.toBeInTheDocument()
+  })
+
+  it('adds a product with the arrow keys and Enter and closes the dropdown', async () => {
+    const user = userEvent.setup()
+    routeFetch({
+      'GET /search': () =>
+        jsonResponse({
+          results: [...VARIANTS, { ...VARIANTS[0], variant_id: 11, product_name: 'Cinta bebé', price_amount: '120.00' }],
+        }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+    })
+    renderPage(EMPLEADO)
+
+    const search = await screen.findByRole('combobox', { name: 'Buscar producto para vender' })
+    await user.type(search, 'cinta')
+    expect(await screen.findAllByRole('option')).toHaveLength(2)
+    await user.keyboard('{ArrowDown}')
+    expect(screen.getByRole('option', { name: 'Agregar Cinta bebé' })).toHaveAttribute('aria-selected', 'true')
+    await user.keyboard('{Enter}')
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(search).toHaveValue('')
+    expect(screen.getByRole('textbox', { name: 'Cantidad de Cinta bebé' })).toHaveValue('1')
+    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$ 120,00')
+  })
+
+  it('checks a price and its stock without adding it to the cart', async () => {
+    const user = userEvent.setup()
+    routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+    })
+    renderPage(EMPLEADO)
+
+    await user.click(await screen.findByRole('button', { name: 'Consultar precio' }))
+    const dialog = screen.getByRole('dialog', { name: 'Consultar precio' })
+    await user.type(within(dialog).getByRole('combobox', { name: 'Buscar producto para consultar' }), 'cinta')
+    await user.click(await within(dialog).findByRole('option', { name: 'Consultar Cinta de raso' }))
+
+    const checked = within(dialog).getByRole('region', { name: 'Precio consultado' })
+    expect(checked).toHaveTextContent('$ 300,00')
+    expect(checked).toHaveTextContent('Stock: 2 m')
+    const closeButtons = within(dialog).getAllByRole('button', { name: 'Cerrar' })
+    await user.click(closeButtons[closeButtons.length - 1])
+    expect(screen.getByText('El carrito está vacío')).toBeInTheDocument()
+  })
+
+  it('adds a free amount line and sends it with the sale', async () => {
+    const user = userEvent.setup()
+    const fetchMock = routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+      'POST /sales': () => jsonResponse({ ...SALE, insufficient_stock: false }, 201),
+    })
+    renderPage(EMPLEADO)
+
+    await user.click(await screen.findByRole('button', { name: 'Agregar monto' }))
+    const dialog = screen.getByRole('dialog', { name: 'Agregar monto' })
+    await user.click(within(dialog).getByRole('button', { name: 'Agregar' }))
+    expect(within(dialog).getByText('Escribí el nombre.')).toBeInTheDocument()
+    expect(within(dialog).getByText('Escribí el importe.')).toBeInTheDocument()
+    await user.type(within(dialog).getByRole('textbox', { name: /Nombre/ }), 'Varios')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Importe del monto' }), '150{Enter}')
+
+    expect(screen.queryByRole('dialog', { name: 'Agregar monto' })).not.toBeInTheDocument()
+    expect(screen.getByText('Monto libre')).toBeInTheDocument()
+    expect(screen.getByLabelText('Total de la venta')).toHaveTextContent('$ 150,00')
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
+    await user.keyboard('{Enter}')
+    await screen.findByRole('dialog', { name: 'Venta registrada' })
+    expect(postedBody(fetchMock)).toEqual({
+      lines: [{ description: 'Varios', amount: '150' }],
+      payments: [{ method: 'efectivo', amount: '150.00' }],
+      discount: '0',
+    })
+  })
+
+  it('splits the total between cash and transfer and shows the change only on screen', async () => {
+    const user = userEvent.setup()
+    const fetchMock = routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+      'POST /sales': () => jsonResponse({ ...SALE, insufficient_stock: false }, 201),
+    })
+    renderPage(EMPLEADO)
+    await addCinta(user)
+    await user.click(screen.getByRole('button', { name: 'Sumar uno a Cinta de raso' }))
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
+    const checkout = screen.getByRole('dialog', { name: 'Confirmar venta' })
+    await user.type(within(checkout).getByRole('textbox', { name: 'Paga con' }), '1000')
+    expect(within(checkout).getByTestId('change-amount')).toHaveTextContent('$ 400,00')
+
+    await user.click(within(checkout).getByRole('button', { name: 'Repartir entre varias' }))
+    expect(within(checkout).getByText('Falta asignar')).toBeInTheDocument()
+    await user.type(within(checkout).getByRole('textbox', { name: 'Importe en efectivo' }), '200')
+    expect(within(checkout).getByText('$ 400,00')).toBeInTheDocument()
+    await user.click(within(checkout).getByRole('button', { name: 'Confirmar venta' }))
+    expect(within(checkout).getByText('Todavía falta asignar parte del total.')).toBeInTheDocument()
+
+    await user.type(within(checkout).getByRole('textbox', { name: 'Importe en transferencia' }), '400')
+    expect(within(checkout).getByText('$ 0,00')).toBeInTheDocument()
+    await user.clear(within(checkout).getByRole('textbox', { name: 'Paga con' }))
+    await user.type(within(checkout).getByRole('textbox', { name: 'Paga con' }), '500')
+    expect(within(checkout).getByTestId('change-amount')).toHaveTextContent('$ 300,00')
+    await user.type(within(checkout).getByRole('textbox', { name: 'Importe en transferencia' }), '{Enter}')
+
+    await screen.findByRole('dialog', { name: 'Venta registrada' })
+    const body = postedBody(fetchMock)
+    expect(body.payments).toEqual([
+      { method: 'efectivo', amount: '200.00' },
+      { method: 'transferencia', amount: '400.00' },
+    ])
+    expect(body.customer_id).toBeUndefined()
+    expect(JSON.stringify(body)).not.toContain('500')
+  })
+
+  it('closes the checkout with Esc without registering the sale', async () => {
+    const user = userEvent.setup()
+    const fetchMock = routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+    })
+    renderPage(EMPLEADO)
+    await addCinta(user)
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
+    expect(screen.getByRole('dialog', { name: 'Confirmar venta' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('dialog', { name: 'Confirmar venta' })).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === 'POST')).toBe(false)
+    expect(screen.getByRole('textbox', { name: 'Cantidad de Cinta de raso' })).toBeInTheDocument()
+  })
+
+  it('shows every payment part in the history and in the detail', async () => {
+    const user = userEvent.setup()
+    const split = {
+      ...SALE,
+      insufficient_stock: false,
+      payments: [
+        { method: 'efectivo', amount: '600.00' },
+        { method: 'fiado', amount: '300.00' },
+      ],
+      lines: [...SALE.lines, { ...SALE.lines[0], id: 2, variant_id: null, product_id: null, product_name: null, description: 'Varios', unit_abbreviation: null }],
+    } as Sale
+    routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+      'GET /sales': () => jsonResponse({ items: [split], total: 1, page: 1, page_size: 25 }),
+      'GET /sales/5': () => jsonResponse(split),
+    })
+    renderPage(EMPLEADO, 'list')
+
+    const table = await screen.findByRole('table', { name: 'Historial de ventas' })
+    expect(within(table).getByText('Efectivo $ 600,00 + Fiado $ 300,00')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Ver venta N° 5' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Venta N° 5' })
+    const parts = await within(dialog).findByRole('region', { name: 'Formas de pago' })
+    expect(parts).toHaveTextContent('Efectivo$ 600,00')
+    expect(parts).toHaveTextContent('Fiado$ 300,00')
+    expect(within(dialog).getByText('Varios')).toBeInTheDocument()
+    expect(within(dialog).getByText('Monto libre')).toBeInTheDocument()
   })
 })

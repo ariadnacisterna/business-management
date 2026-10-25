@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.catalog import ALLOWED_PAGE_SIZES
 from app.api.submissions import require_submission_key, respond_once
 from app.constants.roles import GERENTE
-from app.db.models import Account, Business, Sale
+from app.db.models import Account, Business, Sale, SaleLine
 from app.db.session import get_db
 from app.domain.access.permissions import (
     get_active_business,
@@ -27,14 +27,25 @@ DEFAULT_SALES_PAGE_SIZE = 25
 
 
 class SaleLineRequest(BaseModel):
-    variant_id: int
-    quantity: Decimal = Field(description="Cantidad en la unidad de venta del producto")
+    variant_id: int | None = Field(default=None, description="Producto vendido")
+    quantity: Decimal | None = Field(
+        default=None, description="Cantidad en la unidad de venta del producto"
+    )
+    description: str | None = Field(default=None, description="Nombre de un monto libre")
+    amount: Decimal | None = Field(default=None, description="Importe de un monto libre")
+
+
+class SalePaymentRequest(BaseModel):
+    method: str = Field(description="efectivo, transferencia o fiado")
+    amount: Decimal = Field(description="Parte del total que se paga de esta forma")
 
 
 class CreateSaleRequest(BaseModel):
     lines: list[SaleLineRequest]
-    payment_method: str = Field(description="efectivo, transferencia o fiado")
-    customer_id: int | None = Field(default=None, description="Obligatorio en una venta en fiado")
+    payments: list[SalePaymentRequest]
+    customer_id: int | None = Field(
+        default=None, description="Obligatorio si una parte se paga en fiado"
+    )
     discount: Decimal = Field(default=Decimal(0), description="Descuento sobre el total")
 
 
@@ -44,11 +55,12 @@ class VoidSaleRequest(BaseModel):
 
 class SaleLineResponse(BaseModel):
     id: int
-    variant_id: int
-    product_id: int
-    product_name: str
+    variant_id: int | None
+    product_id: int | None
+    product_name: str | None
     variant_description: str
-    unit_abbreviation: str
+    description: str | None
+    unit_abbreviation: str | None
     quantity: Decimal
     unit_price: Decimal
     line_total: Decimal
@@ -56,12 +68,17 @@ class SaleLineResponse(BaseModel):
     insufficient_stock: bool
 
 
+class SalePaymentResponse(BaseModel):
+    method: str
+    amount: Decimal
+
+
 class SaleSummaryResponse(BaseModel):
     id: int
     created_at: str
     created_by_account_id: int
     created_by_account_name: str
-    payment_method: str
+    payments: list[SalePaymentResponse]
     customer_id: int | None
     customer_name: str | None
     subtotal: Decimal
@@ -98,7 +115,10 @@ def _summary_fields(sale: Sale, account_names: dict[int, str]) -> dict:
         "created_at": sale.created_at.isoformat(),
         "created_by_account_id": sale.created_by_account_id,
         "created_by_account_name": account_names[sale.created_by_account_id],
-        "payment_method": sale.payment_method,
+        "payments": [
+            SalePaymentResponse(method=payment.method, amount=payment.amount)
+            for payment in sale.payments
+        ],
         "customer_id": sale.customer_id,
         "customer_name": sale.customer.name if sale.customer else None,
         "subtotal": sale.subtotal,
@@ -119,22 +139,37 @@ def _sale_response(db: Session, sale: Sale) -> SaleResponse:
     account_names = get_account_names(db, _account_ids([sale]))
     return SaleResponse(
         **_summary_fields(sale, account_names),
-        lines=[
-            SaleLineResponse(
-                id=line.id,
-                variant_id=line.variant_id,
-                product_id=line.variant.product_id,
-                product_name=line.variant.product.name,
-                variant_description=sales.variant_description(line.variant),
-                unit_abbreviation=line.variant.product.unit.abbreviation,
-                quantity=line.quantity,
-                unit_price=line.unit_price,
-                line_total=line.line_total,
-                stock_taken=line.stock_taken,
-                insufficient_stock=line.stock_taken < line.quantity,
-            )
-            for line in sale.lines
-        ],
+        lines=[_line_response(line) for line in sale.lines],
+    )
+
+
+def _line_response(line: SaleLine) -> SaleLineResponse:
+    variant = line.variant
+    return SaleLineResponse(
+        id=line.id,
+        variant_id=line.variant_id,
+        product_id=variant.product_id if variant else None,
+        product_name=variant.product.name if variant else None,
+        variant_description=sales.variant_description(variant) if variant else "",
+        description=line.description,
+        unit_abbreviation=variant.product.unit.abbreviation if variant else None,
+        quantity=line.quantity,
+        unit_price=line.unit_price,
+        line_total=line.line_total,
+        stock_taken=line.stock_taken,
+        insufficient_stock=variant is not None and line.stock_taken < line.quantity,
+    )
+
+
+def _line_input(line: SaleLineRequest) -> sales.SaleLineInput | sales.FreeLineInput:
+    has_free_fields = line.description is not None or line.amount is not None
+    has_product_fields = line.variant_id is not None or line.quantity is not None
+    if line.variant_id is not None and line.quantity is not None and not has_free_fields:
+        return sales.SaleLineInput(line.variant_id, line.quantity)
+    if line.description is not None and line.amount is not None and not has_product_fields:
+        return sales.FreeLineInput(line.description, line.amount)
+    raise InvalidSale(
+        "Cada línea tiene que ser un producto con su cantidad o un monto libre con nombre e importe"
     )
 
 
@@ -179,8 +214,8 @@ def create_sale(
             db,
             business.id,
             _actor.id,
-            [sales.SaleLineInput(line.variant_id, line.quantity) for line in payload.lines],
-            payload.payment_method,
+            [_line_input(line) for line in payload.lines],
+            [sales.PaymentInput(payment.method, payment.amount) for payment in payload.payments],
             payload.customer_id,
             payload.discount,
         )

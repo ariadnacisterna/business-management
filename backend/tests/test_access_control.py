@@ -336,7 +336,7 @@ def _create_other_business_data(client, cookies, business_id: int) -> dict[str, 
         "/sales",
         {
             "lines": [{"variant_id": variant_id, "quantity": "1"}],
-            "payment_method": PaymentMethod.FIADO.value,
+            "payments": [{"method": PaymentMethod.FIADO.value, "amount": "150"}],
             "customer_id": customer["id"],
         },
     )
@@ -545,7 +545,7 @@ def _requests_referencing_another_business(
                 {
                     "json": {
                         "lines": [{"variant_id": ref, "quantity": "1"}],
-                        "payment_method": PaymentMethod.EFECTIVO.value,
+                        "payments": [{"method": PaymentMethod.EFECTIVO.value, "amount": "150"}],
                     }
                 },
             ),
@@ -558,7 +558,7 @@ def _requests_referencing_another_business(
                 {
                     "json": {
                         "lines": [{"variant_id": own["variant_id"], "quantity": "1"}],
-                        "payment_method": PaymentMethod.FIADO.value,
+                        "payments": [{"method": PaymentMethod.FIADO.value, "amount": "150"}],
                         "customer_id": ref,
                     }
                 },

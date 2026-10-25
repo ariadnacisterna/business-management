@@ -1,3 +1,4 @@
+import pytest
 import sqlalchemy as sa
 from sqlalchemy import inspect
 
@@ -526,5 +527,133 @@ def test_integrity_migration_leaves_a_rule_unvalidated_when_old_data_breaks_it(
         assert constraints["ck_stock_movement_quantity_changed"] is False
         assert constraints["ck_price_effective_range"] is True
         assert movement_count == 1
+    finally:
+        engine.dispose()
+
+
+SALES_REVISION = "b5d9e3a7c1f4"
+SALE_PAYMENTS_REVISION = "c4e8a2d6f9b1"
+
+
+def _insert_old_sale(connection, payment_method, total, customer_id=None):
+    account_id = connection.execute(sa.text("SELECT id FROM account LIMIT 1")).scalar_one()
+    business_id = connection.execute(sa.text("SELECT id FROM business LIMIT 1")).scalar_one()
+    variant_id = connection.execute(sa.text("SELECT id FROM variant LIMIT 1")).scalar_one()
+    sale_id = connection.execute(
+        sa.text(
+            "INSERT INTO sale (business_id, payment_method, customer_id, subtotal, discount, "
+            "total, insufficient_stock, created_by_account_id, created_at) VALUES "
+            "(:business_id, :payment_method, :customer_id, :total, 0, :total, false, "
+            ":account_id, now()) RETURNING id"
+        ),
+        {
+            "business_id": business_id,
+            "payment_method": payment_method,
+            "customer_id": customer_id,
+            "total": total,
+            "account_id": account_id,
+        },
+    ).scalar_one()
+    connection.execute(
+        sa.text(
+            "INSERT INTO sale_line (sale_id, variant_id, quantity, unit_price, line_total, "
+            "stock_taken) VALUES (:sale_id, :variant_id, 1, :total, :total, 0)"
+        ),
+        {"sale_id": sale_id, "variant_id": variant_id, "total": total},
+    )
+    return sale_id
+
+
+def _insert_customer(connection):
+    account_id = connection.execute(sa.text("SELECT id FROM account LIMIT 1")).scalar_one()
+    business_id = connection.execute(sa.text("SELECT id FROM business LIMIT 1")).scalar_one()
+    return connection.execute(
+        sa.text(
+            "INSERT INTO customer (business_id, name, status, created_by_account_id, created_at, "
+            "updated_by_account_id, updated_at) VALUES (:business_id, 'Cliente viejo', 'active', "
+            ":account_id, now(), :account_id, now()) RETURNING id"
+        ),
+        {"business_id": business_id, "account_id": account_id},
+    ).scalar_one()
+
+
+def test_sale_payments_migration_turns_each_sale_into_one_payment_and_back(
+    postgres_empty_schema, monkeypatch, request
+):
+    _isolate_from_second_business_env(monkeypatch, request)
+    config = alembic_config()
+    command.upgrade(config, SALES_REVISION)
+    engine = sa.create_engine(postgres_empty_schema)
+    try:
+        with engine.begin() as connection:
+            _insert_variant_with_movement(connection, 0, 5)
+            customer_id = _insert_customer(connection)
+            cash = _insert_old_sale(connection, "efectivo", "150.50")
+            transfer = _insert_old_sale(connection, "transferencia", "80")
+            fiado = _insert_old_sale(connection, "fiado", "200", customer_id)
+
+        command.upgrade(config, SALE_PAYMENTS_REVISION)
+
+        with engine.connect() as connection:
+            payments = connection.execute(
+                sa.text("SELECT sale_id, method, amount FROM sale_payment ORDER BY sale_id")
+            ).all()
+            customers = dict(connection.execute(sa.text("SELECT id, customer_id FROM sale")).all())
+            line_variants = connection.execute(
+                sa.text("SELECT variant_id, description FROM sale_line ORDER BY id")
+            ).all()
+        assert [(row.sale_id, row.method, str(row.amount)) for row in payments] == [
+            (cash, "efectivo", "150.50"),
+            (transfer, "transferencia", "80.00"),
+            (fiado, "fiado", "200.00"),
+        ]
+        assert customers[fiado] == customer_id
+        assert all(row.variant_id is not None and row.description is None for row in line_variants)
+        assert "payment_method" not in {
+            column["name"] for column in inspect(engine).get_columns("sale")
+        }
+
+        command.downgrade(config, SALES_REVISION)
+
+        with engine.connect() as connection:
+            methods = dict(connection.execute(sa.text("SELECT id, payment_method FROM sale")).all())
+        assert methods == {cash: "efectivo", transfer: "transferencia", fiado: "fiado"}
+        assert "sale_payment" not in set(inspect(engine).get_table_names())
+    finally:
+        engine.dispose()
+    command.downgrade(config, "base")
+
+
+def test_sale_payments_migration_refuses_to_go_back_when_a_sale_is_split(
+    postgres_empty_schema, monkeypatch, request
+):
+    _isolate_from_second_business_env(monkeypatch, request)
+    config = alembic_config()
+    command.upgrade(config, SALES_REVISION)
+    engine = sa.create_engine(postgres_empty_schema)
+    try:
+        with engine.begin() as connection:
+            _insert_variant_with_movement(connection, 0, 5)
+            sale_id = _insert_old_sale(connection, "efectivo", "100")
+
+        command.upgrade(config, SALE_PAYMENTS_REVISION)
+        with engine.begin() as connection:
+            connection.execute(
+                sa.text("UPDATE sale_payment SET amount = 60 WHERE sale_id = :id"), {"id": sale_id}
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO sale_payment (sale_id, method, amount) "
+                    "VALUES (:id, 'transferencia', 40)"
+                ),
+                {"id": sale_id},
+            )
+
+        with pytest.raises(RuntimeError, match="varias formas de pago"):
+            command.downgrade(config, SALES_REVISION)
+
+        with engine.connect() as connection:
+            count = connection.execute(sa.text("SELECT count(*) FROM sale_payment")).scalar_one()
+        assert count == 2
     finally:
         engine.dispose()

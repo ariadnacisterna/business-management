@@ -71,7 +71,7 @@ def _fiado_sale(client, cookies, variant_id, customer_id, quantity="1"):
         "/sales",
         {
             "lines": [{"variant_id": variant_id, "quantity": quantity}],
-            "payment_method": "fiado",
+            "payments": [{"method": "fiado", "amount": str(120 * int(quantity) - 10)}],
             "customer_id": customer_id,
             "discount": "10",
         },
@@ -235,8 +235,8 @@ def test_reports_a_fiado_sale_without_its_charge(client, db_session):
     _execute(db_session, "DELETE FROM credit WHERE sale_id = :id", id=sale["id"])
 
     assert _descriptions(db_session) == [
-        f"Venta N° {sale['id']}: es en fiado y tiene 0 cargos en la cuenta del cliente; tiene "
-        "que tener uno solo, del mismo cliente y por el total de la venta."
+        f"Venta N° {sale['id']}: tiene una parte en fiado y 0 cargos en la cuenta del cliente; "
+        "tiene que tener uno solo, del mismo cliente y por el importe en fiado."
     ]
 
 
@@ -254,7 +254,7 @@ def test_reports_a_voided_fiado_sale_whose_charge_was_not_returned(client, db_se
 
     assert _descriptions(db_session) == [
         f"Venta N° {sale['id']}: está anulada pero el cargo en la cuenta del cliente no se "
-        "devolvió una sola vez por el total de la venta."
+        "devolvió una sola vez por el importe en fiado."
     ]
 
 
@@ -349,3 +349,92 @@ def test_script_cannot_modify_the_database(
         sa.text("SELECT quantity FROM variant WHERE id = :id"), {"id": variant_id}
     ).scalar_one()
     assert quantity == Decimal("6")
+
+
+def _split_sale(client, cookies, variant_id, customer_id):
+    return _post(
+        client,
+        cookies,
+        "/sales",
+        {
+            "lines": [
+                {"variant_id": variant_id, "quantity": "1"},
+                {"description": "Varios", "amount": "30"},
+            ],
+            "payments": [
+                {"method": "efectivo", "amount": "50"},
+                {"method": "fiado", "amount": "100"},
+            ],
+            "customer_id": customer_id,
+        },
+    )
+
+
+def test_split_sales_with_free_amounts_have_no_problems(client, db_session):
+    cookies = _admin_cookies(client)
+    _product, variant_id, _unit_id = _product_with_history(client, cookies)
+    customer = _post(client, cookies, "/customers", {"name": "Cliente reparto"})
+    _split_sale(client, cookies, variant_id, customer["id"])
+    voided = _split_sale(client, cookies, variant_id, customer["id"])
+    _post(client, cookies, f"/sales/{voided['id']}/void", {"reason": "Prueba"})
+
+    assert _descriptions(db_session) == []
+
+
+def test_reports_a_sale_whose_payments_do_not_add_up_to_the_total(client, db_session):
+    cookies = _admin_cookies(client)
+    _product, variant_id, _unit_id = _product_with_history(client, cookies)
+    customer = _post(client, cookies, "/customers", {"name": "Cliente pagos"})
+    sale = _split_sale(client, cookies, variant_id, customer["id"])
+    _execute(
+        db_session,
+        "UPDATE sale_payment SET amount = 20 WHERE sale_id = :id AND method = 'efectivo'",
+        id=sale["id"],
+    )
+
+    assert _descriptions(db_session) == [
+        f"Venta N° {sale['id']}: sus formas de pago suman $ 120.00 pero el total es $ 150.00 "
+        "(tienen que sumar exactamente el total)."
+    ]
+
+
+def test_reports_a_sale_without_payments(client, db_session):
+    cookies = _admin_cookies(client)
+    _product, variant_id, _unit_id = _product_with_history(client, cookies)
+    customer = _post(client, cookies, "/customers", {"name": "Cliente sin pagos"})
+    sale = _split_sale(client, cookies, variant_id, customer["id"])
+    _execute(db_session, "DELETE FROM credit WHERE sale_id = :id", id=sale["id"])
+    _execute(db_session, "DELETE FROM sale_payment WHERE sale_id = :id", id=sale["id"])
+    _execute(db_session, "UPDATE sale SET customer_id = NULL WHERE id = :id", id=sale["id"])
+
+    assert _descriptions(db_session) == [
+        f"Venta N° {sale['id']}: no tiene ninguna forma de pago (tiene que tener al menos una)."
+    ]
+
+
+def test_reports_a_fiado_part_without_a_customer(client, db_session):
+    cookies = _admin_cookies(client)
+    _product, variant_id, _unit_id = _product_with_history(client, cookies)
+    customer = _post(client, cookies, "/customers", {"name": "Cliente borrado"})
+    sale = _split_sale(client, cookies, variant_id, customer["id"])
+    _execute(db_session, "DELETE FROM credit WHERE sale_id = :id", id=sale["id"])
+    _execute(db_session, "UPDATE sale SET customer_id = NULL WHERE id = :id", id=sale["id"])
+
+    assert _descriptions(db_session) == [
+        f"Venta N° {sale['id']}: tiene una parte en fiado pero no tiene cliente.",
+        f"Venta N° {sale['id']}: tiene una parte en fiado y 0 cargos en la cuenta del cliente; "
+        "tiene que tener uno solo, del mismo cliente y por el importe en fiado.",
+    ]
+
+
+def test_reports_a_fiado_charge_that_is_not_the_fiado_part(client, db_session):
+    cookies = _admin_cookies(client)
+    _product, variant_id, _unit_id = _product_with_history(client, cookies)
+    customer = _post(client, cookies, "/customers", {"name": "Cliente cargo total"})
+    sale = _split_sale(client, cookies, variant_id, customer["id"])
+    _execute(db_session, "UPDATE credit SET amount = 150 WHERE sale_id = :id", id=sale["id"])
+
+    assert _descriptions(db_session) == [
+        f"Venta N° {sale['id']}: tiene una parte en fiado y 1 cargos en la cuenta del cliente; "
+        "tiene que tener uno solo, del mismo cliente y por el importe en fiado."
+    ]

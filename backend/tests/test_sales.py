@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import func, select
 
@@ -13,6 +13,7 @@ PASSWORD = "Clave-segura-1"
 EFECTIVO = PaymentMethod.EFECTIVO.value
 TRANSFERENCIA = PaymentMethod.TRANSFERENCIA.value
 FIADO = PaymentMethod.FIADO.value
+PRICES: dict[int, Decimal] = {}
 
 
 def _login(client, user_name, password=PASSWORD):
@@ -80,6 +81,7 @@ def _variant(client, cookies, name, price="100", stock="10", allows_fraction=Fal
     variant_id = product["variants"][0]["id"]
     if price is not None:
         _write(client, cookies, "PUT", f"/variants/{variant_id}/price", {"amount": price})
+        PRICES[variant_id] = Decimal(price)
     if stock is not None:
         _write(
             client, cookies, "POST", f"/variants/{variant_id}/stock/adjustments", {"delta": stock}
@@ -87,12 +89,34 @@ def _variant(client, cookies, name, price="100", stock="10", allows_fraction=Fal
     return product["id"], variant_id
 
 
-def _sale_payload(lines, payment_method=EFECTIVO, customer_id=None, discount=None):
+def _expected_total(lines, discount):
+    subtotal = sum(
+        (
+            (Decimal(quantity) * PRICES.get(variant_id, Decimal(0))).quantize(
+                Decimal("0.01"), ROUND_HALF_UP
+            )
+            for variant_id, quantity in lines
+        ),
+        Decimal(0),
+    )
+    return subtotal - Decimal(discount or 0)
+
+
+def _sale_payload(
+    lines, payment_method=EFECTIVO, customer_id=None, discount=None, payments=None, free=()
+):
+    total = _expected_total(lines, discount) + sum(
+        (Decimal(amount) for _name, amount in free), Decimal(0)
+    )
     payload = {
         "lines": [
             {"variant_id": variant_id, "quantity": quantity} for variant_id, quantity in lines
+        ]
+        + [{"description": name, "amount": amount} for name, amount in free],
+        "payments": [
+            {"method": method, "amount": str(amount)}
+            for method, amount in (payments or [(payment_method, total)])
         ],
-        "payment_method": payment_method,
     }
     if customer_id is not None:
         payload["customer_id"] = customer_id
@@ -128,7 +152,7 @@ def test_cash_sale_takes_current_prices_and_discounts_stock(client):
 
     assert response.status_code == 201, response.text
     sale = response.json()
-    assert sale["payment_method"] == EFECTIVO
+    assert sale["payments"] == [{"method": EFECTIVO, "amount": "541.00"}]
     assert Decimal(sale["subtotal"]) == Decimal("541.00")
     assert Decimal(sale["total"]) == Decimal("541.00")
     assert sale["insufficient_stock"] is False
@@ -180,7 +204,9 @@ def test_discount_cannot_leave_the_total_negative(client, db_session):
     cookies = _admin_cookies(client)
     _product, variant_id = _variant(client, cookies, "Aguja venta", price="100")
 
-    too_large = _sell(client, cookies, [(variant_id, "1")], discount="100.01")
+    too_large = _sell(
+        client, cookies, [(variant_id, "1")], discount="100.01", payments=[(EFECTIVO, "0")]
+    )
     negative = _sell(client, cookies, [(variant_id, "1")], discount="-1")
 
     assert too_large.status_code == 422
@@ -529,3 +555,233 @@ def test_voiding_a_sale_that_emptied_the_stock_receives_its_shortage(client):
     _write(client, cookies, "POST", f"/sales/{sale['id']}/void", {"reason": "Error"})
 
     assert _shortage_statuses(client, cookies, variant_id) == ["recibido"]
+
+
+def _payment_pairs(sale):
+    return [(payment["method"], Decimal(payment["amount"])) for payment in sale["payments"]]
+
+
+def test_a_sale_can_split_its_total_between_cash_and_transfer(client):
+    cookies = _admin_cookies(client)
+    _product, variant_id = _variant(client, cookies, "Reparto venta", price="250")
+
+    response = _sell(
+        client,
+        cookies,
+        [(variant_id, "4")],
+        payments=[(EFECTIVO, "600"), (TRANSFERENCIA, "400")],
+    )
+
+    assert response.status_code == 201, response.text
+    sale = response.json()
+    assert Decimal(sale["total"]) == Decimal("1000")
+    assert _payment_pairs(sale) == [(EFECTIVO, Decimal("600")), (TRANSFERENCIA, Decimal("400"))]
+    assert sale["customer_id"] is None
+    assert _stock(client, cookies, variant_id) == Decimal("6")
+
+
+def test_payments_that_do_not_add_up_to_the_total_are_rejected(client, db_session):
+    cookies = _admin_cookies(client)
+    _product, variant_id = _variant(client, cookies, "Suma venta", price="100")
+
+    short = _sell(
+        client, cookies, [(variant_id, "2")], payments=[(EFECTIVO, "150"), (TRANSFERENCIA, "40")]
+    )
+    over = _sell(client, cookies, [(variant_id, "2")], payments=[(EFECTIVO, "200.01")])
+
+    assert short.status_code == 422
+    assert "$ 190,00" in short.json()["detail"]
+    assert "$ 200,00" in short.json()["detail"]
+    assert over.status_code == 422
+    assert _sale_count(db_session) == 0
+    assert _stock(client, cookies, variant_id) == Decimal("10")
+
+
+def test_invalid_payment_parts_are_rejected(client, db_session):
+    cookies = _admin_cookies(client)
+    _product, variant_id = _variant(client, cookies, "Partes venta", price="100")
+    lines = [(variant_id, "1")]
+
+    repeated = _sell(client, cookies, lines, payments=[(EFECTIVO, "50"), (EFECTIVO, "50")])
+    zero_part = _sell(client, cookies, lines, payments=[(EFECTIVO, "100"), (TRANSFERENCIA, "0")])
+    negative = _sell(client, cookies, lines, payments=[(EFECTIVO, "150"), (TRANSFERENCIA, "-50")])
+    too_precise = _sell(
+        client, cookies, lines, payments=[(EFECTIVO, "99.999"), (TRANSFERENCIA, "0.001")]
+    )
+    without_payments = _send(
+        client,
+        cookies,
+        "POST",
+        "/sales",
+        {"lines": [{"variant_id": variant_id, "quantity": "1"}], "payments": []},
+    )
+
+    for response in (repeated, zero_part, negative, too_precise, without_payments):
+        assert response.status_code == 422, response.text
+    assert _sale_count(db_session) == 0
+
+
+def test_a_split_sale_with_a_fiado_part_charges_only_that_part(client):
+    cookies = _admin_cookies(client)
+    _product, variant_id = _variant(client, cookies, "Fiado parcial venta", price="300")
+    customer = _write(client, cookies, "POST", "/customers", {"name": "Cliente parcial"})
+    _write(
+        client,
+        cookies,
+        "POST",
+        f"/customers/{customer['id']}/credits",
+        {"type": "cargo", "amount": "50"},
+    )
+
+    sale = _sell(
+        client,
+        cookies,
+        [(variant_id, "2")],
+        payments=[(EFECTIVO, "200"), (FIADO, "400")],
+        customer_id=customer["id"],
+    ).json()
+
+    assert _payment_pairs(sale) == [(EFECTIVO, Decimal("200")), (FIADO, Decimal("400"))]
+    assert sale["customer_name"] == "Cliente parcial"
+    assert _balance(client, cookies, customer["id"]) == Decimal("450")
+    credits = client.get(f"/customers/{customer['id']}/credits", cookies=cookies).json()
+    assert [Decimal(credit["amount"]) for credit in credits] == [Decimal("50"), Decimal("400")]
+
+
+def test_a_fiado_part_requires_a_customer_and_a_customer_requires_a_fiado_part(client):
+    cookies = _admin_cookies(client)
+    _product, variant_id = _variant(client, cookies, "Cliente parcial venta", price="100")
+    customer = _write(client, cookies, "POST", "/customers", {"name": "Cliente sin fiado"})
+    lines = [(variant_id, "1")]
+
+    without_customer = _sell(client, cookies, lines, payments=[(EFECTIVO, "60"), (FIADO, "40")])
+    without_fiado = _sell(
+        client,
+        cookies,
+        lines,
+        payments=[(EFECTIVO, "60"), (TRANSFERENCIA, "40")],
+        customer_id=customer["id"],
+    )
+
+    assert without_customer.status_code == 422
+    assert "cliente" in without_customer.json()["detail"]
+    assert without_fiado.status_code == 422
+
+
+def test_voiding_a_split_sale_returns_the_stock_and_only_the_fiado_part(client):
+    cookies = _admin_cookies(client)
+    _product, variant_id = _variant(client, cookies, "Anula reparto venta", price="100")
+    customer = _write(client, cookies, "POST", "/customers", {"name": "Cliente anula reparto"})
+    sale = _sell(
+        client,
+        cookies,
+        [(variant_id, "5")],
+        payments=[(EFECTIVO, "100"), (TRANSFERENCIA, "150"), (FIADO, "300")],
+        customer_id=customer["id"],
+        free=[("Arreglo", "50")],
+    ).json()
+    assert _balance(client, cookies, customer["id"]) == Decimal("300")
+
+    voided = _write(client, cookies, "POST", f"/sales/{sale['id']}/void", {"reason": "Devolvió"})
+
+    assert voided["voided_at"] is not None
+    assert len(voided["payments"]) == 3
+    assert _stock(client, cookies, variant_id) == Decimal("10")
+    assert _balance(client, cookies, customer["id"]) == Decimal("0")
+    credits = client.get(f"/customers/{customer['id']}/credits", cookies=cookies).json()
+    assert sorted(Decimal(credit["amount"]) for credit in credits) == [
+        Decimal("300"),
+        Decimal("300"),
+    ]
+
+
+def test_a_free_amount_line_counts_in_the_total_without_moving_stock(client):
+    cookies = _admin_cookies(client)
+    _product, variant_id = _variant(client, cookies, "Libre venta", price="100")
+
+    response = _sell(client, cookies, [(variant_id, "1")], free=[("  Varios  ", "35.50")])
+
+    assert response.status_code == 201, response.text
+    sale = response.json()
+    assert Decimal(sale["total"]) == Decimal("135.50")
+    free_line = sale["lines"][1]
+    assert free_line["description"] == "Varios"
+    assert free_line["variant_id"] is None
+    assert free_line["product_name"] is None
+    assert Decimal(free_line["line_total"]) == Decimal("35.50")
+    assert free_line["insufficient_stock"] is False
+    assert _stock(client, cookies, variant_id) == Decimal("9")
+
+
+def test_a_sale_can_have_only_free_amount_lines(client):
+    cookies = _admin_cookies(client)
+
+    response = _sell(client, cookies, [], free=[("Arreglo", "1200")], discount="200")
+
+    assert response.status_code == 201, response.text
+    sale = response.json()
+    assert Decimal(sale["total"]) == Decimal("1000")
+    assert sale["insufficient_stock"] is False
+    voided = _write(client, cookies, "POST", f"/sales/{sale['id']}/void", {"reason": "Error"})
+    assert voided["voided_at"] is not None
+
+
+def test_invalid_free_amount_lines_are_rejected(client, db_session):
+    cookies = _admin_cookies(client)
+    _product, variant_id = _variant(client, cookies, "Libre invalido venta", price="100")
+
+    without_name = _sell(client, cookies, [], free=[("   ", "10")])
+    zero = _sell(client, cookies, [], free=[("Varios", "0")])
+    long_name = _sell(client, cookies, [], free=[("x" * 101, "10")])
+    mixed = _send(
+        client,
+        cookies,
+        "POST",
+        "/sales",
+        {
+            "lines": [{"variant_id": variant_id, "quantity": "1", "amount": "10"}],
+            "payments": [{"method": EFECTIVO, "amount": "100"}],
+        },
+    )
+
+    for response in (without_name, zero, long_name, mixed):
+        assert response.status_code == 422, response.text
+    assert _sale_count(db_session) == 0
+
+
+def test_list_filter_by_payment_method_finds_split_sales(client):
+    cookies = _admin_cookies(client)
+    _product, variant_id = _variant(client, cookies, "Filtro reparto venta", price="100")
+    cash = _sell(client, cookies, [(variant_id, "1")]).json()
+    split = _sell(
+        client, cookies, [(variant_id, "1")], payments=[(EFECTIVO, "30"), (TRANSFERENCIA, "70")]
+    ).json()
+
+    transfers = client.get("/sales", params={"payment_method": TRANSFERENCIA}, cookies=cookies)
+    cash_sales = client.get("/sales", params={"payment_method": EFECTIVO}, cookies=cookies)
+
+    assert [item["id"] for item in transfers.json()["items"]] == [split["id"]]
+    assert [item["id"] for item in cash_sales.json()["items"]] == [split["id"], cash["id"]]
+    assert _payment_pairs(transfers.json()["items"][0]) == [
+        (EFECTIVO, Decimal("30")),
+        (TRANSFERENCIA, Decimal("70")),
+    ]
+
+
+def test_the_same_split_submission_sent_twice_charges_the_customer_once(client, db_session):
+    cookies = _admin_cookies(client)
+    _product, variant_id = _variant(client, cookies, "Envio reparto venta", price="100")
+    customer = _write(client, cookies, "POST", "/customers", {"name": "Cliente envio"})
+    payload = _sale_payload(
+        [(variant_id, "2")],
+        payments=[(EFECTIVO, "120"), (FIADO, "80")],
+        customer_id=customer["id"],
+    )
+
+    first = _send(client, cookies, "POST", "/sales", payload, "clave-reparto-repetida-1")
+    second = _send(client, cookies, "POST", "/sales", payload, "clave-reparto-repetida-1")
+
+    assert first.status_code == 201
+    assert second.json() == first.json()
+    assert _sale_count(db_session) == 1
+    assert _balance(client, cookies, customer["id"]) == Decimal("80")

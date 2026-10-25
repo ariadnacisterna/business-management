@@ -1,4 +1,5 @@
-import type { PaymentMethod, SellableVariant } from '../../api/types'
+import type { PaymentMethod, SaleLine, SalePayment, SellableVariant } from '../../api/types'
+import { formatMoney } from '../../shared/formatPrice'
 import { normalizeForComparison } from '../../shared/normalizeForComparison'
 import { toUnits } from '../../shared/signedDelta'
 
@@ -99,6 +100,29 @@ export function matchesSearch(variant: SellableVariant, search: string): boolean
     [variant.product_name, variant.category_name, variantDescription(variant)].join(' '),
   )
   return terms.every((term) => text.includes(term))
+}
+
+export function paymentSummary(payments: SalePayment[]): string {
+  if (payments.length === 1) return PAYMENT_METHOD_LABELS[payments[0].method]
+  return payments.map((payment) => `${PAYMENT_METHOD_LABELS[payment.method]} ${formatMoney(payment.amount)}`).join(' + ')
+}
+
+export function saleLineName(line: SaleLine): string {
+  if (line.description !== null) return line.description
+  const name = line.product_name ?? ''
+  return line.variant_description ? `${name} (${line.variant_description})` : name
+}
+
+export function amountCents(amount: string): number {
+  if (!DISCOUNT_PATTERN.test(amount)) return 0
+  return toUnits('price', amount)
+}
+
+export function amountProblem(amount: string): string | null {
+  if (amount.trim() === '') return 'Escribí el importe.'
+  if (!DISCOUNT_PATTERN.test(amount)) return 'Usá como máximo 2 decimales.'
+  if (toUnits('price', amount) <= 0) return 'El importe tiene que ser mayor que cero.'
+  return null
 }
 
 export function startOfDayIso(date: string): string {
