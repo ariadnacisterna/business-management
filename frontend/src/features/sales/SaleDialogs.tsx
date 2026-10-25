@@ -28,14 +28,13 @@ interface ShellProps {
   widthClass: string
   fixedHeight?: boolean
   fitHeight?: boolean
-  heading?: string
-  icon?: ReactNode
+  bare?: boolean
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void
   onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void
   children: ReactNode
 }
 
-export function SaleDialogShell({ title, onClose, widthClass, fixedHeight = false, fitHeight = false, heading, icon, onSubmit, onKeyDown, children }: ShellProps) {
+export function SaleDialogShell({ title, onClose, widthClass, fixedHeight = false, fitHeight = false, bare = false, onSubmit, onKeyDown, children }: ShellProps) {
   useEffect(() => {
     window.dispatchEvent(new Event(CLOSE_FLOATING_MENUS_EVENT))
   }, [])
@@ -57,8 +56,7 @@ export function SaleDialogShell({ title, onClose, widthClass, fixedHeight = fals
             </div>
             <CloseButton onClose={onClose} />
           </div>
-          {icon}
-          <h2 className="m-0 text-2xl font-bold">{heading ?? title}</h2>
+          {!bare && <h2 className="m-0 text-2xl font-bold">{title}</h2>}
         </div>
         {children}
       </Dialog>
@@ -185,19 +183,19 @@ function CheckIcon() {
 
 export function SaleRegisteredDialog({ sale, onNewSale }: { sale: Sale; onNewSale: () => void }) {
   const split = sale.payments.length > 1
+  const shortNames = sale.lines.filter((line) => line.insufficient_stock).map((line) => line.product_name ?? line.description ?? 'Producto')
   return (
-    <SaleDialogShell title="Venta registrada" heading={`Venta N.º ${sale.id} registrada`} icon={<CheckIcon />} onClose={onNewSale} widthClass="max-w-md">
-      <div className="flex flex-col gap-3 text-lg">
-        <div className="flex items-baseline justify-between gap-3 border-b border-line-soft pb-3">
-          <span className="font-semibold">Total</span>
-          <span className="text-2xl font-bold text-brand [overflow-wrap:anywhere]" aria-label="Total registrado">
-            {formatAmount(sale.total)}
-          </span>
-        </div>
-        <div className="flex items-start justify-between gap-3 border-b border-line-soft pb-3">
-          <span className="font-semibold">Forma de pago</span>
+    <SaleDialogShell title="Venta registrada" bare onClose={onNewSale} widthClass="max-w-md">
+      <div className="flex flex-col items-center gap-2 text-center">
+        <CheckIcon />
+        <h2 className="m-0 mt-2 text-2xl font-bold">¡Venta registrada!</h2>
+        <p className="m-0 text-lg opacity-60">Venta N.º {sale.id}</p>
+        <p className="m-0 mt-3 text-4xl font-bold text-brand [overflow-wrap:anywhere]" aria-label="Total registrado">
+          {formatAmount(sale.total)}
+        </p>
+        <div className="mt-2 flex flex-col items-center gap-1 text-lg opacity-60">
           {split ? (
-            <ul className="m-0 flex list-none flex-col gap-1 p-0 text-right">
+            <ul className="m-0 flex list-none flex-col items-center gap-0.5 p-0">
               {sale.payments.map((payment) => (
                 <li key={payment.method}>
                   {PAYMENT_METHOD_LABELS[payment.method]} {formatMoney(payment.amount)}
@@ -205,16 +203,28 @@ export function SaleRegisteredDialog({ sale, onNewSale }: { sale: Sale; onNewSal
               ))}
             </ul>
           ) : (
-            <span className="text-right">{paymentSummary(sale.payments)}</span>
+            <p className="m-0">{paymentSummary(sale.payments)}</p>
           )}
+          {sale.customer_name !== null && <p className="m-0 [overflow-wrap:anywhere]">Cliente: {sale.customer_name}</p>}
         </div>
-        {sale.customer_name !== null && (
-          <div className="flex items-start justify-between gap-3">
-            <span className="font-semibold">Cliente</span>
-            <span className="text-right [overflow-wrap:anywhere]">{sale.customer_name}</span>
-          </div>
-        )}
       </div>
+      {sale.insufficient_stock && (
+        <div role="alert" className="flex flex-col items-center gap-1 text-center text-lg text-warning">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7">
+            <path d="M12 3l10 18H2L12 3z" />
+            <path d="M12 10v5M12 18h.01" />
+          </svg>
+          <p className="m-0 font-semibold">Stock insuficiente en:</p>
+          <ul className="m-0 list-none p-0">
+            {shortNames.map((name, index) => (
+              <li key={index} className="[overflow-wrap:anywhere]">
+                {name}
+              </li>
+            ))}
+          </ul>
+          <p className="m-0 mt-1">El stock quedó en 0 y la venta queda marcada para revisar el inventario.</p>
+        </div>
+      )}
       <div className="flex flex-col gap-3">
         <button type="button" onClick={onNewSale} autoFocus className={`${primaryButtonClasses.replace(' disabled:cursor-wait', '')} w-full`}>
           Nueva venta

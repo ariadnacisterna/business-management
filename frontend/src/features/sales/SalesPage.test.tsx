@@ -176,14 +176,15 @@ describe('SalesPage', () => {
     await user.click(within(checkout).getByRole('button', { name: 'Confirmar venta' }))
 
     const registered = await screen.findByRole('dialog', { name: 'Venta registrada' })
-    expect(within(registered).getByRole('heading', { name: 'Venta N.º 5 registrada' })).toBeInTheDocument()
-    expect(within(registered).getByText('Clara Ventas')).toBeInTheDocument()
+    expect(within(registered).getByText('Venta N.º 5')).toBeInTheDocument()
+    expect(within(registered).getByText('Cliente: Clara Ventas')).toBeInTheDocument()
     expect(within(registered).getByLabelText('Total registrado')).toHaveTextContent('$ 900,00')
     expect(within(registered).getByRole('button', { name: /Imprimir comprobante/ })).toBeDisabled()
     expect(within(registered).getByText('(próximamente)')).toBeInTheDocument()
+    expect(within(registered).getByText('Stock insuficiente en:')).toBeInTheDocument()
     await user.click(within(registered).getByRole('button', { name: 'Nueva venta' }))
     expect(screen.queryByRole('dialog', { name: 'Venta registrada' })).not.toBeInTheDocument()
-    expect(screen.getByText('Venta N° 5 registrada sin stock suficiente')).toBeInTheDocument()
+    expect(screen.queryByText(/registrada sin stock suficiente/)).not.toBeInTheDocument()
     const postInit = fetchMock.mock.calls
       .map(([, init]) => init as RequestInit | undefined)
       .find((init) => init?.method === 'POST')

@@ -180,7 +180,6 @@ export function NewSalePanel() {
   const [discountMode, setDiscountMode] = useState<DiscountMode>('pesos')
   const [dialog, setDialog] = useState<OpenDialog>('none')
   const [registeredSale, setRegisteredSale] = useState<Sale | null>(null)
-  const [lastSale, setLastSale] = useState<Sale | null>(null)
   const ticketRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const freeKeyRef = useRef(0)
@@ -223,13 +222,11 @@ export function NewSalePanel() {
         line === existing ? { ...existing, quantity: stepQuantity(existing.quantity, 1) ?? existing.quantity } : line,
       )
     })
-    setLastSale(null)
   }
 
   function addFreeAmount(description: string, amount: string) {
     freeKeyRef.current += 1
     setLines((current) => [...current, { kind: 'free', key: `f${freeKeyRef.current}`, description, amount }])
-    setLastSale(null)
     setDialog('none')
   }
 
@@ -283,7 +280,6 @@ export function NewSalePanel() {
       })
       setDialog('none')
       clearTicket()
-      setLastSale(sale)
       setRegisteredSale(sale)
       variantsLoad.reload()
     } catch (error) {
@@ -296,8 +292,6 @@ export function NewSalePanel() {
     window.setTimeout(() => searchRef.current?.focus(), 0)
   }
 
-  const shortLines = lastSale?.lines.filter((line) => line.insufficient_stock) ?? []
-
   const {
     scrollRef: cartScrollRef,
     scrollbar: cartScrollbar,
@@ -307,16 +301,6 @@ export function NewSalePanel() {
 
   return (
     <div className="flex flex-col gap-4 pb-28 lg:min-h-0 lg:flex-1 lg:pb-0">
-      {lastSale !== null && lastSale.insufficient_stock && (
-        <div role="alert" className="rounded-2xl border-2 border-warning bg-warning/10 p-4 text-lg">
-          <p className="m-0 font-bold">Venta N° {lastSale.id} registrada sin stock suficiente</p>
-          <p className="m-0 mt-1 [overflow-wrap:anywhere]">
-            No alcanzaba el stock de {shortLines.map((line) => line.product_name).join(', ')}. El stock quedó en 0 y la
-            venta quedó marcada para que alguien revise el inventario.
-          </p>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 items-start gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:grid-rows-[minmax(0,1fr)] lg:items-stretch lg:gap-x-8">
         <div className="flex min-w-0 flex-col gap-4 lg:min-h-0">
           <section className="flex flex-col gap-4 rounded-2xl bg-surface p-3 shadow-sm" aria-label="Productos">
