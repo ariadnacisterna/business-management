@@ -16,7 +16,7 @@ import {
   type SplitAmounts,
 } from './checkoutMath'
 import { fieldClasses, primaryButtonClasses, SaleDialogShell, secondaryButtonClasses } from './SaleDialogs'
-import { centsToAmount, PAYMENT_METHOD_LABELS, PAYMENT_METHODS } from './saleMath'
+import { amountCents, centsToAmount, PAYMENT_METHOD_LABELS, PAYMENT_METHODS } from './saleMath'
 import { formatMoney } from '../../shared/formatPrice'
 
 const NEW_CUSTOMER_VALUE = '__new_customer__'
@@ -109,6 +109,10 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
   const change = cash > 0 ? changeCents(paidWith, cash) : null
   const customerError = fiado && customerId === '' ? FIADO_CUSTOMER_MESSAGE : null
   const problem = plan.problem ?? customerError
+  const over = mode === 'split' && plan.remainingCents < 0
+  const missing = mode === 'split' && plan.remainingCents > 0
+  const emptyActive = mode === 'split' ? splitActive.filter((method) => amountCents(split[method]) <= 0) : []
+  const splitBlocked = mode === 'split' && (plan.parts.length === 0 || plan.remainingCents !== 0 || emptyActive.length > 0)
 
   function chooseCustomer(value: string) {
     if (value === NEW_CUSTOMER_VALUE) {
@@ -156,7 +160,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
   async function submit(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault()
     setAttempted(true)
-    if (problem !== null || savingRef.current) return
+    if (problem !== null || splitBlocked || savingRef.current) return
     savingRef.current = true
     setSaving(true)
     try {
@@ -217,7 +221,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
               {money(totalCents)}
             </span>
           </div>
-          {attempted && problem !== null && (
+          {attempted && problem !== null && !splitBlocked && (
             <p role="alert" className="m-0 text-lg text-danger">
               {problem}
             </p>
@@ -264,33 +268,41 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
           {mode === 'split' && splitActive.length > 0 && (
             <ul className="m-0 flex list-none flex-col gap-4 p-0">
               {PAYMENT_METHODS.filter((method) => splitActive.includes(method)).map((method) => (
-                <li key={method} className="grid grid-cols-1 items-center gap-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] sm:gap-3">
-                  <span className="text-lg font-bold">{PAYMENT_METHOD_LABELS[method]}</span>
+                <li key={method} className="grid grid-cols-1 items-center gap-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] sm:gap-x-3">
+                  <span className="text-lg font-bold">
+                    {PAYMENT_METHOD_LABELS[method]} <span className="text-danger">*</span>
+                  </span>
                   <PriceInput
                     value={split[method]}
                     onChange={(value) => changeSplit(method, value)}
                     ariaLabel={`Importe en ${PAYMENT_METHOD_LABELS[method].toLowerCase()}`}
                     placeholder="0"
-                    className={`${fieldClasses} pl-8`}
+                    className={`${fieldClasses} pl-8 ${over || emptyActive.includes(method) ? 'border-danger' : ''}`}
                   />
+                  {emptyActive.includes(method) && (
+                    <p role="alert" className="m-0 text-base text-danger sm:col-start-2">
+                      Completá el importe
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
           )}
 
           {mode === 'split' && (
-            <div
-              aria-live="polite"
-              className={`flex flex-wrap items-baseline justify-between gap-2 rounded-lg px-4 py-3 text-lg ${
-                plan.remainingCents === 0 ? 'bg-success-soft text-success' : 'bg-warning/10'
-              }`}
-            >
-              <span className="font-semibold">
-                {plan.remainingCents === 0 ? 'Todo asignado' : plan.remainingCents > 0 ? 'Falta asignar' : 'Sobra'}
-              </span>
-              <span className="text-2xl font-bold">
-                {money(Math.abs(plan.remainingCents))}
-              </span>
+            <div aria-live="polite" className="flex flex-col gap-3">
+              {over && (
+                <p role="alert" className="m-0 text-lg text-danger">
+                  Las formas de pago suman {money(-plan.remainingCents)} más que el total. Corregí los importes.
+                </p>
+              )}
+              {missing && plan.parts.length > 0 && (
+                <p className="m-0 text-lg opacity-60">Todavía falta asignar parte del total.</p>
+              )}
+              <div className={`flex flex-wrap items-baseline justify-between gap-3 text-lg ${plan.remainingCents === 0 && plan.parts.length > 0 ? 'text-success' : 'opacity-70'}`}>
+                <span className="font-semibold">{plan.remainingCents === 0 && plan.parts.length > 0 ? 'Completo' : 'Falta asignar'}</span>
+                <span>{money(Math.max(plan.remainingCents, 0))}</span>
+              </div>
             </div>
           )}
 
@@ -351,7 +363,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
         </div>
       </div>
       <div className="grid shrink-0 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-10">
-        <button type="submit" disabled={saving} aria-busy={saving} className={`${primaryButtonClasses} w-full`}>
+        <button type="submit" disabled={saving || splitBlocked} aria-busy={saving} className={`${primaryButtonClasses} w-full`}>
           Confirmar venta
         </button>
         <div aria-hidden="true" className="hidden w-px md:block" />

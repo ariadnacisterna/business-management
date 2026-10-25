@@ -463,8 +463,8 @@ describe('SalesPage', () => {
     await user.click(within(checkout).getByRole('button', { name: 'Transferencia' }))
     await user.type(within(checkout).getByRole('textbox', { name: 'Importe en efectivo' }), '200')
     expect(within(checkout).getByText('$ 400,00')).toBeInTheDocument()
-    await user.click(within(checkout).getByRole('button', { name: 'Confirmar venta' }))
     expect(within(checkout).getByText('Todavía falta asignar parte del total.')).toBeInTheDocument()
+    expect(within(checkout).getByRole('button', { name: 'Confirmar venta' })).toBeDisabled()
 
     await user.type(within(checkout).getByRole('textbox', { name: 'Importe en transferencia' }), '400')
     expect(within(checkout).getByText('$ 0,00')).toBeInTheDocument()
@@ -501,10 +501,10 @@ describe('SalesPage', () => {
 
     await user.click(within(checkout).getByRole('button', { name: 'Repartir entre varias' }))
     expect(within(checkout).getByText('Falta asignar')).toBeInTheDocument()
-    expect(within(checkout).getByText('$ 540,00', { selector: 'span.text-2xl' })).toBeInTheDocument()
+    expect(within(checkout).getByText('Falta asignar').parentElement).toHaveTextContent('$ 540,00')
     await user.click(within(checkout).getByRole('button', { name: 'Efectivo' }))
     await user.type(within(checkout).getByRole('textbox', { name: 'Importe en efectivo' }), '200')
-    expect(within(checkout).getByText('$ 340,00', { selector: 'span.text-2xl' })).toBeInTheDocument()
+    expect(within(checkout).getByText('Falta asignar').parentElement).toHaveTextContent('$ 340,00')
 
     await user.keyboard('{Escape}')
     expect(screen.getByRole('textbox', { name: 'Descuento en pesos' })).toHaveValue('60.00')
