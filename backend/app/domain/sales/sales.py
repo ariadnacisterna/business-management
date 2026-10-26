@@ -14,6 +14,7 @@ from app.constants.limits import (
 )
 from app.constants.status import CreditType, EntityStatus, PaymentMethod
 from app.db.models import Product, Sale, SaleLine, SalePayment, Variant
+from app.domain.cash.registers import ensure_open_register
 from app.domain.catalog.credits import add_credit
 from app.domain.catalog.customers import get_customer
 from app.domain.catalog.errors import InvalidStockQuantity
@@ -221,8 +222,10 @@ def register_sale(
     total = subtotal - discount
     _validate_payments_cover_total(payments, total)
 
+    register = ensure_open_register(db, business_id, actor_account_id)
     sale = Sale(
         business_id=business_id,
+        cash_register_id=register.id,
         customer_id=customer_id,
         subtotal=subtotal,
         discount=discount,
@@ -332,6 +335,7 @@ def void_sale(
             sale_id=sale.id,
         )
 
+    sale.void_cash_register_id = ensure_open_register(db, business_id, actor_account_id).id
     sale.voided_at = datetime.now(UTC)
     sale.voided_by_account_id = actor_account_id
     sale.void_reason = reason

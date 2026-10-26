@@ -52,6 +52,14 @@ export function canViewCustomerHistory(account: Account | null): boolean {
   return hasMinimumRole(account, 'Gerente')
 }
 
+export function canCloseCash(account: Account | null): boolean {
+  return hasMinimumRole(account, 'Gerente')
+}
+
+export function canCloseCashTransfers(account: Account | null): boolean {
+  return hasMinimumRole(account, 'Administrador')
+}
+
 export function canVoidSales(account: Account | null): boolean {
   return hasMinimumRole(account, 'Gerente')
 }

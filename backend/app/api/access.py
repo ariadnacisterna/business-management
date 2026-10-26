@@ -53,6 +53,7 @@ from app.domain.access.permissions import (
     require_role,
 )
 from app.domain.access.sessions import IssuedSession
+from app.domain.cash.registers import ensure_open_register
 
 router = APIRouter()
 
@@ -240,6 +241,8 @@ def login(
     except NoBusinessAccess as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, NO_BUSINESS_ACCESS_DETAIL) from exc
 
+    ensure_open_register(db, business.id, account.id)
+    db.commit()
     _set_session_cookies(response, issued_session)
     return _session_info_response(db, account, business)
 

@@ -27,7 +27,7 @@ async function finishSale(page: Page, checkout: Locator) {
   await checkout.getByRole('button', { name: 'Confirmar venta' }).click()
   const registered = page.getByRole('dialog', { name: 'Venta registrada' })
   await expect(registered).toBeVisible()
-  const saleNumber = await registered.getByText(/^Venta N° \d+$/).textContent()
+  const saleNumber = await registered.getByText(/^Venta N\.º \d+$/).textContent()
   await registered.getByRole('button', { name: 'Nueva venta' }).click()
   await expect(registered).toHaveCount(0)
   return Number(saleNumber?.replace(/\D/g, ''))
@@ -35,6 +35,13 @@ async function finishSale(page: Page, checkout: Locator) {
 
 async function confirmSale(page: Page) {
   return finishSale(page, await openCheckout(page))
+}
+
+async function splitBetween(checkout: Locator, ...methods: string[]) {
+  await checkout.getByRole('button', { name: 'Repartir entre varias' }).click()
+  for (const method of methods) {
+    await checkout.getByRole('button', { name: method, exact: true }).click()
+  }
 }
 
 async function chooseFiadoCustomer(page: Page, checkout: Locator, customer: string) {
@@ -129,9 +136,14 @@ test('se vende aunque no alcance el stock y la venta queda marcada', async ({ pa
 
   await addProduct(page, 'Pegamento en barra', '3')
   await expect(page.getByRole('main')).toContainText('Stock insuficiente: hay 1 u')
-  await confirmSale(page)
+  const checkout = await openCheckout(page)
+  await checkout.getByRole('button', { name: 'Confirmar venta' }).click()
 
-  await expect(page.getByRole('alert').filter({ hasText: 'sin stock suficiente' })).toBeVisible()
+  const registered = page.getByRole('dialog', { name: 'Venta registrada' })
+  await expect(registered.getByRole('alert')).toContainText('Stock insuficiente en:')
+  await expect(registered.getByRole('alert')).toContainText('Pegamento en barra')
+  await registered.getByRole('button', { name: 'Nueva venta' }).click()
+  await expect(registered).toHaveCount(0)
   const sale = await openLatestSale(page)
   await expect(sale).toContainText('Sin stock suficiente')
 })
@@ -175,7 +187,9 @@ test.describe('en un celular con letra Enorme', () => {
     await expectNoHorizontalScroll(page)
     const checkout = await openCheckout(page)
     await checkout.getByRole('button', { name: 'Transferencia' }).click()
-    await checkout.getByRole('button', { name: 'Repartir entre varias' }).click()
+    await splitBetween(checkout, 'Efectivo', 'Transferencia')
+    await expect(checkout.getByRole('textbox', { name: 'Importe en efectivo' })).toBeVisible()
+    await expect(checkout.getByRole('button', { name: 'Confirmar venta' })).toBeDisabled()
     await expectNoHorizontalScroll(page)
     await checkout.getByRole('button', { name: 'Pagar con una sola' }).click()
     await checkout.getByRole('button', { name: 'Transferencia' }).click()
@@ -205,12 +219,14 @@ test('una venta repartida entre efectivo y transferencia calcula el vuelto', asy
 
   await addProduct(page, 'Marcador fluo', '2')
   const checkout = await openCheckout(page)
-  await checkout.getByRole('button', { name: 'Repartir entre varias' }).click()
+  await splitBetween(checkout, 'Efectivo', 'Transferencia')
   await checkout.getByRole('textbox', { name: 'Importe en efectivo' }).fill('1000')
   await expect(checkout).toContainText('Falta asignar')
   await expect(checkout).toContainText('$ 800,00')
+  await expect(checkout.getByRole('button', { name: 'Confirmar venta' })).toBeDisabled()
   await checkout.getByRole('textbox', { name: 'Importe en transferencia' }).fill('800')
-  await expect(checkout).toContainText('$ 0,00')
+  await expect(checkout).toContainText('Completo')
+  await expect(checkout.getByRole('button', { name: 'Confirmar venta' })).toBeEnabled()
   await checkout.getByRole('textbox', { name: 'Paga con' }).fill('2000')
   await expect(checkout.getByTestId('change-amount')).toHaveText('$ 1.000,00')
   await checkout.screenshot({ path: testInfo.outputPath('confirmar-venta-repartida.png') })
@@ -231,12 +247,12 @@ test('una venta con una parte en fiado suma solo esa parte al saldo del cliente'
 
   await addProduct(page, 'Marcador fluo', '1')
   const checkout = await openCheckout(page)
-  await checkout.getByRole('button', { name: 'Repartir entre varias' }).click()
+  await splitBetween(checkout, 'Efectivo', 'Fiado')
   await checkout.getByRole('textbox', { name: 'Importe en efectivo' }).fill('300')
   await checkout.getByRole('textbox', { name: 'Importe en fiado' }).fill('600')
-  await checkout.getByRole('button', { name: 'Confirmar venta' }).click()
-  await expect(checkout.getByRole('alert')).toHaveText('Para vender en fiado elegí el cliente.')
+  await expect(checkout.getByRole('button', { name: 'Confirmar venta' })).toBeDisabled()
   await chooseFiadoCustomer(page, checkout, 'Clara Ventas')
+  await expect(checkout.getByRole('button', { name: 'Confirmar venta' })).toBeEnabled()
   await finishSale(page, checkout)
 
   await expect(await customerBalanceText(page, 'Clara Ventas')).toContainText('$ 1.500,00')
@@ -284,14 +300,14 @@ test('un Gerente anula una venta repartida y se revierte la parte en fiado', asy
 
   await addProduct(page, 'Marcador fluo', '1')
   const checkout = await openCheckout(page)
-  await checkout.getByRole('button', { name: 'Repartir entre varias' }).click()
+  await splitBetween(checkout, 'Transferencia', 'Fiado')
   await checkout.getByRole('textbox', { name: 'Importe en transferencia' }).fill('400')
   await checkout.getByRole('textbox', { name: 'Importe en fiado' }).fill('500')
   await chooseFiadoCustomer(page, checkout, 'Clara Ventas')
   await page.keyboard.press('Escape')
   await expect(checkout).toHaveCount(0)
   const reopened = await openCheckout(page)
-  await reopened.getByRole('button', { name: 'Repartir entre varias' }).click()
+  await splitBetween(reopened, 'Transferencia', 'Fiado')
   await reopened.getByRole('textbox', { name: 'Importe en transferencia' }).fill('400')
   await reopened.getByRole('textbox', { name: 'Importe en fiado' }).fill('500')
   await chooseFiadoCustomer(page, reopened, 'Clara Ventas')

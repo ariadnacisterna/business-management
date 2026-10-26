@@ -16,6 +16,7 @@ const ProductDetailPage = lazyWithReload(() => import('./features/catalog/Produc
 const ProductFormPage = lazyWithReload(() => import('./features/catalog/ProductFormPage').then((m) => ({ default: m.ProductFormPage })))
 const ProductsPage = lazyWithReload(() => import('./features/catalog/ProductsPage').then((m) => ({ default: m.ProductsPage })))
 const UnitsPage = lazyWithReload(() => import('./features/catalog/UnitsPage').then((m) => ({ default: m.UnitsPage })))
+const CashPage = lazyWithReload(() => import('./features/cash/CashPage').then((m) => ({ default: m.CashPage })))
 const CustomersPage = lazyWithReload(() => import('./features/customers/CustomersPage').then((m) => ({ default: m.CustomersPage })))
 const DashboardPage = lazyWithReload(() => import('./features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })))
 const InventoryPage = lazyWithReload(() => import('./features/inventory/InventoryPage').then((m) => ({ default: m.InventoryPage })))
@@ -90,6 +91,7 @@ export function App() {
               <Route path="/ventas" element={<Navigate to="/ventas/nueva" replace />} />
               <Route path="/ventas/nueva" element={<Loadable><SalesPage view="new" /></Loadable>} />
               <Route path="/ventas/registradas" element={<Loadable><SalesPage view="list" /></Loadable>} />
+              <Route path="/caja" element={<Loadable><CashPage /></Loadable>} />
               <Route path="/clientes" element={<Loadable><CustomersPage /></Loadable>} />
               <Route path="/cuentas" element={<AccountsRoute />} />
               <Route path="/configuraciones" element={<Loadable><SettingsPage /></Loadable>} />

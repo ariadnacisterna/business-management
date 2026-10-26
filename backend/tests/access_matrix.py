@@ -197,6 +197,22 @@ ENDPOINT_ACCESS_MATRIX: dict[tuple[str, str], EndpointAccess] = {
         EMPLEADO, "docs/02: registrar ventas (T-085: todos ven ventas)"
     ),
     ("POST", "/sales/{sale_id}/void"): EndpointAccess(GERENTE, "D-078: anular una venta"),
+    ("GET", "/cash-registers/current"): EndpointAccess(
+        EMPLEADO, "D-087: cada cuenta que vende tiene su caja (Mi caja)"
+    ),
+    ("POST", "/cash-registers/current/movements"): EndpointAccess(
+        EMPLEADO, "D-088: ingresar o retirar efectivo durante el turno"
+    ),
+    ("GET", "/cash-registers"): EndpointAccess(GERENTE, "D-087: historial de cajas del negocio"),
+    ("GET", "/cash-registers/{cash_register_id}"): EndpointAccess(
+        GERENTE, "D-087: ver el resumen de una caja"
+    ),
+    ("POST", "/cash-registers/{cash_register_id}/close"): EndpointAccess(
+        GERENTE, "D-087 y D-088: cerrar una caja (el Gerente cierra el efectivo)"
+    ),
+    ("POST", "/cash-registers/{cash_register_id}/close-transfers"): EndpointAccess(
+        ADMINISTRADOR, "D-088: cerrar la parte de transferencias de una caja"
+    ),
     ("GET", "/search"): EndpointAccess(EMPLEADO, "docs/02: buscar y consultar precios"),
     ("POST", "/imports/preview"): EndpointAccess(
         ADMINISTRADOR, "docs/02: importar el catalogo inicial"

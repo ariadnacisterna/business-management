@@ -17,6 +17,7 @@ class LockKind(enum.IntEnum):
     ACCOUNT_USER_NAMES = 8
     PRODUCT_VARIANTS = 9
     IMPORT = 10
+    CASH_REGISTER = 11
 
 
 def lock_until_commit(db: Session, kind: LockKind, scope_id: int) -> None:

@@ -4,6 +4,7 @@ from app.db.models.attribute import Attribute
 from app.db.models.attribute_value import AttributeValue
 from app.db.models.business import Business
 from app.db.models.business_access import BusinessAccess
+from app.db.models.cash_register import CashMovement, CashRegister
 from app.db.models.category import Category
 from app.db.models.credit import Credit
 from app.db.models.customer import Customer
@@ -30,6 +31,8 @@ __all__ = [
     "AttributeValue",
     "Business",
     "BusinessAccess",
+    "CashMovement",
+    "CashRegister",
     "Category",
     "Credit",
     "Customer",

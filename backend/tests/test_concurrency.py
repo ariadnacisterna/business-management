@@ -11,6 +11,7 @@ from app.constants.status import CreditType, EntityStatus, PaymentMethod, Shorta
 from app.db.models import (
     Account,
     Business,
+    CashRegister,
     Credit,
     Price,
     Product,
@@ -24,6 +25,8 @@ from app.domain import submissions
 from app.domain.access import accounts
 from app.domain.access.errors import ActorNotAllowed
 from app.domain.audit.integrity import find_integrity_problems
+from app.domain.cash.errors import CashRegisterAlreadyClosed
+from app.domain.cash.registers import close_register, ensure_open_register
 from app.domain.catalog.categories import add_category
 from app.domain.catalog.credits import add_credit
 from app.domain.catalog.customers import add_customer
@@ -659,4 +662,56 @@ def test_two_simultaneous_voids_of_a_split_sale_return_the_fiado_part_once(open_
         (CreditType.CARGO.value, Decimal("200")),
         (CreditType.PAGO.value, Decimal("200")),
     ]
+    assert find_integrity_problems(check) == []
+
+
+def test_two_simultaneous_closes_of_the_same_register_close_it_once(open_session):
+    setup = open_session()
+    business, account_id = _business_and_owner(setup)
+    register_id = ensure_open_register(setup, business.id, account_id).id
+    setup.commit()
+    first, second = open_session(), open_session()
+
+    close_register(first, business.id, register_id, account_id, Decimal("0"), None)
+
+    def close_from_second():
+        close_register(second, business.id, register_id, account_id, Decimal("5"), None)
+        second.commit()
+
+    thread, outcome = _start(close_from_second)
+    _assert_waiting(thread)
+    first.commit()
+    _finish(thread)
+
+    assert isinstance(outcome.get("error"), CashRegisterAlreadyClosed)
+    check = open_session()
+    assert check.get(CashRegister, register_id).counted_cash == Decimal("0")
+    assert find_integrity_problems(check) == []
+
+
+def test_sale_waits_for_the_closing_of_the_register_and_goes_to_a_new_one(open_session):
+    setup = open_session()
+    business, account_id = _business_and_owner(setup)
+    variant_id = _variant_for_sale(setup, business.id, account_id, "Venta y cierre", "10")
+    register_id = ensure_open_register(setup, business.id, account_id).id
+    setup.commit()
+    first, second = open_session(), open_session()
+
+    close_register(first, business.id, register_id, account_id, Decimal("0"), None)
+
+    def sell_from_second():
+        sale = _sell(second, business.id, account_id, variant_id, "1")
+        second.commit()
+        return sale.id
+
+    thread, outcome = _start(sell_from_second)
+    _assert_waiting(thread)
+    first.commit()
+    _finish(thread)
+
+    assert "error" not in outcome
+    check = open_session()
+    sale = check.get(Sale, outcome["result"])
+    assert sale.cash_register_id != register_id
+    assert check.get(CashRegister, register_id).expected_cash == Decimal("0")
     assert find_integrity_problems(check) == []

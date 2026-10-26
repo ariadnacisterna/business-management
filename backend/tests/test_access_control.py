@@ -53,6 +53,10 @@ REQUEST_BODIES_FOR_ID_PROBES: dict[tuple[str, str], dict] = {
         "json": {"type": CreditType.CARGO.value, "amount": "10"}
     },
     ("POST", "/sales/{sale_id}/void"): {"json": {"reason": "Prueba de acceso"}},
+    ("POST", "/cash-registers/{cash_register_id}/close"): {"json": {"counted_cash": "0"}},
+    ("POST", "/cash-registers/{cash_register_id}/close-transfers"): {
+        "json": {"counted_transfer": "0"}
+    },
 }
 
 
@@ -117,6 +121,12 @@ def _write(client, cookies, method: str, path: str, payload: dict) -> dict:
         method, path, json=payload, cookies=cookies, headers=_csrf_headers(cookies)
     )
     assert response.status_code in (200, 201), response.text
+    return response.json()
+
+
+def _write_get(client, cookies, path: str) -> dict:
+    response = client.get(path, cookies=cookies)
+    assert response.status_code == 200, response.text
     return response.json()
 
 
@@ -340,6 +350,7 @@ def _create_other_business_data(client, cookies, business_id: int) -> dict[str, 
             "customer_id": customer["id"],
         },
     )
+    cash_register = _write_get(client, cookies, "/cash-registers/current")
     account = _create_account(
         client, cookies, f"{marker} cuenta", OTHER_BUSINESS_ACCOUNT_USER_NAME, EMPLEADO
     )
@@ -356,6 +367,7 @@ def _create_other_business_data(client, cookies, business_id: int) -> dict[str, 
         "shortage_id": shortage["id"],
         "customer_id": customer["id"],
         "sale_id": sale["id"],
+        "cash_register_id": cash_register["id"],
     }
 
 

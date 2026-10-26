@@ -65,7 +65,7 @@ describe('Sidebar', () => {
     renderSidebar('/products')
 
     const operacion = within(screen.getByRole('group', { name: 'Operación' }))
-    expect(operacion.getAllByRole('link').map((link) => link.textContent)).toEqual(['Venta', 'Historial de ventas'])
+    expect(operacion.getAllByRole('link').map((link) => link.textContent)).toEqual(['Venta', 'Historial de ventas', 'Caja'])
 
     const catalogo = within(screen.getByRole('group', { name: 'Catálogo' }))
     expect(catalogo.getAllByRole('link').map((link) => link.textContent)).toEqual(['Productos', 'Precios'])

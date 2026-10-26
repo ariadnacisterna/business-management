@@ -7,6 +7,7 @@ export type NavIcon =
   | 'inventory'
   | 'sales'
   | 'receipt'
+  | 'cash'
   | 'suppliers'
   | 'accounts'
   | 'customers'
@@ -38,6 +39,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/ventas/nueva', label: 'Venta', icon: 'sales' },
       { to: '/ventas/registradas', label: 'Historial de ventas', icon: 'receipt' },
+      { to: '/caja', label: 'Caja', icon: 'cash' },
     ],
   },
   {

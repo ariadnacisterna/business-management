@@ -36,3 +36,14 @@ class LoginOutcome(enum.StrEnum):
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     BLOCKED = "blocked"
+
+
+class CashMovementKind(enum.StrEnum):
+    INGRESO = "ingreso"
+    RETIRO = "retiro"
+
+
+class CashRegisterStatus(enum.StrEnum):
+    ABIERTA = "abierta"
+    PENDIENTE = "pendiente"
+    CERRADA = "cerrada"

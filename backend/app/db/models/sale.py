@@ -47,6 +47,8 @@ class Sale(Base):
             name="void_complete",
         ),
         Index("ix_sale_business_id_created_at", "business_id", "created_at"),
+        Index("ix_sale_cash_register_id", "cash_register_id"),
+        Index("ix_sale_void_cash_register_id", "void_cash_register_id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -63,6 +65,12 @@ class Sale(Base):
         ForeignKey("account.id"), nullable=True
     )
     void_reason: Mapped[str | None] = mapped_column(String(VOID_REASON_MAX_LENGTH), nullable=True)
+    cash_register_id: Mapped[int | None] = mapped_column(
+        ForeignKey("cash_register.id"), nullable=True
+    )
+    void_cash_register_id: Mapped[int | None] = mapped_column(
+        ForeignKey("cash_register.id"), nullable=True
+    )
 
     customer: Mapped["Customer | None"] = relationship()
     lines: Mapped[list["SaleLine"]] = relationship(back_populates="sale", order_by="SaleLine.id")

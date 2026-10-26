@@ -39,7 +39,7 @@ const stepButtonClasses =
   'flex h-14 w-14 items-center justify-center rounded-lg border border-line text-lg font-bold transition-colors hover:bg-surface-brand'
 
 const searchToolButtonClasses =
-  'flex h-14 flex-1 items-center justify-center gap-2 rounded-lg border border-line bg-surface px-4 text-lg font-medium text-ink transition-colors hover:bg-surface-brand sm:flex-none'
+  'flex min-h-14 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-center text-lg font-medium text-ink transition-colors hover:bg-surface-brand sm:flex-none'
 
 const lineGridClasses = 'md:grid md:grid-cols-[minmax(0,1fr)_14rem_4.5rem_8.5rem_3rem] md:items-center md:gap-x-2'
 
@@ -322,7 +322,7 @@ export function NewSalePanel() {
                   />
                 )}
               </div>
-              <div className="flex shrink-0 gap-2">
+              <div className="grid shrink-0 grid-cols-2 gap-2 sm:flex">
                 <button type="button" onClick={() => setDialog('price')} className={searchToolButtonClasses}>
                   <PriceIcon />
                   Consultar precio

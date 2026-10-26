@@ -1,9 +1,11 @@
 import { useEffect, useId, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { CASH_UPDATED_EVENT, fetchCurrentCashRegister } from '../../api/cash'
 import { fetchLowStockCount, fetchShortageCount } from '../../api/catalog'
 import type { Account } from '../../api/types'
 import { hasMinimumRole } from '../../features/access/roles'
 import { Brand } from '../Brand'
+import { formatMoney } from '../formatPrice'
 import { NAV_GROUPS, SETTINGS_ITEM, type NavItem } from './navItems'
 import { NavIconGlyph } from './NavIcon'
 
@@ -71,6 +73,44 @@ function NavEntry({
       {item.children !== undefined && lowStockCount > 0 && (
         <CountBadge tone="danger" count={lowStockCount} className={collapsed ? 'absolute -right-1 -top-1' : ''} />
       )}
+    </NavLink>
+  )
+}
+
+function MyCashBox({ account, collapsed, onNavigate }: { account: Account | null; collapsed: boolean; onNavigate: () => void }) {
+  const [cash, setCash] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (account === null) return
+    let latestRequest = 0
+    function refresh() {
+      latestRequest += 1
+      const request = latestRequest
+      fetchCurrentCashRegister()
+        .then((register) => {
+          if (request === latestRequest) setCash(register.expected_cash)
+        })
+        .catch(() => {})
+    }
+    refresh()
+    window.addEventListener(CASH_UPDATED_EVENT, refresh)
+    return () => {
+      latestRequest += 1
+      window.removeEventListener(CASH_UPDATED_EVENT, refresh)
+    }
+  }, [account])
+
+  if (collapsed || cash === null) return null
+
+  return (
+    <NavLink
+      to="/caja"
+      onClick={onNavigate}
+      aria-label={`Mi caja: ${formatMoney(cash)}`}
+      className="mb-2 flex flex-col gap-0.5 rounded-lg border border-surface/20 px-4 py-3 transition-colors hover:bg-surface/10"
+    >
+      <span className="text-sm font-semibold uppercase tracking-wider text-surface/60">Mi caja</span>
+      <span className="text-xl font-bold text-surface">{formatMoney(cash)}</span>
     </NavLink>
   )
 }
@@ -245,6 +285,7 @@ function SidebarContent({
         </div>
 
         <div className="shrink-0 border-t border-surface/10 px-3 py-3">
+          <MyCashBox account={account} collapsed={collapsed} onNavigate={onNavigate} />
           <NavEntry item={SETTINGS_ITEM} {...entryProps} />
         </div>
       </nav>
