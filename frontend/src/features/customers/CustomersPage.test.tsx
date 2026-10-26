@@ -179,7 +179,7 @@ describe('CustomersPage', () => {
     renderPage(CUSTOMERS, BALANCES, GERENTE_ACCOUNT)
 
     await screen.findAllByText('Ana Gómez')
-    await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }))
+    await user.click(screen.getAllByRole('button', { name: 'Nuevo cliente' })[0])
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Carla Díaz')
 
     fetchMock.mockResolvedValueOnce(
@@ -199,7 +199,7 @@ describe('CustomersPage', () => {
     renderPage(CUSTOMERS, BALANCES, GERENTE_ACCOUNT)
 
     await screen.findAllByText('Ana Gómez')
-    await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }))
+    await user.click(screen.getAllByRole('button', { name: 'Nuevo cliente' })[0])
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Carla Díaz')
 
     const callsBeforeConfirm = fetchMock.mock.calls.length
@@ -217,7 +217,7 @@ describe('CustomersPage', () => {
     renderPage(CUSTOMERS, BALANCES, GERENTE_ACCOUNT)
 
     await screen.findAllByText('Ana Gómez')
-    await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }))
+    await user.click(screen.getAllByRole('button', { name: 'Nuevo cliente' })[0])
     const createDialog = screen.getByRole('dialog', { name: 'Nuevo cliente' })
     expect(createDialog.querySelector('p.text-secondary')).toHaveTextContent('Clientes › Nuevo cliente')
 
