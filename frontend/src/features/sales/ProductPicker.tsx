@@ -167,7 +167,7 @@ export function ProductPicker({
                       )}
                     </span>
                     <span className="flex flex-col items-end">
-                      <span className="text-xl font-bold text-brand">{formatAmount(variant.price_amount)}</span>
+                      <span className="text-card-title text-brand">{formatAmount(variant.price_amount)}</span>
                       <span className="text-base opacity-70">
                         Stock: {formatStock(variant.quantity, variant.presentation, variant.unit_abbreviation)}
                       </span>

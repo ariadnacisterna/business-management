@@ -260,7 +260,7 @@ describe('AccountsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Filtros' }))
 
     const dialog = await screen.findByRole('dialog', { name: 'Filtros' })
-    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Usuarios › Filtros')
+    expect(dialog.querySelector('p.text-secondary')).toHaveTextContent('Usuarios › Filtros')
   })
 
   it('creates a new account', async () => {
@@ -272,7 +272,7 @@ describe('AccountsPage', () => {
     await user.click(screen.getAllByRole('button', { name: /nueva cuenta/i })[0])
 
     const createDialog = screen.getByRole('dialog', { name: /nueva cuenta/i })
-    expect(createDialog.querySelector('p.opacity-60')).toHaveTextContent('Usuarios › Nueva cuenta')
+    expect(createDialog.querySelector('p.text-secondary')).toHaveTextContent('Usuarios › Nueva cuenta')
 
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Nuevo Empleado')
     await user.type(screen.getByLabelText(/^Usuario \*?$/), 'nuevo')
@@ -407,7 +407,7 @@ describe('AccountsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Editar cuenta' }))
 
     const editDialog = screen.getByRole('dialog', { name: 'Editar cuenta' })
-    expect(editDialog.querySelector('p.opacity-60')).toHaveTextContent('Usuarios › Grace Hopper › Editar cuenta')
+    expect(editDialog.querySelector('p.text-secondary')).toHaveTextContent('Usuarios › Grace Hopper › Editar cuenta')
 
     const nameInput = await screen.findByLabelText(/^Nombre \*?$/)
     await user.clear(nameInput)
@@ -471,7 +471,7 @@ describe('AccountsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Restablecer contraseña' }))
 
     const resetDialog = screen.getByRole('dialog', { name: 'Restablecer contraseña' })
-    expect(resetDialog.querySelector('p.opacity-60')).toHaveTextContent('Usuarios › Grace Hopper › Restablecer contraseña')
+    expect(resetDialog.querySelector('p.text-secondary')).toHaveTextContent('Usuarios › Grace Hopper › Restablecer contraseña')
 
     await user.type(screen.getByLabelText(/^Contraseña nueva \*?$/), 'nuevaClave1')
     await user.type(screen.getByLabelText(/^Repetir contraseña \*?$/), 'otraClave2')

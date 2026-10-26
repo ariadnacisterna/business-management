@@ -219,14 +219,14 @@ describe('CustomersPage', () => {
     await screen.findAllByText('Ana Gómez')
     await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }))
     const createDialog = screen.getByRole('dialog', { name: 'Nuevo cliente' })
-    expect(createDialog.querySelector('p.opacity-60')).toHaveTextContent('Clientes › Nuevo cliente')
+    expect(createDialog.querySelector('p.text-secondary')).toHaveTextContent('Clientes › Nuevo cliente')
 
     await user.click(screen.getByRole('button', { name: 'Cancelar' }))
     const actionButtons = screen.getAllByRole('button', { name: /Acciones para Ana Gómez/ })
     await user.click(actionButtons[0])
     await user.click(screen.getByRole('button', { name: 'Editar cliente' }))
     const editDialog = screen.getByRole('dialog', { name: 'Editar cliente' })
-    expect(editDialog.querySelector('p.opacity-60')).toHaveTextContent('Clientes › Ana Gómez › Editar cliente')
+    expect(editDialog.querySelector('p.text-secondary')).toHaveTextContent('Clientes › Ana Gómez › Editar cliente')
   })
 
   it('edits an existing customer after confirmation', async () => {
@@ -295,7 +295,7 @@ describe('CustomersPage', () => {
     await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
 
     const dialog = await screen.findByRole('dialog', { name: 'Registrar pago de Ana Gómez' })
-    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Clientes › Ana Gómez › Registrar movimiento')
+    expect(dialog.querySelector('p.text-secondary')).toHaveTextContent('Clientes › Ana Gómez › Registrar movimiento')
   })
 
   it('registers a payment (pago) after confirmation', async () => {
@@ -336,7 +336,7 @@ describe('CustomersPage', () => {
     await user.click(screen.getByRole('button', { name: /^Desactivar$/ }))
 
     const confirmDialog = screen.getByRole('alertdialog', { name: 'Desactivar cliente' })
-    expect(confirmDialog.querySelector('p.opacity-60')).toHaveTextContent('Clientes › Ana Gómez › Desactivar cliente')
+    expect(confirmDialog.querySelector('p.text-secondary')).toHaveTextContent('Clientes › Ana Gómez › Desactivar cliente')
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse({ id: 1, name: 'Ana Gómez', phone: '111-2222', address: 'Calle Falsa 123', status: 'inactive' }),
@@ -395,7 +395,7 @@ describe('CustomersPage', () => {
     expect(screen.getByText('Cambiado por: Empleada')).toBeInTheDocument()
 
     const dialog = screen.getByRole('dialog', { name: 'Historial de Ana Gómez' })
-    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Clientes › Ana Gómez › Historial')
+    expect(dialog.querySelector('p.text-secondary')).toHaveTextContent('Clientes › Ana Gómez › Historial')
   })
 
   it('hides create/edit/deactivate controls for Empleado but keeps payment', async () => {

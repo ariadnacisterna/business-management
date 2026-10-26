@@ -101,7 +101,7 @@ export function AdjustStockModal({
             </div>
             <CloseButton onClose={onClose} />
           </div>
-          <h2 className="text-2xl font-bold">Actualizar stock</h2>
+          <h2 className="text-window-title">Actualizar stock</h2>
         </div>
 
         <div className="flex flex-col gap-1.5 text-lg">

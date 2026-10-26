@@ -538,7 +538,7 @@ describe('InventoryPage', () => {
     await user.click(screen.getByRole('button', { name: 'Filtros' }))
 
     const dialog = await screen.findByRole('dialog', { name: 'Filtros' })
-    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Inventario › Filtros')
+    expect(dialog.querySelector('p.text-secondary')).toHaveTextContent('Inventario › Filtros')
     fetchMock.mockResolvedValueOnce(jsonResponse(stockPage([])))
     await user.click(within(dialog).getByRole('button', { name: 'Filtrar por estado de stock' }))
     await user.click(await screen.findByRole('option', { name: 'Con stock' }))
@@ -765,7 +765,7 @@ describe('InventoryPage', () => {
       fetchMock.mockResolvedValueOnce(jsonResponse([SHORTAGE]))
 
       expect(await screen.findByText('Distribuidora Norte')).toBeInTheDocument()
-      expect(screen.getByText('● Faltante')).toBeInTheDocument()
+      expect(screen.getByText('Faltante')).toBeInTheDocument()
     })
 
     it('switches the Faltantes tab between cards and table keeping the same data', async () => {
@@ -783,7 +783,7 @@ describe('InventoryPage', () => {
       expect(screen.getByRole('table')).toBeInTheDocument()
       expect(screen.getByText('Hilo blanco')).toBeInTheDocument()
       expect(screen.getByText('Distribuidora Norte')).toBeInTheDocument()
-      expect(screen.getByText('● Faltante')).toBeInTheDocument()
+      expect(screen.getByText('Faltante')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Marcar como Pedido' })).toBeInTheDocument()
 
       await user.click(screen.getByRole('button', { name: 'Ver como tarjetas' }))

@@ -97,7 +97,7 @@ export function DeltaPreview({ kind, current, evaluation, formatValue }: Preview
 
   return (
     <div className="flex flex-col gap-1">
-      <p className={`m-0 text-xl font-bold ${danger ? 'text-danger' : 'text-ink/60'}`} data-testid="delta-preview">
+      <p className={`m-0 text-card-title ${danger ? 'text-danger' : 'text-ink/60'}`} data-testid="delta-preview">
         {label}: {from} → {to}
       </p>
       {evaluation.error !== null && (

@@ -160,7 +160,7 @@ export function SaleDetailDialog({
             </div>
             <CloseButton onClose={onClose} />
           </div>
-          <h2 className="m-0 text-2xl font-bold">{title}</h2>
+          <h2 className="m-0 text-window-title">{title}</h2>
         </div>
 
         {status === 'loading' && data === undefined && (
@@ -183,7 +183,7 @@ export function SaleDetailDialog({
 
         {voiding && (
           <div className="flex flex-col gap-2 rounded-lg border border-line p-3">
-            <p className="m-0 text-lg">
+            <p className="m-0 text-body">
               Al anularla se devuelve el stock y, si una parte fue en fiado, se descuenta de la cuenta del cliente. No se puede
               deshacer.
             </p>

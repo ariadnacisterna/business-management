@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Badge } from '../../shared/Badge'
 import { createCategory, fetchCategories, fetchProducts, updateCategory } from '../../api/catalog'
 import { errorMessage } from '../../api/client'
 import type { Category, Product } from '../../api/types'
@@ -137,7 +138,7 @@ export function CategoriesPage() {
   return (
     <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex max-w-2xl flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold">Categorías</h1>
+        <h1 className="text-page-title">Categorías</h1>
         {canManage && !creating && (
           <button type="button" onClick={() => setCreating(true)} className={primaryButtonClasses}>
             + Nueva categoría
@@ -241,11 +242,7 @@ export function CategoriesPage() {
                         <span className="opacity-70">{productCountByCategory.get(category.id) ?? 0}</span>
                       </td>
                       <td className={STACKED_CELL_CLASSES}>
-                        <span
-                          className={`text-sm font-semibold ${category.status === 'active' ? 'text-success' : 'opacity-50'}`}
-                        >
-                          ● {category.status === 'active' ? 'Activa' : 'Inactiva'}
-                        </span>
+                        <Badge tone={category.status === 'active' ? 'success' : 'muted'}>{category.status === 'active' ? 'Activa' : 'Inactiva'}</Badge>
                       </td>
                       {canManage && (
                         <td className={STACKED_ACTION_CELL_CLASSES}>

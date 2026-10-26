@@ -62,7 +62,7 @@ export function ConfirmDialog({
             </div>
             <CloseButton onClose={onCancel} />
           </div>
-          <h2 className="m-0 text-2xl font-bold">{title}</h2>
+          <h2 className="m-0 text-window-title">{title}</h2>
         </div>
         <p className="m-0 text-lg opacity-70 [overflow-wrap:anywhere]">{description}</p>
         {details}

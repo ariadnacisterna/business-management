@@ -122,7 +122,7 @@ export function ProfileSection() {
 
   return (
     <section className="rounded-2xl border border-line bg-surface p-5" aria-labelledby="account-heading">
-      <h2 id="account-heading" className="m-0 mb-4 text-2xl font-bold">
+      <h2 id="account-heading" className="m-0 mb-4 text-window-title">
         Mi cuenta
       </h2>
       <dl className="m-0 flex flex-col gap-1">

@@ -64,7 +64,7 @@ export function NewUnitDialog({ breadcrumb, onCreated, onClose }: Props) {
             </div>
             <CloseButton onClose={onClose} />
           </div>
-          <h2 className="m-0 text-2xl font-bold">Nueva unidad</h2>
+          <h2 className="m-0 text-window-title">Nueva unidad</h2>
         </div>
 
         <div className="flex flex-col gap-2">

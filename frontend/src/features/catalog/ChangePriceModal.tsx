@@ -124,7 +124,7 @@ export function ChangePriceModal({
             </div>
             <CloseButton onClose={onClose} />
           </div>
-          <h2 className="text-2xl font-bold">Cambiar Precio</h2>
+          <h2 className="text-window-title">Cambiar Precio</h2>
         </div>
 
         <div className="flex flex-col gap-1.5 text-lg">

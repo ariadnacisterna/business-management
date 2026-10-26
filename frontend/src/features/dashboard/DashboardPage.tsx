@@ -18,8 +18,8 @@ export function DashboardPage() {
   return (
     <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div>
-        <h1 className="text-3xl font-bold">Panel</h1>
-        <p className="mt-1 text-base opacity-60 lg:text-lg">Resumen general del negocio</p>
+        <h1 className="text-page-title">Panel</h1>
+        <p className="mt-1 text-page-subtitle">Resumen general del negocio</p>
       </div>
 
       <LoginAlertsNotice key={businessId} />
@@ -37,15 +37,15 @@ export function DashboardPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-line bg-surface p-5">
             <p className="text-sm font-bold uppercase tracking-wide opacity-50">Variantes</p>
-            <p className="mt-1 text-3xl font-bold">{summary.total}</p>
+            <p className="mt-1 text-figure">{summary.total}</p>
           </div>
           <div className="rounded-xl border border-line bg-surface p-5">
             <p className="text-sm font-bold uppercase tracking-wide opacity-50">Con stock bajo</p>
-            <p className="mt-1 text-3xl font-bold text-warning">{summary.stockBajo}</p>
+            <p className="mt-1 text-figure text-warning">{summary.stockBajo}</p>
           </div>
           <div className="rounded-xl border border-line bg-surface p-5">
             <p className="text-sm font-bold uppercase tracking-wide opacity-50">Sin stock</p>
-            <p className="mt-1 text-3xl font-bold text-danger">{summary.sinStock}</p>
+            <p className="mt-1 text-figure text-danger">{summary.sinStock}</p>
           </div>
         </div>
       )}

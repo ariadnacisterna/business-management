@@ -68,7 +68,7 @@ export function FiltersSheet({ open, onOpenChange, section, children }: Props) {
             </div>
             <CloseButton onClose={() => onOpenChange(false)} />
           </div>
-          <h2 className="m-0 text-2xl font-bold">Filtros</h2>
+          <h2 className="m-0 text-window-title">Filtros</h2>
         </div>
         <div className="flex flex-col gap-3">{children}</div>
       </Dialog>

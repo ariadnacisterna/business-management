@@ -9,7 +9,7 @@ export function Breadcrumb({ segments }: Props) {
   const last = full[full.length - 1]
   const rest = full.slice(0, -1)
   return (
-    <p className="m-0 min-w-0 text-base opacity-60 [overflow-wrap:anywhere]">
+    <p className="m-0 min-w-0 text-secondary [overflow-wrap:anywhere]">
       {rest.map((segment, index) => (
         <span key={index}>{segment} › </span>
       ))}

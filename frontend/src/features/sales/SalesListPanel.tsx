@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Badge } from '../../shared/Badge'
 import { fetchSales } from '../../api/sales'
 import type { PaymentMethod } from '../../api/types'
 import { DatePicker } from '../../shared/DatePicker'
@@ -76,7 +77,7 @@ export function SalesListPanel() {
   return (
     <div className="flex flex-col gap-4">
       {status === 'success' && data !== undefined && data.total > 0 && (
-        <p className="-mt-3 mb-0 text-base opacity-60 lg:text-lg">
+        <p className="-mt-3 mb-0 text-page-subtitle">
           {data.total === 1 ? '1 venta registrada' : `${data.total} ventas registradas`}
         </p>
       )}
@@ -191,24 +192,18 @@ export function SalesListPanel() {
                     <td className="px-4 py-3">
                       <span className="flex flex-wrap gap-2">
                         {voided && (
-                          <span className="whitespace-nowrap rounded-full bg-danger/10 px-3 py-0.5 text-base font-bold text-danger">
-                            Anulada
-                          </span>
+                          <Badge tone="danger">Anulada</Badge>
                         )}
                         {!voided && !sale.insufficient_stock && (
-                          <span className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-success-soft px-4 py-2 text-base font-semibold text-success">
-                            ● Normal
-                          </span>
+                          <Badge tone="success">Normal</Badge>
                         )}
                         {sale.insufficient_stock && (
-                          <span className="whitespace-nowrap rounded-full bg-warning/10 px-3 py-0.5 text-base font-bold text-warning">
-                            Stock insuficiente
-                          </span>
+                          <Badge tone="warning">Stock insuficiente</Badge>
                         )}
                       </span>
                     </td>
                     <td
-                      className={`whitespace-nowrap px-4 py-3 text-left text-xl font-bold text-brand ${voided ? 'line-through' : ''}`}
+                      className={`whitespace-nowrap px-4 py-3 text-left text-card-title text-brand ${voided ? 'line-through' : ''}`}
                     >
                       {formatAmount(sale.total)}
                     </td>

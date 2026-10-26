@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Badge } from '../../shared/Badge'
 import {
   createAttribute,
   createAttributeValue,
@@ -217,7 +218,7 @@ function AttributesContent() {
   return (
     <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex max-w-3xl flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold">Atributos</h1>
+        <h1 className="text-page-title">Atributos</h1>
         {canManage && !creatingAttribute && (
           <button type="button" onClick={() => setCreatingAttribute(true)} className={primaryButtonClasses}>
             + Nuevo atributo
@@ -296,9 +297,7 @@ function AttributesContent() {
                     {attribute.name}
                   </td>
                   <td className={STACKED_CELL_CLASSES}>
-                    <span className={`text-sm font-semibold ${attribute.status === 'active' ? 'text-success' : 'opacity-50'}`}>
-                      ● {attribute.status === 'active' ? 'Activo' : 'Inactivo'}
-                    </span>
+                    <Badge tone={attribute.status === 'active' ? 'success' : 'muted'}>{attribute.status === 'active' ? 'Activo' : 'Inactivo'}</Badge>
                   </td>
                   <td className={STACKED_ACTION_CELL_CLASSES}>
                     <button
@@ -331,7 +330,7 @@ function AttributesContent() {
           )}
 
           {valuesStatus === 'success' && values.length === 0 && (
-            <p className="m-0 text-lg opacity-60">Este atributo todavía no tiene valores.</p>
+            <p className="m-0 text-secondary">Este atributo todavía no tiene valores.</p>
           )}
 
           {valuesStatus === 'success' && values.length > 0 && (

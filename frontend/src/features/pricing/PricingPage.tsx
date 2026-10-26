@@ -474,8 +474,8 @@ export function PricingPage() {
     <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:min-h-0">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Precios</h1>
-          <p className="mt-1 text-base opacity-60 lg:text-lg">{total} productos encontrados</p>
+          <h1 className="text-page-title">Precios</h1>
+          <p className="mt-1 text-page-subtitle">{total} productos encontrados</p>
         </div>
         {status === 'success' && (total > 0 || hasActiveFilters) && (
           <ViewToggle mode={viewMode} onChange={setViewMode} />
@@ -574,7 +574,7 @@ export function PricingPage() {
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <p className="text-xl font-semibold">No hay productos que coincidan.</p>
-          <p className="text-lg opacity-60">Probá cambiar la búsqueda.</p>
+          <p className="text-secondary">Probá cambiar la búsqueda.</p>
         </div>
       )}
 
@@ -628,7 +628,7 @@ export function PricingPage() {
                           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-3">
                             <div className="flex min-h-12 min-w-32 flex-1 items-center gap-3">
                               <ProductThumbnail imageUrl={product.image_url} name={product.name} sizeClassName="h-12 w-12" />
-                              <p className="min-w-0 text-xl font-bold leading-tight [overflow-wrap:anywhere]">
+                              <p className="min-w-0 text-card-title leading-tight [overflow-wrap:anywhere]">
                                 <HighlightedText text={product.name} query={appliedSearch} />
                               </p>
                             </div>
@@ -874,8 +874,8 @@ export function PricingPage() {
                 <CloseButton onClose={closeHistory} />
               </div>
               <div>
-                <h2 className="m-0 text-2xl font-bold">Historial de precios</h2>
-                <p className="m-0 text-lg opacity-60 [overflow-wrap:anywhere]">
+                <h2 className="m-0 text-window-title">Historial de precios</h2>
+                <p className="m-0 text-secondary [overflow-wrap:anywhere]">
                   {historyState.product.name} — {variantLabel(historyState.variant)}
                 </p>
               </div>
@@ -888,7 +888,7 @@ export function PricingPage() {
               </p>
             )}
             {historyState.status === 'success' && historyState.prices.length === 0 && (
-              <p className="text-lg opacity-60">Todavía no hay cambios de precio registrados.</p>
+              <p className="text-secondary">Todavía no hay cambios de precio registrados.</p>
             )}
             {historyState.status === 'success' && historyState.prices.length > 0 && (
               <div className="relative min-h-0">

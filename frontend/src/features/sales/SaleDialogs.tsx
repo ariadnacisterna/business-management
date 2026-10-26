@@ -57,7 +57,7 @@ export function SaleDialogShell({ title, onClose, widthClass, fixedHeight = fals
             </div>
             <CloseButton onClose={onClose} />
           </div>
-          {!bare && <h2 className="m-0 text-2xl font-bold">{title}</h2>}
+          {!bare && <h2 className="m-0 text-window-title">{title}</h2>}
         </div>
         {children}
       </Dialog>
@@ -91,9 +91,9 @@ export function PriceCheckDialog({ variants, onClose }: { variants: SellableVari
           aria-live="polite"
           className="flex shrink-0 flex-col gap-2 rounded-xl border-2 border-brand bg-surface-brand p-4"
         >
-          <p className="m-0 text-xl font-bold [overflow-wrap:anywhere]">{displayName(checked)}</p>
-          <p className="m-0 text-3xl font-bold text-brand">{formatAmount(checked.price_amount)}</p>
-          <p className="m-0 text-lg">
+          <p className="m-0 text-card-title [overflow-wrap:anywhere]">{displayName(checked)}</p>
+          <p className="m-0 text-figure text-brand">{formatAmount(checked.price_amount)}</p>
+          <p className="m-0 text-body">
             Stock: {formatStock(checked.quantity, checked.presentation, checked.unit_abbreviation)}
           </p>
         </section>
@@ -190,12 +190,12 @@ export function SaleRegisteredDialog({ sale, onNewSale }: { sale: Sale; onNewSal
     <SaleDialogShell title="Venta registrada" bare onClose={onNewSale} widthClass="max-w-md">
       <div className="flex flex-col items-center gap-2 text-center">
         <CheckIcon />
-        <h2 className="m-0 mt-2 text-2xl font-bold">¡Venta registrada!</h2>
-        <p className="m-0 text-lg opacity-60">Venta N.º {sale.id}</p>
-        <p className="m-0 mt-3 text-4xl font-bold text-brand [overflow-wrap:anywhere]" aria-label="Total registrado">
+        <h2 className="m-0 mt-2 text-window-title">¡Venta registrada!</h2>
+        <p className="m-0 text-secondary">Venta N.º {sale.id}</p>
+        <p className="m-0 mt-3 text-figure-key text-brand [overflow-wrap:anywhere]" aria-label="Total registrado">
           {formatAmount(sale.total)}
         </p>
-        <div className="mt-2 flex flex-col items-center gap-1 text-lg opacity-60">
+        <div className="mt-2 flex flex-col items-center gap-1 text-secondary">
           {split ? (
             <ul className="m-0 flex list-none flex-col items-center gap-0.5 p-0">
               {sale.payments.map((payment) => (

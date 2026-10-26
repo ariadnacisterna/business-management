@@ -169,12 +169,12 @@ describe('ProductDetailPage', () => {
     await screen.findByLabelText(/^Nombre\s?\*?$/)
     await user.click(screen.getAllByRole('button', { name: '+ Nueva' })[0])
     const categoryDialog = screen.getByRole('dialog', { name: 'Nueva categoría' })
-    expect(categoryDialog.querySelector('p.opacity-60')).toHaveTextContent('Productos › Nueva categoría')
+    expect(categoryDialog.querySelector('p.text-secondary')).toHaveTextContent('Productos › Nueva categoría')
     await user.click(within(categoryDialog).getByRole('button', { name: 'Cancelar' }))
 
     await user.click(screen.getAllByRole('button', { name: '+ Nueva' })[1])
     const unitDialog = screen.getByRole('dialog', { name: 'Nueva unidad' })
-    expect(unitDialog.querySelector('p.opacity-60')).toHaveTextContent('Productos › Nueva unidad')
+    expect(unitDialog.querySelector('p.text-secondary')).toHaveTextContent('Productos › Nueva unidad')
   })
 
   it('changes a variant price through the modal', async () => {
@@ -239,7 +239,7 @@ describe('ProductDetailPage', () => {
 
     const dialog = await screen.findByRole('dialog', { name: /Historial de precios/ })
     expect(await screen.findByText(/45,50/)).toBeInTheDocument()
-    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Productos › Cinta bebé › Historial de precios')
+    expect(dialog.querySelector('p.text-secondary')).toHaveTextContent('Productos › Cinta bebé › Historial de precios')
   })
 
   it('opens the stock history dialog for a variant', async () => {
@@ -253,7 +253,7 @@ describe('ProductDetailPage', () => {
     await user.click(screen.getAllByRole('button', { name: /^Ver historial de stock/ })[0])
 
     const dialog = await screen.findByRole('dialog', { name: /Historial de stock/ })
-    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Productos › Cinta bebé › Historial de stock')
+    expect(dialog.querySelector('p.text-secondary')).toHaveTextContent('Productos › Cinta bebé › Historial de stock')
   })
 
   it('shows a single price with a "Cambiar precio" action for a product without real variants', async () => {

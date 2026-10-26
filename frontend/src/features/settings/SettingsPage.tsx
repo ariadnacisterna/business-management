@@ -36,7 +36,7 @@ export function SettingsPage() {
 
   return (
     <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
-      <h1 className="text-3xl font-bold">Configuración</h1>
+      <h1 className="text-page-title">Configuración</h1>
 
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         <ProfileSection />
@@ -46,7 +46,7 @@ export function SettingsPage() {
         <TransferAliasSection />
 
         <section className="rounded-2xl border border-line bg-surface p-5" aria-labelledby="font-size-heading">
-          <h2 id="font-size-heading" className="m-0 mb-1 text-2xl font-bold">
+          <h2 id="font-size-heading" className="m-0 mb-1 text-window-title">
             Tamaño de letra
           </h2>
           <p className="m-0 mb-4 text-lg opacity-70">
