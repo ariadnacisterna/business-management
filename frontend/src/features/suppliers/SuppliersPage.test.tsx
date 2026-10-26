@@ -180,7 +180,7 @@ describe('SuppliersPage', () => {
 
     await user.click(screen.getByRole('button', { name: '+ Nueva' }))
     const categoryDialog = await screen.findByRole('dialog', { name: 'Nueva categoría' })
-    expect(categoryDialog.querySelector('p.opacity-60')).toHaveTextContent('Proveedores › Nueva categoría')
+    expect(categoryDialog.querySelector('p.text-secondary')).toHaveTextContent('Proveedores › Nueva categoría')
     await user.type(within(categoryDialog).getByLabelText(/^Nombre \*?$/), 'Librería')
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ id: 2, name: 'Librería', status: 'active' }, 201))
@@ -199,7 +199,7 @@ describe('SuppliersPage', () => {
     await screen.findAllByText('Distribuidora Norte')
     await user.click(screen.getByRole('button', { name: 'Nuevo proveedor' }))
     const dialog = screen.getByRole('dialog', { name: 'Nuevo proveedor' })
-    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Proveedores › Nuevo proveedor')
+    expect(dialog.querySelector('p.text-secondary')).toHaveTextContent('Proveedores › Nuevo proveedor')
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Papelera Central')
 
     fetchMock.mockResolvedValueOnce(

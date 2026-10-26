@@ -251,3 +251,121 @@ select {
     font-weight: bold;
   }
 }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 0.25rem 0.875rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+}
+
+.badge-dot {
+  flex-shrink: 0;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 999px;
+  background-color: currentColor;
+}
+
+.badge-initial {
+  flex-shrink: 0;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+.badge-success {
+  background-color: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.badge-warning {
+  background-color: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  color: var(--color-warning);
+}
+
+.badge-danger {
+  background-color: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  color: var(--color-danger);
+}
+
+.badge-muted {
+  background-color: color-mix(in srgb, var(--color-ink) 5%, transparent);
+  color: color-mix(in srgb, var(--color-ink) 50%, transparent);
+}
+
+.badge-neutral {
+  background-color: color-mix(in srgb, var(--color-ink) 5%, transparent);
+  color: color-mix(in srgb, var(--color-ink) 70%, transparent);
+}
+
+.badge-brand {
+  background-color: color-mix(in srgb, var(--color-brand) 8%, var(--color-surface));
+  color: var(--color-brand);
+}
+
+.badge-role-empleado {
+  background-color: var(--color-role-empleado-soft);
+  color: var(--color-role-empleado);
+}
+
+.badge-role-gerente {
+  background-color: var(--color-role-gerente-soft);
+  color: var(--color-role-gerente);
+}
+
+.badge-role-administrador {
+  background-color: var(--color-role-administrador-soft);
+  color: var(--color-role-administrador);
+}
+
+.badge-role-dueno {
+  background-color: var(--color-role-dueno-soft);
+  color: var(--color-role-dueno);
+}
+
+.text-page-title {
+  font-size: 1.875rem;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.text-page-subtitle {
+  font-size: 1.125rem;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--color-ink) 60%, transparent);
+}
+
+.text-card-title {
+  font-size: 1.25rem;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.text-body {
+  font-size: 1.125rem;
+  line-height: 1.45;
+}
+
+.text-secondary {
+  font-size: 1rem;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--color-ink) 60%, transparent);
+}
+
+.text-figure {
+  font-size: 1.875rem;
+  line-height: 1.15;
+  font-weight: 800;
+}
+
+.text-window-title {
+  font-size: 1.5rem;
+  line-height: 1.25;
+  font-weight: 700;
+}

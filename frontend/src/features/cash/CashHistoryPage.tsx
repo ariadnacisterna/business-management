@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Badge } from '../../shared/Badge'
 import { fetchCashRegisters, type CashRegister, type CashRegisterStatus } from '../../api/cash'
 import { DatePicker } from '../../shared/DatePicker'
 import { SelectMenu } from '../../shared/SelectMenu'
@@ -84,7 +85,7 @@ function History() {
   return (
     <section aria-label="Historial de cajas" className="flex flex-col gap-4">
       {status === 'success' && data !== undefined && data.total > 0 && (
-        <p className="-mt-3 mb-0 text-base opacity-60 lg:text-lg">
+        <p className="-mt-3 mb-0 text-page-subtitle">
           {data.total === 1 ? '1 caja registrada' : `${data.total} cajas registradas`}
         </p>
       )}
@@ -166,19 +167,11 @@ function History() {
                   <td className="px-4 py-3 text-lg [overflow-wrap:anywhere]">{register.account_name}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-lg opacity-80">{formatDateTime(register.opened_at)}</td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`whitespace-nowrap rounded-full px-3 py-1 text-base font-bold ${
-                        register.status === 'abierta'
-                          ? 'bg-success-soft text-success'
-                          : register.status === 'pendiente'
-                            ? 'bg-warning/10 text-warning'
-                            : 'bg-line/40 text-ink/70'
-                      }`}
-                    >
+                    <Badge tone={register.status === 'abierta' ? 'success' : register.status === 'pendiente' ? 'warning' : 'neutral'}>
                       {STATUS_LABELS[register.status]}
-                    </span>
+                    </Badge>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-xl font-bold text-brand">{formatMoney(register.expected_cash)}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-card-title text-brand">{formatMoney(register.expected_cash)}</td>
                   <td className={`whitespace-nowrap px-4 py-3 text-lg font-semibold ${differenceTone(register.cash_difference)}`}>
                     {register.cash_difference === null ? '—' : differenceText(register.cash_difference)}
                   </td>
@@ -212,7 +205,7 @@ function History() {
 export function CashHistoryPage() {
   return (
     <section className="-m-4 flex flex-1 flex-col gap-6 bg-line/10 p-4 md:-m-6 md:p-6">
-      <h1 className="text-3xl font-bold">Historial de cajas</h1>
+      <h1 className="text-page-title">Historial de cajas</h1>
       <History />
     </section>
   )

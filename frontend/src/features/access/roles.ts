@@ -1,14 +1,15 @@
+import type { BadgeTone } from '../../shared/Badge'
 import type { Account, Business } from '../../api/types'
 
 export type Role = 'Empleado' | 'Gerente' | 'Administrador' | 'Dueño'
 
 export const ROLES: Role[] = ['Empleado', 'Gerente', 'Administrador', 'Dueño']
 
-export const ROLE_BADGE_CLASSES: Record<Role, string> = {
-  Empleado: 'bg-role-empleado-soft text-role-empleado',
-  Gerente: 'bg-role-gerente-soft text-role-gerente',
-  Administrador: 'bg-role-administrador-soft text-role-administrador',
-  Dueño: 'bg-role-dueno-soft text-role-dueno',
+export const ROLE_TONES: Record<Role, BadgeTone> = {
+  Empleado: 'role-empleado',
+  Gerente: 'role-gerente',
+  Administrador: 'role-administrador',
+  Dueño: 'role-dueno',
 }
 
 const ROLE_RANK: Record<Role, number> = {

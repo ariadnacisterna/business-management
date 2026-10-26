@@ -20,8 +20,8 @@ export function CashPage() {
     <section className="-m-4 flex flex-1 flex-col gap-6 bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Caja</h1>
-          <p className="mt-1 text-base opacity-60 lg:text-lg">Lo que cobraste en tu turno y el efectivo que tenés en la caja.</p>
+          <h1 className="text-page-title">Caja</h1>
+          <p className="mt-1 text-page-subtitle">Lo que cobraste en tu turno y el efectivo que tenés en la caja.</p>
         </div>
         {data !== undefined && (
           <div className="flex flex-wrap gap-2">
@@ -38,7 +38,7 @@ export function CashPage() {
       {status === 'error' && <LoadErrorCard message="No se pudo cargar tu caja." onRetry={reload} />}
       {data !== undefined && (
         <section aria-label="Caja actual" className="flex flex-col gap-4 rounded-2xl bg-surface p-5 shadow-sm">
-          <p className="m-0 text-4xl font-bold text-brand" aria-label="Efectivo en caja">
+          <p className="m-0 text-figure text-brand" aria-label="Efectivo en caja">
             {formatMoney(data.expected_cash)}
           </p>
           <CashSummary register={data} />

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Badge, type BadgeTone } from '../../shared/Badge'
 import {
   adjustStock,
   changeShortageStatus,
@@ -31,7 +32,7 @@ import { evaluateMinimumEntry, evaluateStockEntry, formatStock, formatStockDiffe
 import type { StockEntry, StockEntryMode, StockEntryRequest } from '../../shared/presentation'
 import { StockModeToggle } from '../../shared/StockModeToggle'
 import { formatQuantity } from '../../shared/formatQuantity'
-import { STOCK_STATUS_LABELS, stockStatusClasses, stockStatusTextColor } from '../../shared/stockStatus'
+import { STOCK_STATUS_LABELS, stockStatusTone, stockStatusTextColor } from '../../shared/stockStatus'
 import { useLatestRequest } from '../../shared/useLatestRequest'
 import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
@@ -640,7 +641,7 @@ function StockTab({
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <p className="text-xl font-semibold">No hay variantes que coincidan.</p>
-          <p className="text-lg opacity-60">Probá cambiar la búsqueda o el filtro.</p>
+          <p className="text-secondary">Probá cambiar la búsqueda o el filtro.</p>
         </div>
       )}
 
@@ -681,12 +682,12 @@ function StockTab({
                     <td className="whitespace-nowrap px-4 py-3">
                       <span className="inline-flex items-center gap-1">
                         {row.presentation ? (
-                          <span className="text-xl font-bold text-brand">
+                          <span className="text-card-title text-brand">
                             {formatStock(row.quantity, row.presentation, unitAbbreviation(row.unit_id))}
                           </span>
                         ) : (
                           <span className="inline-flex items-baseline gap-1">
-                            <span className="text-xl font-bold text-brand">{formatQuantity(row.quantity)}</span>
+                            <span className="text-card-title text-brand">{formatQuantity(row.quantity)}</span>
                             <span className="text-lg opacity-70">{unitAbbreviation(row.unit_id)}</span>
                           </span>
                         )}
@@ -703,9 +704,7 @@ function StockTab({
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">
-                      <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-base font-semibold ${stockStatusClasses(row.status)}`}>
-                        ● {STOCK_STATUS_LABELS[row.status] ?? row.status}
-                      </span>
+                      <Badge tone={stockStatusTone(row.status)}>{STOCK_STATUS_LABELS[row.status] ?? row.status}</Badge>
                     </td>
                     {canManage && (
                       <td className="whitespace-nowrap px-4 py-3">
@@ -781,7 +780,7 @@ function StockTab({
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
                     <div className="flex min-h-12 min-w-32 flex-1 items-center gap-3">
                       <ProductThumbnail imageUrl={row.image_url} name={row.product_name} sizeClassName="h-12 w-12" />
-                      <p className="min-w-0 text-xl font-bold leading-tight [overflow-wrap:anywhere]">{row.product_name}</p>
+                      <p className="min-w-0 text-card-title leading-tight [overflow-wrap:anywhere]">{row.product_name}</p>
                     </div>
                     {row.presentation ? (
                       <span
@@ -800,9 +799,7 @@ function StockTab({
 
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-lg opacity-60">Estado</span>
-                    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-sm font-semibold ${stockStatusClasses(row.status)}`}>
-                      ● {STOCK_STATUS_LABELS[row.status] ?? row.status}
-                    </span>
+                    <Badge tone={stockStatusTone(row.status)}>{STOCK_STATUS_LABELS[row.status] ?? row.status}</Badge>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
@@ -883,7 +880,7 @@ function StockTab({
                 </div>
                 <CloseButton onClose={() => setAdjustingRow(null)} />
               </div>
-              <h2 className="m-0 text-2xl font-bold">Ajustar stock</h2>
+              <h2 className="m-0 text-window-title">Ajustar stock</h2>
             </div>
             <StockRowEditor
               row={adjustingRow}
@@ -913,7 +910,7 @@ function StockTab({
                 </div>
                 <CloseButton onClose={() => setEditingMinimumRow(null)} />
               </div>
-              <h2 className="m-0 text-2xl font-bold">Stock mínimo</h2>
+              <h2 className="m-0 text-window-title">Stock mínimo</h2>
             </div>
             <MinimumStockEditor
               row={editingMinimumRow}
@@ -954,7 +951,7 @@ function StockTab({
                 </div>
                 <CloseButton onClose={closeHistory} />
               </div>
-              <h2 className="m-0 text-2xl font-bold">Historial de stock</h2>
+              <h2 className="m-0 text-window-title">Historial de stock</h2>
             </div>
 
             {historyState.status === 'loading' && <p role="status">Cargando…</p>}
@@ -964,7 +961,7 @@ function StockTab({
               </p>
             )}
             {historyState.status === 'success' && historyState.movements.length === 0 && (
-              <p className="text-lg opacity-60">Todavía no hay movimientos registrados.</p>
+              <p className="text-secondary">Todavía no hay movimientos registrados.</p>
             )}
             {historyState.status === 'success' && historyState.movements.length > 0 && (
               <div className="relative min-h-0">
@@ -1042,10 +1039,10 @@ const SHORTAGE_STATUS_LABELS: Record<string, string> = {
   recibido: 'Recibido',
 }
 
-function shortageStatusClasses(status: string): string {
-  if (status === 'recibido') return 'bg-success-soft text-success'
-  if (status === 'pedido') return 'bg-warning/10 text-warning'
-  return 'bg-danger/10 text-danger'
+function shortageStatusTone(status: string): BadgeTone {
+  if (status === 'recibido') return 'success'
+  if (status === 'pedido') return 'warning'
+  return 'danger'
 }
 
 function nextShortageStatus(status: string): string | null {
@@ -1305,7 +1302,7 @@ function ShortagesTab({ categories, viewMode }: { categories: Category[]; viewMo
       {status === 'success' && filteredItems.length === 0 && hasActiveFilters && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface px-6 py-12 text-center">
           <p className="text-xl font-semibold">No hay faltantes que coincidan.</p>
-          <p className="text-lg opacity-60">Probá cambiar los filtros.</p>
+          <p className="text-secondary">Probá cambiar los filtros.</p>
         </div>
       )}
 
@@ -1321,7 +1318,7 @@ function ShortagesTab({ categories, viewMode }: { categories: Category[]; viewMo
         <div className="flex flex-1 flex-col gap-6 overflow-auto">
           {groups.map((group) => (
             <div key={group.key} className="flex flex-col gap-3">
-              {group.label !== '' && <h2 className="m-0 text-xl font-bold">{group.label}</h2>}
+              {group.label !== '' && <h2 className="m-0 text-card-title">{group.label}</h2>}
               {viewMode === 'cards' && (
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
                   {group.items.map((item) => {
@@ -1329,12 +1326,8 @@ function ShortagesTab({ categories, viewMode }: { categories: Category[]; viewMo
                     return (
                       <div key={item.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
                         <div className="flex items-start justify-between gap-3">
-                          <p className="m-0 min-w-0 text-xl font-bold leading-tight [overflow-wrap:anywhere]">{item.product_name}</p>
-                          <span
-                            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-base font-semibold ${shortageStatusClasses(item.status)}`}
-                          >
-                            ● {SHORTAGE_STATUS_LABELS[item.status] ?? item.status}
-                          </span>
+                          <p className="m-0 min-w-0 text-card-title leading-tight [overflow-wrap:anywhere]">{item.product_name}</p>
+                          <Badge tone={shortageStatusTone(item.status)}>{SHORTAGE_STATUS_LABELS[item.status] ?? item.status}</Badge>
                         </div>
                         <div className="flex flex-col gap-1.5">
                           <FieldRow label="Categoría" value={categoryName(item.category_id)} />
@@ -1365,11 +1358,7 @@ function ShortagesTab({ categories, viewMode }: { categories: Category[]; viewMo
                           <tr key={item.id} className={TABLE_ROW_CLASSES}>
                             <td className="max-w-xs px-4 py-3 text-lg font-semibold [overflow-wrap:anywhere]">{item.product_name}</td>
                             <td className="whitespace-nowrap px-4 py-3">
-                              <span
-                                className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-base font-semibold ${shortageStatusClasses(item.status)}`}
-                              >
-                                ● {SHORTAGE_STATUS_LABELS[item.status] ?? item.status}
-                              </span>
+                              <Badge tone={shortageStatusTone(item.status)}>{SHORTAGE_STATUS_LABELS[item.status] ?? item.status}</Badge>
                             </td>
                             <td className="whitespace-nowrap px-4 py-3 text-lg opacity-70">{categoryName(item.category_id)}</td>
                             <td className="whitespace-nowrap px-4 py-3 text-lg opacity-70">{item.provider_name ?? 'Sin proveedor'}</td>
@@ -1434,9 +1423,9 @@ export function InventoryPage({ view }: { view: InventoryTab }) {
     <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6 lg:min-h-0">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">{tab === 'stock' ? 'Inventario' : 'Faltantes'}</h1>
+          <h1 className="text-page-title">{tab === 'stock' ? 'Inventario' : 'Faltantes'}</h1>
           {canManage && tab === 'stock' && (
-            <div className="mt-1 flex flex-col text-base opacity-60 sm:flex-row sm:flex-wrap sm:items-center sm:gap-1.5 lg:text-lg">
+            <div className="mt-1 flex flex-col text-secondary sm:flex-row sm:flex-wrap sm:items-center sm:gap-1.5 lg:text-lg">
               <span className="whitespace-nowrap">{summary.stockBajo} con stock bajo</span>
               <span className="hidden sm:inline">·</span>
               <span className="whitespace-nowrap">{summary.sinStock} sin stock</span>

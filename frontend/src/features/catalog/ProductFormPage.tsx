@@ -519,7 +519,7 @@ export function ProductFormPage() {
         </div>
 
         {loadStatus === 'loading' && (
-          <p role="status" className="flex flex-1 items-center justify-center text-lg opacity-60">
+          <p role="status" className="flex flex-1 items-center justify-center text-secondary">
             Cargando…
           </p>
         )}
@@ -528,7 +528,7 @@ export function ProductFormPage() {
 
         {loadStatus === 'success' && duplicatesFound !== null && (
           <div className="flex flex-col gap-4">
-            <h1 className="m-0 text-2xl font-bold">Producto creado</h1>
+            <h1 className="m-0 text-window-title">Producto creado</h1>
             <DuplicateWarning duplicates={duplicatesFound} />
             <button
               type="button"

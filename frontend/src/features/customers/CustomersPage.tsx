@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Badge } from '../../shared/Badge'
 import {
   createCredit,
   createCustomer,
@@ -146,7 +147,7 @@ function CustomerFormModal({
             </div>
             <CloseButton onClose={onCancel} />
           </div>
-          {!isCreate && <h2 className="m-0 text-2xl font-bold">{initialValues.name}</h2>}
+          {!isCreate && <h2 className="m-0 text-window-title">{initialValues.name}</h2>}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -290,7 +291,7 @@ function CustomerPaymentModal({
             </div>
             <CloseButton onClose={onClose} />
           </div>
-          <h2 className="m-0 text-2xl font-bold">{customer.name}</h2>
+          <h2 className="m-0 text-window-title">{customer.name}</h2>
         </div>
 
         <div className="rounded-xl border border-line bg-surface-brand/40 px-4 py-3">
@@ -380,13 +381,13 @@ function CustomerHistoryModal({ customer, onClose }: { customer: Customer; onClo
             </div>
             <CloseButton onClose={onClose} />
           </div>
-          <h2 className="m-0 text-2xl font-bold">Historial</h2>
+          <h2 className="m-0 text-window-title">Historial</h2>
         </div>
 
         {status === 'loading' && <p role="status">Cargando…</p>}
         {status === 'error' && <LoadErrorCard message="No se pudieron cargar los movimientos." onRetry={reload} />}
         {status === 'success' && credits.length === 0 && (
-          <p className="text-lg opacity-60">No hay movimientos registrados.</p>
+          <p className="text-secondary">No hay movimientos registrados.</p>
         )}
         {status === 'success' && credits.length > 0 && (
           <div className="relative min-h-0">
@@ -697,8 +698,8 @@ export function CustomersPage() {
     <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Clientes</h1>
-          <p className="mt-1 text-base opacity-60 lg:text-lg">{customers.length} clientes registrados</p>
+          <h1 className="text-page-title">Clientes</h1>
+          <p className="mt-1 text-page-subtitle">{customers.length} clientes registrados</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {status === 'success' && customers.length > 0 && <ViewToggle mode={viewMode} onChange={setViewMode} />}
@@ -814,13 +815,7 @@ export function CustomersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
-                          customer.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
-                        }`}
-                      >
-                        ● {customer.status === 'active' ? 'Activo' : 'Inactivo'}
-                      </span>
+                      <Badge tone={customer.status === 'active' ? 'success' : 'muted'}>{customer.status === 'active' ? 'Activo' : 'Inactivo'}</Badge>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <RowMenu title={customer.name} items={customerRowMenuItems(customer, true)} />
@@ -841,7 +836,7 @@ export function CustomersPage() {
                     {initials(customer.name)}
                   </span>
                   <div className="min-w-32 flex-1">
-                    <p className="min-w-0 text-xl font-bold leading-tight [overflow-wrap:anywhere]">{customer.name}</p>
+                    <p className="min-w-0 text-card-title leading-tight [overflow-wrap:anywhere]">{customer.name}</p>
                   </div>
                   <div className="ml-auto flex items-center gap-2">
                     <span
@@ -859,13 +854,7 @@ export function CustomersPage() {
                   <FieldRow
                     label="Estado"
                     value={
-                      <span
-                        className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
-                          customer.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
-                        }`}
-                      >
-                        ● {customer.status === 'active' ? 'Activo' : 'Inactivo'}
-                      </span>
+                      <Badge tone={customer.status === 'active' ? 'success' : 'muted'}>{customer.status === 'active' ? 'Activo' : 'Inactivo'}</Badge>
                     }
                   />
                 </div>

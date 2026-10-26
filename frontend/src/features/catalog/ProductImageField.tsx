@@ -241,7 +241,7 @@ export function StagedProductImageField({
             <p className="m-0 text-lg font-bold">
               {removed ? 'La imagen se va a quitar al guardar' : 'Arrastrá una imagen o hacé clic'}
             </p>
-            <p className="m-0 mt-0.5 text-base opacity-60">
+            <p className="m-0 mt-0.5 text-secondary">
               {removed ? 'Podés deshacerlo o elegir una imagen nueva.' : 'JPG, PNG o WEBP · hasta 5 MB'}
             </p>
           </div>
@@ -400,7 +400,7 @@ export function ProductImageField({ product, disabled = false, onUpdated }: Prop
           </span>
           <div>
             <p className="m-0 text-lg font-bold">Arrastrá una imagen o hacé clic</p>
-            <p className="m-0 mt-0.5 text-base opacity-60">JPG, PNG o WEBP · hasta 5 MB</p>
+            <p className="m-0 mt-0.5 text-secondary">JPG, PNG o WEBP · hasta 5 MB</p>
           </div>
         </div>
       ) : (
@@ -412,7 +412,7 @@ export function ProductImageField({ product, disabled = false, onUpdated }: Prop
           />
           <div className="flex-1">
             <p className="m-0 text-lg font-bold">Imagen del producto</p>
-            <p className="m-0 mt-0.5 text-base opacity-60">Podés cambiarla o quitarla.</p>
+            <p className="m-0 mt-0.5 text-secondary">Podés cambiarla o quitarla.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button

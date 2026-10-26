@@ -44,7 +44,7 @@ export function TransferAlias() {
     <div className="flex flex-wrap items-center justify-between gap-3">
       <span className="text-xl font-semibold">Alias</span>
       <div className="flex flex-wrap items-center justify-end gap-3">
-        <span className="text-3xl font-bold text-brand [overflow-wrap:anywhere]" data-testid="transfer-alias">
+        <span className="text-figure text-brand [overflow-wrap:anywhere]" data-testid="transfer-alias">
           {alias}
         </span>
         <button

@@ -187,7 +187,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
       <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto md:min-h-[calc(70svh-8rem)] md:overflow-hidden">
       <div className="grid shrink-0 grid-cols-1 gap-6 md:min-h-0 md:flex-1 md:shrink md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)_auto] md:gap-x-10 md:gap-y-6">
         <section aria-label="Resumen de la venta" className="flex min-h-0 min-w-0 flex-col gap-4 md:col-start-1 md:row-start-1 md:pr-2">
-          <h3 className="m-0 text-xl font-bold">Resumen</h3>
+          <h3 className="m-0 text-card-title">Resumen</h3>
           <ul className="scrollbar-clean m-0 flex min-h-0 list-none flex-col overflow-y-auto p-0">
             {lines.map((line) => (
               <li key={line.key} className="flex items-start justify-between gap-3 border-b border-line-soft py-3 last:border-b-0">
@@ -216,7 +216,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
           </div>
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <span className="text-2xl font-bold">Total</span>
-            <span className="text-3xl font-bold text-brand [overflow-wrap:anywhere]" aria-label="Total a cobrar">
+            <span className="text-figure text-brand [overflow-wrap:anywhere]" aria-label="Total a cobrar">
               {money(totalCents)}
             </span>
           </div>
@@ -231,7 +231,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
 
         <section aria-label="Formas de pago" className="flex min-h-0 min-w-0 flex-col gap-6 md:col-start-3 md:row-start-1 md:pl-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="m-0 text-xl font-bold">Forma de pago</h3>
+            <h3 className="m-0 text-card-title">Forma de pago</h3>
             <button
               type="button"
               onClick={toggleMode}
@@ -296,7 +296,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
                 </p>
               )}
               {missing && plan.parts.length > 0 && (
-                <p className="m-0 text-lg opacity-60">Todavía falta asignar parte del total.</p>
+                <p className="m-0 text-secondary">Todavía falta asignar parte del total.</p>
               )}
               <div className={`flex flex-wrap items-baseline justify-between gap-3 text-lg ${plan.remainingCents === 0 && plan.parts.length > 0 ? 'text-success' : 'opacity-70'}`}>
                 <span className="font-semibold">{plan.remainingCents === 0 && plan.parts.length > 0 ? 'Completo' : 'Falta asignar'}</span>
@@ -324,7 +324,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
               </label>
               <div className="flex flex-wrap items-baseline justify-end gap-3" aria-live="polite">
                 <span className="text-xl font-semibold">{change !== null && change < 0 ? 'Falta' : 'Vuelto'}</span>
-                <span className={`text-4xl font-bold [overflow-wrap:anywhere] ${change === null ? 'text-ink opacity-50' : 'text-brand'}`} data-testid="change-amount">
+                <span className={`text-figure [overflow-wrap:anywhere] ${change === null ? 'text-ink opacity-50' : 'text-brand'}`} data-testid="change-amount">
                   {money(change === null ? 0 : Math.abs(change))}
                 </span>
               </div>
@@ -354,7 +354,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
                 </p>
               )}
               {!canCreateCustomer && (
-                <p className="m-0 text-base opacity-60">Si el cliente no está, pedile a un Gerente que lo cree.</p>
+                <p className="m-0 text-secondary">Si el cliente no está, pedile a un Gerente que lo cree.</p>
               )}
             </div>
           )}

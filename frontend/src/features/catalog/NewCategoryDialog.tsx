@@ -54,7 +54,7 @@ export function NewCategoryDialog({ breadcrumb, onCreated, onClose }: Props) {
             </div>
             <CloseButton onClose={onClose} />
           </div>
-          <h2 className="m-0 text-2xl font-bold">Nueva categoría</h2>
+          <h2 className="m-0 text-window-title">Nueva categoría</h2>
         </div>
 
         <div className="flex flex-col gap-2">

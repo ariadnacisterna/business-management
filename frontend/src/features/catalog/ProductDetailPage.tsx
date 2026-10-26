@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { Badge } from '../../shared/Badge'
 import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import {
   addVariant,
@@ -705,14 +706,14 @@ export function ProductDetailPage() {
         </div>
 
         {loadStatus === 'loading' && (
-          <p role="status" className="flex flex-1 items-center justify-center text-lg opacity-60">
+          <p role="status" className="flex flex-1 items-center justify-center text-secondary">
             Cargando…
           </p>
         )}
 
         {loadStatus === 'success' && product !== null && (
           <div className="flex flex-col gap-4">
-            {editingProduct && <h1 className="m-0 text-2xl font-bold [overflow-wrap:anywhere]">{product.name}</h1>}
+            {editingProduct && <h1 className="m-0 text-window-title [overflow-wrap:anywhere]">{product.name}</h1>}
 
             <DuplicateWarning duplicates={duplicates} />
 
@@ -992,15 +993,9 @@ export function ProductDetailPage() {
                     </div>
                   )}
                   <div className="flex min-w-0 flex-col gap-1">
-                    <h1 className="m-0 text-2xl font-bold [overflow-wrap:anywhere]">{product.name}</h1>
+                    <h1 className="m-0 text-window-title [overflow-wrap:anywhere]">{product.name}</h1>
                     <div className="flex items-center gap-2 text-base">
-                      <span
-                        className={`flex items-center gap-1.5 font-semibold ${
-                          product.status === 'active' ? 'text-success' : 'text-ink/50'
-                        }`}
-                      >
-                        ● {product.status === 'active' ? 'Activo' : 'Inactivo'}
-                      </span>
+                      <Badge tone={product.status === 'active' ? 'success' : 'muted'}>{product.status === 'active' ? 'Activo' : 'Inactivo'}</Badge>
                       <span className="opacity-40">·</span>
                       <span className="font-mono uppercase italic opacity-40">Próximamente</span>
                     </div>
@@ -1059,8 +1054,8 @@ export function ProductDetailPage() {
                   </h2>
                   <div className="flex flex-1 flex-col gap-3 rounded-xl border border-line p-4">
                     <div className="flex items-start justify-between gap-3">
-                      <p className="m-0 text-base opacity-60">Precio</p>
-                      <p className="m-0 text-xl font-bold text-brand">
+                      <p className="m-0 text-secondary">Precio</p>
+                      <p className="m-0 text-card-title text-brand">
                         {pricesByVariant.get(product.variants[0].id)?.amount !== undefined
                           ? formatPrice(pricesByVariant.get(product.variants[0].id)!.amount)
                           : 'Sin precio'}
@@ -1068,7 +1063,7 @@ export function ProductDetailPage() {
                     </div>
 
                     {canManage && (
-                      <div className="flex flex-col gap-0.5 text-base opacity-60">
+                      <div className="flex flex-col gap-0.5 text-secondary">
                         <p className="m-0">
                           <span>Último cambio: </span>
                           <span>
@@ -1114,12 +1109,12 @@ export function ProductDetailPage() {
                     </h2>
                     <div className="flex flex-1 flex-col gap-3 rounded-xl border border-line p-4">
                       <div className="flex items-start justify-between gap-3">
-                        <p className="m-0 text-base opacity-60">Stock</p>
+                        <p className="m-0 text-secondary">Stock</p>
                         {(() => {
                           const stock = stockByVariant.get(product.variants[0].id)
-                          if (stock === undefined) return <p className="m-0 text-xl font-bold">—</p>
+                          if (stock === undefined) return <p className="m-0 text-card-title">—</p>
                           return (
-                            <p className={`m-0 text-xl font-bold ${stockStatusTextColor(stock.status)}`}>
+                            <p className={`m-0 text-card-title ${stockStatusTextColor(stock.status)}`}>
                               {showStock(stock.quantity)} <span className="text-base font-normal opacity-70">({STOCK_STATUS_LABELS[stock.status] ?? stock.status})</span>
                             </p>
                           )
@@ -1127,7 +1122,7 @@ export function ProductDetailPage() {
                       </div>
 
                       {canManage && (
-                        <div className="flex flex-col gap-0.5 text-base opacity-60">
+                        <div className="flex flex-col gap-0.5 text-secondary">
                           <p className="m-0">
                             <span>Último cambio: </span>
                             <span>
@@ -1230,9 +1225,7 @@ export function ProductDetailPage() {
                                 {describeVariant(variant, valuesById)}
                               </span>
                               {variant.status !== 'active' && (
-                                <span className="rounded-full bg-ink/10 px-2 py-0.5 text-sm font-semibold uppercase tracking-wide text-ink/60">
-                                  Inactiva
-                                </span>
+                                <Badge tone="muted">Inactiva</Badge>
                               )}
                             </div>
                             {editingProduct && canManage && (
@@ -1270,8 +1263,8 @@ export function ProductDetailPage() {
                               </h2>
                               <div className="flex flex-1 flex-col gap-3 rounded-xl border border-line p-4">
                               <div className="flex items-start justify-between gap-3">
-                                <p className="m-0 text-base opacity-60">Precio</p>
-                                <p className="m-0 text-xl font-bold text-brand">
+                                <p className="m-0 text-secondary">Precio</p>
+                                <p className="m-0 text-card-title text-brand">
                                   {pricesByVariant.get(variant.id)?.amount !== undefined
                                     ? formatPrice(pricesByVariant.get(variant.id)!.amount)
                                     : 'Sin precio'}
@@ -1279,7 +1272,7 @@ export function ProductDetailPage() {
                               </div>
 
                               {canManage && (
-                                <p className="m-0 text-base opacity-60">
+                                <p className="m-0 text-secondary">
                                   <span>Último cambio: </span>
                                   <span>
                                     {(() => {
@@ -1323,12 +1316,12 @@ export function ProductDetailPage() {
                                 </h2>
                                 <div className="flex flex-1 flex-col gap-3 rounded-xl border border-line p-4">
                                 <div className="flex items-start justify-between gap-3">
-                                  <p className="m-0 text-base opacity-60">Stock</p>
+                                  <p className="m-0 text-secondary">Stock</p>
                                   {(() => {
                                     const stock = stockByVariant.get(variant.id)
-                                    if (stock === undefined) return <p className="m-0 text-xl font-bold">—</p>
+                                    if (stock === undefined) return <p className="m-0 text-card-title">—</p>
                                     return (
-                                      <p className={`m-0 text-xl font-bold ${stockStatusTextColor(stock.status)}`}>
+                                      <p className={`m-0 text-card-title ${stockStatusTextColor(stock.status)}`}>
                                         {showStock(stock.quantity)}{' '}
                                         <span className="text-base font-normal opacity-70">
                                           ({STOCK_STATUS_LABELS[stock.status] ?? stock.status})
@@ -1339,7 +1332,7 @@ export function ProductDetailPage() {
                                 </div>
 
                                 {canManage && (
-                                  <p className="m-0 text-base opacity-60">
+                                  <p className="m-0 text-secondary">
                                     <span>Último cambio: </span>
                                     <span>
                                       {(() => {
@@ -1591,10 +1584,10 @@ export function ProductDetailPage() {
             className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
           >
             <div className="flex items-start justify-between">
-              <h2 className="m-0 text-2xl font-bold">Elegir variante</h2>
+              <h2 className="m-0 text-window-title">Elegir variante</h2>
               <CloseButton onClose={() => setPickingVariantForPrice(false)} />
             </div>
-            <p className="m-0 text-base opacity-60">¿A qué variante de "{product.name}" le querés cambiar el precio?</p>
+            <p className="m-0 text-secondary">¿A qué variante de "{product.name}" le querés cambiar el precio?</p>
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
               {product.variants.filter((variant) => variant.status === 'active').length > 1 && (
                 <li>
@@ -1715,8 +1708,8 @@ export function ProductDetailPage() {
                 <CloseButton onClose={closeStockHistory} />
               </div>
               <div>
-                <h2 className="m-0 text-2xl font-bold">Historial de stock</h2>
-                <p className="m-0 text-lg opacity-60">
+                <h2 className="m-0 text-window-title">Historial de stock</h2>
+                <p className="m-0 text-secondary">
                   {product.name} — {describeVariant(stockHistoryState.variant, valuesById)}
                 </p>
               </div>
@@ -1729,7 +1722,7 @@ export function ProductDetailPage() {
               </p>
             )}
             {stockHistoryState.status === 'success' && stockHistoryState.movements.length === 0 && (
-              <p className="text-lg opacity-60">Todavía no hay movimientos de stock registrados.</p>
+              <p className="text-secondary">Todavía no hay movimientos de stock registrados.</p>
             )}
             {stockHistoryState.status === 'success' && stockHistoryState.movements.length > 0 && (
               <ul className="m-0 flex list-none flex-col gap-3 overflow-auto p-0">
@@ -1780,8 +1773,8 @@ export function ProductDetailPage() {
                 <CloseButton onClose={closeHistory} />
               </div>
               <div>
-                <h2 className="m-0 text-2xl font-bold">Historial de precios</h2>
-                <p className="m-0 text-lg opacity-60">
+                <h2 className="m-0 text-window-title">Historial de precios</h2>
+                <p className="m-0 text-secondary">
                   {product?.name} — {describeVariant(historyState.variant, valuesById)}
                 </p>
               </div>
@@ -1794,7 +1787,7 @@ export function ProductDetailPage() {
               </p>
             )}
             {historyState.status === 'success' && historyState.prices.length === 0 && (
-              <p className="text-lg opacity-60">Todavía no hay cambios de precio registrados.</p>
+              <p className="text-secondary">Todavía no hay cambios de precio registrados.</p>
             )}
             {historyState.status === 'success' && historyState.prices.length > 0 && (
               <div className="relative min-h-0 flex-1">
@@ -1812,7 +1805,7 @@ export function ProductDetailPage() {
                             <span className="font-bold text-brand">{formatPrice(price.amount)}</span>
                             <span className="opacity-60">{price.created_by_account_name}</span>
                           </div>
-                          <p className="m-0 text-base opacity-60">
+                          <p className="m-0 text-secondary">
                             Vigente desde {formatRelativeTime(price.effective_from)}
                             {price.effective_to !== null
                               ? ` hasta ${formatRelativeTime(price.effective_to)}`

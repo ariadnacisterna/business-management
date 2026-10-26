@@ -166,7 +166,7 @@ describe('SettingsPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Editar nombre' }))
     const nameDialog = screen.getByRole('dialog', { name: 'Cambiar nombre' })
-    expect(nameDialog.querySelector('p.opacity-60')).toHaveTextContent('Configuración › Cambiar nombre')
+    expect(nameDialog.querySelector('p.text-secondary')).toHaveTextContent('Configuración › Cambiar nombre')
     const dialog = within(nameDialog)
     expect(dialog.getByRole('button', { name: 'Guardar' })).toBeDisabled()
 
@@ -268,7 +268,7 @@ describe('SettingsPage', () => {
     expect(dialog.getByText('Al menos 4 caracteres')).toBeInTheDocument()
 
     const rawDialog = screen.getByRole('dialog', { name: 'Cambiar contraseña' })
-    expect(rawDialog.querySelector('p.opacity-60')).toHaveTextContent('Configuración › Cambiar contraseña')
+    expect(rawDialog.querySelector('p.text-secondary')).toHaveTextContent('Configuración › Cambiar contraseña')
   })
 
   it('lets an empleado change their own password in the popup', async () => {

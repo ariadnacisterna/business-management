@@ -251,7 +251,7 @@ describe('SalesPage', () => {
     renderPage(EMPLEADO, 'list')
 
     expect(await screen.findByText('1 venta registrada')).toBeInTheDocument()
-    expect(screen.getByText('● Normal')).toBeInTheDocument()
+    expect(screen.getByText('Normal')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Limpiar filtros' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Filtrar por forma de pago' }))

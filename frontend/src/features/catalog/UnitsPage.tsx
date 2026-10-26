@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Badge } from '../../shared/Badge'
 import { createUnit, fetchProducts, fetchUnits, updateUnit } from '../../api/catalog'
 import { errorMessage } from '../../api/client'
 import type { Product, Unit } from '../../api/types'
@@ -147,7 +148,7 @@ export function UnitsPage() {
   return (
     <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex max-w-3xl flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold">Unidades</h1>
+        <h1 className="text-page-title">Unidades</h1>
         {canManage && !creating && (
           <button type="button" onClick={() => setCreating(true)} className={primaryButtonClasses}>
             + Nueva unidad
@@ -307,11 +308,7 @@ export function UnitsPage() {
                         <span className="opacity-70">{productCountByUnit.get(unit.id) ?? 0}</span>
                       </td>
                       <td className={STACKED_CELL_CLASSES}>
-                        <span
-                          className={`text-sm font-semibold ${unit.status === 'active' ? 'text-success' : 'opacity-50'}`}
-                        >
-                          ● {unit.status === 'active' ? 'Activa' : 'Inactiva'}
-                        </span>
+                        <Badge tone={unit.status === 'active' ? 'success' : 'muted'}>{unit.status === 'active' ? 'Activa' : 'Inactiva'}</Badge>
                       </td>
                       {canManage && (
                         <td className={STACKED_ACTION_CELL_CLASSES}>

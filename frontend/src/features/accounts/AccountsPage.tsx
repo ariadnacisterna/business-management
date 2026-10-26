@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Badge } from '../../shared/Badge'
 import {
   activateAccount,
   createAccount,
@@ -9,7 +10,7 @@ import {
 } from '../../api/accounts'
 import { errorMessage } from '../../api/client'
 import type { ManagedAccount } from '../../api/types'
-import { ROLE_BADGE_CLASSES, ROLES, type Role } from '../access/roles'
+import { ROLE_TONES, ROLES, type Role } from '../access/roles'
 import { useAuth } from '../access/useAuth'
 import { TABLE_CLASSES, TABLE_HEAD_CLASSES, TABLE_SCROLL_GUTTER_CLASSES, TABLE_ROW_CLASSES } from '../../shared/tableRows'
 import { Breadcrumb } from '../../shared/Breadcrumb'
@@ -169,7 +170,7 @@ function AccountFormModal({
             </div>
             <CloseButton onClose={onCancel} />
           </div>
-          {!isCreate && <h2 className="m-0 text-2xl font-bold">{initialValues.name}</h2>}
+          {!isCreate && <h2 className="m-0 text-window-title">{initialValues.name}</h2>}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -357,7 +358,7 @@ function ResetPasswordModal({
             </div>
             <CloseButton onClose={onCancel} />
           </div>
-          <h2 className="m-0 text-2xl font-bold">Restablecer contraseña</h2>
+          <h2 className="m-0 text-window-title">Restablecer contraseña</h2>
         </div>
         <p className="m-0 text-lg opacity-70">Nueva contraseña para "{accountName}".</p>
 
@@ -602,8 +603,8 @@ export function AccountsPage() {
     <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Usuarios</h1>
-          <p className="mt-1 text-base opacity-60 lg:text-lg">{accounts.length} cuentas registradas</p>
+          <h1 className="text-page-title">Usuarios</h1>
+          <p className="mt-1 text-page-subtitle">{accounts.length} cuentas registradas</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {status === 'success' && <ViewToggle mode={viewMode} onChange={setViewMode} />}
@@ -779,18 +780,12 @@ export function AccountsPage() {
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-bold text-brand-contrast">
                       {initials(account.name)}
                     </span>
-                    <span className="min-w-0 text-xl font-bold [overflow-wrap:anywhere]">
+                    <span className="min-w-0 text-card-title [overflow-wrap:anywhere]">
                       <HighlightedText text={account.name} query={searchInput} />
                     </span>
                   </div>
                   <div className="ml-auto flex shrink-0 items-center gap-2">
-                    <span
-                      className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
-                        account.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
-                      }`}
-                    >
-                      ● {account.status === 'active' ? 'Activo' : 'Inactivo'}
-                    </span>
+                    <Badge tone={account.status === 'active' ? 'success' : 'muted'}>{account.status === 'active' ? 'Activo' : 'Inactivo'}</Badge>
                     <RowMenu title={account.name} items={accountRowMenuItems(account)} />
                   </div>
                 </div>
@@ -801,11 +796,7 @@ export function AccountsPage() {
                   label="Rol"
                   value={
                     account.role !== null ? (
-                      <span
-                        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold ${ROLE_BADGE_CLASSES[account.role as Role]}`}
-                      >
-                        ● {account.role}
-                      </span>
+                      <Badge tone={ROLE_TONES[account.role as Role]}>{account.role}</Badge>
                     ) : (
                       '—'
                     )
@@ -816,15 +807,9 @@ export function AccountsPage() {
                   value={
                     <div className="flex flex-wrap justify-end gap-1.5">
                       {account.businesses.map((business) => (
-                        <span
-                          key={business.id}
-                          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-ink/5 py-1 pl-2 pr-3 text-sm font-semibold text-ink/70"
-                        >
-                          <span className="text-sm font-extrabold text-ink">
-                            {business.name.charAt(0).toUpperCase()}
-                          </span>
-                          {business.name}
-                        </span>
+                        <Badge key={business.id} tone="neutral" initial={business.name.charAt(0).toUpperCase()}>
+{business.name}
+</Badge>
                       ))}
                     </div>
                   }
@@ -900,11 +885,7 @@ export function AccountsPage() {
                     </td>
                     <td className="px-4 py-3.5">
                       {account.role !== null ? (
-                        <span
-                          className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold ${ROLE_BADGE_CLASSES[account.role as Role]}`}
-                        >
-                          ● {account.role}
-                        </span>
+                        <Badge tone={ROLE_TONES[account.role as Role]}>{account.role}</Badge>
                       ) : (
                         '—'
                       )}
@@ -912,26 +893,14 @@ export function AccountsPage() {
                     <td className="px-4 py-3.5">
                       <div className="flex flex-wrap gap-1.5">
                         {account.businesses.map((business) => (
-                          <span
-                            key={business.id}
-                            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-ink/5 py-1 pl-2 pr-3 text-sm font-semibold text-ink/70"
-                          >
-                            <span className="text-sm font-extrabold text-ink">
-                              {business.name.charAt(0).toUpperCase()}
-                            </span>
-                            {business.name}
-                          </span>
+                          <Badge key={business.id} tone="neutral" initial={business.name.charAt(0).toUpperCase()}>
+{business.name}
+</Badge>
                         ))}
                       </div>
                     </td>
                     <td className="py-3.5 pl-8 pr-4">
-                      <span
-                        className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
-                          account.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
-                        }`}
-                      >
-                        ● {account.status === 'active' ? 'Activo' : 'Inactivo'}
-                      </span>
+                      <Badge tone={account.status === 'active' ? 'success' : 'muted'}>{account.status === 'active' ? 'Activo' : 'Inactivo'}</Badge>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <RowMenu title={account.name} items={accountRowMenuItems(account)} />

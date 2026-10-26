@@ -36,7 +36,7 @@ export function TransferAliasSection() {
 
   return (
     <section className="rounded-2xl border border-line bg-surface p-5" aria-labelledby="transfer-alias-heading">
-      <h2 id="transfer-alias-heading" className="m-0 mb-1 text-2xl font-bold">
+      <h2 id="transfer-alias-heading" className="m-0 mb-1 text-window-title">
         Alias para transferencias
       </h2>
       <p className="m-0 mb-4 text-lg opacity-70">

@@ -17,7 +17,7 @@ export function LoginHelpDialog({ onClose }: Props) {
         className="relative flex max-h-[calc(100svh-2rem)] w-full max-w-sm flex-col gap-4 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl"
       >
         <div className="flex items-start justify-between gap-3">
-          <h2 className="m-0 text-2xl font-bold">¿Problemas para acceder?</h2>
+          <h2 className="m-0 text-window-title">¿Problemas para acceder?</h2>
           <CloseButton onClose={onClose} className="-mr-3 -mt-3" />
         </div>
         <p className="m-0 text-lg opacity-70">

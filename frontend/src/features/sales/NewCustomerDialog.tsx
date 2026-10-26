@@ -61,7 +61,7 @@ export function NewCustomerDialog({ initialName = '', onCreated, onClose }: Prop
             </div>
             <CloseButton onClose={onClose} />
           </div>
-          <h2 className="m-0 text-2xl font-bold">Nuevo cliente</h2>
+          <h2 className="m-0 text-window-title">Nuevo cliente</h2>
         </div>
 
         <div className="flex flex-col gap-2">

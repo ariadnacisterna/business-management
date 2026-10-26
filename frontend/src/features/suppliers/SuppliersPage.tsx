@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Badge } from '../../shared/Badge'
 import {
   createCategory,
   createProvider,
@@ -180,7 +181,7 @@ function ProviderFormModal({
             </div>
             <CloseButton onClose={onCancel} />
           </div>
-          {!isCreate && <h2 className="m-0 text-2xl font-bold">{initialValues.name}</h2>}
+          {!isCreate && <h2 className="m-0 text-window-title">{initialValues.name}</h2>}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -299,7 +300,7 @@ function ProviderFormModal({
                     </div>
                     <CloseButton onClose={cancelCreateCategory} />
                   </div>
-                  <h2 className="m-0 text-2xl font-bold">Nueva categoría</h2>
+                  <h2 className="m-0 text-window-title">Nueva categoría</h2>
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -523,8 +524,8 @@ export function SuppliersPage() {
     <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Proveedores</h1>
-          <p className="mt-1 text-base opacity-60 lg:text-lg">{providers.length} proveedores registrados</p>
+          <h1 className="text-page-title">Proveedores</h1>
+          <p className="mt-1 text-page-subtitle">{providers.length} proveedores registrados</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {status === 'success' && tab === 'providers' && providers.length > 0 && (
@@ -676,12 +677,7 @@ export function SuppliersPage() {
                               {provider.category_ids.map((id) => {
                                 const categoryName = categories.find((category) => category.id === id)?.name
                                 return (
-                                  <span
-                                    key={id}
-                                    className="max-w-full rounded-full border border-brand bg-surface-brand px-2.5 py-0.5 text-sm font-semibold text-brand [overflow-wrap:anywhere]"
-                                  >
-                                    {categoryName ?? `#${id}`}
-                                  </span>
+                                  <Badge key={id} tone="brand">{categoryName ?? `#${id}`}</Badge>
                                 )
                               })}
                             </div>
@@ -693,13 +689,7 @@ export function SuppliersPage() {
                           {provider.last_purchase_at !== null ? formatISODateDisplay(provider.last_purchase_at) : '—'}
                         </td>
                         <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
-                              provider.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
-                            }`}
-                          >
-                            ● {provider.status === 'active' ? 'Activo' : 'Inactivo'}
-                          </span>
+                          <Badge tone={provider.status === 'active' ? 'success' : 'muted'}>{provider.status === 'active' ? 'Activo' : 'Inactivo'}</Badge>
                         </td>
                         {canManage && (
                           <td className="px-4 py-3 text-center">
@@ -722,17 +712,11 @@ export function SuppliersPage() {
                         {initials(provider.name)}
                       </span>
                       <div className="min-w-32 flex-1">
-                        <p className="min-w-0 text-xl font-bold leading-tight [overflow-wrap:anywhere]">{provider.name}</p>
-                        <p className="m-0 min-w-0 text-lg opacity-60 [overflow-wrap:anywhere]">{provider.contact_name ?? '—'}</p>
+                        <p className="min-w-0 text-card-title leading-tight [overflow-wrap:anywhere]">{provider.name}</p>
+                        <p className="m-0 min-w-0 text-secondary [overflow-wrap:anywhere]">{provider.contact_name ?? '—'}</p>
                       </div>
                       <div className="ml-auto flex items-center gap-2">
-                        <span
-                          className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-base font-semibold ${
-                            provider.status === 'active' ? 'bg-success-soft text-success' : 'bg-ink/5 text-ink/50'
-                          }`}
-                        >
-                          ● {provider.status === 'active' ? 'Activo' : 'Inactivo'}
-                        </span>
+                        <Badge tone={provider.status === 'active' ? 'success' : 'muted'}>{provider.status === 'active' ? 'Activo' : 'Inactivo'}</Badge>
                         {canManage && <RowMenu title={provider.name} items={providerRowMenuItems(provider)} />}
                       </div>
                     </div>
@@ -742,12 +726,7 @@ export function SuppliersPage() {
                         {provider.category_ids.map((id) => {
                           const categoryName = categories.find((category) => category.id === id)?.name
                           return (
-                            <span
-                              key={id}
-                              className="max-w-full rounded-full border border-brand bg-surface-brand px-3 py-1 text-base font-semibold text-brand [overflow-wrap:anywhere]"
-                            >
-                              {categoryName ?? `#${id}`}
-                            </span>
+                            <Badge key={id} tone="brand">{categoryName ?? `#${id}`}</Badge>
                           )
                         })}
                       </div>

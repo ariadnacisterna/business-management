@@ -325,7 +325,7 @@ describe('ProductsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Filtros' }))
 
     const dialog = await screen.findByRole('dialog', { name: 'Filtros' })
-    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Productos › Filtros')
+    expect(dialog.querySelector('p.text-secondary')).toHaveTextContent('Productos › Filtros')
   })
 
   it('discards a stale list response that resolves after a newer one', async () => {

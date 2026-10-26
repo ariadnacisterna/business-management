@@ -41,7 +41,7 @@ export function WelcomeModal() {
         aria-label="Bienvenida"
         className="pointer-events-auto relative flex w-full max-w-sm flex-col items-center gap-3 rounded-2xl bg-surface p-8 text-center shadow-2xl"
       >
-        <h2 className="text-3xl font-bold [overflow-wrap:anywhere]">
+        <h2 className="text-page-title [overflow-wrap:anywhere]">
           {greeting}, {firstName}
         </h2>
         <p className="text-xl opacity-70">{PHRASES_BY_GREETING[greeting]}</p>

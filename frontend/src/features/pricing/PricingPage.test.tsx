@@ -285,7 +285,7 @@ describe('PricingPage', () => {
     await user.click(screen.getByRole('button', { name: 'Filtros' }))
 
     const dialog = await screen.findByRole('dialog', { name: 'Filtros' })
-    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Precios › Filtros')
+    expect(dialog.querySelector('p.text-secondary')).toHaveTextContent('Precios › Filtros')
   })
 
   it('changes the page size and clears the search with the clear-filters button', async () => {
@@ -618,7 +618,7 @@ describe('PricingPage', () => {
     await user.click(screen.getByRole('button', { name: 'Ver historial de precios de Cinta bebé Estándar' }))
 
     const dialog = await screen.findByRole('dialog', { name: 'Historial de precios de Cinta bebé' })
-    expect(dialog.querySelector('p.opacity-60')).toHaveTextContent('Precios › Cinta bebé › Historial de precios')
+    expect(dialog.querySelector('p.text-secondary')).toHaveTextContent('Precios › Cinta bebé › Historial de precios')
     const [newestEntry, oldestEntry] = within(dialog).getAllByRole('listitem')
     expect(within(newestEntry).getByText('$ 150,00')).toBeInTheDocument()
     expect(within(newestEntry).getByText('$ 100,00 → $ 150,00')).toBeInTheDocument()

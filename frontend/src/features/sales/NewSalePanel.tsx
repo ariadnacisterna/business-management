@@ -304,8 +304,8 @@ export function NewSalePanel() {
       <div className="grid grid-cols-1 items-start gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:grid-rows-[minmax(0,1fr)] lg:items-stretch lg:gap-x-8">
         <div className="flex min-w-0 flex-col gap-4 lg:min-h-0">
           <section className="flex flex-col gap-4 rounded-2xl bg-surface p-3 shadow-sm" aria-label="Productos">
-            <h2 className="m-0 text-2xl font-bold">Buscar producto</h2>
-            <p className="m-0 text-lg opacity-60">Escribí el nombre y elegilo de la lista con el mouse o con las flechas y Enter</p>
+            <h2 className="m-0 text-window-title">Buscar producto</h2>
+            <p className="m-0 text-secondary">Escribí el nombre y elegilo de la lista con el mouse o con las flechas y Enter</p>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
               <div className="min-w-0 flex-1">
                 {variantsLoad.status === 'error' ? (
@@ -344,7 +344,7 @@ export function NewSalePanel() {
             aria-label="Carrito"
             className="flex scroll-mt-4 flex-col gap-4 rounded-2xl bg-surface p-4 shadow-sm lg:min-h-0 lg:flex-1 lg:overflow-hidden"
           >
-            <h2 className="m-0 text-2xl font-bold">Carrito</h2>
+            <h2 className="m-0 text-window-title">Carrito</h2>
             <div className="relative flex min-h-0 flex-col lg:flex-1">
             <div
               ref={cartScrollRef}
@@ -371,7 +371,7 @@ export function NewSalePanel() {
                       >
                         <div className="min-w-0 w-full md:col-span-3 md:w-auto">
                           <p className="m-0 text-lg font-bold leading-tight [overflow-wrap:anywhere]">{line.description}</p>
-                          <p className="m-0 text-lg opacity-60">Monto libre</p>
+                          <p className="m-0 text-secondary">Monto libre</p>
                         </div>
                         <span className="ml-auto text-right text-lg font-bold text-brand md:ml-0">{money(cartLineCents(line))}</span>
                         <button
@@ -396,7 +396,7 @@ export function NewSalePanel() {
                         <p className="m-0 text-lg font-bold leading-tight [overflow-wrap:anywhere]">
                           {line.variant.product_name}
                         </p>
-                        <p className="m-0 text-lg opacity-60 [overflow-wrap:anywhere]">
+                        <p className="m-0 text-secondary [overflow-wrap:anywhere]">
                           {[description, `${formatAmount(line.variant.price_amount)} c/u`]
                             .filter((part) => part !== '')
                             .join(' · ')}
@@ -478,7 +478,7 @@ export function NewSalePanel() {
         <div className="flex min-w-0 flex-col gap-4">
           <section className="flex flex-col gap-4 rounded-2xl bg-surface p-4 shadow-sm" aria-label="Resumen">
             <div className="flex items-baseline justify-between gap-2">
-              <h2 className="m-0 text-2xl font-bold">Resumen</h2>
+              <h2 className="m-0 text-window-title">Resumen</h2>
               <span className="text-lg opacity-60">
                 {lines.length} {lines.length === 1 ? 'línea' : 'líneas'}
               </span>
@@ -499,8 +499,8 @@ export function NewSalePanel() {
                 <span>{money(subtotalCents)}</span>
               </div>
               <div className="flex flex-wrap items-end justify-between gap-2">
-                <span className="text-xl font-bold">Total</span>
-                <span className="text-xl font-bold text-brand [overflow-wrap:anywhere]" aria-label="Total de la venta">
+                <span className="text-card-title">Total</span>
+                <span className="text-card-title text-brand [overflow-wrap:anywhere]" aria-label="Total de la venta">
                   {money(totalCents)}
                 </span>
               </div>

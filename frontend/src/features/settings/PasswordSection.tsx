@@ -92,7 +92,7 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
             </div>
             <CloseButton onClose={onClose} />
           </div>
-          <h2 className="m-0 text-2xl font-bold">Cambiar contraseña</h2>
+          <h2 className="m-0 text-window-title">Cambiar contraseña</h2>
         </div>
 
         <div className="flex flex-col gap-1.5">

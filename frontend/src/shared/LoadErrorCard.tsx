@@ -14,7 +14,7 @@ export function LoadErrorCard({ message, onRetry }: Props) {
       <span className="absolute -top-8 flex h-16 w-16 items-center justify-center rounded-full border-4 border-surface bg-danger text-white">
         <CrossIcon className="h-8 w-8" />
       </span>
-      <h2 className="m-0 text-3xl font-bold">Error</h2>
+      <h2 className="m-0 text-page-title">Error</h2>
       <p className="m-0 text-xl opacity-80">{message}</p>
       <button
         type="button"

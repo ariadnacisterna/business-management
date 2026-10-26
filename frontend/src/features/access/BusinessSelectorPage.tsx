@@ -34,7 +34,7 @@ export function BusinessSelectorPage({ onSelected }: BusinessSelectorPageProps) 
       </div>
 
       <div className="w-full max-w-md space-y-5 rounded-2xl border border-line bg-surface p-8 shadow-sm">
-        <h1 className="text-2xl font-bold">¿Con qué negocio querés trabajar?</h1>
+        <h1 className="text-window-title">¿Con qué negocio querés trabajar?</h1>
 
         <div className="space-y-3">
           {account.businesses.map((business) => (
@@ -45,7 +45,7 @@ export function BusinessSelectorPage({ onSelected }: BusinessSelectorPageProps) 
               disabled={submittingId !== null}
               className="flex w-full flex-col items-start rounded-lg border border-line px-5 py-4 text-left transition-colors hover:border-brand hover:bg-surface-brand disabled:opacity-60"
             >
-              <span className="text-xl font-bold">{business.name}</span>
+              <span className="text-card-title">{business.name}</span>
               {business.industry !== business.name && (
                 <span className="text-base opacity-70">{business.industry}</span>
               )}
