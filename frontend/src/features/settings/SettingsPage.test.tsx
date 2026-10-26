@@ -416,6 +416,7 @@ describe('SettingsPage', () => {
       }),
     )
 
+    await user.click(within(screen.getByRole('region', { name: 'Alias para transferencias' })).getByRole('button', { name: 'Editar' }))
     const input = screen.getByRole('textbox', { name: 'Alias para transferencias' })
     expect(within(screen.getByRole('region', { name: 'Alias para transferencias' })).getByRole('button', { name: 'Guardar' })).toBeDisabled()
     await user.type(input, 'alias.de.prueba')
@@ -426,12 +427,29 @@ describe('SettingsPage', () => {
     expect(init.method).toBe('PATCH')
     expect(JSON.parse(init.body as string)).toEqual({ transfer_alias: 'alias.de.prueba' })
     expect(await screen.findByText('Alias guardado.')).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Alias para transferencias' })).not.toBeInTheDocument()
+  })
+
+  it('restores the saved alias when editing is cancelled', async () => {
+    const user = userEvent.setup()
+    renderPage({ ...ACCOUNT, role: 'Administrador' })
+    await waitForPage()
+
+    expect(screen.getByText('Sin alias')).toBeInTheDocument()
+    await user.click(within(screen.getByRole('region', { name: 'Alias para transferencias' })).getByRole('button', { name: 'Editar' }))
+    await user.type(screen.getByRole('textbox', { name: 'Alias para transferencias' }), 'otro')
+    await user.click(within(screen.getByRole('region', { name: 'Alias para transferencias' })).getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.getByText('Sin alias')).toBeInTheDocument()
+    await user.click(within(screen.getByRole('region', { name: 'Alias para transferencias' })).getByRole('button', { name: 'Editar' }))
+    expect(screen.getByRole('textbox', { name: 'Alias para transferencias' })).toHaveValue('')
   })
 
   it('rejects an alias with spaces or more than 50 characters before saving', async () => {
     const user = userEvent.setup()
     renderPage({ ...ACCOUNT, role: 'Administrador' })
     await waitForPage()
+    await user.click(within(screen.getByRole('region', { name: 'Alias para transferencias' })).getByRole('button', { name: 'Editar' }))
     const input = screen.getByRole('textbox', { name: 'Alias para transferencias' })
 
     await user.type(input, 'con espacio')
