@@ -192,7 +192,7 @@ export function SaleRegisteredDialog({ sale, onNewSale }: { sale: Sale; onNewSal
         <CheckIcon />
         <h2 className="m-0 mt-2 text-window-title">¡Venta registrada!</h2>
         <p className="m-0 text-secondary">Venta N.º {sale.id}</p>
-        <p className="m-0 mt-3 text-figure text-brand [overflow-wrap:anywhere]" aria-label="Total registrado">
+        <p className="m-0 mt-3 text-figure-key text-brand [overflow-wrap:anywhere]" aria-label="Total registrado">
           {formatAmount(sale.total)}
         </p>
         <div className="mt-2 flex flex-col items-center gap-1 text-secondary">

@@ -216,7 +216,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
           </div>
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <span className="text-2xl font-bold">Total</span>
-            <span className="text-figure text-brand [overflow-wrap:anywhere]" aria-label="Total a cobrar">
+            <span className="text-figure-key text-brand [overflow-wrap:anywhere]" aria-label="Total a cobrar">
               {money(totalCents)}
             </span>
           </div>
@@ -324,7 +324,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
               </label>
               <div className="flex flex-wrap items-baseline justify-end gap-3" aria-live="polite">
                 <span className="text-xl font-semibold">{change !== null && change < 0 ? 'Falta' : 'Vuelto'}</span>
-                <span className={`text-figure [overflow-wrap:anywhere] ${change === null ? 'text-ink opacity-50' : 'text-brand'}`} data-testid="change-amount">
+                <span className={`text-figure-key [overflow-wrap:anywhere] ${change === null ? 'text-ink opacity-50' : 'text-brand'}`} data-testid="change-amount">
                   {money(change === null ? 0 : Math.abs(change))}
                 </span>
               </div>

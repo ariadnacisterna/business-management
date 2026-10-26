@@ -364,6 +364,12 @@ select {
   font-weight: 800;
 }
 
+.text-figure-key {
+  font-size: 2.5rem;
+  line-height: 1.1;
+  font-weight: 800;
+}
+
 .text-window-title {
   font-size: 1.5rem;
   line-height: 1.25;

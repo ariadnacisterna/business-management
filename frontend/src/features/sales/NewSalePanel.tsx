@@ -500,7 +500,7 @@ export function NewSalePanel() {
               </div>
               <div className="flex flex-wrap items-end justify-between gap-2">
                 <span className="text-card-title">Total</span>
-                <span className="text-card-title text-brand [overflow-wrap:anywhere]" aria-label="Total de la venta">
+                <span className="text-figure-key text-brand [overflow-wrap:anywhere]" aria-label="Total de la venta">
                   {money(totalCents)}
                 </span>
               </div>

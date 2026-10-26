@@ -38,7 +38,7 @@ export function CashPage() {
       {status === 'error' && <LoadErrorCard message="No se pudo cargar tu caja." onRetry={reload} />}
       {data !== undefined && (
         <section aria-label="Caja actual" className="flex flex-col gap-4 rounded-2xl bg-surface p-5 shadow-sm">
-          <p className="m-0 text-figure text-brand" aria-label="Efectivo en caja">
+          <p className="m-0 text-figure-key text-brand" aria-label="Efectivo en caja">
             {formatMoney(data.expected_cash)}
           </p>
           <CashSummary register={data} />
