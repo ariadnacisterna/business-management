@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
 
 from app.api.access import router as access_router
+from app.api.cash import router as cash_router
 from app.api.catalog import router as catalog_router
 from app.api.health import router as health_router
 from app.api.imports import router as imports_router
@@ -83,6 +84,7 @@ def create_app(static_dir: Path = STATIC_DIR) -> FastAPI:
     application.include_router(search_router)
     application.include_router(imports_router)
     application.include_router(sales_router)
+    application.include_router(cash_router)
 
     index_html = static_dir / "index.html"
 

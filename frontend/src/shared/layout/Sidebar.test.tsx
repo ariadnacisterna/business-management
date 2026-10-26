@@ -65,7 +65,8 @@ describe('Sidebar', () => {
     renderSidebar('/products')
 
     const operacion = within(screen.getByRole('group', { name: 'Operación' }))
-    expect(operacion.getAllByRole('link').map((link) => link.textContent)).toEqual(['Venta', 'Historial de ventas'])
+    expect(operacion.getAllByRole('link').map((link) => link.textContent)).toEqual(['Venta', 'Caja'])
+    expect(operacion.getByRole('button', { name: 'Historial' })).toBeInTheDocument()
 
     const catalogo = within(screen.getByRole('group', { name: 'Catálogo' }))
     expect(catalogo.getAllByRole('link').map((link) => link.textContent)).toEqual(['Productos', 'Precios'])
@@ -110,6 +111,14 @@ describe('Sidebar', () => {
     expect(screen.queryByText('Catálogo')).not.toBeInTheDocument()
     expect(screen.queryByText('Comercial')).not.toBeInTheDocument()
     expect(screen.getAllByRole('separator')).toHaveLength(3)
+  })
+
+  it('groups Ventas and Cajas under Historial', async () => {
+    const user = userEvent.setup()
+    renderSidebar('/products')
+    await user.click(screen.getByRole('button', { name: 'Historial' }))
+    expect(screen.getByRole('link', { name: 'Ventas' })).toHaveAttribute('href', '/historial/ventas')
+    expect(screen.getByRole('link', { name: 'Cajas' })).toHaveAttribute('href', '/historial/cajas')
   })
 
   it('renders "Inventario" as a disclosure button for every role', () => {

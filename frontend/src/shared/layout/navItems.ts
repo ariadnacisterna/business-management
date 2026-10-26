@@ -7,6 +7,7 @@ export type NavIcon =
   | 'inventory'
   | 'sales'
   | 'receipt'
+  | 'cash'
   | 'suppliers'
   | 'accounts'
   | 'customers'
@@ -15,6 +16,7 @@ export type NavIcon =
 export interface NavChild {
   to: string
   label: string
+  minRole?: Role
 }
 
 export interface NavItem {
@@ -37,7 +39,16 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Operación',
     items: [
       { to: '/ventas/nueva', label: 'Venta', icon: 'sales' },
-      { to: '/ventas/registradas', label: 'Historial de ventas', icon: 'receipt' },
+      { to: '/caja', label: 'Caja', icon: 'cash' },
+      {
+        to: '/historial/ventas',
+        label: 'Historial',
+        icon: 'receipt',
+        children: [
+          { to: '/historial/ventas', label: 'Ventas' },
+          { to: '/historial/cajas', label: 'Cajas', minRole: 'Gerente' },
+        ],
+      },
     ],
   },
   {
@@ -76,7 +87,14 @@ export const SETTINGS_ITEM: NavItem = {
   icon: 'settings',
 }
 
-export function sectionOf(label: string): string | null {
-  const group = NAV_GROUPS.find((candidate) => candidate.items.some((item) => item.label === label))
-  return group?.label ?? null
+export function ancestorsOf(label: string): string[] {
+  for (const group of NAV_GROUPS) {
+    for (const item of group.items) {
+      if (item.label === label) return group.label === null ? [] : [group.label]
+      if (item.children?.some((child) => child.label === label)) {
+        return group.label === null ? [item.label] : [group.label, item.label]
+      }
+    }
+  }
+  return []
 }

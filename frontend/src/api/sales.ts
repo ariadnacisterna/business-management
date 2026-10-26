@@ -1,3 +1,4 @@
+import { CASH_UPDATED_EVENT } from './cash'
 import { apiFetch } from './client'
 import type { PaymentMethod, Sale, SalePage, SalePayment, SellableVariant } from './types'
 
@@ -23,8 +24,13 @@ export async function fetchSellableVariants(): Promise<SellableVariant[]> {
   return response.results
 }
 
+function announceCashChange(sale: Sale): Sale {
+  window.dispatchEvent(new Event(CASH_UPDATED_EVENT))
+  return sale
+}
+
 export function createSale(sale: NewSale): Promise<Sale> {
-  return apiFetch<Sale>('/sales', { method: 'POST', body: JSON.stringify(sale) })
+  return apiFetch<Sale>('/sales', { method: 'POST', body: JSON.stringify(sale) }).then(announceCashChange)
 }
 
 export function fetchSales(filters: SaleFilters): Promise<SalePage> {
@@ -40,5 +46,5 @@ export function fetchSale(id: number): Promise<Sale> {
 }
 
 export function voidSale(id: number, reason: string): Promise<Sale> {
-  return apiFetch<Sale>(`/sales/${id}/void`, { method: 'POST', body: JSON.stringify({ reason }) })
+  return apiFetch<Sale>(`/sales/${id}/void`, { method: 'POST', body: JSON.stringify({ reason }) }).then(announceCashChange)
 }

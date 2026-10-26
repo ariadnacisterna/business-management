@@ -2,7 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './features/access/AuthContext'
 import { useAuth } from './features/access/useAuth'
 import { ProtectedRoute } from './features/access/ProtectedRoute'
-import { canManageAccounts, canManageSuppliers, canViewDashboard } from './features/access/roles'
+import { canCloseCash, canManageAccounts, canManageSuppliers, canViewDashboard } from './features/access/roles'
 import { AppLayout } from './shared/layout/AppLayout'
 import { lazyWithReload } from './shared/lazyWithReload'
 import { Loadable } from './shared/Loadable'
@@ -16,6 +16,8 @@ const ProductDetailPage = lazyWithReload(() => import('./features/catalog/Produc
 const ProductFormPage = lazyWithReload(() => import('./features/catalog/ProductFormPage').then((m) => ({ default: m.ProductFormPage })))
 const ProductsPage = lazyWithReload(() => import('./features/catalog/ProductsPage').then((m) => ({ default: m.ProductsPage })))
 const UnitsPage = lazyWithReload(() => import('./features/catalog/UnitsPage').then((m) => ({ default: m.UnitsPage })))
+const CashPage = lazyWithReload(() => import('./features/cash/CashPage').then((m) => ({ default: m.CashPage })))
+const CashHistoryPage = lazyWithReload(() => import('./features/cash/CashHistoryPage').then((m) => ({ default: m.CashHistoryPage })))
 const CustomersPage = lazyWithReload(() => import('./features/customers/CustomersPage').then((m) => ({ default: m.CustomersPage })))
 const DashboardPage = lazyWithReload(() => import('./features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })))
 const InventoryPage = lazyWithReload(() => import('./features/inventory/InventoryPage').then((m) => ({ default: m.InventoryPage })))
@@ -66,6 +68,20 @@ function SuppliersRoute() {
   )
 }
 
+function CashHistoryRoute() {
+  const { account } = useAuth()
+
+  if (!canCloseCash(account)) {
+    return <Navigate to="/historial/ventas" replace />
+  }
+
+  return (
+    <Loadable>
+      <CashHistoryPage />
+    </Loadable>
+  )
+}
+
 export function App() {
   return (
     <ToastProvider>
@@ -89,7 +105,11 @@ export function App() {
               <Route path="/proveedores" element={<SuppliersRoute />} />
               <Route path="/ventas" element={<Navigate to="/ventas/nueva" replace />} />
               <Route path="/ventas/nueva" element={<Loadable><SalesPage view="new" /></Loadable>} />
-              <Route path="/ventas/registradas" element={<Loadable><SalesPage view="list" /></Loadable>} />
+              <Route path="/ventas/registradas" element={<Navigate to="/historial/ventas" replace />} />
+              <Route path="/historial" element={<Navigate to="/historial/ventas" replace />} />
+              <Route path="/historial/ventas" element={<Loadable><SalesPage view="list" /></Loadable>} />
+              <Route path="/historial/cajas" element={<CashHistoryRoute />} />
+              <Route path="/caja" element={<Loadable><CashPage /></Loadable>} />
               <Route path="/clientes" element={<Loadable><CustomersPage /></Loadable>} />
               <Route path="/cuentas" element={<AccountsRoute />} />
               <Route path="/configuraciones" element={<Loadable><SettingsPage /></Loadable>} />

@@ -417,9 +417,9 @@ describe('SettingsPage', () => {
     )
 
     const input = screen.getByRole('textbox', { name: 'Alias para transferencias' })
-    expect(screen.getByRole('button', { name: 'Guardar alias' })).toBeDisabled()
+    expect(within(screen.getByRole('region', { name: 'Alias para transferencias' })).getByRole('button', { name: 'Guardar' })).toBeDisabled()
     await user.type(input, 'alias.de.prueba')
-    await user.click(screen.getByRole('button', { name: 'Guardar alias' }))
+    await user.click(within(screen.getByRole('region', { name: 'Alias para transferencias' })).getByRole('button', { name: 'Guardar' }))
 
     const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit]
     expect(url).toBe('/auth/business/transfer-alias')
@@ -436,11 +436,11 @@ describe('SettingsPage', () => {
 
     await user.type(input, 'con espacio')
     expect(screen.getByText('El alias no puede tener espacios.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Guardar alias' })).toBeDisabled()
+    expect(within(screen.getByRole('region', { name: 'Alias para transferencias' })).getByRole('button', { name: 'Guardar' })).toBeDisabled()
 
     await user.clear(input)
     await user.type(input, 'a'.repeat(51))
     expect(screen.getByText('El alias puede tener hasta 50 caracteres.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Guardar alias' })).toBeDisabled()
+    expect(within(screen.getByRole('region', { name: 'Alias para transferencias' })).getByRole('button', { name: 'Guardar' })).toBeDisabled()
   })
 })

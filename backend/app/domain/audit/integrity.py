@@ -518,6 +518,133 @@ def _sale_credits_not_matching(db: Session) -> list[IntegrityProblem]:
     return problems
 
 
+def _sales_in_wrong_cash_register(db: Session) -> list[IntegrityProblem]:
+    rows = db.execute(
+        text(
+            """
+            SELECT b.name AS business_name, s.id AS sale_id
+            FROM sale s
+            JOIN business b ON b.id = s.business_id
+            JOIN cash_register r ON r.id = s.cash_register_id
+            WHERE r.business_id <> s.business_id
+               OR r.account_id <> s.created_by_account_id
+               OR s.created_at < r.opened_at
+               OR s.created_at >= least(r.ends_at, coalesce(r.closed_at, r.ends_at))
+            ORDER BY b.name, s.id
+            """
+        )
+    ).mappings()
+    return [
+        IntegrityProblem(
+            row["business_name"],
+            f"Venta N° {row['sale_id']}: está en una caja que no es de quien la hizo, de otro "
+            "negocio o que no estaba abierta en ese momento.",
+        )
+        for row in rows
+    ]
+
+
+def _voids_in_wrong_cash_register(db: Session) -> list[IntegrityProblem]:
+    rows = db.execute(
+        text(
+            """
+            SELECT b.name AS business_name, s.id AS sale_id
+            FROM sale s
+            JOIN business b ON b.id = s.business_id
+            JOIN cash_register r ON r.id = s.void_cash_register_id
+            WHERE s.voided_at IS NULL
+               OR r.business_id <> s.business_id
+               OR r.account_id <> s.voided_by_account_id
+               OR s.voided_at < r.opened_at
+               OR s.voided_at >= least(r.ends_at, coalesce(r.closed_at, r.ends_at))
+            ORDER BY b.name, s.id
+            """
+        )
+    ).mappings()
+    return [
+        IntegrityProblem(
+            row["business_name"],
+            f"Venta N° {row['sale_id']}: su anulación está en una caja que no es de quien la "
+            "anuló, de otro negocio o que no estaba abierta en ese momento.",
+        )
+        for row in rows
+    ]
+
+
+def _closed_cash_registers_not_matching(db: Session) -> list[IntegrityProblem]:
+    rows = db.execute(
+        text(
+            """
+            SELECT b.name AS business_name, r.id AS register_id, r.expected_cash,
+                   r.counted_cash, r.cash_difference, r.expected_transfer,
+                   r.counted_transfer, r.transfer_difference,
+                   coalesce((SELECT sum(p.amount) FROM sale s JOIN sale_payment p
+                             ON p.sale_id = s.id
+                             WHERE s.cash_register_id = r.id AND p.method = 'efectivo'), 0)
+                 - coalesce((SELECT sum(p.amount) FROM sale s JOIN sale_payment p
+                             ON p.sale_id = s.id
+                             WHERE s.void_cash_register_id = r.id AND p.method = 'efectivo'), 0)
+                 + coalesce((SELECT sum(m.amount) FROM cash_movement m
+                             WHERE m.cash_register_id = r.id AND m.kind = 'ingreso'), 0)
+                 - coalesce((SELECT sum(m.amount) FROM cash_movement m
+                             WHERE m.cash_register_id = r.id AND m.kind = 'retiro'), 0)
+                   AS real_cash,
+                   coalesce((SELECT sum(p.amount) FROM sale s JOIN sale_payment p
+                             ON p.sale_id = s.id
+                             WHERE s.cash_register_id = r.id AND p.method = 'transferencia'), 0)
+                 - coalesce((SELECT sum(p.amount) FROM sale s JOIN sale_payment p
+                             ON p.sale_id = s.id
+                             WHERE s.void_cash_register_id = r.id
+                               AND p.method = 'transferencia'), 0) AS real_transfer
+            FROM cash_register r
+            JOIN business b ON b.id = r.business_id
+            WHERE r.closed_at IS NOT NULL
+            ORDER BY b.name, r.id
+            """
+        )
+    ).mappings()
+    problems: list[IntegrityProblem] = []
+    for row in rows:
+        subject = f"Caja N° {row['register_id']}"
+        if row["expected_cash"] != row["real_cash"]:
+            problems.append(
+                IntegrityProblem(
+                    row["business_name"],
+                    f"{subject}: se cerró esperando {_format_amount(row['expected_cash'])} en "
+                    f"efectivo pero sus ventas y movimientos suman "
+                    f"{_format_amount(row['real_cash'])}.",
+                )
+            )
+        if row["cash_difference"] != row["counted_cash"] - row["expected_cash"]:
+            problems.append(
+                IntegrityProblem(
+                    row["business_name"],
+                    f"{subject}: el sobrante o faltante de efectivo no es la diferencia entre "
+                    "lo contado y lo esperado.",
+                )
+            )
+        if row["expected_transfer"] is None:
+            continue
+        if row["expected_transfer"] != row["real_transfer"]:
+            problems.append(
+                IntegrityProblem(
+                    row["business_name"],
+                    f"{subject}: se cerró esperando {_format_amount(row['expected_transfer'])} "
+                    f"en transferencias pero sus ventas suman "
+                    f"{_format_amount(row['real_transfer'])}.",
+                )
+            )
+        if row["transfer_difference"] != row["counted_transfer"] - row["expected_transfer"]:
+            problems.append(
+                IntegrityProblem(
+                    row["business_name"],
+                    f"{subject}: el sobrante o faltante de transferencias no es la diferencia "
+                    "entre lo contado y lo esperado.",
+                )
+            )
+    return problems
+
+
 def _unvalidated_constraints(db: Session) -> list[IntegrityProblem]:
     rows = db.execute(
         text(
@@ -560,6 +687,9 @@ CHECKS = (
     _sale_payments_not_matching_total,
     _sale_customers_not_matching_fiado,
     _sale_credits_not_matching,
+    _sales_in_wrong_cash_register,
+    _voids_in_wrong_cash_register,
+    _closed_cash_registers_not_matching,
     _unvalidated_constraints,
 )
 

@@ -245,6 +245,7 @@ describe('App', () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse(DUENO_TWO_BUSINESS_ACCOUNT))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ expected_cash: '0.00' }))
       .mockResolvedValueOnce(jsonResponse({ count: 0 }))
       .mockResolvedValueOnce(jsonResponse({ count: 0 }))
       .mockResolvedValueOnce(jsonResponse({ count: 0 }))

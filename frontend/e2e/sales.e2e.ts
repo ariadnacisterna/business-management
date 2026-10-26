@@ -37,15 +37,16 @@ async function confirmSale(page: Page) {
   return finishSale(page, await openCheckout(page))
 }
 
+async function splitBetween(checkout: Locator, ...methods: string[]) {
+  await checkout.getByRole('button', { name: 'Repartir entre varias' }).click()
+  for (const method of methods) {
+    await checkout.getByRole('button', { name: method, exact: true }).click()
+  }
+}
+
 async function chooseFiadoCustomer(page: Page, checkout: Locator, customer: string) {
   await checkout.getByRole('button', { name: 'Cliente del fiado' }).click()
   await page.getByRole('option', { name: customer }).click()
-}
-
-async function chooseSplitMethods(checkout: Locator, methods: string[]) {
-  for (const method of methods) {
-    await checkout.getByRole('button', { name: new RegExp(`^${method}`) }).click()
-  }
 }
 
 async function customerBalanceText(page: Page, customer: string) {
@@ -56,7 +57,7 @@ async function customerBalanceText(page: Page, customer: string) {
 }
 
 async function openLatestSale(page: Page) {
-  await page.goto('/ventas/registradas')
+  await page.goto('/historial/ventas')
   await page.getByRole('button', { name: /^Ver venta N° / }).first().click()
   return page.getByRole('dialog', { name: /^Venta N° / })
 }
@@ -99,7 +100,7 @@ test('elegir un producto dos veces suma uno y el descuento baja el total', async
 test('con ventas registradas, Ventas muestra los filtros', async ({ page }) => {
   await login(page, 'empleada')
   await page.goto('/ventas')
-  await page.goto('/ventas/registradas')
+  await page.goto('/historial/ventas')
   await expect(page.getByText('Desde', { exact: true })).toBeVisible()
   await expect(page.getByText('No hay ventas registradas', { exact: true })).toHaveCount(0)
 })
@@ -135,11 +136,14 @@ test('se vende aunque no alcance el stock y la venta queda marcada', async ({ pa
 
   await addProduct(page, 'Pegamento en barra', '3')
   await expect(page.getByRole('main')).toContainText('Stock insuficiente: hay 1 u')
-  const stockCheckout = await openCheckout(page)
-  await stockCheckout.getByRole('button', { name: 'Confirmar venta' }).click()
-  const stockRegistered = page.getByRole('dialog', { name: 'Venta registrada' })
-  await expect(stockRegistered.getByRole('alert')).toContainText('Stock insuficiente en:')
-  await stockRegistered.getByRole('button', { name: 'Nueva venta' }).click()
+  const checkout = await openCheckout(page)
+  await checkout.getByRole('button', { name: 'Confirmar venta' }).click()
+
+  const registered = page.getByRole('dialog', { name: 'Venta registrada' })
+  await expect(registered.getByRole('alert')).toContainText('Stock insuficiente en:')
+  await expect(registered.getByRole('alert')).toContainText('Pegamento en barra')
+  await registered.getByRole('button', { name: 'Nueva venta' }).click()
+  await expect(registered).toHaveCount(0)
   const sale = await openLatestSale(page)
   await expect(sale).toContainText('Sin stock suficiente')
 })
@@ -183,13 +187,15 @@ test.describe('en un celular con letra Enorme', () => {
     await expectNoHorizontalScroll(page)
     const checkout = await openCheckout(page)
     await checkout.getByRole('button', { name: 'Transferencia' }).click()
-    await checkout.getByRole('button', { name: 'Repartir entre varias' }).click()
+    await splitBetween(checkout, 'Efectivo', 'Transferencia')
+    await expect(checkout.getByRole('textbox', { name: 'Importe en efectivo' })).toBeVisible()
+    await expect(checkout.getByRole('button', { name: 'Confirmar venta' })).toBeDisabled()
     await expectNoHorizontalScroll(page)
     await checkout.getByRole('button', { name: 'Pagar con una sola' }).click()
     await checkout.getByRole('button', { name: 'Transferencia' }).click()
     await finishSale(page, checkout)
 
-    await page.goto('/ventas/registradas')
+    await page.goto('/historial/ventas')
     await expect(page.getByRole('button', { name: /^Ver venta N° / }).first()).toBeVisible()
     await expectNoHorizontalScroll(page)
   })
@@ -197,7 +203,7 @@ test.describe('en un celular con letra Enorme', () => {
 
 test('el Historial de ventas muestra la cantidad y permite limpiar los filtros', async ({ page }) => {
   await login(page, 'empleada')
-  await page.goto('/ventas/registradas')
+  await page.goto('/historial/ventas')
   await expect(page.getByText(/ventas? registradas?$/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Limpiar filtros' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Filtrar por forma de pago' }).click()
@@ -213,13 +219,14 @@ test('una venta repartida entre efectivo y transferencia calcula el vuelto', asy
 
   await addProduct(page, 'Marcador fluo', '2')
   const checkout = await openCheckout(page)
-  await checkout.getByRole('button', { name: 'Repartir entre varias' }).click()
-  await chooseSplitMethods(checkout, ['Efectivo', 'Transferencia'])
+  await splitBetween(checkout, 'Efectivo', 'Transferencia')
   await checkout.getByRole('textbox', { name: 'Importe en efectivo' }).fill('1000')
   await expect(checkout).toContainText('Falta asignar')
   await expect(checkout).toContainText('$ 800,00')
+  await expect(checkout.getByRole('button', { name: 'Confirmar venta' })).toBeDisabled()
   await checkout.getByRole('textbox', { name: 'Importe en transferencia' }).fill('800')
-  await expect(checkout).toContainText('$ 0,00')
+  await expect(checkout).toContainText('Completo')
+  await expect(checkout.getByRole('button', { name: 'Confirmar venta' })).toBeEnabled()
   await checkout.getByRole('textbox', { name: 'Paga con' }).fill('2000')
   await expect(checkout.getByTestId('change-amount')).toHaveText('$ 1.000,00')
   await checkout.screenshot({ path: testInfo.outputPath('confirmar-venta-repartida.png') })
@@ -240,16 +247,16 @@ test('una venta con una parte en fiado suma solo esa parte al saldo del cliente'
 
   await addProduct(page, 'Marcador fluo', '1')
   const checkout = await openCheckout(page)
-  await checkout.getByRole('button', { name: 'Repartir entre varias' }).click()
-  await chooseSplitMethods(checkout, ['Efectivo', 'Fiado'])
+  await splitBetween(checkout, 'Efectivo', 'Fiado')
   await checkout.getByRole('textbox', { name: 'Importe en efectivo' }).fill('300')
   await checkout.getByRole('textbox', { name: 'Importe en fiado' }).fill('600')
   await expect(checkout.getByRole('button', { name: 'Confirmar venta' })).toBeDisabled()
   await chooseFiadoCustomer(page, checkout, 'Clara Ventas')
+  await expect(checkout.getByRole('button', { name: 'Confirmar venta' })).toBeEnabled()
   await finishSale(page, checkout)
 
   await expect(await customerBalanceText(page, 'Clara Ventas')).toContainText('$ 1.500,00')
-  await page.goto('/ventas/registradas')
+  await page.goto('/historial/ventas')
   await expect(page.getByRole('table', { name: 'Historial de ventas' })).toContainText('Efectivo $ 300,00 + Fiado $ 600,00')
 })
 
@@ -293,16 +300,14 @@ test('un Gerente anula una venta repartida y se revierte la parte en fiado', asy
 
   await addProduct(page, 'Marcador fluo', '1')
   const checkout = await openCheckout(page)
-  await checkout.getByRole('button', { name: 'Repartir entre varias' }).click()
-  await chooseSplitMethods(checkout, ['Transferencia', 'Fiado'])
+  await splitBetween(checkout, 'Transferencia', 'Fiado')
   await checkout.getByRole('textbox', { name: 'Importe en transferencia' }).fill('400')
   await checkout.getByRole('textbox', { name: 'Importe en fiado' }).fill('500')
   await chooseFiadoCustomer(page, checkout, 'Clara Ventas')
   await page.keyboard.press('Escape')
   await expect(checkout).toHaveCount(0)
   const reopened = await openCheckout(page)
-  await reopened.getByRole('button', { name: 'Repartir entre varias' }).click()
-  await chooseSplitMethods(reopened, ['Transferencia', 'Fiado'])
+  await splitBetween(reopened, 'Transferencia', 'Fiado')
   await reopened.getByRole('textbox', { name: 'Importe en transferencia' }).fill('400')
   await reopened.getByRole('textbox', { name: 'Importe en fiado' }).fill('500')
   await chooseFiadoCustomer(page, reopened, 'Clara Ventas')
@@ -326,9 +331,9 @@ test('un Administrador carga el alias, se ve y se copia al cobrar con transferen
   const aliasField = page.getByRole('textbox', { name: 'Alias para transferencias' })
   await aliasField.fill('con espacio')
   await expect(page.getByText('El alias no puede tener espacios.')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Guardar alias' })).toBeDisabled()
+  await expect(page.getByRole('region', { name: 'Alias para transferencias' }).getByRole('button', { name: 'Guardar' })).toBeDisabled()
   await aliasField.fill('alias.e2e.prueba')
-  await page.getByRole('button', { name: 'Guardar alias' }).click()
+  await page.getByRole('region', { name: 'Alias para transferencias' }).getByRole('button', { name: 'Guardar' }).click()
   await expect(successToast(page, 'Alias guardado.')).toBeVisible()
 
   await page.goto('/ventas')
@@ -344,7 +349,7 @@ test('un Administrador carga el alias, se ve y se copia al cobrar con transferen
 
   await page.goto('/configuraciones')
   await page.getByRole('textbox', { name: 'Alias para transferencias' }).fill('')
-  await page.getByRole('button', { name: 'Guardar alias' }).click()
+  await page.getByRole('region', { name: 'Alias para transferencias' }).getByRole('button', { name: 'Guardar' }).click()
   await expect(successToast(page, 'Alias borrado.')).toBeVisible()
 
   await page.goto('/ventas')

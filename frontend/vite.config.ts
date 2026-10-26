@@ -17,6 +17,7 @@ const API_PATH_PREFIXES = [
   '/providers',
   '/customers',
   '/shortages',
+  '/cash-registers',
 ]
 
 const SPA_ROUTE_PREFIXES = ['/products', '/categories', '/units', '/attributes', '/sales']

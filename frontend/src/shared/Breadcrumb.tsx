@@ -1,12 +1,11 @@
-import { sectionOf } from './layout/navItems'
+import { ancestorsOf } from './layout/navItems'
 
 interface Props {
   segments: string[]
 }
 
 export function Breadcrumb({ segments }: Props) {
-  const section = segments.length > 0 ? sectionOf(segments[0]) : null
-  const full = section === null ? segments : [section, ...segments]
+  const full = segments.length > 0 ? [...ancestorsOf(segments[0]), ...segments] : segments
   const last = full[full.length - 1]
   const rest = full.slice(0, -1)
   return (

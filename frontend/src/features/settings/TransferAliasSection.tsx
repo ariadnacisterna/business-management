@@ -43,29 +43,29 @@ export function TransferAliasSection() {
         Es el alias de {business.name} que se muestra al cobrar con transferencia. Sin espacios, hasta {TRANSFER_ALIAS_MAX_LENGTH} caracteres. Es opcional.
       </p>
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-3">
-        <input
-          type="text"
-          value={current}
-          onChange={(event) => setText(event.target.value)}
-          aria-label="Alias para transferencias"
-          aria-invalid={problem !== null || undefined}
-          autoComplete="off"
-          className="h-14 w-full rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
-        />
+        <div className="flex items-stretch gap-3">
+          <input
+            type="text"
+            value={current}
+            onChange={(event) => setText(event.target.value)}
+            aria-label="Alias para transferencias"
+            aria-invalid={problem !== null || undefined}
+            autoComplete="off"
+            className="h-14 min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10"
+          />
+          <button
+            type="submit"
+            disabled={!hasChanges || saving || problem !== null}
+            className="h-14 shrink-0 whitespace-nowrap rounded-lg bg-brand px-6 text-lg font-semibold text-brand-contrast transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {saving ? 'Guardando…' : 'Guardar'}
+          </button>
+        </div>
         {problem !== null && (
           <p role="alert" className="m-0 text-lg text-danger">
             {problem}
           </p>
         )}
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={!hasChanges || saving || problem !== null}
-            className="h-14 whitespace-nowrap rounded-xl bg-brand px-8 text-lg font-semibold text-brand-contrast transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {saving ? 'Guardando…' : 'Guardar alias'}
-          </button>
-        </div>
       </form>
     </section>
   )
