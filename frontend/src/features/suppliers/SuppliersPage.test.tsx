@@ -175,7 +175,7 @@ describe('SuppliersPage', () => {
     renderPage()
 
     await screen.findAllByText('Distribuidora Norte')
-    await user.click(screen.getByRole('button', { name: 'Nuevo proveedor' }))
+    await user.click(screen.getAllByRole('button', { name: 'Nuevo proveedor' })[0])
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Papelera Central')
 
     await user.click(screen.getByRole('button', { name: '+ Nueva' }))
@@ -197,7 +197,7 @@ describe('SuppliersPage', () => {
     renderPage()
 
     await screen.findAllByText('Distribuidora Norte')
-    await user.click(screen.getByRole('button', { name: 'Nuevo proveedor' }))
+    await user.click(screen.getAllByRole('button', { name: 'Nuevo proveedor' })[0])
     const dialog = screen.getByRole('dialog', { name: 'Nuevo proveedor' })
     expect(dialog.querySelector('p.text-secondary')).toHaveTextContent('Proveedores › Nuevo proveedor')
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Papelera Central')
@@ -231,7 +231,7 @@ describe('SuppliersPage', () => {
     renderPage()
 
     await screen.findAllByText('Distribuidora Norte')
-    await user.click(screen.getByRole('button', { name: 'Nuevo proveedor' }))
+    await user.click(screen.getAllByRole('button', { name: 'Nuevo proveedor' })[0])
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Papelera Central')
 
     const today = new Date()
@@ -276,7 +276,7 @@ describe('SuppliersPage', () => {
     renderPage()
 
     await screen.findAllByText('Distribuidora Norte')
-    await user.click(screen.getByRole('button', { name: 'Nuevo proveedor' }))
+    await user.click(screen.getAllByRole('button', { name: 'Nuevo proveedor' })[0])
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Papelera Central')
 
     await user.click(screen.getByRole('button', { name: 'Categorías' }))
@@ -322,7 +322,7 @@ describe('SuppliersPage', () => {
     renderPage()
 
     await screen.findAllByText('Distribuidora Norte')
-    await user.click(screen.getByRole('button', { name: 'Nuevo proveedor' }))
+    await user.click(screen.getAllByRole('button', { name: 'Nuevo proveedor' })[0])
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Papelera Central')
 
     const callsBeforeConfirm = fetchMock.mock.calls.length
@@ -370,7 +370,7 @@ describe('SuppliersPage', () => {
     renderPage()
 
     await screen.findAllByText('Distribuidora Norte')
-    await user.click(screen.getByRole('button', { name: 'Nuevo proveedor' }))
+    await user.click(screen.getAllByRole('button', { name: 'Nuevo proveedor' })[0])
     await user.type(screen.getByLabelText(/^Nombre \*?$/), 'Papelera Central')
     const email = screen.getByLabelText('Email')
     await user.type(email, 'no-es-un-email')

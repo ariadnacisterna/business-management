@@ -694,6 +694,29 @@ export function CustomersPage() {
     setPageState(1)
   }
 
+  const newButtonMobile = canManage && (
+    <button
+      type="button"
+      onClick={() => setCreating(true)}
+      className={`${HEADER_ACTION_BUTTON_CLASSES} w-full justify-start bg-brand text-brand-contrast hover:bg-brand/90 lg:hidden`}
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-5 w-5"
+      >
+        <line x1="12" y1="5" x2="12" y2="19" />
+        <line x1="5" y1="12" x2="19" y2="12" />
+      </svg>
+      Nuevo cliente
+    </button>
+  )
+
   return (
     <section className="-m-4 flex flex-1 flex-col gap-4 bg-line/10 p-4 md:-m-6 md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -707,7 +730,7 @@ export function CustomersPage() {
             <button
               type="button"
               onClick={() => setCreating(true)}
-              className={`${HEADER_ACTION_BUTTON_CLASSES} bg-brand text-brand-contrast hover:bg-brand/90`}
+              className={`${HEADER_ACTION_BUTTON_CLASSES} hidden lg:flex bg-brand text-brand-contrast hover:bg-brand/90`}
             >
               <svg
                 aria-hidden="true"
@@ -729,20 +752,21 @@ export function CustomersPage() {
       </div>
 
       {status === 'success' && customers.length > 0 && (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <SearchInput
             value={searchInput}
             onChange={changeSearch}
             placeholder="Buscar por nombre…"
             ariaLabel="Buscar clientes"
-            className="sm:min-w-64 sm:flex-1"
+            className="lg:min-w-64 lg:flex-1"
           />
+          {newButtonMobile}
           {filteredCustomers.length > 10 && (
             <SelectMenu
               value={String(pageSize)}
               onChange={(value) => changePageSize(Number(value))}
               ariaLabel="Cantidad por página"
-              className="w-full sm:w-56"
+              className="w-full lg:w-56"
               options={[
                 { value: '10', label: '10 por página' },
                 { value: '25', label: '25 por página' },
@@ -752,6 +776,8 @@ export function CustomersPage() {
           )}
         </div>
       )}
+
+      {status === 'success' && customers.length === 0 && newButtonMobile && <div className="flex lg:hidden">{newButtonMobile}</div>}
 
       {status === 'loading' && (
         <div className="flex flex-col items-center gap-3 py-12 text-center" role="status">
