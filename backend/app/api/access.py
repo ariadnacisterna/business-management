@@ -14,7 +14,7 @@ from app.constants.access import (
     PERMISSION_DENIED_DETAIL,
     SESSION_COOKIE_NAME,
 )
-from app.constants.roles import ACCOUNT_MANAGER_ROLE, DUENO
+from app.constants.roles import ACCOUNT_MANAGER_ROLE, ADMINISTRADOR, DUENO
 from app.core.client_ip import get_client_ip
 from app.core.config import get_settings
 from app.db.models import Account, AccountSession, Business
@@ -37,6 +37,7 @@ from app.domain.access.errors import (
     InvalidFontSize,
     InvalidPassword,
     InvalidRole,
+    InvalidTransferAlias,
     InvalidUsername,
     LoginLocked,
     NoBusinessAccess,
@@ -71,6 +72,7 @@ class BusinessSummary(BaseModel):
     id: int
     name: str
     industry: str
+    transfer_alias: str | None = None
 
 
 class AccountResponse(BaseModel):
@@ -89,6 +91,10 @@ class SessionInfoResponse(AccountResponse):
 
 class UpdatePreferencesRequest(BaseModel):
     font_size: int
+
+
+class UpdateTransferAliasRequest(BaseModel):
+    transfer_alias: str | None = None
 
 
 class UpdateOwnNameRequest(BaseModel):
@@ -131,7 +137,12 @@ class BlockedLoginAlertResponse(BaseModel):
 
 def _business_summaries(db: Session, account_id: int) -> list[BusinessSummary]:
     return [
-        BusinessSummary(id=item.id, name=item.name, industry=item.industry)
+        BusinessSummary(
+            id=item.id,
+            name=item.name,
+            industry=item.industry,
+            transfer_alias=item.transfer_alias,
+        )
         for item in list_accessible_businesses(db, account_id)
     ]
 
@@ -314,6 +325,25 @@ def update_preferences(
     try:
         account = accounts.update_own_font_size(db, account, payload.font_size)
     except InvalidFontSize as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+
+    return _session_info_response(db, account, business)
+
+
+@router.patch(
+    "/auth/business/transfer-alias",
+    response_model=SessionInfoResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def update_transfer_alias(
+    payload: UpdateTransferAliasRequest,
+    db: Session = Depends(get_db),
+    account: Account = Depends(require_role(ADMINISTRADOR)),
+    business: Business = Depends(get_active_business),
+) -> SessionInfoResponse:
+    try:
+        business = accounts.update_transfer_alias(db, business, payload.transfer_alias)
+    except InvalidTransferAlias as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     return _session_info_response(db, account, business)

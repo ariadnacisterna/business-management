@@ -6,6 +6,7 @@ import { NewCustomerDialog } from './NewCustomerDialog'
 import { DiscountFields } from './DiscountFields'
 import { PriceInput } from '../../shared/PriceInput'
 import { CustomerPicker } from './CustomerPicker'
+import { TransferAlias } from './TransferAlias'
 import {
   cashCents,
   changeCents,
@@ -184,7 +185,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
     <>
     <SaleDialogShell title="Confirmar venta" onClose={onCancel} onSubmit={submit} onKeyDown={handleKeyDown} widthClass="max-w-6xl" fitHeight>
       <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto md:min-h-[calc(70svh-8rem)] md:overflow-hidden">
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)_auto] md:gap-x-10 md:gap-y-6">
+      <div className="grid shrink-0 grid-cols-1 gap-6 md:min-h-0 md:flex-1 md:shrink md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)_auto] md:gap-x-10 md:gap-y-6">
         <section aria-label="Resumen de la venta" className="flex min-h-0 min-w-0 flex-col gap-4 md:col-start-1 md:row-start-1 md:pr-2">
           <h3 className="m-0 text-xl font-bold">Resumen</h3>
           <ul className="scrollbar-clean m-0 flex min-h-0 list-none flex-col overflow-y-auto p-0">
@@ -331,10 +332,7 @@ export function CheckoutDialog({ lines, subtotalCents, discountError, pesosText,
           )}
 
           {plan.parts.some((part) => part.method === 'transferencia') && (
-            <div className="flex flex-wrap items-baseline justify-between gap-3">
-              <span className="text-xl font-semibold">Alias</span>
-              <span className="text-lg opacity-50">Próximamente</span>
-            </div>
+            <TransferAlias />
           )}
 
           {fiado && (

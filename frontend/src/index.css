@@ -169,3 +169,85 @@ select {
   cursor: not-allowed;
   opacity: 0.4;
 }
+
+.receipt-print {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 4mm;
+  }
+
+  body > *:not(.receipt-print) {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  .receipt-print {
+    display: block;
+    width: 100%;
+    max-width: 72mm;
+    margin: 0 auto;
+    color: #000;
+    background: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .receipt-print p,
+  .receipt-print ul,
+  .receipt-print h1 {
+    margin: 0;
+    padding: 0;
+  }
+
+  .receipt-print hr {
+    margin: 6px 0;
+    border: 0;
+    border-top: 1px dashed #000;
+  }
+
+  .receipt-title {
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+  }
+
+  .receipt-lines {
+    list-style: none;
+  }
+
+  .receipt-lines li {
+    margin-bottom: 4px;
+  }
+
+  .receipt-line-name {
+    display: block;
+    overflow-wrap: anywhere;
+  }
+
+  .receipt-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .receipt-total {
+    font-size: 15px;
+    font-weight: bold;
+  }
+
+  .receipt-heading {
+    font-weight: bold;
+  }
+
+  .receipt-footer {
+    text-align: center;
+    font-weight: bold;
+  }
+}

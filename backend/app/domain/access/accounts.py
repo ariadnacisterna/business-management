@@ -8,6 +8,7 @@ from app.constants.limits import (
     FONT_SIZE_MAX,
     FONT_SIZE_MIN,
     PASSWORD_MIN_LENGTH,
+    TRANSFER_ALIAS_MAX_LENGTH,
     USERNAME_MIN_LENGTH,
 )
 from app.constants.roles import ACCOUNT_MANAGER_ROLE, INITIAL_ROLES, ROLE_RANK
@@ -24,6 +25,7 @@ from app.domain.access.errors import (
     InvalidFontSize,
     InvalidPassword,
     InvalidRole,
+    InvalidTransferAlias,
     InvalidUsername,
     PasswordUnchanged,
     SelfActionForbidden,
@@ -246,6 +248,23 @@ def update_own_font_size(db: Session, account: Account, font_size: int) -> Accou
     db.commit()
     db.refresh(account)
     return account
+
+
+def update_transfer_alias(db: Session, business: Business, alias: str | None) -> Business:
+    cleaned = None if alias is None else alias.strip()
+    if cleaned == "":
+        cleaned = None
+    if cleaned is not None:
+        if any(character.isspace() for character in cleaned):
+            raise InvalidTransferAlias("El alias no puede tener espacios")
+        if len(cleaned) > TRANSFER_ALIAS_MAX_LENGTH:
+            raise InvalidTransferAlias(
+                f"El alias puede tener hasta {TRANSFER_ALIAS_MAX_LENGTH} caracteres"
+            )
+    business.transfer_alias = cleaned
+    db.commit()
+    db.refresh(business)
+    return business
 
 
 def update_own_name(db: Session, account: Account, name: str) -> Account:

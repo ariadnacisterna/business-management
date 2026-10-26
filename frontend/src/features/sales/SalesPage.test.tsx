@@ -179,8 +179,7 @@ describe('SalesPage', () => {
     expect(within(registered).getByText('Venta N.º 5')).toBeInTheDocument()
     expect(within(registered).getByText('Cliente: Clara Ventas')).toBeInTheDocument()
     expect(within(registered).getByLabelText('Total registrado')).toHaveTextContent('$ 900,00')
-    expect(within(registered).getByRole('button', { name: /Imprimir comprobante/ })).toBeDisabled()
-    expect(within(registered).getByText('(próximamente)')).toBeInTheDocument()
+    expect(within(registered).getByRole('button', { name: 'Imprimir comprobante' })).toBeEnabled()
     expect(within(registered).getByText('Stock insuficiente en:')).toBeInTheDocument()
     await user.click(within(registered).getByRole('button', { name: 'Nueva venta' }))
     expect(screen.queryByRole('dialog', { name: 'Venta registrada' })).not.toBeInTheDocument()
@@ -638,5 +637,98 @@ describe('SalesPage', () => {
     await user.click(within(checkout).getByRole('button', { name: 'Cliente del fiado' }))
     expect(await screen.findByRole('option', { name: 'Clara Ventas' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: '+ Nuevo cliente' })).not.toBeInTheDocument()
+  })
+
+  async function openTransferCheckout(user: User, account: Account) {
+    routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+    })
+    renderPage(account)
+    await addCinta(user)
+    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
+    const checkout = screen.getByRole('dialog', { name: 'Confirmar venta' })
+    await user.click(within(checkout).getByRole('button', { name: 'Transferencia' }))
+    return checkout
+  }
+
+  it('shows the business alias in the checkout and copies it', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    const checkout = await openTransferCheckout(user, {
+      ...EMPLEADO,
+      businesses: [{ id: 1, name: 'Mercería', industry: 'Mercería', transfer_alias: 'alias.de.prueba' }],
+    })
+
+    expect(within(checkout).getByTestId('transfer-alias')).toHaveTextContent('alias.de.prueba')
+    await user.click(within(checkout).getByRole('button', { name: 'Copiar' }))
+
+    expect(writeText).toHaveBeenCalledWith('alias.de.prueba')
+    expect(await within(checkout).findByRole('button', { name: 'Copiado' })).toBeInTheDocument()
+  })
+
+  it('says there is no alias and sends an employee nowhere', async () => {
+    const user = userEvent.setup()
+    const checkout = await openTransferCheckout(user, EMPLEADO)
+
+    expect(within(checkout).getByText('Sin alias cargado')).toBeInTheDocument()
+    expect(within(checkout).queryByRole('link')).not.toBeInTheDocument()
+    expect(within(checkout).queryByRole('button', { name: 'Copiar' })).not.toBeInTheDocument()
+  })
+
+  it('offers an administrator a link to Configuración when there is no alias', async () => {
+    const user = userEvent.setup()
+    const checkout = await openTransferCheckout(user, { ...EMPLEADO, role: 'Administrador' } as Account)
+
+    expect(within(checkout).getByRole('link', { name: /Configuración/ })).toHaveAttribute('href', '/configuraciones')
+  })
+
+  it('prints the courtesy receipt with the sale data', async () => {
+    const user = userEvent.setup()
+    let printed = ''
+    window.print = vi.fn(() => {
+      printed = document.querySelector('[data-testid="receipt"]')?.textContent ?? ''
+    })
+    routeFetch({
+      'GET /search': () => jsonResponse({ results: VARIANTS }),
+      'GET /customers': () => jsonResponse(CUSTOMERS),
+      'POST /sales': () =>
+        jsonResponse(
+          {
+            ...SALE,
+            payments: [
+              { method: 'transferencia', amount: '400.00' },
+              { method: 'fiado', amount: '500.00' },
+            ],
+          },
+          201,
+        ),
+    })
+    renderPage({
+      ...EMPLEADO,
+      businesses: [{ id: 1, name: 'Mercería Prueba', industry: 'Mercería', transfer_alias: 'alias.de.prueba' }],
+    })
+    await addCinta(user)
+    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
+    const checkout = screen.getByRole('dialog', { name: 'Confirmar venta' })
+    await user.click(within(checkout).getByRole('button', { name: /^Fiado/ }))
+    await user.click(within(checkout).getByRole('button', { name: 'Cliente del fiado' }))
+    await user.click(await screen.findByRole('option', { name: 'Clara Ventas' }))
+    await user.click(within(checkout).getByRole('button', { name: 'Confirmar venta' }))
+    const registered = await screen.findByRole('dialog', { name: 'Venta registrada' })
+
+    await user.click(within(registered).getByRole('button', { name: 'Imprimir comprobante' }))
+
+    expect(window.print).toHaveBeenCalledTimes(1)
+    expect(printed).toContain('Mercería Prueba')
+    expect(printed).toContain('Venta N.º 5')
+    expect(printed).toContain('Cinta de raso')
+    expect(printed).toContain('$ 900,00')
+    expect(printed).toContain('Transferencia')
+    expect(printed).toContain('Alias: alias.de.prueba')
+    expect(printed).toContain('Cliente: Clara Ventas')
+    expect(printed).toContain('No válido como factura')
+    expect(document.querySelector('[data-testid="receipt"]')).toBeNull()
   })
 })

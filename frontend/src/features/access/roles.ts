@@ -1,4 +1,4 @@
-import type { Account } from '../../api/types'
+import type { Account, Business } from '../../api/types'
 
 export type Role = 'Empleado' | 'Gerente' | 'Administrador' | 'Dueño'
 
@@ -38,6 +38,15 @@ export function canViewDashboard(account: Account | null): boolean {
 
 export function canManageAccounts(account: Account | null): boolean {
   return hasMinimumRole(account, 'Administrador')
+}
+
+export function canEditTransferAlias(account: Account | null): boolean {
+  return hasMinimumRole(account, 'Administrador')
+}
+
+export function activeBusiness(account: Account | null): Business | null {
+  if (account === null) return null
+  return account.businesses.find((business) => business.id === account.active_business_id) ?? null
 }
 
 export function canManageSuppliers(account: Account | null): boolean {

@@ -4,6 +4,7 @@ import { useToast } from '../../shared/useToast'
 import { useAuth } from '../access/useAuth'
 import { PasswordSection } from './PasswordSection'
 import { ProfileSection } from './ProfileSection'
+import { TransferAliasSection } from './TransferAliasSection'
 
 export function SettingsPage() {
   const { account, changeFontSize } = useAuth()
@@ -41,6 +42,8 @@ export function SettingsPage() {
         <ProfileSection />
 
         <PasswordSection />
+
+        <TransferAliasSection />
 
         <section className="rounded-2xl border border-line bg-surface p-5" aria-labelledby="font-size-heading">
           <h2 id="font-size-heading" className="m-0 mb-1 text-2xl font-bold">

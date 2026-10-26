@@ -2,6 +2,7 @@ export interface Business {
   id: number
   name: string
   industry: string
+  transfer_alias?: string | null
 }
 
 export interface Account {

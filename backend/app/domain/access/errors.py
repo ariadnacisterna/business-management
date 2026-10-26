@@ -30,6 +30,10 @@ class InvalidFontSize(AccessError):
     pass
 
 
+class InvalidTransferAlias(AccessError):
+    pass
+
+
 class WrongCurrentPassword(AccessError):
     pass
 

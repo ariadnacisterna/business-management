@@ -395,4 +395,52 @@ describe('SettingsPage', () => {
 
     expect(current).toHaveAttribute('type', 'password')
   })
+
+  it('hides the transfer alias section from an empleado', async () => {
+    renderPage()
+    await waitForPage()
+
+    expect(screen.queryByRole('heading', { name: 'Alias para transferencias' })).not.toBeInTheDocument()
+  })
+
+  it('lets an administrador save the transfer alias of the active business', async () => {
+    const user = userEvent.setup()
+    renderPage({ ...ACCOUNT, role: 'Administrador' })
+    await waitForPage()
+    const fetchMock = fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        ...ACCOUNT,
+        role: 'Administrador',
+        businesses: [{ id: 1, name: 'Mercería', industry: 'Mercería', transfer_alias: 'alias.de.prueba' }],
+      }),
+    )
+
+    const input = screen.getByRole('textbox', { name: 'Alias para transferencias' })
+    expect(screen.getByRole('button', { name: 'Guardar alias' })).toBeDisabled()
+    await user.type(input, 'alias.de.prueba')
+    await user.click(screen.getByRole('button', { name: 'Guardar alias' }))
+
+    const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit]
+    expect(url).toBe('/auth/business/transfer-alias')
+    expect(init.method).toBe('PATCH')
+    expect(JSON.parse(init.body as string)).toEqual({ transfer_alias: 'alias.de.prueba' })
+    expect(await screen.findByText('Alias guardado.')).toBeInTheDocument()
+  })
+
+  it('rejects an alias with spaces or more than 50 characters before saving', async () => {
+    const user = userEvent.setup()
+    renderPage({ ...ACCOUNT, role: 'Administrador' })
+    await waitForPage()
+    const input = screen.getByRole('textbox', { name: 'Alias para transferencias' })
+
+    await user.type(input, 'con espacio')
+    expect(screen.getByText('El alias no puede tener espacios.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Guardar alias' })).toBeDisabled()
+
+    await user.clear(input)
+    await user.type(input, 'a'.repeat(51))
+    expect(screen.getByText('El alias puede tener hasta 50 caracteres.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Guardar alias' })).toBeDisabled()
+  })
 })

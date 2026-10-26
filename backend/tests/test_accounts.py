@@ -791,3 +791,61 @@ def test_changing_the_password_cannot_target_another_account(client):
         client, settings.initial_admin_username, settings.initial_admin_password
     )
     assert admin_login == 200
+
+
+def _patch_transfer_alias(client, cookies, alias):
+    return client.patch(
+        "/auth/business/transfer-alias",
+        json={"transfer_alias": alias},
+        cookies=cookies,
+        headers=_auth_headers(cookies),
+    )
+
+
+def test_business_starts_without_transfer_alias(client):
+    admin_cookies = _admin_cookies(client)
+
+    business = client.get("/auth/me", cookies=admin_cookies).json()["businesses"][0]
+
+    assert business["transfer_alias"] is None
+
+
+def test_dueno_can_set_change_and_clear_the_transfer_alias(client):
+    admin_cookies = _admin_cookies(client)
+
+    response = _patch_transfer_alias(client, admin_cookies, "  mi.alias.prueba  ")
+    assert response.status_code == 200
+    assert response.json()["businesses"][0]["transfer_alias"] == "mi.alias.prueba"
+    me = client.get("/auth/me", cookies=admin_cookies).json()
+    assert me["businesses"][0]["transfer_alias"] == "mi.alias.prueba"
+
+    assert _patch_transfer_alias(client, admin_cookies, "otro.alias").status_code == 200
+    cleared = _patch_transfer_alias(client, admin_cookies, "")
+    assert cleared.json()["businesses"][0]["transfer_alias"] is None
+
+
+def test_administrador_can_set_the_transfer_alias(client):
+    admin_cookies = _admin_cookies(client)
+    _create_account(client, admin_cookies, "admin-alias", "Clave-segura-1", ADMINISTRADOR)
+    cookies = _login(client, "admin-alias", "Clave-segura-1")
+
+    response = _patch_transfer_alias(client, cookies, "alias.admin")
+
+    assert response.status_code == 200
+    assert response.json()["businesses"][0]["transfer_alias"] == "alias.admin"
+
+
+def test_gerente_and_empleado_cannot_set_the_transfer_alias(client):
+    admin_cookies = _admin_cookies(client)
+    for role in (EMPLEADO, GERENTE):
+        _create_account(client, admin_cookies, f"alias-{role}", "Clave-segura-1", role)
+        cookies = _login(client, f"alias-{role}", "Clave-segura-1")
+        assert _patch_transfer_alias(client, cookies, "alias.no").status_code == 403
+
+
+def test_transfer_alias_rejects_spaces_and_long_values(client):
+    admin_cookies = _admin_cookies(client)
+
+    assert _patch_transfer_alias(client, admin_cookies, "con espacio").status_code == 422
+    assert _patch_transfer_alias(client, admin_cookies, "a" * 51).status_code == 422
+    assert _patch_transfer_alias(client, admin_cookies, "a" * 50).status_code == 200

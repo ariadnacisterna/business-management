@@ -5,6 +5,7 @@ import {
   login as loginRequest,
   logout as logoutRequest,
   updateOwnName,
+  updateTransferAlias,
   updatePreferences,
 } from '../../api/auth'
 import { setUnauthorizedHandler } from '../../api/client'
@@ -76,6 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       async changeName(name) {
         setAccount(await updateOwnName(name))
+      },
+      async changeTransferAlias(alias) {
+        setAccount(await updateTransferAlias(alias))
       },
       acknowledgeLogin() {
         setJustLoggedIn(false)

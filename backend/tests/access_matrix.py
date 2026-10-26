@@ -24,6 +24,9 @@ ENDPOINT_ACCESS_MATRIX: dict[tuple[str, str], EndpointAccess] = {
     ("PATCH", "/auth/me/preferences"): EndpointAccess(
         ANY_SESSION, "docs/02: elegir el propio tamano de letra (D-063)"
     ),
+    ("PATCH", "/auth/business/transfer-alias"): EndpointAccess(
+        ADMINISTRADOR, "T-105: alias de transferencia del negocio"
+    ),
     ("POST", "/auth/active-business"): EndpointAccess(
         DUENO, "docs/02: elegir con que negocio trabajar (D-045)"
     ),

@@ -30,6 +30,7 @@ function authValue(account: Account): AuthContextValue {
     switchBusiness: vi.fn(),
     changeFontSize: vi.fn(),
     changeName: vi.fn(),
+    changeTransferAlias: vi.fn(),
     acknowledgeLogin: vi.fn(),
   }
 }

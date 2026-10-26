@@ -12,6 +12,7 @@ export interface AuthContextValue {
   switchBusiness: (businessId: number) => Promise<void>
   changeFontSize: (fontSize: number) => Promise<void>
   changeName: (name: string) => Promise<void>
+  changeTransferAlias: (alias: string) => Promise<void>
   acknowledgeLogin: () => void
 }
 

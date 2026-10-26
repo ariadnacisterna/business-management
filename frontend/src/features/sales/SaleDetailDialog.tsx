@@ -11,11 +11,13 @@ import { formatQuantity } from '../../shared/formatQuantity'
 import { LoadErrorCard } from '../../shared/LoadErrorCard'
 import { useLoad } from '../../shared/useLoad'
 import { useToast } from '../../shared/useToast'
+import { useReceiptPrinter } from './useReceiptPrinter'
 import { PAYMENT_METHOD_LABELS, saleLineName } from './saleMath'
 
 const VOID_ERROR_MESSAGE = 'No se pudo anular la venta. Intentá de nuevo.'
 
 function SaleBody({ sale }: { sale: Sale }) {
+  const { print, receipt } = useReceiptPrinter(sale)
   return (
     <div className="flex flex-col gap-3 text-lg">
       <dl className="m-0 grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
@@ -84,6 +86,15 @@ function SaleBody({ sale }: { sale: Sale }) {
           ))}
         </ul>
       </section>
+
+      <button
+        type="button"
+        onClick={print}
+        className="min-h-12 rounded-lg border border-line px-4 text-lg font-semibold transition-colors hover:bg-surface-brand"
+      >
+        Imprimir comprobante
+      </button>
+      {receipt}
 
       {sale.voided_at !== null && (
         <div className="rounded-lg border-2 border-danger bg-danger/10 p-3">

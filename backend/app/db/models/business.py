@@ -3,7 +3,12 @@ from typing import TYPE_CHECKING
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.constants.limits import INDUSTRY_MAX_LENGTH, NAME_MAX_LENGTH, STATUS_MAX_LENGTH
+from app.constants.limits import (
+    INDUSTRY_MAX_LENGTH,
+    NAME_MAX_LENGTH,
+    STATUS_MAX_LENGTH,
+    TRANSFER_ALIAS_MAX_LENGTH,
+)
 from app.constants.status import EntityStatus
 from app.db.base import Base
 from app.db.constraints import status_check_constraint
@@ -27,6 +32,9 @@ class Business(Base):
     organization_id: Mapped[int] = mapped_column(ForeignKey("organization.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(NAME_MAX_LENGTH), nullable=False)
     industry: Mapped[str] = mapped_column(String(INDUSTRY_MAX_LENGTH), nullable=False)
+    transfer_alias: Mapped[str | None] = mapped_column(
+        String(TRANSFER_ALIAS_MAX_LENGTH), nullable=True
+    )
     status: Mapped[str] = mapped_column(
         String(STATUS_MAX_LENGTH), nullable=False, default=EntityStatus.ACTIVE.value
     )

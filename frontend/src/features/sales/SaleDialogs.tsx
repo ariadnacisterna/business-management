@@ -8,6 +8,7 @@ import { formatAmount } from '../../shared/formatAmount'
 import { PriceInput } from '../../shared/PriceInput'
 import { formatStock } from '../../shared/presentation'
 import { ProductPicker } from './ProductPicker'
+import { useReceiptPrinter } from './useReceiptPrinter'
 import { formatMoney } from '../../shared/formatPrice'
 import { amountProblem, PAYMENT_METHOD_LABELS, paymentSummary, variantDescription } from './saleMath'
 
@@ -183,6 +184,7 @@ function CheckIcon() {
 
 export function SaleRegisteredDialog({ sale, onNewSale }: { sale: Sale; onNewSale: () => void }) {
   const split = sale.payments.length > 1
+  const { print, receipt } = useReceiptPrinter(sale)
   const shortNames = sale.lines.filter((line) => line.insufficient_stock).map((line) => line.product_name ?? line.description ?? 'Producto')
   return (
     <SaleDialogShell title="Venta registrada" bare onClose={onNewSale} widthClass="max-w-md">
@@ -229,10 +231,11 @@ export function SaleRegisteredDialog({ sale, onNewSale }: { sale: Sale; onNewSal
         <button type="button" onClick={onNewSale} autoFocus className={`${primaryButtonClasses.replace(' disabled:cursor-wait', '')} w-full`}>
           Nueva venta
         </button>
-        <button type="button" disabled className={`${secondaryButtonClasses} w-full disabled:cursor-not-allowed disabled:opacity-60`}>
-          Imprimir comprobante <span className="font-normal opacity-60">(próximamente)</span>
+        <button type="button" onClick={print} className={`${secondaryButtonClasses} w-full`}>
+          Imprimir comprobante
         </button>
       </div>
+      {receipt}
     </SaleDialogShell>
   )
 }

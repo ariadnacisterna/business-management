@@ -494,6 +494,7 @@ describe('CustomersPage', () => {
       switchBusiness: vi.fn(),
       changeFontSize: vi.fn(),
       changeName: vi.fn(),
+      changeTransferAlias: vi.fn(),
       acknowledgeLogin: vi.fn(),
     })
     const page = (activeBusinessId: number) => (

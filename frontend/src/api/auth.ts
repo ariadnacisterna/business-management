@@ -64,6 +64,13 @@ export function changeActiveBusiness(businessId: number): Promise<Account> {
   })
 }
 
+export function updateTransferAlias(alias: string): Promise<Account> {
+  return apiFetch<Account>('/auth/business/transfer-alias', {
+    method: 'PATCH',
+    body: JSON.stringify({ transfer_alias: alias }),
+  })
+}
+
 interface UpdatePreferencesPayload {
   font_size: number
 }
