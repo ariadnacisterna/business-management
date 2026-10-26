@@ -662,10 +662,10 @@ describe('SalesPage', () => {
     })
 
     expect(within(checkout).getByTestId('transfer-alias')).toHaveTextContent('alias.de.prueba')
-    await user.click(within(checkout).getByRole('button', { name: 'Copiar' }))
+    await user.click(within(checkout).getByRole('button', { name: 'Copiar alias' }))
 
     expect(writeText).toHaveBeenCalledWith('alias.de.prueba')
-    expect(await within(checkout).findByRole('button', { name: 'Copiado' })).toBeInTheDocument()
+    expect(await within(checkout).findByRole('status')).toHaveTextContent('Alias copiado')
   })
 
   it('says there is no alias and sends an employee nowhere', async () => {
@@ -674,7 +674,7 @@ describe('SalesPage', () => {
 
     expect(within(checkout).getByText('Sin alias cargado')).toBeInTheDocument()
     expect(within(checkout).queryByRole('link')).not.toBeInTheDocument()
-    expect(within(checkout).queryByRole('button', { name: 'Copiar' })).not.toBeInTheDocument()
+    expect(within(checkout).queryByRole('button', { name: 'Copiar alias' })).not.toBeInTheDocument()
   })
 
   it('offers an administrator a link to Configuración when there is no alias', async () => {

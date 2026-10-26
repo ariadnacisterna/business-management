@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { activeBusiness, canEditTransferAlias } from '../access/roles'
 import { useAuth } from '../access/useAuth'
+import { CheckIcon, CopyIcon } from '../../shared/icons'
 
 const COPIED_MILLISECONDS = 2500
 
@@ -44,16 +45,21 @@ export function TransferAlias() {
     <div className="flex flex-wrap items-center justify-between gap-3">
       <span className="text-xl font-semibold">Alias</span>
       <div className="flex flex-wrap items-center justify-end gap-3">
-        <span className="text-figure text-brand [overflow-wrap:anywhere]" data-testid="transfer-alias">
+        <span className="text-body font-semibold text-brand [overflow-wrap:anywhere]" data-testid="transfer-alias">
           {alias}
         </span>
         <button
           type="button"
           onClick={() => void copy()}
-          className="min-h-12 rounded-lg border border-line bg-surface px-4 text-lg font-semibold transition-colors hover:bg-surface-brand"
+          aria-label="Copiar alias"
+          title="Copiar alias"
+          className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-line bg-surface transition-colors hover:bg-surface-brand"
         >
-          {copied ? 'Copiado' : 'Copiar'}
+          {copied ? <CheckIcon className="h-6 w-6 text-brand" /> : <CopyIcon className="h-6 w-6" />}
         </button>
+        <span role="status" className="sr-only">
+          {copied ? 'Alias copiado' : ''}
+        </span>
       </div>
     </div>
   )
